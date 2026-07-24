@@ -1,0 +1,24 @@
+# .NET
+[Bb]in/
+[Oo]bj/
+*.user
+appsettings.*.local.json
+
+# Node / Next.js
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+
+# Env & secrets  (NEVER commit real tokens — see .mcp.json note in README)
+.env
+.env.*
+!.env.example
+*.local.json
+infra/secrets/
+
+# IDE / OS
+.vs/
+.idea/
+.DS_Store
+Thumbs.db

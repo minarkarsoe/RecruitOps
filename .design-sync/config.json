@@ -1,0 +1,5 @@
+{
+  "projectId": "3a612612-0328-4817-9a8a-0063ad454a2a",
+  "mode": "guidelines-only",
+  "note": "No component codebase exists yet for RecruitOps. Only RecruitOps_Design_System.md was uploaded as a guidelines/reference doc under guidelines/. This is NOT a full /design-sync component build (no dist, no bundle, no synced components) — the design agent will improvise components from this written spec rather than reuse real coded components. If a real React component library is built later, re-run /design-sync to do a full converter sync into this same project (projectId above)."
+}

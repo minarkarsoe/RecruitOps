@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+body {
+  background: theme('colors.surface.50');
+  color: theme('colors.ink.900');
+  font-family: theme('fontFamily.sans');
+  line-height: 1.6; /* Burmese-safe (design system §1) */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
