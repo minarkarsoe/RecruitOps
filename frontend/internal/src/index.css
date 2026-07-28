@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+body {
+  background: theme('colors.surface.50');
+  color: theme('colors.ink.900');
+  font-family: theme('fontFamily.sans');
+  /* Burmese-safe line height (design system §1). */
+  line-height: 1.6;
+}
+
+/*
+ * Resolved @mentions inside a note body (Module 3.4).
+ *
+ * Styled here rather than with a utility class because the markup is generated server-side
+ * by `MentionParser.ToSafeHtml` and injected as HTML — Tailwind classes written in C# would
+ * be invisible to the content scanner and get purged from the build. If the span's shape
+ * changes, it changes in MentionParser and here, together.
+ *
+ * Deliberately unemphatic: a mention is a pointer to a colleague, not a status.
+ */
+.mention {
+  font-weight: 600;
+  color: theme('colors.primary.700');
+  background: theme('colors.primary.100');
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
