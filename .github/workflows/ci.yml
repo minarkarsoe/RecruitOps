@@ -31,9 +31,9 @@ jobs:
     name: Backend — build + test (.NET 10, Docker)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # `--progress=plain` because BuildKit collapses test output, and
       # `--no-cache-filter=build,test` because a cached `COPY . .` layer will happily
@@ -41,22 +41,42 @@ jobs:
       # both flags a green build is not evidence the *new* tests ran.
       - name: docker build --target test
         run: |
+          set -o pipefail
           docker build \
             --target test \
             --progress=plain \
             --no-cache-filter=build,test \
             -t recruitops-test \
-            ./backend
+            ./backend 2>&1 | tee build.log
+
+      # "The build passed" has never been the question in this repo — "did the new tests
+      # run" is. Lift the counts out of 3,000 lines of BuildKit output and into the job
+      # summary, so nobody has to trust a green tick they did not read.
+      - name: Test counts
+        if: always()
+        run: |
+          {
+            echo '## Backend test run'
+            echo '```'
+            grep -E 'Passed!|Failed!|error [A-Z]+[0-9]+' build.log | sed 's/^#[0-9]* *//' || echo 'no test summary found in the build output'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   frontend:
     name: Frontend — typecheck + test + build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      # Two separate Node versions are at play, and only one of them is this line.
+      # The runtime the *actions themselves* run on is the runner's, not this — that is
+      # what the deprecation warning was about, and it is fixed by the @v5/@v4 bumps above.
+      # This is the Node the app is built and tested with: 22 LTS, because 20 went
+      # end-of-life in April 2026 and pinning a major keeps the local run and CI honest
+      # about each other.
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
 
       # `npm ci` across the whole workspace root — the `@recruitops/*` packages are
