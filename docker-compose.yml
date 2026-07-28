@@ -1,0 +1,98 @@
+# Local development + a reference topology for a per-company install (ADR-0004).
+# Quick start:  cp .env.example .env  &&  docker compose up --build
+name: recruitops
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-recruitops}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-recruitops}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # S3-compatible storage. Mirrors the on-premise path from ADR-0013
+  # (hosted installs use Cloudflare R2 through the same abstraction).
+  storage:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      target: final
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-recruitops};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
+      Jwt__Issuer: recruitops
+      Jwt__Audience: recruitops-api
+      Jwt__Key: ${JWT_KEY:?set JWT_KEY in .env - must be at least 32 characters}
+      # Optional dev seed: creates one company + admin on startup when both are set.
+      Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-}
+      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
+    ports:
+      # ⚠️ Publishing this port is a DEV convenience (Swagger, curl against the API directly).
+      # It is also why ReverseProxy__TrustForwardedHeaders stays false: while the API is
+      # reachable without going through nginx, X-Forwarded-For is attacker-controlled, and
+      # trusting it would let anyone mint a fresh partition key per request and walk straight
+      # past the login rate limiter.
+      #
+      # For a real install: delete this `ports` block so only `internal` and `web` are
+      # exposed, then set ReverseProxy__TrustForwardedHeaders=true so the limiter sees real
+      # client addresses instead of putting every user in nginx's single bucket.
+      - "${API_PORT:-5080}:8080"
+
+  # Internal dashboards (Vite SPA behind nginx). Build context is the repo root
+  # because both frontends consume packages/* (ADR-0012).
+  internal:
+    build:
+      context: .
+      dockerfile: frontend/internal/Dockerfile
+      target: final
+    depends_on:
+      - api
+    ports:
+      - "${INTERNAL_PORT:-5173}:80"
+
+  # Public job pages (Next.js SSR — needed for Open Graph previews on social shares).
+  web:
+    build:
+      context: .
+      dockerfile: frontend/public/Dockerfile
+      target: final
+    depends_on:
+      - api
+    environment:
+      # Server Components have no origin, so they need the absolute in-network URL.
+      API_INTERNAL_URL: "http://api:8080/api"
+      NEXT_PUBLIC_API_BASE_URL: "/api"
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+volumes:
+  pgdata:
+  miniodata:

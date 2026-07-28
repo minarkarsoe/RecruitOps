@@ -4,11 +4,16 @@
 *.user
 appsettings.*.local.json
 
-# Node / Next.js
+# Node / Vite / Next.js
+# Paths are unanchored on purpose: ADR-0012 split one app at `frontend/` into
+# `frontend/internal` + `frontend/public`, so `frontend/.next/` alone stopped matching.
 node_modules/
-frontend/.next/
-frontend/out/
-frontend/next-env.d.ts
+.next/
+out/
+dist/
+next-env.d.ts
+*.tsbuildinfo
+.vite/
 
 # Env & secrets  (NEVER commit real tokens — see .mcp.json note in README)
 .env
