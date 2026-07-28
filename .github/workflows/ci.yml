@@ -1,0 +1,73 @@
+# Continuous integration.
+#
+# This exists because "written but never compiled" repeated across three sessions: the
+# authoring environments had no .NET SDK, no Docker, and an allowlist blocking both
+# `mcr.microsoft.com` and `nuget.org`, so the ADR-0018 fix and the ADR-0019 endpoint sat in
+# the working tree unverified. A hosted runner has none of those constraints, so the
+# compiler runs on every push whether or not the author could run it locally.
+#
+# The backend job deliberately mirrors the command in CLAUDE.md rather than using
+# `actions/setup-dotnet`: the Dockerfile is the packaging artefact (ADR-0015), so building
+# it is also a check that the image still builds.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push on the same branch makes the previous run's answer irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend — build + test (.NET 10, Docker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # `--progress=plain` because BuildKit collapses test output, and
+      # `--no-cache-filter=build,test` because a cached `COPY . .` layer will happily
+      # re-report an old pass count — the trap documented in FEATURE-STATUS.md. Without
+      # both flags a green build is not evidence the *new* tests ran.
+      - name: docker build --target test
+        run: |
+          docker build \
+            --target test \
+            --progress=plain \
+            --no-cache-filter=build,test \
+            -t recruitops-test \
+            ./backend
+
+  frontend:
+    name: Frontend — typecheck + test + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # `npm ci` across the whole workspace root — the `@recruitops/*` packages are
+      # workspace links, so installing per-app would not resolve them.
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
