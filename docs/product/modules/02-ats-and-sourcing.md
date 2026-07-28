@@ -1,0 +1,130 @@
+# Module 2 — Applicant Tracking System (ATS) & Sourcing
+
+**Status:** 🚧 Partial — **2.1, 2.2 (basic), 2.5 (list), 2.7 built**; 2.3 OCR, 2.4 Smart
+Match and 2.6 search not started.
+**Priority:** Core — this is the product's daily-use surface.
+
+## Built so far
+
+The join between Module 1 and Module 2: **an approved requisition becomes a posting, the
+posting becomes a public page, the page produces applications, applications enter a pipeline.**
+
+Rules worth knowing before changing anything here:
+
+- **A posting requires an Approved requisition, and there is one posting per requisition.**
+  Both in the service and as a unique index. This is the product's central guarantee — that
+  nothing is advertised the business has not approved — so it does not depend on any single
+  code path remembering to check.
+- **Title and description are copied from the requisition, not referenced.** The recruiter
+  rewrites an internal JD into candidate-facing copy; that must not alter what approvers
+  signed off on.
+- **The public link is minted once and kept.** Re-publishing does not re-issue it, because a
+  link already shared to Facebook or sent to a candidate must keep working.
+- **Salary is private unless the posting opts in.** The budget travels from the requisition,
+  but publishing it by default would expose the company's pay bands the first time anyone
+  published a job. `PublicJobDto` is deliberately a narrower type than the internal one.
+- **The anonymous path has no tenant claim** — the token is what identifies the company. See
+  `PublicJobService` for how the query filters are bypassed and the tenant re-applied.
+- **Stage history is written from the application's arrival**, including when nobody is
+  logged in. Module 5 is built on these rows and they cannot be reconstructed after the fact.
+- **Custom-field answers are rebuilt from the schema, never stored as submitted.** The
+  schema comes from a recruiter and the answers from an anonymous stranger; the two paths
+  share `Domain/ApplicationFormSchema` precisely so they cannot disagree about what a field
+  means. Field keys are generated and never editable — the key is the JSONB key answers live
+  under, so renaming it would orphan everything already collected.
+
+## Purpose
+
+Get candidates into the system from every direction, profile them automatically, rank
+them against the JD, and move them through a visible pipeline.
+
+## Features
+
+### 2.1 Multi-Channel Job Posting & Shareable Link
+Publish a job to the **company career page**. If the company has no career page, the
+system generates a **standalone job page (shareable link)** that can be posted to
+Facebook, LinkedIn, etc.
+
+> ⚠️ Not to be confused with the legacy agency "client portal" link. This link is
+> **public, for applicants**.
+
+### 2.2 Customizable Application Form
+The form behind the shareable link supports **custom fields** (e.g. expected salary,
+earliest start date). Submissions land **directly in the Talent Pipeline**.
+
+### 2.3 Resume Upload & OCR Auto-Profiling
+Upload externally-sourced CVs — **PDF, Word, JPG, PNG** — one at a time or in **bulk
+up to 50 files**. OCR reads the documents and **auto-builds candidate profiles**.
+After upload, a pop-up summarises each file as **Success / Skipped / Canceled**.
+
+### 2.4 AI-Powered Candidate Matching (Smart Match)
+When a new vacancy is created, the system reads the JD requirements, compares against
+the candidate database, and returns a **match percentage** (e.g. 80% Match, 50% Match),
+surfacing the best fits as **Recommended Candidates**.
+
+### 2.5 Visual Talent Pipeline + 360° Candidate History
+Manage candidates by stage in a **Kanban board or list view**. Opening a candidate
+shows a 360° view: profile, **previously applied positions**, interview dates, and
+past interview feedback — all in one place.
+
+### 2.6 Comprehensive Database Filtering & Search
+Filter by age, gender, previous position (e.g. Sales, HR, Admin), and **keyword search
+inside CV content**.
+
+⚠️ Burmese has no consistent word spacing and PostgreSQL full-text search has no Burmese
+configuration, so default FTS tokenisation will not work. Plan for trigram (`pg_trgm`) or
+segmentation-based search, over **normalized Unicode** text
+([ADR-0009](../../decisions/ADR-0009-myanmar-script-handling.md)).
+
+### 2.7 Duplicate Detection
+Incoming CVs are auto-checked against existing records by **phone number and email**.
+
+## Entities
+
+- `Candidate`, `CandidateDocument` (raw file + OCR text + parse status)
+- `JobApplication` (candidate ↔ job posting, pipeline stage), `PipelineStage`
+- `JobPosting`, `JobChannelPost` (career page / shareable link / social)
+- `ApplicationForm`, `ApplicationFormField` (custom fields)
+- `CandidateMatch` (score per candidate/job, with explanation)
+
+## ✅ Resolved — how OCR and Smart Match work on-premise
+
+Decided in [ADR-0008](../../decisions/ADR-0008-document-extraction-and-ai-profiling.md).
+
+**Phase 1 (MVP): local text extraction, no network.** PDF/Word parsed in-process; images
+and scanned PDFs via a local OCR engine. Results pre-fill a candidate form that **a human
+reviews and confirms**. Works fully offline — this is the default path and must never regress.
+
+**Phase 2: AI structuring, optional, behind an API key.** Extracted text → LLM → JSON
+payload matching the form schema. No key ⇒ feature off, Phase 1 still works. Key ownership
+is tiered: our key (paid add-on) for hosted, the customer's own key for on-prem.
+
+**Smart Match (2.4) follows the same rule** — ship an explainable local baseline
+(skills/keyword/experience vs. the JD); AI ranking is an enhancement, not the foundation.
+
+Constraints carried forward: bulk upload must be **asynchronous** (50 files = background
+job, and the Success/Skipped/Canceled pop-up is the job result); PDF/OCR library licences
+must be permissive (this is closed-source commercial software).
+
+**Myanmar script — see [ADR-0009](../../decisions/ADR-0009-myanmar-script-handling.md).**
+Two separate issues: (a) **Zawgyi→Unicode normalization at ingest is mandatory and lands in
+the MVP** — a Word/PDF authored in Zawgyi extracts as garbage even with no OCR involved;
+(b) **Burmese OCR accuracy is deferred** pending a real-CV test, and the image/scanned path
+must be parkable without affecting digital extraction or manual entry.
+
+## Open questions
+
+- Which OCR engine? (Cloud API vs. self-hosted — affects cost, PII residency, and Burmese-script accuracy.)
+- Smart Match: rules/keyword scoring, embeddings, or an LLM? Must the score be **explainable** to justify a rejection?
+- Storing age/gender for filtering has **data-protection implications** — confirm this is lawful and intended for the target market.
+- ~~Duplicate detection: auto-merge, or flag for human confirmation?~~ **Auto-reuse on the
+  public path**: a match on normalised email or phone attaches the new application to the
+  existing candidate, filling blank fields but never overwriting filled ones. Merging two
+  candidates that were *already* created separately (the `MergedIntoCandidateId` path) still
+  needs a human-confirmation UI.
+- ~~Custom application fields (2.2) are stored but not yet rendered.~~ **Built.** Six field
+  types (text, long text, number, date, dropdown, yes/no), max 20 per form. `Domain/
+  ApplicationFormSchema` validates the schema on save and the answers on submit, and rebuilds
+  the answer document rather than storing what the applicant sent. Still open: **file upload
+  as a field type** — that waits on the object-storage abstraction (ADR-0013), same as 2.3.
+- Max file size and retention period for CV files (ties into Module 7 retention policy).

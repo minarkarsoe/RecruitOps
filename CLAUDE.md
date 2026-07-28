@@ -1,18 +1,54 @@
-# Project: [RecruitOps]
+# Project: RecruitOps — In-house Recruitment Cloud System
 
-> Fill in the bracketed placeholders before committing this file. This is the
-> "constitution" Claude Code reads at the start of every session — keep it
+> This is the "constitution" Claude Code reads at the start of every session — keep it
 > accurate as the project evolves.
+
+## What this product is
+
+A multi-tenant SaaS for a **company's own talent acquisition department** — connecting
+In-house Recruiters with Department Hiring Managers across requisition → sourcing →
+interview → offer → analytics. A tenant is a **company**.
+
+⚠️ It is **not** a recruitment-agency product. It pivoted on 2026-07-27
+(`docs/decisions/ADR-0001-pivot-to-inhouse.md`); the agency-era code (`Client`,
+`Contract`, `ClientTier`, `ClientFeedback`) has been **removed**. If you see those names
+anywhere, they are stale — see `docs/status/MIGRATION-PLAN.md`.
+
+⚠️ **Delivery is not a shared SaaS**: one instance + one database **per company**,
+on our infrastructure or the customer's (`ADR-0004`). A tenant is a company, and tenant
+query filters are a dormant safety net — the security-critical filter is **department
+scoping** (`ADR-0003`), which is applied explicitly and can therefore be forgotten.
+
+## Knowledge base — read first
+
+`docs/` is the single source of truth. **Start every task at `docs/README.md`.**
+
+| Need | Read |
+|---|---|
+| What we're building | `docs/product/overview.md`, `docs/product/modules/` (7 modules) |
+| Current state of the code | `docs/status/FEATURE-STATUS.md` |
+| What changed recently | `docs/status/CHANGELOG.md` |
+| Why something is the way it is | `docs/decisions/` (ADRs) |
+| Target entity model | `docs/architecture/data-model.md` |
+
+**Keeping it current is part of the task, not an afterthought:**
+
+1. Ship code → update `FEATURE-STATUS.md` in the same change.
+2. Any meaningful change → add a `CHANGELOG.md` entry.
+3. Hard-to-reverse decision → write an ADR in `docs/decisions/`.
+4. Spec change → update the module doc **before** the code.
 
 ## Stack
 
-- **Backend**: .NET 8 / ASP.NET Core Web API — Clean Architecture (Domain / Application / Infrastructure / Api)
-- **Frontend**: Next.js (App Router) + React + TypeScript
-- **Database**: PostgreSQL, EF Core migrations
-- **Cache**: Redis [remove if unused]
-- **Auth**: [JWT / ASP.NET Identity / external IdP — fill in]
+- **Backend**: **.NET 10 (LTS)** / ASP.NET Core Web API — modular monolith, Clean Architecture (Domain / Application / Infrastructure / Api).
+- **Frontend**: **two apps** — Vite + React SPA (`frontend/internal`, authenticated dashboards) and Next.js SSR (`frontend/public`, job pages + Open Graph previews). Shared design system via `packages/ui`, shared API types via `packages/types`. npm workspaces at the repo root.
+- **Database**: PostgreSQL on AWS RDS, EF Core migrations, JSONB for customer-defined fields
+- **Object storage**: Cloudflare R2 behind an S3-compatible abstraction (MinIO for on-prem)
+- **Auth**: Self-issued JWT bearer. Token carries `sub`, a `tenant_id` claim and a role claim (`Admin` / `HrDirector` / `Recruiter` / `HiringManager` / `Approver`). Signing key comes from `Jwt:Key` — user-secrets/env, never committed.
 
 ## Repository Layout
+
+Layout:
 
 ```
 backend/
@@ -23,10 +59,11 @@ backend/
     Api/              # controllers/minimal API endpoints, DI wiring
   tests/
 frontend/
-  app/                # Next.js App Router routes
-  components/
-  lib/
-  tests/
+  internal/           # Vite + React SPA — authenticated dashboards
+  public/             # Next.js SSR — public job pages, application forms, OG metadata
+packages/
+  ui/                 # shared design-system components + Tailwind preset
+  types/              # shared API types (mirror backend DTOs)
 ```
 
 ## Build & Test Commands
@@ -36,10 +73,15 @@ frontend/
 | Backend build | `dotnet build backend/src/Api` |
 | Backend test | `dotnet test backend/tests` |
 | Backend format | `dotnet format` |
-| Frontend dev | `npm run dev --prefix frontend` |
-| Frontend build | `npm run build --prefix frontend` |
-| Frontend lint | `npm run lint --prefix frontend` |
-| Frontend test | `npm run test --prefix frontend` |
+| Backend build + test in Docker | `docker build --target test -t recruitops-test ./backend` |
+| Whole stack | `docker compose up --build` |
+| Internal SPA dev | `npm run dev:internal` (repo root) |
+| Public app dev | `npm run dev:public` (repo root) |
+| Frontend build | `npm run build` (repo root, all workspaces) |
+| Frontend typecheck | `npm run typecheck` (repo root) |
+
+> No local .NET SDK? `docker build --target test ./backend` compiles and runs the whole
+> suite inside the SDK image. New EF migrations: see `docs/architecture/local-development.md`.
 
 ## Conventions
 
@@ -69,6 +111,12 @@ frontend/
 
 ## When Starting a Task
 
+0. **Read `docs/status/NEXT-SESSION.md` first**, then `docs/status/FEATURE-STATUS.md`. The
+   first says where the product is, what to pick up, and which traps have already bitten us;
+   the second is the per-module state. Update both when you're done.
+   > Sessions are deliberately **one feature each** — conversation history is re-sent on
+   > every turn, so a session that outlives its feature costs a lot and adds nothing. These
+   > two docs exist so a fresh session starts cheaply.
 1. Read the relevant existing code before writing new code. Match existing patterns rather than inventing new ones.
 2. For a change that touches both backend and frontend, agree on the API contract/shared types first so both sides build against the same shape.
 3. Run tests and lint before declaring a task complete.
