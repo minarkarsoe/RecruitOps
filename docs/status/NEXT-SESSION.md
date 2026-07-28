@@ -76,11 +76,67 @@ log by hand, download the archive (run → **…** → *Download log archive*) a
 assembly, compares against what FEATURE-STATUS.md claims, and warns when a log has fewer than
 two runner summaries and is therefore truncated.
 
-> If the next run still reports `Api=0`, that is no longer a reporting bug — the Api assembly
-> genuinely executes nothing, and *that* is the session. The suspects, in order: the test host
-> aborting during `CustomWebAppFactory`'s host build (which would take every class fixture with
-> it), and `WebApplicationFactory<Program>` failing to locate the app's content root inside the
-> container, where the source layout differs from a local checkout.
+### ✅ Resolved: the Api failure was 8 real test failures, and they found a real bug
+
+CI #4, with per-project runs and the fixed summary: **Domain 39/39; Api 130 total, 122 passed,
+8 failed.** The `MSB4181 … did not log an error` from #3 was simply an unreported test-run
+failure; nothing was crashing and nothing was silent.
+
+**The 8 are the ADR-0019 cases, and they were failing correctly.** `GET /api/users/selectable`
+was unreachable by the role it was written for: `UsersController` had
+`[Authorize(Policy = AdminOnly)]` at the **class** level and `[Authorize(Policy =
+RecruitmentStaff)]` on the action, meaning to opt down. **ASP.NET Core authorization attributes
+are additive** — the action-level one is evaluated *in addition to* the class-level one. The
+effective requirement was `AdminOnly` AND `RecruitmentStaff`, so a Recruiter got 403 and Module 3
+scheduling stayed undrivable by the role it was opened to, for the second time and the same
+reason. Fixed: bare `[Authorize]` on the class, `AdminOnly` on `Get`. ⚠️ **The fix has not been
+run yet** — that is the next push.
+
+Note which 3 passed: the ones asserting a *refusal*. A suite that only checked "the wrong people
+are kept out" would have been green over an endpoint nobody could reach.
+
+<details><summary>Superseded: the MSB4181 triage (kept — the diagnostic flags are still in the Dockerfile)</summary>
+
+The split above turned a quiet ambiguity into a loud failure, which is the point — but the
+failure is currently undiagnosed. `[test 2/2]` ends in:
+
+```
+MSB4181: The "VSTestTask" task returned false but did not log an error.
+Build FAILED.   0 Warning(s)   0 Error(s)     Time Elapsed 00:00:06.55
+```
+
+**"Returned false but did not log an error" is three different failures wearing one message**,
+and the default output cannot tell them apart:
+
+1. **Zero tests discovered** — now fatal because of `RunConfiguration.TreatNoTestsAsError`.
+   vstest reports this as a *warning* and exits non-zero, so MSBuild has no error to log.
+2. **The test host crashed** — a process abort takes the results with it, so there is no
+   failing test to name. The standing suspicion: every Api class fixture boots a real ASP.NET
+   host through `WebApplicationFactory`, and a throw in *that* constructor kills the host
+   rather than failing a test. 6.55s is about right for dying inside the first fixture.
+3. **vstest.console never started** — bad runsettings, missing runtimeconfig.
+
+Diagnostics are now in the Dockerfile for this project only: **`--blame-crash`** names the last
+test the host was executing before it died (separates 2), and
+**`--logger "console;verbosity=detailed"`** surfaces the `No test is available` line that
+MSBuild's verbosity swallows (separates 1). Push and the next run should say which.
+
+**To settle it from the existing log without a re-run**, search *that step's* output for:
+
+| Search for | Means |
+|---|---|
+| `No test is available` | cause 1 — the assembly discovers nothing |
+| `test host process crashed` / `Test host process` | cause 2 — the host aborted |
+| `Passed RecruitOps.Api.Tests.` | tests genuinely executed; the failure is later |
+
+⚠️ **Bisecting note.** The newest variables are all from 2026-07-28: the per-project split,
+`TreatNoTestsAsError`, and `UserDirectoryTests.cs`. The build stage passed, so the new test file
+**compiles** — that much is settled. If it turns out the project discovers zero tests only when
+invoked standalone, revert to the solution-wide `dotnet test RecruitOps.sln` but **keep**
+`ci.yml`'s per-assembly counting; the counting was always the part that mattered, and the split
+was only ever a means to it.
+
+</details>
 
 - **128 API / 167 total** → Module 3, ADR-0018 *and* the new ADR-0019 tests all executed;
   delete the "unrun" warnings
@@ -220,6 +276,12 @@ Learned the expensive way; all of them are load-bearing.
   this role cross departments", and `Approver` does — on the requisition axis. Asked about a
   candidate, that same true handed an approver the whole company. For anything hanging off an
   application, go through `IApplicationAccess`, which applies both rules.
+- **`[Authorize]` attributes are ADDITIVE — an action cannot opt down from its class.** A
+  class-level policy plus an action-level policy means **both** must pass. `UsersController`
+  had `AdminOnly` on the class and `RecruitmentStaff` on `selectable`, and the result was an
+  endpoint only an Admin could reach — the exact opposite of what ADR-0019 decided, shipped
+  under a doc comment describing the intent. Declare policies **per action**; if a class-level
+  `[Authorize]` is wanted at all, leave it bare.
 - **Never write a role name in a service.** `RoleScope` is the only place a role is named.
   The one method that spelled `role is UserRole.HiringManager` out by hand is the one that
   shipped the ADR-0018 hole, and it did so while carrying a doc comment describing the exact

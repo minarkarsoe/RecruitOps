@@ -239,10 +239,35 @@ Decisions: [ADR-0017](../decisions/ADR-0017-interview-and-assessment.md).
 | Suite | Count | Run? |
 |---|---|---|
 | `RecruitOps.Domain.Tests` | **39 cases** — 24 existing (2 vocabulary/role set, 22 application-form schema) + **15 mention parser** (7 `[Fact]`, 2 `[Theory]` with 8 rows between them) | ✅ **39/39, read off CI run #3** (2026-07-28) — the first backend figure in this repo that is not counted from source |
-| `RecruitOps.Api.Tests` | **128** — 68 existing (4 isolation, 11 department admin, 4 login, 4 login throttle, 2 token, 6 scoping, 17 approval flow, 7 posting flow, 13 public application) + **42 Module 3** (13 interview flow, 12 blind scoring, 7 template resolution, 10 notes) + **7 ADR-0018 approver reach** + **11 ADR-0019 user directory** (10 `[Fact]`, 1 `[Theory]` with 2 rows) | ⚠️ **unrun** — the ADR-0019 file is new and has never been compiled |
+| `RecruitOps.Api.Tests` | **130** — 119 existing (isolation, department admin, login + throttle, token, scoping, approval flow, posting flow, public application, 42 Module 3, 7 ADR-0018 approver reach) + **11 ADR-0019 user directory** (10 `[Fact]`, 1 `[Theory]` with 2 rows) | 🔴 **122 passed, 8 failed** — read off CI run #4. The 8 are the ADR-0019 cases, and they are failing **correctly**: see below |
 | `frontend/internal` (Vitest) | **27** — 14 `lib/scorecard` (payload rules), 7 `InterviewDetailPage` (blind rule + draft payload), 6 `ApplicationNotes` (`bodyHtml` injection, mentions, thread filter) | ✅ **27/27 passing** (2026-07-28, node 22 / vitest 2.1.9) |
 
-**≈167 backend** (39 domain + 128 API), up from 92 · **27 frontend**, up from 0.
+**169 backend** (39 domain + 130 API), up from 92 · **27 frontend**, up from 0. Both figures are
+now **read off CI run #4**, not counted from source — and the source count was wrong: the
+"existing" Api suite was 119, not the 117 this table claimed for three sessions.
+
+### 🔴 The ADR-0019 tests failed, and found a real authorization bug
+
+`GET /api/users/selectable` was **unreachable by the role it was written for**. `UsersController`
+carried `[Authorize(Policy = AdminOnly)]` at the class level and `[Authorize(Policy =
+RecruitmentStaff)]` on the action, intending to opt *down*. **ASP.NET Core authorization
+attributes are additive** — an action-level attribute does not replace a class-level one, it is
+evaluated *in addition* to it. The effective requirement was `AdminOnly` **AND**
+`RecruitmentStaff`, so only an Admin could call it and a **Recruiter got 403**.
+
+That is the exact condition ADR-0019 exists to remove: a Recruiter who cannot list users cannot
+name a panel, and the panel is required and non-empty, so **Module 3 scheduling was undrivable
+by the role it was opened to — twice, for the same underlying reason**. The first time it was a
+missing endpoint; the second time the endpoint existed and was walled off.
+
+The failure count is itself the evidence: **8 of the 11 new cases failed, and it is exactly the
+8 that need a 200 from `selectable`.** The three that passed are the ones asserting a *refusal*
+(HiringManager 403, Approver 403, unauthenticated 401) and the Admin case — all of which a
+too-strict policy satisfies by accident. A suite that only tested "the right people are kept
+out" would have been green over this.
+
+**Fixed** 2026-07-28: the class-level policy is now a bare `[Authorize]` and `AdminOnly` is
+declared on `Get` itself. ⚠️ Unverified — the fix has not been through a run yet.
 
 > ⚠️ **Half read off a run, half still counted from source.** Run #3's raw log gives
 > **Domain: 39/39, Test Run Successful** — so the 15 mention-parser tests demonstrably

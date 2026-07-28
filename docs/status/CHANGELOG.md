@@ -7,6 +7,34 @@ Format: what changed · why · what it touched.
 
 ## 2026-07-28 (latest)
 
+### 🔴 `GET /api/users/selectable` was unreachable by the role it was written for
+**Why:** `UsersController` carried `[Authorize(Policy = AdminOnly)]` at the **class** level and
+`[Authorize(Policy = RecruitmentStaff)]` on the new action, intending the action to opt *down*.
+**ASP.NET Core authorization attributes are additive** — an action-level attribute is evaluated
+*in addition to* a class-level one, never instead of it. The effective requirement was
+`AdminOnly` **AND** `RecruitmentStaff`: only an Admin could call it, and a **Recruiter got 403**.
+
+So the endpoint shipped reproducing the exact condition ADR-0019 exists to remove. A Recruiter
+who cannot list users cannot name an interview panel, and the panel is required and non-empty —
+**Module 3 scheduling was undrivable by the role it was opened to for the second time, for the
+same underlying reason.** First the endpoint was missing; then it existed and was walled off.
+
+Fixed: bare `[Authorize]` on the class, `AdminOnly` declared on `Get` itself. There is no way to
+widen a policy from an action, so a future endpoint needing something weaker gets its own
+attribute rather than a class-level policy someone tries to override.
+
+**Found by the tests written earlier the same day, on their first run** (CI #4): 8 of the 11 new
+cases failed, and it was exactly the 8 that require a 200 from `selectable`. The three that
+passed assert a *refusal* — HiringManager 403, Approver 403, unauthenticated 401 — every one of
+which a too-strict policy satisfies by accident. **A suite that only tested "the wrong people are
+kept out" would have been green over an endpoint nobody could reach.** ⚠️ The fix itself has not
+been through a run yet.
+
+### 📏 Backend counts, finally read off a run
+`RecruitOps.Domain.Tests` **39/39**; `RecruitOps.Api.Tests` **130 total, 122 passed, 8 failed**
+(CI #4). **169 backend cases**, and the source-counted figure this repo carried for three
+sessions was wrong: the existing Api suite was **119**, not 117.
+
 ### 🐛 The `Test counts` step was reporting an empty box, and that is worse than nothing
 **Why:** run #3 was green with a blank "Backend test run" summary. Two bugs stacked, and each
 one alone would have been visible:

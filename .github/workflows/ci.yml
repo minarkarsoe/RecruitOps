@@ -63,72 +63,108 @@ jobs:
       # An empty box is worse than a missing one — it looks like a report. Hence the
       # explicit emptiness check below.
       #
-      # `dotnet test` on a .sln runs the MSBuild VSTest target once per test project, so
-      # there are TWO summaries (Domain, then Api). The `Test run for …dll` lines are kept
-      # so each count is attributable to an assembly rather than silently added together.
+      # Each test project now runs in its own Dockerfile `RUN`, so every `Test run for …dll`
+      # line is followed by that project's own summary. The counts below are parsed from
+      # those blocks rather than by counting `Passed <name>` lines: run #4 proved why. The
+      # line-counting version reported Api=21 against a runner summary of 122, because the
+      # console logger's per-test output is not the stable surface — the summary is. **A
+      # confidently wrong number in a report is the same failure as an empty one**, one step
+      # further along, and it is the third time this step has produced one.
+      #
+      # It also lists the failing test names, because "8 failed" without them costs a whole
+      # extra round trip through CI to learn something the log already knew.
       - name: Test counts
         if: always()
+        shell: bash
         run: |
-          if [ ! -f build.log ]; then
-            echo '## Backend test run' >> "$GITHUB_STEP_SUMMARY"
-            echo 'The build step produced no log — it failed before the compiler was reached.' >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
+          python3 - <<'PY'
+          import os, re, pathlib
 
-          summary=$(grep -E 'Test run for |Test Run Successful\.|Test Run Failed\.|Total tests:|Passed:|Failed:|Skipped:|Passed!|Failed!|error [A-Z]+[0-9]+' build.log \
-            | sed -E 's/^#[0-9]+ +[0-9.]+ +//' || true)
+          out = open(os.environ["GITHUB_STEP_SUMMARY"], "a")
+          def w(s=""): out.write(s + "\n")
 
-          # Counted independently of any summary line, straight off the per-test output, and
-          # keyed on the assembly's namespace. This is the number that cannot be misread: a
-          # solution-wide run prints two interleaved summaries, so an aggregate "Total tests"
-          # sitting under `Starting: RecruitOps.Api.Tests` tells you nothing about which
-          # assembly produced it. These two do.
-          # `grep -c` prints 0 and exits 1 when nothing matches, so `|| true` keeps `bash -e`
-          # from killing the step on the very case this is here to report.
-          domain=$(grep -c 'Passed RecruitOps\.Domain\.Tests\.' build.log || true)
-          api=$(grep -c 'Passed RecruitOps\.Api\.Tests\.' build.log || true)
-          domain=${domain:-0}
-          api=${api:-0}
+          w("## Backend test run")
+          log = pathlib.Path("build.log")
+          if not log.exists():
+              w("The build step produced no log — it failed before the compiler was reached.")
+              raise SystemExit(0)
 
-          {
-            echo '## Backend test run'
-            echo ''
-            echo '| Assembly | Cases passed |'
-            echo '|---|---|'
-            echo "| RecruitOps.Domain.Tests | ${domain} |"
-            echo "| RecruitOps.Api.Tests | ${api} |"
-            echo ''
-            echo '<details><summary>Raw runner output</summary>'
-            echo ''
-            echo '```'
-            if [ -n "$summary" ]; then
-              echo "$summary"
-            else
-              echo 'NO TEST SUMMARY FOUND — the pattern no longer matches the runner output.'
-            fi
-            echo '```'
-            echo ''
-            echo '</details>'
-          } >> "$GITHUB_STEP_SUMMARY"
+          # BuildKit prefixes every line with "#<step> <elapsed> ".
+          strip = re.compile(r"^#\d+\s+[\d.]+\s+")
+          lines = [strip.sub("", l).rstrip()
+                   for l in log.read_text(errors="replace").splitlines()]
 
-          # An assembly that discovers nothing is the failure this repo keeps not noticing.
-          # The Dockerfile guards it with RunConfiguration.TreatNoTestsAsError; this is the
-          # belt to that pair of braces, and it names which assembly went quiet.
-          if [ "$domain" -eq 0 ] || [ "$api" -eq 0 ]; then
-            if grep -q 'Test run for ' build.log; then
-              echo "::error::An assembly executed no tests (Domain=${domain}, Api=${api}). A green build over a silent assembly is the exact trap this workflow exists to close."
-              exit 1
-            fi
-          fi
+          run_for = re.compile(r"Test run for .*?/(RecruitOps\.[A-Za-z0-9.]+)\.dll")
+          # `Failed: 8` is a summary line, `Failed RecruitOps.X.Y` is a test name — the
+          # mandatory whitespace before RecruitOps is what separates them.
+          failed_case = re.compile(r"^\s*Failed\s+(RecruitOps\.\S+)")
 
-          # If the tests were reached but their counts could not be read, fail loudly. A
-          # green tick over an unread number is the exact failure mode this whole file
-          # exists to end. Gated on `Test run for` so that a genuine compile error stays
-          # the headline instead of being buried under a second, derivative error.
-          if [ -z "$summary" ] && grep -q 'Test run for ' build.log; then
-            echo "::error::Tests ran but their counts could not be extracted from build.log — fix the pattern in the 'Test counts' step."
-            exit 1
-          fi
+          order, asm, failures, current = [], {}, [], None
+          for l in lines:
+              m = run_for.search(l)
+              if m:
+                  current = m.group(1)
+                  if current not in asm:
+                      order.append(current)
+                      asm[current] = {"total": None, "passed": None, "failed": None, "verdict": "?"}
+                  continue
+              m = failed_case.match(l)
+              if m:
+                  failures.append(m.group(1))
+                  continue
+              if current is None:
+                  continue
+              a, s = asm[current], l.strip()
+              if s.startswith("Test Run Successful"): a["verdict"] = "passed"
+              elif s.startswith("Test Run Failed"):   a["verdict"] = "FAILED"
+              for key, label in (("total", "Total tests:"), ("passed", "Passed:"), ("failed", "Failed:")):
+                  if s.startswith(label) and a[key] is None:
+                      try: a[key] = int(s[len(label):].strip())
+                      except ValueError: pass
+
+          if order:
+              w("")
+              w("| Assembly | Total | Passed | Failed | Result |")
+              w("|---|---|---|---|---|")
+              for name in order:
+                  a = asm[name]
+                  fmt = lambda v: "—" if v is None else str(v)
+                  w(f"| {name} | {fmt(a['total'])} | {fmt(a['passed'])} | {fmt(a['failed'])} | {a['verdict']} |")
+          else:
+              w("")
+              w("**No `Test run for …dll` line in the log — no test project was reached.**")
+
+          if failures:
+              w("")
+              w(f"### {len(failures)} failing case(s)")
+              w("")
+              for f in failures:
+                  w(f"- `{f}`")
+
+          w("")
+          w("<details><summary>Raw runner output</summary>")
+          w("")
+          w("```")
+          keep = re.compile(r"Test run for |Test Run Successful|Test Run Failed|Total tests:|"
+                            r"^\s*(Passed|Failed|Skipped):|No test is available|"
+                            r"test host process crashed|error [A-Z]+[0-9]+")
+          raw = [l for l in lines if keep.search(l)]
+          w("\n".join(raw) if raw else "NO RUNNER OUTPUT MATCHED — the pattern is stale again.")
+          w("```")
+          w("")
+          w("</details>")
+          out.close()
+
+          # An assembly that runs nothing is the failure this repo keeps not noticing. The
+          # Dockerfile guards it with RunConfiguration.TreatNoTestsAsError; this names which
+          # one went quiet. Test *failures* are left to the build step's own exit code —
+          # duplicating them here would just add a second red herring to a red job.
+          silent = [n for n in order if not asm[n]["total"]]
+          if silent or not order:
+              print(f"::error::No tests executed for: {', '.join(silent) or 'any assembly'}. "
+                    "A green build over a silent assembly is the trap this workflow closes.")
+              raise SystemExit(1)
+          PY
 
   frontend:
     name: Frontend — typecheck + test + build

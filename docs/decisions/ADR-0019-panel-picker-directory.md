@@ -25,6 +25,20 @@ Add `GET /api/users/selectable`, open to `RecruitmentStaff`, returning `Selectab
 **id, display name, role — no email address.** `GET /api/users` keeps its `AdminOnly` policy
 and its shape.
 
+> **Amendment, 2026-07-28 — policies must be declared per action, never on the class.**
+> The first implementation left `[Authorize(Policy = AdminOnly)]` on `UsersController` and put
+> `[Authorize(Policy = RecruitmentStaff)]` on the new action, expecting the action to opt
+> *down*. **ASP.NET Core authorization attributes are additive**: the action-level attribute is
+> evaluated *in addition to* the class-level one, not instead of it. The effective requirement
+> was `AdminOnly` **AND** `RecruitmentStaff` — so only an Admin could call `selectable`, and a
+> Recruiter got 403.
+>
+> The endpoint therefore shipped reproducing the very condition this ADR was written to remove.
+> It was caught by `UserDirectoryTests` on its first run (CI #4: 8 of 11 cases failed, exactly
+> the 8 that require a 200). The class now carries a bare `[Authorize]` and `AdminOnly` sits on
+> `Get`. **There is no way to widen a policy from an action** — if a future endpoint here needs
+> a weaker requirement, give it its own attribute rather than reintroducing a class-level one.
+
 The alternative was one line: widen `GET /api/users` to `RecruitmentStaff`. We didn't, because
 the two endpoints answer different questions and only one of them needs an email address. The
 picker needs a name to show and an id to post. Widening the existing endpoint would publish

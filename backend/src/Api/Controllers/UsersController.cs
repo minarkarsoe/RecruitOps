@@ -7,15 +7,25 @@ using RecruitOps.Infrastructure.Persistence;
 
 namespace RecruitOps.Api.Controllers;
 
-/// <summary>User directory.
+/// <summary>User directory. Two endpoints, two policies, and the policies are declared
+/// <b>per action</b> — never at the class level.
 ///
-/// <para>The class-level policy is <c>AdminOnly</c> and stays that way: the full directory
-/// carries email addresses and exists for the approval-chain builder. <see cref="Selectable"/>
-/// opts down to <c>RecruitmentStaff</c> deliberately and returns a narrower shape — see the
-/// note there.</para></summary>
+/// <para><b>Why that is not a style preference.</b> ASP.NET Core authorization attributes are
+/// <b>additive</b>: an action-level <c>[Authorize]</c> does not replace a class-level one, it is
+/// evaluated <i>in addition</i> to it. This class previously carried
+/// <c>[Authorize(Policy = AdminOnly)]</c> with <c>[Authorize(Policy = RecruitmentStaff)]</c> on
+/// <see cref="Selectable"/>, intending to "opt down" — the actual effect was
+/// <c>AdminOnly</c> <b>AND</b> <c>RecruitmentStaff</c>, so the endpoint was reachable only by an
+/// Admin and a Recruiter got 403. That is the exact opposite of ADR-0019, whose entire purpose
+/// is that a Recruiter can name an interview panel, and it made the Module 3 scheduling flow
+/// undrivable by the role it was opened to — twice over, for the same underlying reason.</para>
+///
+/// <para><b>There is no way to widen a policy from an action.</b> If a future endpoint here
+/// needs a weaker requirement than its neighbours, add it as another per-action attribute; do
+/// not reintroduce a class-level policy and try to override it.</para></summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = Policies.AdminOnly)]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -23,8 +33,14 @@ public class UsersController : ControllerBase
     public UsersController(AppDbContext db) => _db = db;
 
     /// <summary>All active users in the tenant, ordered by display name.
-    /// Intentionally excludes PasswordHash and other sensitive fields.</summary>
+    /// Intentionally excludes PasswordHash and other sensitive fields.
+    ///
+    /// <para><c>AdminOnly</c> is declared here rather than on the class: the full directory
+    /// carries email addresses and exists for the approval-chain builder, where picking an
+    /// approver is an Admin task. Moving this up to the class would silently re-apply it to
+    /// <see cref="Selectable"/> as well — see the class remarks.</para></summary>
     [HttpGet]
+    [Authorize(Policy = Policies.AdminOnly)]
     public async Task<ActionResult<IReadOnlyList<UserListItemDto>>> Get(CancellationToken ct)
     {
         var users = await _db.Users
