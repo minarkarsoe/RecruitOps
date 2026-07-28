@@ -1,6 +1,7 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-07-28 · **Next task: read the test count off CI, then Module 2.3 planning**
+**Last updated:** 2026-07-28 · **Next task: push, read the count off CI (expect 167), get the
+ADR-0019 change reviewed, then run the stack**
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
 > deliberately short-lived — one feature each — because conversation history is re-sent on
@@ -43,16 +44,63 @@ tests ran — that has been this repo's recurring trap, and the first run finish
 is fast. A `Test counts` step now lifts the `Passed!` lines out of the BuildKit output into
 the job summary.
 
-**Read that number and paste it into FEATURE-STATUS.md.** Everything there is still computed
-from source (≈156 = 39 domain + 117 API), never read off a run.
+**Domain is now real: 39/39, read off run #3's raw log.** The 15 mention-parser tests
+demonstrably executed. **The Api count has still never been read** — `dotnet test` on a `.sln`
+emits one summary *per test project*, and only the Domain one has been looked at.
 
-- **≈156** → the Module 3 and ADR-0018 tests executed; update the table and delete the
-  "unrun" warnings
-- **92** → nothing new executed, and the flags are not doing their job
+🐛 **The `Test counts` step itself was broken** and rendered run #3 as an *empty* code block:
+it grepped for `Passed!` (Microsoft Testing Platform) while this solution runs on **VSTest**
+(`Test Run Successful.` / `Total tests: N` / `Passed: N`), and its `|| echo` fallback hung off a
+pipeline ending in `sed`, so it exited 0 and never fired. An empty report looks like a report.
 
-Still genuinely missing: **ADR-0019 has no test at all.** Add one pinning that a Recruiter
-gets 200 on `/api/users/selectable` and 403 on `/api/users`. It is an authorization change,
-so it also wants human review.
+🧨 **And the count could not be attributed to an assembly.** Run #3 reads
+`Starting: RecruitOps.Api.Tests` and then, 48ms later, `Total tests: 39`. That is *Domain's*
+summary — a `.sln` run spawns one vstest run per project and interleaves their stdout (two
+`A total of 1 test files matched` lines give it away) — but it is indistinguishable at a glance
+from the Api project contributing zero. Fixed three ways on 2026-07-28: **one `RUN` per test
+project** in the Dockerfile (two summaries, two exit codes),
+**`RunConfiguration.TreatNoTestsAsError=true`** on each (a zero-test project no longer exits 0),
+and `ci.yml` now **counts cases per assembly itself** off the `Passed RecruitOps.<X>.Tests.`
+lines and **fails the job** if either is zero, naming which one. Replaying run #3's log through
+the new script reports `Api=0` and exits 1 — the harness was proved to fail first, as always.
+
+**Push and read the Api number off the next run.** It will be a two-row table at the top of the
+job summary now, not a number you have to find.
+
+⚠️ **Do not count with Ctrl+F in the Actions log viewer.** It is virtualised — it searches only
+the portion currently rendered, so its match count is a lower bound unrelated to the real
+number. Searching run #3 for `Passed RecruitOps.Api.Tests.` returned "about 40" for something
+that should occur 117 times, and *neither* number could be trusted from that box. To settle a
+log by hand, download the archive (run → **…** → *Download log archive*) and run
+**`.\count-tests.ps1 -Path <log>`** at the repo root: it reads the whole file, counts per
+assembly, compares against what FEATURE-STATUS.md claims, and warns when a log has fewer than
+two runner summaries and is therefore truncated.
+
+> If the next run still reports `Api=0`, that is no longer a reporting bug — the Api assembly
+> genuinely executes nothing, and *that* is the session. The suspects, in order: the test host
+> aborting during `CustomWebAppFactory`'s host build (which would take every class fixture with
+> it), and `WebApplicationFactory<Program>` failing to locate the app's content root inside the
+> container, where the source layout differs from a local checkout.
+
+- **128 API / 167 total** → Module 3, ADR-0018 *and* the new ADR-0019 tests all executed;
+  delete the "unrun" warnings
+- **117 API / 156 total** → the ADR-0019 file did not compile in
+- **68 API / 92 total** → nothing new executed, and the cache flags are not doing their job
+
+### ✅ Done 2026-07-28 (this session): ADR-0019 has tests
+
+`backend/tests/RecruitOps.Api.Tests/UserDirectoryTests.cs`, **11 cases**. The one that matters
+asserts **both halves in one test** — a Recruiter gets 200 on `/api/users/selectable` and 403 on
+`/api/users` — because split in two, a later edit that widened the full directory would leave a
+green test named "a recruiter can read selectable" standing over the hole. The no-email check
+runs against the **raw JSON**, not a deserialised `SelectableUserDto`: reading into the DTO would
+drop an email property silently and report green. Also pinned: an Approver **is** selectable
+(ADR-0018 removed standing reach, not panel eligibility), the picker is not department-scoped,
+`Role` survives as a string, and the tenant filter still empties the list for another tenant.
+
+⚠️ **Written in the same SDK-less environment, so never compiled.** And ADR-0019 is an
+authorization change: **a human still has to read it** (CLAUDE.md). A test suite written by the
+same author as the endpoint is not that review.
 
 ### What the ADR-0018 fix was, in one paragraph
 
@@ -103,7 +151,7 @@ On the Windows mount the workspace symlinks don't survive — copy to a native p
 | Auth | ✅ JWT, RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016) |
 | Departments | ✅ Admin CRUD + membership assignment |
 | Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested |
-| Tests | ⚠️ backend ≈156 counted from source — **compiles, count not yet read off a run** · frontend **27/27 passing** |
+| Tests | ⚠️ backend ≈167 counted from source — **count not yet read off a run; the 11 new ADR-0019 cases have never compiled** · frontend **27/27 passing** |
 | CI | ✅ green on both jobs, first run 2026-07-28 · `github.com/minarkarsoe/RecruitOps` |
 | Modules 4–8 | ⬜ |
 
@@ -111,12 +159,15 @@ On the Windows mount the workspace symlinks don't survive — copy to a native p
 
 Each of these is **one session**. Start a new one for each.
 
-### 1. Read the test count off CI, and give ADR-0019 a test → **see above**
-Small, and it closes the last 🔴 in FEATURE-STATUS. Then **run the stack** (`docker compose
-up --build`) — the Module 3 screens have still only ever been type-checked, and the first real
-test is whether `packages/types` matches what the API actually serialises. Worth checking
-specifically: the blind state on `/interviews/:id` with two panel members, and that `.mention`
-styling survives the Tailwind build.
+### 1. Push, read the count off CI, review ADR-0019, then run the stack → **see above**
+The test is written; what remains is verification, and none of it can happen in the sandbox.
+Push from a Windows terminal, read the `Test counts` step (**expect 167**), get a human onto the
+ADR-0019 diff, and then **run the stack** (`docker compose up --build`) — the Module 3 screens
+have still only ever been type-checked, and the first real test is whether `packages/types`
+matches what the API actually serialises. Worth checking specifically: the blind state on
+`/interviews/:id` with two panel members, that `.mention` styling survives the Tailwind build,
+and that the panel picker on the scheduling form is actually populated when logged in as a
+Recruiter — that is ADR-0019's whole reason to exist, and it has never been seen working.
 
 ### 2. More frontend tests (the harness now exists)
 27 tests cover Module 3's three quiet-failure cases. **Modules 1–2 screens have none** —

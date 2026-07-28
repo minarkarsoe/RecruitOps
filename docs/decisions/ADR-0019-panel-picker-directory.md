@@ -64,7 +64,10 @@ the follow-up below.
 - 🟡 **`GET /api/users` projects `u.Role.ToString()` inside the query.** If EF Core 10 cannot
   translate it, that endpoint throws against Postgres and only in-memory tests pass. Verify
   against a real database, and fix with the two-step pattern if confirmed.
-- This change touches authorization and has **not been compiled or tested** — it was written in
-  an environment with no .NET SDK and no container registry access. It needs a build, a test for
-  the new policy boundary (a Recruiter gets 200 on `selectable` and 403 on `/api/users`), and a
-  human review before it is considered done.
+- This change touches authorization and was written in an environment with no .NET SDK and no
+  container registry access. Status of the three things it needed:
+  - **A build** — ✅ CI green 2026-07-28.
+  - **A policy-boundary test** — ✅ `UserDirectoryTests.cs`, 11 cases (2026-07-28), including
+    the 200-on-`selectable` / 403-on-`/api/users` pair asserted in one test. ⚠️ Written in the
+    same SDK-less environment, so **not yet run**; the CI count to look for is 167.
+  - **A human review** — ⬜ still outstanding. It is not done until this is ticked.

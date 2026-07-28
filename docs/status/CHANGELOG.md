@@ -7,6 +7,80 @@ Format: what changed · why · what it touched.
 
 ## 2026-07-28 (latest)
 
+### 🐛 The `Test counts` step was reporting an empty box, and that is worse than nothing
+**Why:** run #3 was green with a blank "Backend test run" summary. Two bugs stacked, and each
+one alone would have been visible:
+
+1. It grepped for **`Passed!`** — the *Microsoft Testing Platform* summary line. This solution
+   runs on **VSTest** (`Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio`), which ends with
+   `Test Run Successful.` / `Total tests: 39` / `Passed: 39`. No exclamation mark anywhere, so
+   the pattern matched nothing.
+2. The `|| echo 'no test summary found'` fallback was attached to a **pipeline** ending in
+   `sed`. A pipeline's exit status is its *last* command's, and `sed` exits 0 — so the fallback
+   never fired and the failure printed as silence.
+
+The result was a code block containing nothing, under a heading claiming to be a test report.
+That is the same class of problem as a green tick nobody read, one layer up: **an empty report
+looks like a report.** Now the pattern matches VSTest, the `Test run for …dll` lines are kept
+so each count is attributable to an assembly (a `.sln` run emits one summary *per project*,
+which is why "the" count was never one number), and the step **fails the job** if tests
+demonstrably ran but their counts could not be extracted.
+
+**First real figure: `RecruitOps.Domain.Tests` — 39/39, Test Run Successful.** Read off run #3's
+raw log, not counted from source.
+
+### 🧨 …and the count could not be attributed to an assembly at all
+**Why:** run #3's log reads `Starting: RecruitOps.Api.Tests` and then, 48ms later,
+`Test Run Successful. / Total tests: 39`. That is Domain's summary — `dotnet test` on a `.sln`
+spawns **one vstest run per project on parallel MSBuild nodes** and interleaves their stdout
+(the giveaway is two `A total of 1 test files matched` lines). But it is *indistinguishable at
+a glance* from the Api project contributing zero. **A count you cannot attribute is not a
+count**, and this repo has now been burned by that ambiguity three times.
+
+Three changes, so the question cannot be asked again:
+
+- **`Dockerfile`: one `RUN` per test project**, not `dotnet test RecruitOps.sln`. Two
+  unambiguous summaries, and two independent exit codes — an Api failure can no longer be read
+  as a Domain success. Both stay inside the `test` stage, so `--no-cache-filter=test` still
+  busts both.
+- **`RunConfiguration.TreatNoTestsAsError=true`** on each. By default a project that discovers
+  **zero** tests exits 0 and the build stays green. That is precisely how a whole assembly
+  could stop running and nobody would learn about it.
+- **`ci.yml` counts cases per assembly itself**, off the `Passed RecruitOps.<X>.Tests.` lines
+  rather than trusting any summary, renders them as a two-row table at the top of the job
+  summary, and **fails the job** if either assembly executed nothing — naming which one went
+  quiet. Verified by replaying run #3's log through the script: it reports `Api=0` and exits 1.
+
+### 🔐 The ADR-0019 authorization change finally has a test
+**Why:** `GET /api/users/selectable` was the last 🔴 in FEATURE-STATUS — an authorization
+change with zero tests. It was written in a session with no .NET SDK, shipped alongside
+Module 3's UI, and the existing suite could never have noticed the problem it solves: the
+Module 3 tests post user ids they already hold, so nothing ever asked whether the role the
+scheduling endpoint was opened to could *obtain* one.
+
+**`backend/tests/RecruitOps.Api.Tests/UserDirectoryTests.cs` — 11 cases.** The one that matters
+asserts **both halves in a single test**: a Recruiter gets 200 on `/api/users/selectable` and
+403 on `/api/users`. Split in two, a later edit that widened the full directory would leave a
+green test named "a recruiter can read selectable" standing over the hole. HrDirector gets its
+own case, because `RecruitmentStaff` is three roles and "a rule reaching two of three siblings"
+is the bug this repo keeps shipping.
+
+The no-email assertion runs against the **raw JSON**, not a deserialised `SelectableUserDto` —
+reading into the DTO would drop an email property silently and report green, and what crosses
+the wire is the whole argument of ADR-0019. Also pinned: an Approver **is** on the list (ADR-0018
+removed their standing reach, not their eligibility for a panel — ADR-0017 §4), the picker is not
+department-scoped, `Role` survives as a string (the in-memory projection EF Core 10 requires),
+Admin still reads both, HiringManager and Approver get 403 on both, unauthenticated gets 401,
+and the tenant filter empties the list for another tenant.
+
+⚠️ **Written, not verified.** No SDK in the authoring environment and `nuget.org` blocked, so
+this file has never been compiled. It is the same "written but never run" state CI exists to
+end — it just needs a push. **The count to look for is 167** (39 domain + 128 API); 156 means
+the new file did not compile in.
+
+⚠️ **Still needs human review.** Per CLAUDE.md an authorization change is not done until a
+person has read it; a test suite the author also wrote is not that review.
+
 ### 🚀 The repo has a history, a remote, and a green build
 **Why:** everything since the scaffold commit — the pivot, Modules 1–3, both frontends, the
 whole docs/ knowledge base, 301 files — was sitting uncommitted in a single working tree, on

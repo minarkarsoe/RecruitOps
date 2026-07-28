@@ -52,15 +52,83 @@ jobs:
       # "The build passed" has never been the question in this repo — "did the new tests
       # run" is. Lift the counts out of 3,000 lines of BuildKit output and into the job
       # summary, so nobody has to trust a green tick they did not read.
+      #
+      # The first version of this step grepped for `Passed!`, which is the *Microsoft
+      # Testing Platform* summary line. This solution runs on **VSTest**
+      # (Microsoft.NET.Test.Sdk + xunit.runner.visualstudio), which ends with
+      #   Test Run Successful. / Total tests: 39 / Passed: 39
+      # — no exclamation mark anywhere. So the grep matched nothing, and because the
+      # fallback `|| echo` was attached to a *pipeline* whose last command was `sed`
+      # (exit 0), it never fired either: the summary rendered as an empty box on run #3.
+      # An empty box is worse than a missing one — it looks like a report. Hence the
+      # explicit emptiness check below.
+      #
+      # `dotnet test` on a .sln runs the MSBuild VSTest target once per test project, so
+      # there are TWO summaries (Domain, then Api). The `Test run for …dll` lines are kept
+      # so each count is attributable to an assembly rather than silently added together.
       - name: Test counts
         if: always()
         run: |
+          if [ ! -f build.log ]; then
+            echo '## Backend test run' >> "$GITHUB_STEP_SUMMARY"
+            echo 'The build step produced no log — it failed before the compiler was reached.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          summary=$(grep -E 'Test run for |Test Run Successful\.|Test Run Failed\.|Total tests:|Passed:|Failed:|Skipped:|Passed!|Failed!|error [A-Z]+[0-9]+' build.log \
+            | sed -E 's/^#[0-9]+ +[0-9.]+ +//' || true)
+
+          # Counted independently of any summary line, straight off the per-test output, and
+          # keyed on the assembly's namespace. This is the number that cannot be misread: a
+          # solution-wide run prints two interleaved summaries, so an aggregate "Total tests"
+          # sitting under `Starting: RecruitOps.Api.Tests` tells you nothing about which
+          # assembly produced it. These two do.
+          # `grep -c` prints 0 and exits 1 when nothing matches, so `|| true` keeps `bash -e`
+          # from killing the step on the very case this is here to report.
+          domain=$(grep -c 'Passed RecruitOps\.Domain\.Tests\.' build.log || true)
+          api=$(grep -c 'Passed RecruitOps\.Api\.Tests\.' build.log || true)
+          domain=${domain:-0}
+          api=${api:-0}
+
           {
             echo '## Backend test run'
+            echo ''
+            echo '| Assembly | Cases passed |'
+            echo '|---|---|'
+            echo "| RecruitOps.Domain.Tests | ${domain} |"
+            echo "| RecruitOps.Api.Tests | ${api} |"
+            echo ''
+            echo '<details><summary>Raw runner output</summary>'
+            echo ''
             echo '```'
-            grep -E 'Passed!|Failed!|error [A-Z]+[0-9]+' build.log | sed 's/^#[0-9]* *//' || echo 'no test summary found in the build output'
+            if [ -n "$summary" ]; then
+              echo "$summary"
+            else
+              echo 'NO TEST SUMMARY FOUND — the pattern no longer matches the runner output.'
+            fi
             echo '```'
+            echo ''
+            echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
+
+          # An assembly that discovers nothing is the failure this repo keeps not noticing.
+          # The Dockerfile guards it with RunConfiguration.TreatNoTestsAsError; this is the
+          # belt to that pair of braces, and it names which assembly went quiet.
+          if [ "$domain" -eq 0 ] || [ "$api" -eq 0 ]; then
+            if grep -q 'Test run for ' build.log; then
+              echo "::error::An assembly executed no tests (Domain=${domain}, Api=${api}). A green build over a silent assembly is the exact trap this workflow exists to close."
+              exit 1
+            fi
+          fi
+
+          # If the tests were reached but their counts could not be read, fail loudly. A
+          # green tick over an unread number is the exact failure mode this whole file
+          # exists to end. Gated on `Test run for` so that a genuine compile error stays
+          # the headline instead of being buried under a second, derivative error.
+          if [ -z "$summary" ] && grep -q 'Test run for ' build.log; then
+            echo "::error::Tests ran but their counts could not be extracted from build.log — fix the pattern in the 'Test counts' step."
+            exit 1
+          fi
 
   frontend:
     name: Frontend — typecheck + test + build

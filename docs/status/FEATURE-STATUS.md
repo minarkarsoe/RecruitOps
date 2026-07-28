@@ -1,6 +1,7 @@
 # Feature Status
 
-**Last updated:** 2026-07-28 (CI added + first frontend tests; ADR-0018 fix still **unbuilt**) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
+**Last updated:** 2026-07-28 (ADR-0019 policy-boundary tests written — **unrun**, and the
+authorization change is still unreviewed) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
 
 > ✅ **Full stack runs.** Backend builds, all tests pass, `InitialCreate` migration applies
 > on startup, and `docker compose up` brings up Postgres + API + web (2026-07-27).
@@ -179,7 +180,9 @@ Decisions: [ADR-0017](../decisions/ADR-0017-interview-and-assessment.md).
   three local role lists were folded into it
 - ⚠️ **New endpoint `GET /api/users/selectable`** ([ADR-0019](../decisions/ADR-0019-panel-picker-directory.md)) —
   `RecruitmentStaff`, returns id/name/role without email. Without it a Recruiter cannot name
-  the panel the scheduling API requires. **Authorization change: unbuilt, untested, unreviewed**
+  the panel the scheduling API requires. Compiles (CI, 2026-07-28) and now has **11 tests**
+  (`UserDirectoryTests.cs`) — but those tests are themselves **unrun**, and the authorization
+  change is **still unreviewed by a human**
 
 ### ✅ Foundation
 - .NET 8 Clean Architecture solution: `Domain` / `Application` / `Infrastructure` / `Api` + 2 test projects
@@ -235,21 +238,60 @@ Decisions: [ADR-0017](../decisions/ADR-0017-interview-and-assessment.md).
 
 | Suite | Count | Run? |
 |---|---|---|
-| `RecruitOps.Domain.Tests` | **39 cases** — 24 existing (2 vocabulary/role set, 22 application-form schema) + **15 mention parser** (7 `[Fact]`, 2 `[Theory]` with 8 rows between them) | ✅ **passing** |
-| `RecruitOps.Api.Tests` | **117** — 68 existing (4 isolation, 11 department admin, 4 login, 4 login throttle, 2 token, 6 scoping, 17 approval flow, 7 posting flow, 13 public application) + **42 Module 3** (13 interview flow, 12 blind scoring, 7 template resolution, 10 notes) + **7 ADR-0018 approver reach** | ⚠️ **unrun** — 8 of these are new and have never executed |
+| `RecruitOps.Domain.Tests` | **39 cases** — 24 existing (2 vocabulary/role set, 22 application-form schema) + **15 mention parser** (7 `[Fact]`, 2 `[Theory]` with 8 rows between them) | ✅ **39/39, read off CI run #3** (2026-07-28) — the first backend figure in this repo that is not counted from source |
+| `RecruitOps.Api.Tests` | **128** — 68 existing (4 isolation, 11 department admin, 4 login, 4 login throttle, 2 token, 6 scoping, 17 approval flow, 7 posting flow, 13 public application) + **42 Module 3** (13 interview flow, 12 blind scoring, 7 template resolution, 10 notes) + **7 ADR-0018 approver reach** + **11 ADR-0019 user directory** (10 `[Fact]`, 1 `[Theory]` with 2 rows) | ⚠️ **unrun** — the ADR-0019 file is new and has never been compiled |
 | `frontend/internal` (Vitest) | **27** — 14 `lib/scorecard` (payload rules), 7 `InterviewDetailPage` (blind rule + draft payload), 6 `ApplicationNotes` (`bodyHtml` injection, mentions, thread filter) | ✅ **27/27 passing** (2026-07-28, node 22 / vitest 2.1.9) |
 
-**≈156 backend** (39 domain + 117 API), up from 92 · **27 frontend**, up from 0.
+**≈167 backend** (39 domain + 128 API), up from 92 · **27 frontend**, up from 0.
 
-> ⚠️ **The backend figures are still counted from source, not read off a run.** CI compiles
-> the suite and exits 0 (first green run 2026-07-28), so the code is no longer unbuilt — but
-> "the build passed" has never been the question here. A cached `COPY . .` layer would happily
-> re-report an old count, which is why the build carries `--progress=plain
-> --no-cache-filter=build,test`.
+> ⚠️ **Half read off a run, half still counted from source.** Run #3's raw log gives
+> **Domain: 39/39, Test Run Successful** — so the 15 mention-parser tests demonstrably
+> executed. The **Api figure has still never been read**: `dotnet test` on a .sln emits one
+> summary *per test project*, and only the Domain one has been looked at so far.
 >
-> **Next session: read the number off the CI job summary** — the `Test counts` step lifts the
-> `Passed!` lines out of the BuildKit output — and replace these figures with it. **≈156**
-> means the Module 3 and ADR-0018 tests executed; **92** means they did not.
+> 🐛 **The `Test counts` step was broken and reported this as an empty box** (run #3). It
+> grepped for `Passed!`, the Microsoft Testing Platform summary line; this solution runs on
+> **VSTest**, which prints `Test Run Successful.` / `Total tests: 39` / `Passed: 39` — no
+> exclamation mark. Worse, the `|| echo 'no test summary found'` fallback was attached to a
+> pipeline ending in `sed`, so it exited 0 and never fired. **An empty report looks like a
+> report.** Fixed 2026-07-28: the pattern now matches VSTest, keeps the `Test run for …dll`
+> lines so each count is attributable to an assembly, and the step now **fails** if tests ran
+> but their counts could not be extracted.
+>
+> **Read the number off the CI job summary** — the `Test counts` step lifts the `Passed!` lines
+> out of the BuildKit output — and replace these figures with it. **≈167** means the Module 3,
+> ADR-0018 and ADR-0019 tests all executed; **≈156** means ADR-0019's file did not compile in;
+> **92** means none of them ever ran.
+
+### What the ADR-0019 suite pins (`UserDirectoryTests.cs`, 2026-07-28)
+
+Two endpoints on one controller under two policies — the shape most likely to be "simplified"
+later by someone reading the class-level `AdminOnly` and the method-level `RecruitmentStaff` as
+a contradiction. It is not one: **the wider audience gets the narrower payload.**
+
+- **Both halves of the boundary are asserted in one case.** A Recruiter gets 200 on
+  `/api/users/selectable` *and* 403 on `/api/users`. Split across two tests, a future edit that
+  widened `Get` would leave a green test named "a recruiter can read selectable" standing over
+  the hole. HrDirector is asserted separately — `RecruitmentStaff` is three roles, and two of
+  three is this repo's recurring bug.
+- **No email crosses the wire**, asserted against the **raw JSON**, not a deserialised
+  `SelectableUserDto`. Reading into the DTO would drop an email property silently and report
+  green, and what crosses the wire is the entire argument of ADR-0019.
+- **An Approver is on the list, deliberately.** ADR-0018 removed their *standing* reach into
+  candidate data and reads at a glance like "keep them off the panel". It says the opposite —
+  panel membership is how an excluded role reaches one application on purpose (ADR-0017 §4).
+  Filtering them out in a controller would delete that escape hatch far from the ADR granting it.
+- **The picker is not department-scoped** — both hiring managers appear, so a Finance
+  interviewer on a Sales hire stays buildable from the UI.
+- **`Role` survives as a string**, which is the in-memory projection holding. Fold it back into
+  the query and the endpoint throws against Postgres; this assertion is what stands between
+  that and an install.
+- Admin still reads both (the approval-chain builder was not broken), HiringManager and
+  Approver get 403 on both, an unauthenticated caller gets 401, and the tenant query filter
+  still empties the list for another tenant.
+
+⚠️ **This file has never been compiled** — same authoring environment, no .NET SDK, `nuget.org`
+blocked. It is written to CI, not verified by it, until a run reports 167.
 
 What the frontend suite proves — all three are cases that fail *quietly*, which is why they
 were chosen first:
@@ -357,7 +399,7 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | Module 3 never compiled; no migration generated | ✅ **fixed** | `20260728061832_Module3Interviews` generated; suite compiles and passes |
 | Module 3 authorization surfaces not security-reviewed | ✅ **done** | 2026-07-28 — [`SECURITY-REVIEW-MODULE-3.md`](SECURITY-REVIEW-MODULE-3.md). Two High findings, both fixed (ADR-0018); blind filter cleared |
 | The ADR-0018 fix was unbuilt | ✅ **compiles** | CI green 2026-07-28. ⚠️ The *test count* has still not been read off a run — see the inventory note below |
-| 🔴 **`GET /api/users/selectable` has no test and no review** | 🔴 **High** | ADR-0019. It compiles now, but an authorization change with zero tests is the gap. Needs a policy-boundary test (Recruiter: 200 on `selectable`, 403 on `/api/users`) and human review |
+| 🟡 **`GET /api/users/selectable` has tests but no human review** | 🟡 Medium | ADR-0019. 11 cases added 2026-07-28 (`UserDirectoryTests.cs`) covering the policy boundary, the no-email payload, approver inclusion and tenant scoping — but **they have never been compiled or run**, and an authorization change still wants explicit human sign-off (CLAUDE.md). Downgraded from 🔴 only for the tests; it closes when a CI run reports 167 **and** a human has read the diff |
 | `GET /api/users` projects `enum.ToString()` inside the query | 🟡 Medium | EF Core 10 does not translate it; the endpoint has only ever run in-memory, so it may throw against Postgres. Two-step pattern if confirmed (ADR-0019 follow-up) |
 | Module 3 UI type-checks but has never been run | 🟡 Medium | No backend to run it against in the authoring environment. First `docker compose up` is the real test |
 | Mention resolution loads every active user, then N+1s | 🔵 Low (perf) | `NoteService.ResolveMentionsAsync` — full user scan per note POST, plus 2–3 queries per matched handle. Also `InterviewService.ListForApplicationAsync` (4 queries per round) |
