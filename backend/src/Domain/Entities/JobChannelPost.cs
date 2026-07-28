@@ -7,7 +7,7 @@ namespace RecruitOps.Domain.Entities;
 public class JobChannelPost : BaseEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
-    public Guid JobId { get; set; }
+    public Guid JobPostingId { get; set; }
     public SourceChannel Channel { get; set; }
     // TODO: ExternalPostId, PostedAt, ApplicantsFromChannel (tracking count) ...
 }

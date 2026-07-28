@@ -7,6 +7,12 @@ namespace RecruitOps.Domain.Entities;
 public class User : BaseEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
-    public UserRole Role { get; set; } = UserRole.JuniorRecruiter;
-    // TODO: Email, DisplayName, PasswordHash / external identity ref, IsActive ...
+    public string Email { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+
+    /// <summary>Hashed with IPasswordHasher — never store plaintext.</summary>
+    public string PasswordHash { get; set; } = string.Empty;
+
+    public UserRole Role { get; set; } = UserRole.Recruiter;
+    public bool IsActive { get; set; } = true;
 }
