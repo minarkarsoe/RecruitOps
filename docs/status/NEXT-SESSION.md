@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-07-28 · **Active task: build the backend (ADR-0018 + ADR-0019) — in an environment that can**
+**Last updated:** 2026-07-28 · **Next task: read the test count off CI, then Module 2.3 planning**
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
 > deliberately short-lived — one feature each — because conversation history is re-sent on
@@ -29,35 +29,30 @@ Hiring Manager raises a requisition
 All of it is **built and tested on the API**, Module 3 has been **security reviewed**
 (ADR-0018), and Module 3 now **has a UI** — five screens, type-checked, never run.
 
-## 🚨 First thing this session: build the backend
+## ✅ The backend compiles. CI is live.
 
-**Nothing written on 2026-07-28 has ever been compiled.** *Three* sessions in a row had no .NET
-SDK, no Docker, and an allowlist that blocks both `mcr.microsoft.com` and `nuget.org` — so the
-ADR-0018 security fix *and* the ADR-0019 endpoint are sitting in the working tree unverified.
+Pushed to `github.com/minarkarsoe/RecruitOps` on 2026-07-28 as ten commits, and **CI's first
+run was green on both jobs** — so the ADR-0018 fix and the ADR-0019 endpoint, written across
+three SDK-less sessions, do compile. The "written but never compiled" pattern is over: every
+push now runs `docker build --target test ./backend`.
 
-> **Check first: `dotnet --version` or `docker info`.** If neither exists, this task cannot be
-> done here — do not spend the session on it. `.github/workflows/ci.yml` now exists and will
-> run exactly this build, so the cheapest path is **push to a remote** (there is still none)
-> and read CI's output. Otherwise pick a task off the backlog below and leave this one.
+### 🚨 One thing still unverified: the test *count*
 
-```
-cd backend && docker build --target test -t recruitops-test .
-# --progress=plain --no-cache-filter=build,test
-```
+Green means the build and the test command both exited 0. It does **not** yet mean the new
+tests ran — that has been this repo's recurring trap, and the first run finished in 51s, which
+is fast. A `Test counts` step now lifts the `Passed!` lines out of the BuildKit output into
+the job summary.
 
-Expect to fix compile errors. Touched and unbuilt:
+**Read that number and paste it into FEATURE-STATUS.md.** Everything there is still computed
+from source (≈156 = 39 domain + 117 API), never read off a run.
 
-- **ADR-0018** — `Domain/RoleScope.cs` (new), `ICurrentUser`, `Api/Auth/CurrentUser.cs`,
-  `IApplicationAccess`, `ApplicationAccess`, `NoteService`, `PipelineService`,
-  `Api/Auth/Policies.cs`, `ApproverReachTests.cs` (new), `ApplicationNoteTests.cs`,
-  `Module3Scenario.cs`
-- **ADR-0019** — `UsersController.Selectable` (new), `SelectableUserDto` (new). An
-  **authorization change with no test at all**: add one pinning that a Recruiter gets 200 on
-  `/api/users/selectable` and 403 on `/api/users`
+- **≈156** → the Module 3 and ADR-0018 tests executed; update the table and delete the
+  "unrun" warnings
+- **92** → nothing new executed, and the flags are not doing their job
 
-Then paste the **real** count into FEATURE-STATUS.md. Everything there is still computed from
-source (≈156 = 39 domain + 117 API), never read off a run. If the run says 92, nothing new
-executed — that is the cached-layer trap, see FEATURE-STATUS.
+Still genuinely missing: **ADR-0019 has no test at all.** Add one pinning that a Recruiter
+gets 200 on `/api/users/selectable` and 403 on `/api/users`. It is an authorization change,
+so it also wants human review.
 
 ### What the ADR-0018 fix was, in one paragraph
 
@@ -108,22 +103,22 @@ On the Windows mount the workspace symlinks don't survive — copy to a native p
 | Auth | ✅ JWT, RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016) |
 | Departments | ✅ Admin CRUD + membership assignment |
 | Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested |
-| Tests | ⚠️ backend ≈156 counted from source (39 domain + 117 API), **last 8 unrun** · frontend **27/27 passing** |
-| CI | ✅ `.github/workflows/ci.yml` — ⚠️ **inert, no git remote exists** |
+| Tests | ⚠️ backend ≈156 counted from source — **compiles, count not yet read off a run** · frontend **27/27 passing** |
+| CI | ✅ green on both jobs, first run 2026-07-28 · `github.com/minarkarsoe/RecruitOps` |
 | Modules 4–8 | ⬜ |
 
 ## Backlog, in the order I'd take it
 
 Each of these is **one session**. Start a new one for each.
 
-### 1. Build the backend (ADR-0018 + ADR-0019) and run the stack → **still open, see above**
+### 1. Read the test count off CI, and give ADR-0019 a test → **see above**
+Small, and it closes the last 🔴 in FEATURE-STATUS. Then **run the stack** (`docker compose
+up --build`) — the Module 3 screens have still only ever been type-checked, and the first real
+test is whether `packages/types` matches what the API actually serialises. Worth checking
+specifically: the blind state on `/interviews/:id` with two panel members, and that `.mention`
+styling survives the Tailwind build.
 
-### 2. Create a git remote and push
-Ten minutes, and it is what makes item 1 self-solving. `.github/workflows/ci.yml` is written
-and inert; `github.com` is reachable from the sandbox even when `nuget.org` is not. Until this
-exists, "unbuilt" stays a property of the repo rather than a fact CI reports on every push.
-
-### 2b. More frontend tests (the harness now exists)
+### 2. More frontend tests (the harness now exists)
 27 tests cover Module 3's three quiet-failure cases. **Modules 1–2 screens have none** —
 `RequisitionFormPage` (one component serving create and edit), the approval timeline, and
 `FormFieldBuilder` (a schema editor whose output the server validates) are the next-largest
@@ -237,9 +232,15 @@ Learned the expensive way; all of them are load-bearing.
   Re-copy after each edit. And **prove the harness fails** — append `const _x: number = "s"`
   once and confirm `tsc` reports it. A green run from a misconfigured checker is worse than
   no run, because it is believed.
-- **CI is the real fix for both — and now exists.** `.github/workflows/ci.yml` runs the
-  backend Docker test build and the frontend typecheck/test/build on every push. There is
-  still **no git remote**, so it has never executed. Creating one is backlog item 2.
+- **CI is the real fix for both, and it is running.** Every push builds and tests the backend
+  in Docker and typechecks/tests/builds the frontend. Push early: it is the only environment
+  in this project that can compile .NET.
+- **Git does not work from the sandbox mount.** Not just the documented lock files — the mount
+  refuses `unlink` and `O_EXCL`, so git cannot create or clear a lock at all, and a crashed
+  git leaves `index.lock`, `HEAD.lock` *and* `refs/heads/<branch>.lock` behind. Sweep `*.lock`
+  recursively, and run every git command from a Windows terminal, not from here.
+- **A GitHub token needs `workflow` scope to push `.github/workflows/`.** An ordinary OAuth
+  credential pushes 500 objects and then has the ref rejected at the last step.
 - **`$HOME` inside the sandbox is a native path; `/tmp` may be owned by another session.**
   The copy-out recipe above works verbatim with `W=$HOME/rowork`.
 - **Background processes do not survive between sandbox commands** — each call gets its own

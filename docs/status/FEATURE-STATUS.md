@@ -241,15 +241,15 @@ Decisions: [ADR-0017](../decisions/ADR-0017-interview-and-assessment.md).
 
 **≈156 backend** (39 domain + 117 API), up from 92 · **27 frontend**, up from 0.
 
-> ⚠️ **These figures are counted from source, not read off a run — and the last 8 have never
-> been executed at all.** The 2026-07-28 security-review session had no .NET SDK and no Docker,
-> and the SDK download is blocked by the network allowlist, so `dotnet test` could not run. The
-> ADR-0018 fix and its tests are **unbuilt**.
+> ⚠️ **The backend figures are still counted from source, not read off a run.** CI compiles
+> the suite and exits 0 (first green run 2026-07-28), so the code is no longer unbuilt — but
+> "the build passed" has never been the question here. A cached `COPY . .` layer would happily
+> re-report an old count, which is why the build carries `--progress=plain
+> --no-cache-filter=build,test`.
 >
-> **First thing next session: run the suite.** Replace these figures with what the output
-> actually says. If the run reports **92**, the new tests did not execute at all — a cached
-> `COPY . .` layer re-reported the old count, which is the trap documented below. Use
-> `--progress=plain --no-cache-filter=build,test`.
+> **Next session: read the number off the CI job summary** — the `Test counts` step lifts the
+> `Passed!` lines out of the BuildKit output — and replace these figures with it. **≈156**
+> means the Module 3 and ADR-0018 tests executed; **92** means they did not.
 
 What the frontend suite proves — all three are cases that fail *quietly*, which is why they
 were chosen first:
@@ -356,8 +356,8 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 
 | Module 3 never compiled; no migration generated | ✅ **fixed** | `20260728061832_Module3Interviews` generated; suite compiles and passes |
 | Module 3 authorization surfaces not security-reviewed | ✅ **done** | 2026-07-28 — [`SECURITY-REVIEW-MODULE-3.md`](SECURITY-REVIEW-MODULE-3.md). Two High findings, both fixed (ADR-0018); blind filter cleared |
-| 🔴 **The ADR-0018 fix is unbuilt and its tests are unrun** | 🔴 **High** | No .NET SDK / Docker in the session that wrote it. `ApplicationAccess`, `NoteService`, `PipelineService`, `CurrentUser`, `RoleScope`, `ApproverReachTests`. **Build and run before anything else** |
-| 🔴 **`GET /api/users/selectable` is unbuilt and unreviewed** | 🔴 **High** | ADR-0019. An authorization change written in the same SDK-less environment. Needs a build, a policy-boundary test (Recruiter: 200 on `selectable`, 403 on `/api/users`) and human review |
+| The ADR-0018 fix was unbuilt | ✅ **compiles** | CI green 2026-07-28. ⚠️ The *test count* has still not been read off a run — see the inventory note below |
+| 🔴 **`GET /api/users/selectable` has no test and no review** | 🔴 **High** | ADR-0019. It compiles now, but an authorization change with zero tests is the gap. Needs a policy-boundary test (Recruiter: 200 on `selectable`, 403 on `/api/users`) and human review |
 | `GET /api/users` projects `enum.ToString()` inside the query | 🟡 Medium | EF Core 10 does not translate it; the endpoint has only ever run in-memory, so it may throw against Postgres. Two-step pattern if confirmed (ADR-0019 follow-up) |
 | Module 3 UI type-checks but has never been run | 🟡 Medium | No backend to run it against in the authoring environment. First `docker compose up` is the real test |
 | Mention resolution loads every active user, then N+1s | 🔵 Low (perf) | `NoteService.ResolveMentionsAsync` — full user scan per note POST, plus 2–3 queries per matched handle. Also `InterviewService.ListForApplicationAsync` (4 queries per round) |
@@ -372,7 +372,7 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | No refresh token | 🟡 Medium | Auth |
 | No edit/update on a Draft requisition | ✅ **fixed** | `PUT /api/requisitions/{id}`, Draft-only |
 | Frontend has **no tests at all** | ✅ **fixed** | Vitest wired into `frontend/internal`; 27 tests over Module 3's blind rule, scorecard payload rules and note rendering. Modules 1–2 screens are still untested |
-| **No CI** — nothing compiled the backend for three sessions | ✅ **fixed** | `.github/workflows/ci.yml` runs `docker build --target test ./backend` + frontend typecheck/test/build. ⚠️ **Inert until a git remote exists** — there is still none |
+| **No CI** — nothing compiled the backend for three sessions | ✅ **fixed** | `github.com/minarkarsoe/RecruitOps`, first run green on both jobs 2026-07-28. Actions pinned to the Node 24 runtime (checkout@v5, setup-node@v5, setup-buildx@v4); app built on Node 22 |
 | Departments are read-only (no create/edit) | ✅ **fixed** | Full admin CRUD + membership assignment |
 | Email must be globally unique across tenants | 🟡 Medium | `AuthService` |
 | `HiringManager` department-scoping undecided | 🟡 Medium | Needs ADR before Module 1 |

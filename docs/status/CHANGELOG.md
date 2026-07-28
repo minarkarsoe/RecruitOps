@@ -7,6 +7,37 @@ Format: what changed · why · what it touched.
 
 ## 2026-07-28 (latest)
 
+### 🚀 The repo has a history, a remote, and a green build
+**Why:** everything since the scaffold commit — the pivot, Modules 1–3, both frontends, the
+whole docs/ knowledge base, 301 files — was sitting uncommitted in a single working tree, on
+`master`, with no remote. "Unbuilt" was a property of the repo rather than something CI could
+report.
+
+Replayed as **nine area-based commits** plus one cleanup: build/packaging → the pivot → auth,
+tenancy and departments → Module 1 → Module 2 → Module 3 → the frontend split → tests and CI →
+docs. Readable, not bisectable: the tree had never been compiled, and shared files
+(`AppDbContext`, `Program.cs`, `DependencyInjection`) can only be committed once, so
+intermediate commits do not build. Only the tip is meant to.
+
+`master` → `main`; the agency-era `feat/client-crm-list` branch is gone (ADR-0001 superseded it
+months of work ago); the duplicate reference `.docx` at the repo root is gone; `.gitignore`
+paths are unanchored so they still match after the ADR-0012 split.
+
+**CI's first run was green on both jobs — the backend compiles.** The ADR-0018 security fix and
+the ADR-0019 endpoint, written across three sessions with no .NET SDK, have now been through a
+compiler. Actions moved off the deprecated Node 20 runtime (`checkout@v5`, `setup-node@v5`,
+`setup-buildx-action@v4`) and the app is built on Node 22, since 20 went EOL in April 2026.
+
+⚠️ **Green is not the same as "the new tests ran"** — the recurring trap in this repo. A
+`Test counts` step now lifts the `Passed!` lines out of BuildKit's output into the job summary.
+Nobody has read that number yet, so the ≈156 in FEATURE-STATUS is still counted from source.
+
+**Three things learned the expensive way, all now in NEXT-SESSION.md:** git cannot run from the
+sandbox mount at all (it refuses `unlink` and `O_EXCL`, so locks can be neither created nor
+cleared); a crashed git leaves `refs/heads/<branch>.lock` as well as the well-known two; and a
+GitHub token needs `workflow` scope or it pushes 500 objects and has the ref rejected at the
+last step.
+
 ### 🧪 CI, and the first frontend tests since ADR-0012
 **Why:** "written but never compiled" had repeated across three sessions, and the frontend had
 **zero** tests while Module 3 had just shipped the first real conditional logic in the repo.
