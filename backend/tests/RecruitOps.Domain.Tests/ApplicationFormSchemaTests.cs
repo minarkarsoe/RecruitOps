@@ -214,7 +214,8 @@ public class ApplicationFormSchemaTests
 
         // This arrives from an anonymous request; without a cap it is a free write of
         // arbitrary size into the customer's database.
-        Assert.False(ApplicationFormSchema.TryValidateAnswers(schema, answers, out _, out _));
+        Assert.False(ApplicationFormSchema.TryValidateAnswers(schema, answers, out _, out var error));
+        Assert.Contains("characters or fewer", error);
     }
 
     [Fact]

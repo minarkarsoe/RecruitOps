@@ -44,7 +44,7 @@ scoping** (`ADR-0003`), which is applied explicitly and can therefore be forgott
 - **Frontend**: **two apps** — Vite + React SPA (`frontend/internal`, authenticated dashboards) and Next.js SSR (`frontend/public`, job pages + Open Graph previews). Shared design system via `packages/ui`, shared API types via `packages/types`. npm workspaces at the repo root.
 - **Database**: PostgreSQL on AWS RDS, EF Core migrations, JSONB for customer-defined fields
 - **Object storage**: Cloudflare R2 behind an S3-compatible abstraction (MinIO for on-prem)
-- **Auth**: Self-issued JWT bearer. Token carries `sub`, a `tenant_id` claim and a role claim (`Admin` / `HrDirector` / `Recruiter` / `HiringManager` / `Approver`). Signing key comes from `Jwt:Key` — user-secrets/env, never committed.
+- **Auth & Dynamic RBAC**: Self-issued JWT bearer. Token carries `sub`, `tenant_id`, role claim (`Admin` / `HrDirector` / `Recruiter` / `HiringManager` / `Approver` / Custom Role), `is_super_admin` flag, and granular `permissions` array (`permission:module:feature:action`). Fine-grained authorization enforced via `[HasPermission("permission:...")]` policy attribute on API endpoints (`/api/roles`, `/api/permissions`, `/api/users`). `SuperAdmin` and `Admin` roles bypass permission requirements dynamically.
 
 ## Repository Layout
 
@@ -53,13 +53,13 @@ Layout:
 ```
 backend/
   src/
-    Domain/          # entities, value objects, domain logic — no outward dependencies
+    Domain/          # entities (Role, Permission, RolePermission, UserRoleAssignment, etc.) — no outward dependencies
     Application/      # use cases, CQRS handlers, interfaces implemented by Infrastructure
-    Infrastructure/    # EF Core, external services, implementations of Application interfaces
-    Api/              # controllers/minimal API endpoints, DI wiring
+    Infrastructure/    # EF Core, RbacSeedData, external services, implementations of Application interfaces
+    Api/              # controllers (RolesController, PermissionsController, UsersController), DI wiring, HasPermission
   tests/
 frontend/
-  internal/           # Vite + React SPA — authenticated dashboards
+  internal/           # Vite + React SPA — authenticated dashboards (Users, Role Builder, permission-aware UX)
   public/             # Next.js SSR — public job pages, application forms, OG metadata
 packages/
   ui/                 # shared design-system components + Tailwind preset
@@ -71,7 +71,7 @@ packages/
 | Task | Command |
 |---|---|
 | Backend build | `dotnet build backend/src/Api` |
-| Backend test | `dotnet test backend/tests` |
+| Backend test | `dotnet test backend/RecruitOps.sln` (226 tests passing: 51 Domain + 175 Api) |
 | Backend format | `dotnet format` |
 | Backend build + test in Docker | `docker build --target test -t recruitops-test ./backend` |
 | Whole stack | `docker compose up --build` |
@@ -79,6 +79,7 @@ packages/
 | Public app dev | `npm run dev:public` (repo root) |
 | Frontend build | `npm run build` (repo root, all workspaces) |
 | Frontend typecheck | `npm run typecheck` (repo root) |
+| Frontend test | `npm run test` in `frontend/internal` (60 tests passing across 10 test files) |
 
 > No local .NET SDK? `docker build --target test ./backend` compiles and runs the whole
 > suite inside the SDK image. New EF migrations: see `docs/architecture/local-development.md`.

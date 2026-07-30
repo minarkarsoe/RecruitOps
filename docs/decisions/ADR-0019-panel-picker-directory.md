@@ -82,6 +82,12 @@ the follow-up below.
   container registry access. Status of the three things it needed:
   - **A build** — ✅ CI green 2026-07-28.
   - **A policy-boundary test** — ✅ `UserDirectoryTests.cs`, 11 cases (2026-07-28), including
-    the 200-on-`selectable` / 403-on-`/api/users` pair asserted in one test. ⚠️ Written in the
-    same SDK-less environment, so **not yet run**; the CI count to look for is 167.
-  - **A human review** — ⬜ still outstanding. It is not done until this is ticked.
+    the 200-on-`selectable` / 403-on-`/api/users` pair asserted in one test. ✅ Green in CI
+    (169/169 backend). On their **first** run 8 of the 11 failed, and correctly: the class-level
+    `AdminOnly` was being ANDed with the action-level `RecruitmentStaff`, so the endpoint was
+    reachable only by an Admin — the exact condition this ADR exists to remove. Fixed with a
+    bare `[Authorize]` on the class and `AdminOnly` declared on `Get`.
+  - **A human review** — ✅ done 2026-07-29.
+
+  **This ADR is now fully realised.** The remaining 🟡 above (`enum.ToString()`) is a separate
+  EF translation question, not an authorization one.

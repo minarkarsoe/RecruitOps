@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button, Card, StatusPill } from '@recruitops/ui';
 import type { RequisitionListItem } from '@recruitops/types';
 import { api } from '../lib/api';
-import { auth, isDepartmentScoped } from '../lib/auth';
+import { auth, hasPermission, isDepartmentScoped } from '../lib/auth';
 
 export function RequisitionsPage() {
   const [items, setItems] = useState<RequisitionListItem[] | null>(null);
@@ -27,7 +27,9 @@ export function RequisitionsPage() {
             </p>
           )}
         </div>
-        <Link to="/requisitions/new"><Button>New requisition</Button></Link>
+        {hasPermission(session, 'permission:requisitions:requisitions:create') && (
+          <Link to="/requisitions/new"><Button>New requisition</Button></Link>
+        )}
       </header>
 
       {error && <p role="alert" className="mb-4 text-[15px] text-danger-600">{error}</p>}

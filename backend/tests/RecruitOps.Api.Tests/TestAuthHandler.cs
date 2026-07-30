@@ -25,6 +25,20 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        if (Request.Headers.TryGetValue("Authorization", out var authHeader) &&
+            authHeader.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            var tokenStr = authHeader.ToString()["Bearer ".Length..].Trim();
+            var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+            if (handler.CanReadToken(tokenStr))
+            {
+                var jwt = handler.ReadJwtToken(tokenStr);
+                var bearerPrincipal = new ClaimsPrincipal(new ClaimsIdentity(jwt.Claims, SchemeName));
+                var bearerTicket = new AuthenticationTicket(bearerPrincipal, SchemeName);
+                return Task.FromResult(AuthenticateResult.Success(bearerTicket));
+            }
+        }
+
         if (!Request.Headers.TryGetValue("X-Test-Tenant", out var tenant))
             return Task.FromResult(AuthenticateResult.NoResult());
 
@@ -36,6 +50,8 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         if (Request.Headers.TryGetValue("X-Test-Roles", out var roles))
             foreach (var r in roles.ToString().Split(',', StringSplitOptions.RemoveEmptyEntries))
                 claims.Add(new Claim(ClaimTypes.Role, r.Trim()));
+        if (Request.Headers.TryGetValue("X-Test-IsSuperAdmin", out var isSuperAdmin))
+            claims.Add(new Claim(AppClaims.IsSuperAdmin, isSuperAdmin.ToString().Trim()));
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName));
         var ticket = new AuthenticationTicket(principal, SchemeName);

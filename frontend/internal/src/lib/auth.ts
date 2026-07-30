@@ -8,6 +8,10 @@ export interface Session {
   role: UserRole;
   displayName: string;
   userId: string;
+  isSuperAdmin?: boolean;
+  activeTenantId?: string;
+  activeTenantName?: string;
+  permissions?: string[];
 }
 
 /**
@@ -48,9 +52,24 @@ export const auth = {
       role: response.role,
       displayName: response.displayName,
       userId: response.userId,
+      isSuperAdmin: response.isSuperAdmin || response.role === 'SuperAdmin',
+      activeTenantId: response.activeTenantId ?? response.tenantId,
+      activeTenantName: response.activeTenantName,
+      permissions: response.permissions,
     };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     return session;
+  },
+
+  setActiveTenant(tenantId: string, tenantName: string): void {
+    const current = auth.get();
+    if (!current) return;
+    const updated: Session = {
+      ...current,
+      activeTenantId: tenantId,
+      activeTenantName: tenantName,
+    };
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   },
 
   clear(): void {
@@ -99,15 +118,30 @@ export function isExcludedFromCandidateData(role: UserRole): boolean {
  * different reasons for the same exclusion, which is why this is not `!isDepartmentScoped`.
  */
 export function isRecruitmentStaff(role: UserRole): boolean {
-  return role === 'Admin' || role === 'HrDirector' || role === 'Recruiter';
+  return role === 'Admin' || role === 'HrDirector' || role === 'Recruiter' || role === 'SuperAdmin';
 }
 
 /** Roles that decide on requisitions, and therefore need the approver inbox. */
 export function canApprove(role: UserRole): boolean {
-  return role === 'Admin' || role === 'HrDirector' || role === 'Approver';
+  return role === 'Admin' || role === 'HrDirector' || role === 'Approver' || role === 'SuperAdmin';
 }
 
 /** Administrators — approval chains, departments, the user directory. */
 export function isAdmin(role: UserRole): boolean {
-  return role === 'Admin';
+  return role === 'Admin' || role === 'SuperAdmin';
 }
+
+export function isSuperAdmin(session: Session | null): boolean {
+  if (!session) return false;
+  return !!session.isSuperAdmin || session.role === 'SuperAdmin';
+}
+
+export function hasPermission(session: Session | null, permissionCode: string): boolean {
+  if (!session) return true;
+  if (isSuperAdmin(session)) return true;
+  if (session.role === 'Admin') return true;
+  if (!session.permissions) return true; // Default fallback if permissions array is unpopulated (legacy)
+  return session.permissions.includes(permissionCode);
+}
+
+

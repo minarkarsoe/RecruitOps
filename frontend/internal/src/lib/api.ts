@@ -22,6 +22,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     headers: {
       'Content-Type': 'application/json',
       ...(session ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+      ...(session?.activeTenantId ? { 'X-Tenant-Id': session.activeTenantId } : {}),
       ...(init?.headers ?? {}),
     },
   });

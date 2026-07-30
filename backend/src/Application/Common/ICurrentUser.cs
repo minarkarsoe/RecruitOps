@@ -24,4 +24,7 @@ public interface ICurrentUser
     /// describes them. They still reach one application by being on its panel
     /// (ADR-0017 §4).</para></summary>
     bool IsExcludedFromCandidateData { get; }
+
+    /// <summary>True when the principal is a global Super-Admin user.</summary>
+    bool IsSuperAdmin { get; }
 }

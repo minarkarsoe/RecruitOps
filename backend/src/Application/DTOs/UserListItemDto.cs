@@ -1,12 +1,16 @@
 namespace RecruitOps.Application.DTOs;
 
-/// <summary>Minimal user representation for the approval-chain builder UI.
+/// <summary>User representation for user directory and approval-chain builder UI.
 /// Never exposes password hashes or other sensitive fields.</summary>
 public record UserListItemDto(
     Guid Id,
     string Email,
     string DisplayName,
-    string Role);
+    string Role,
+    Guid? RoleId = null,
+    string? RoleName = null,
+    bool IsActive = true,
+    DateTimeOffset CreatedAt = default);
 
 /// <summary>A user who can be picked for something — currently an interview panel.
 ///

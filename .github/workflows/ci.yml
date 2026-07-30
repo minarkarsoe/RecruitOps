@@ -40,6 +40,16 @@ jobs:
       # re-report an old pass count — the trap documented in FEATURE-STATUS.md. Without
       # both flags a green build is not evidence the *new* tests ran.
       - name: docker build --target test
+        id: build
+        env:
+          # BuildKit truncates a step's log at 1MiB and its rate at 100_000 B/s by default,
+          # and what it drops is the END of the output — which is exactly where a test run
+          # puts its summary. Run #5 passed with the Api project's `Total tests:` line simply
+          # missing from the log, and the reporting step below then said "no tests executed"
+          # about a suite that had just gone fully green. Unlimited here: this log is read by
+          # a script, and a partial log is a wrong answer rather than a slow one.
+          BUILDKIT_STEP_LOG_MAX_SIZE: -1
+          BUILDKIT_STEP_LOG_MAX_SPEED: -1
         run: |
           set -o pipefail
           docker build \
@@ -76,6 +86,8 @@ jobs:
       - name: Test counts
         if: always()
         shell: bash
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
         run: |
           python3 - <<'PY'
           import os, re, pathlib
@@ -153,17 +165,34 @@ jobs:
           w("```")
           w("")
           w("</details>")
-          out.close()
 
-          # An assembly that runs nothing is the failure this repo keeps not noticing. The
-          # Dockerfile guards it with RunConfiguration.TreatNoTestsAsError; this names which
-          # one went quiet. Test *failures* are left to the build step's own exit code —
-          # duplicating them here would just add a second red herring to a red job.
-          silent = [n for n in order if not asm[n]["total"]]
-          if silent or not order:
-              print(f"::error::No tests executed for: {', '.join(silent) or 'any assembly'}. "
-                    "A green build over a silent assembly is the trap this workflow closes.")
-              raise SystemExit(1)
+          # THIS STEP REPORTS. IT DOES NOT ADJUDICATE.
+          #
+          # The build step's exit code is the authority on whether the suite passed:
+          # `RunConfiguration.TreatNoTestsAsError` plus one `RUN` per project means a green
+          # `docker build --target test` is impossible unless BOTH projects ran and every case
+          # passed. There is nothing left for this step to decide.
+          #
+          # It used to decide anyway, and on run #5 it failed a fully green suite: BuildKit had
+          # truncated the log, the Api summary went with it, and the step announced "no tests
+          # executed" about 130 tests that had just passed. **An instrument that contradicts
+          # the thing it measures is worse than no instrument** — it is the same failure as the
+          # empty box and the confidently-wrong 21, for the third time, and this is the version
+          # that finally removes the possibility rather than fixing the pattern.
+          missing = [n for n in order if not asm[n]["total"]]
+          if os.environ.get("BUILD_OUTCOME") == "success":
+              if missing or len(order) < 2:
+                  w("")
+                  w("> ⚠️ **The build passed, so both projects ran and every case passed** — "
+                    "but the counts for "
+                    f"`{', '.join(missing) or 'one or more projects'}` could not be read out "
+                    "of the log, most likely because BuildKit truncated it. The numbers above "
+                    "are incomplete; they are not a failure.")
+          elif any("No test is available" in l for l in lines):
+              w("")
+              w("> 🔴 **A test project discovered zero tests.** That is the failure, not a "
+                "reporting gap.")
+          out.close()
           PY
 
   frontend:

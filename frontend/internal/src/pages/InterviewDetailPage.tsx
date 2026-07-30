@@ -6,6 +6,7 @@ import type {
   ScorecardCriterion, SaveScorecardRequest,
 } from '@recruitops/types';
 import { api, ApiError } from '../lib/api';
+import { auth, hasPermission } from '../lib/auth';
 import {
   type Draft, draftsFrom, emptyDraft, missingRequired as unansweredRequired, toAnswers,
 } from '../lib/scorecard';
@@ -162,6 +163,7 @@ function ScorecardView({ scorecard }: { scorecard: Scorecard }) {
 export function InterviewDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const session = auth.get();
 
   const [interview, setInterview] = useState<Interview | null>(null);
   const [mine, setMine] = useState<MyScorecard | null>(null);
@@ -363,21 +365,25 @@ export function InterviewDetailPage() {
                 )}
 
                 <div className="flex items-center gap-3">
-                  <Button variant="secondary" type="submit" disabled={busy}>
-                    {busy ? 'Saving…' : 'Save draft'}
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={busy || !canSubmit}
-                    onClick={() => {
-                      if (window.confirm(
-                        'Submit this evaluation? It cannot be changed afterwards, and it '
-                        + 'unlocks the rest of the panel’s scores for you.',
-                      )) void write(true);
-                    }}
-                  >
-                    Submit evaluation
-                  </Button>
+                  {hasPermission(session, 'permission:scorecards:scorecards:submit') && (
+                    <>
+                      <Button variant="secondary" type="submit" disabled={busy}>
+                        {busy ? 'Saving…' : 'Save draft'}
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={busy || !canSubmit}
+                        onClick={() => {
+                          if (window.confirm(
+                            'Submit this evaluation? It cannot be changed afterwards, and it '
+                            + 'unlocks the rest of the panel’s scores for you.',
+                          )) void write(true);
+                        }}
+                      >
+                        Submit evaluation
+                      </Button>
+                    </>
+                  )}
                 </div>
               </form>
             )}

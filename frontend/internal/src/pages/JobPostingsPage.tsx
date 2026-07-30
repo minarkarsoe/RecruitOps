@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { Button, Card, StatusPill } from '@recruitops/ui';
 import type { JobPostingListItem, RequisitionListItem } from '@recruitops/types';
 import { api } from '../lib/api';
+import { auth, hasPermission } from '../lib/auth';
 
 export function JobPostingsPage() {
   const [postings, setPostings] = useState<JobPostingListItem[]>([]);
   const [publishable, setPublishable] = useState<RequisitionListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const session = auth.get();
 
   async function load() {
     const list = await api<JobPostingListItem[]>('/jobpostings');
@@ -63,9 +65,11 @@ export function JobPostingsPage() {
                     {r.departmentName} · {r.headcount} {r.headcount === 1 ? 'head' : 'heads'}
                   </p>
                 </div>
-                <Button onClick={() => createFrom(r.id)} disabled={busy}>
-                  Create posting
-                </Button>
+                {hasPermission(session, 'permission:postings:postings:create') && (
+                  <Button onClick={() => createFrom(r.id)} disabled={busy}>
+                    Create posting
+                  </Button>
+                )}
               </li>
             ))}
           </ul>

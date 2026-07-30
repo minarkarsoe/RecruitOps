@@ -15,4 +15,8 @@ public class User : BaseEntity, ITenantScoped
 
     public UserRole Role { get; set; } = UserRole.Recruiter;
     public bool IsActive { get; set; } = true;
+
+    public Guid? RoleId { get; set; }
+    public Role? CustomRole { get; set; }
+    public bool IsSuperAdmin { get; set; }
 }

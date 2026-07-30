@@ -39,32 +39,21 @@ FROM build AS test
 RUN dotnet test tests/RecruitOps.Domain.Tests/RecruitOps.Domain.Tests.csproj \
       -c Release --no-build --verbosity normal \
       -- RunConfiguration.TreatNoTestsAsError=true
-# The Api project carries extra diagnostics that Domain does not need, because on 2026-07-28
-# it failed here with:
+# This project briefly carried `--logger "console;verbosity=detailed"` and `--blame-crash`, to
+# triage an `MSB4181: the "VSTestTask" task returned false but did not log an error`. They did
+# their job — the answer was mundane, 8 genuinely failing tests that MSBuild declined to
+# summarise — and they are gone again because their output volume is a liability: BuildKit
+# truncates a step's log at 1MiB by default, and a truncated log costs the run's *summary*,
+# which is the one part anybody reads. CI raises that limit now, but the cheapest log is the
+# one that was never written.
 #
-#   MSB4181: The "VSTestTask" task returned false but did not log an error.
-#   Build FAILED.  0 Warning(s)  0 Error(s)
-#
-# "Returned false but did not log an error" is not one failure — it is three, and the default
-# output cannot tell them apart:
-#
-#   1. ZERO TESTS DISCOVERED, now fatal because of TreatNoTestsAsError below. vstest reports
-#      this as a *warning* and exits non-zero, so MSBuild has nothing to log as an error.
-#   2. THE TEST HOST CRASHED — a process abort takes the results with it, so there is no
-#      failing test to name. Plausible here: every Api class fixture boots a real ASP.NET host
-#      via WebApplicationFactory, and a throw in that constructor kills the host, not a test.
-#   3. vstest.console failed to start at all (missing runtimeconfig, bad runsettings).
-#
-# So: `--blame-crash` names the last test the host was executing before it died, which
-# separates (2) from the others outright, and `console;verbosity=detailed` surfaces the
-# "No test is available" line that MSBuild's own verbosity swallows, which separates (1).
-# Neither changes what is executed — they only make the failure legible. Do not "clean these
-# up" until this project has been green for a while; the cost of a re-run to re-learn which of
-# the three it was is far higher than the log noise.
+# If MSB4181 returns, the triage is: `No test is available` in the output means zero tests were
+# discovered (fatal via TreatNoTestsAsError above); `test host process crashed` means the host
+# aborted and took the results with it — likely a throw inside a `WebApplicationFactory` class
+# fixture, which kills the host rather than failing a test. Re-add `--blame-crash` to name the
+# test it died on.
 RUN dotnet test tests/RecruitOps.Api.Tests/RecruitOps.Api.Tests.csproj \
       -c Release --no-build --verbosity normal \
-      --logger "console;verbosity=detailed" \
-      --blame-crash --blame-hang-timeout 5m \
       -- RunConfiguration.TreatNoTestsAsError=true
 
 FROM build AS publish

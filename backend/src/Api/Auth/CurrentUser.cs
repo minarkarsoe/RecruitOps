@@ -42,4 +42,8 @@ public sealed class CurrentUser : ICurrentUser
 
     public bool IsExcludedFromCandidateData =>
         ParsedRole is not { } role || RoleScope.IsExcludedFromCandidateData(role);
+
+    public bool IsSuperAdmin =>
+        string.Equals(Principal?.FindFirstValue(AppClaims.IsSuperAdmin), "true", StringComparison.OrdinalIgnoreCase)
+        || ParsedRole == UserRole.SuperAdmin;
 }

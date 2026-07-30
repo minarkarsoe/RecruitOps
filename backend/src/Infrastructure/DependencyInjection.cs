@@ -19,11 +19,15 @@ public static class DependencyInjection
             opt.UseNpgsql(config.GetConnectionString("Default")));
 
         services.AddSingleton(TimeProvider.System);
+        services.AddMemoryCache();
 
-        // Auth
+        // Auth & Dynamic RBAC
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IPermissionEvaluator, PermissionEvaluator>();
+        services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<IUserService, UserService>();
 
         // Singleton: the failure counters have to outlive the request that recorded them,
         // which is the entire point.

@@ -49,13 +49,17 @@ public class AuthLoginTests : IClassFixture<CustomWebAppFactory>
     [Fact]
     public async Task Issued_Token_Grants_Access_To_Protected_Endpoint()
     {
-        // End-to-end: log in, then call a protected endpoint with the real bearer token.
-        // (Uses the Test scheme's bearer passthrough is NOT active here — this asserts the
-        //  token is well-formed; full JWT-scheme verification is covered by the API config.)
-        var login = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login",
+        var client = _factory.CreateClient();
+        var login = await client.PostAsJsonAsync("/api/auth/login",
             new LoginRequest { Email = CustomWebAppFactory.AdminEmail, Password = CustomWebAppFactory.AdminPassword });
         var body = await login.Content.ReadFromJsonAsync<LoginResponse>();
         Assert.NotNull(body);
         Assert.False(string.IsNullOrWhiteSpace(body!.AccessToken));
+
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", body.AccessToken);
+
+        var response = await client.GetAsync("/api/departments");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }

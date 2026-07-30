@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Button, Card, StatusPill } from '@recruitops/ui';
 import type { ApprovalDecisionRequest, ApprovalStep, RequisitionDetail } from '@recruitops/types';
 import { api } from '../lib/api';
-import { auth } from '../lib/auth';
+import { auth, hasPermission } from '../lib/auth';
 
 function decisionBadge(decision: ApprovalStep['decision']) {
   const styles = {
@@ -67,7 +67,8 @@ export function RequisitionDetailPage() {
   // The backend still enforces this — showing the form to others just results in 404.
   const activeStep = item?.approvals.find(a => a.decision === 'Waiting');
   const canDecide = item?.status === 'PendingApproval' &&
-    activeStep?.approverUserId === session?.userId;
+    activeStep?.approverUserId === session?.userId &&
+    hasPermission(session, 'permission:requisitions:requisitions:approve');
 
   // Cancelling is the requester's own withdrawal, or a company-wide role overriding it.
   // Mirrors RequisitionService.CancelAsync — the backend is still the authority.
@@ -77,10 +78,15 @@ export function RequisitionDetailPage() {
     session?.role === 'HrDirector';
 
   const canCancel =
-    (item?.status === 'Draft' || item?.status === 'PendingApproval') && isOwnerOrCompanyWide;
+    (item?.status === 'Draft' || item?.status === 'PendingApproval') &&
+    isOwnerOrCompanyWide &&
+    hasPermission(session, 'permission:requisitions:requisitions:delete');
 
   // Only a Draft is editable — after submit, approvers are deciding on these contents.
-  const canEdit = item?.status === 'Draft' && isOwnerOrCompanyWide;
+  const canEdit =
+    item?.status === 'Draft' &&
+    isOwnerOrCompanyWide &&
+    hasPermission(session, 'permission:requisitions:requisitions:update');
 
   if (error && !item) return <p role="alert" className="text-danger-600">{error}</p>;
   if (!item) return <p className="text-ink-600">Loading…</p>;
@@ -178,7 +184,7 @@ export function RequisitionDetailPage() {
         )}
 
         {/* ── Actions ── */}
-        {item.status === 'Draft' && (
+        {item.status === 'Draft' && hasPermission(session, 'permission:requisitions:requisitions:update') && (
           <Card>
             <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
               Submit for approval

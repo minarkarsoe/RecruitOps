@@ -105,7 +105,7 @@ public class ScorecardTemplateResolutionTests : IClassFixture<CustomWebAppFactor
                 Name = "Empty",
                 Criteria = Array.Empty<ScorecardCriterionInput>(),
             });
-        Assert.True(empty.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict);
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
 
         var badType = await _scenario.Recruiter().PostAsJsonAsync("/api/scorecardtemplates",
             new SaveScorecardTemplateRequest

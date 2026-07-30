@@ -4,6 +4,9 @@ namespace RecruitOps.Domain.Enums;
 /// See docs/decisions/ADR-0003-department-scoping.md — HiringManager is department-scoped.</summary>
 public enum UserRole
 {
+    /// <summary>Global system super administrator with full system-wide privileges.</summary>
+    SuperAdmin,
+
     /// <summary>System administrator: settings, RBAC, integrations.</summary>
     Admin,
 
@@ -18,4 +21,7 @@ public enum UserRole
 
     /// <summary>Dept Head / Finance / HR acting in an approval chain.</summary>
     Approver,
+
+    /// <summary>Interviewer evaluating candidates on interview panels.</summary>
+    Interviewer,
 }

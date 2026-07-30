@@ -160,16 +160,18 @@ thousand users. Logged in `FEATURE-STATUS.md`, not fixed here.
 
 ---
 
-## ⚠️ Not verified by a run
+## ✅ Since verified by a run (updated 2026-07-29)
 
-**The suite was not executed for this review.** The environment has no .NET SDK and no Docker,
-and the SDK download is blocked by the network allowlist, so neither `dotnet test` nor
-`docker build --target test ./backend` could run.
+**At the time of the review the suite was not executed.** The environment had no .NET SDK and no
+Docker, and the SDK download was blocked by the network allowlist, so everything above was from
+reading the source.
 
-Everything above is from reading the source. The fixes compile in principle and follow the
-patterns already in the repo, but **they are unbuilt and the 8 new tests are unrun.** Anyone
-picking this up should run the suite first and treat a failure as expected work, not a surprise.
+That has been settled: CI now builds and tests the backend on every push, and the ADR-0018 fixes
+described here are **green — 169/169** (39 domain + 130 api). The 8 new tests written for this
+review ran and passed.
 
-For the same reason `FEATURE-STATUS.md`'s test figures stay marked as computed rather than
-observed. Counted from source: **109** `[Fact]` in the API suite (now 117 with this change),
-and **26** `[Fact]`/`[Theory]` plus 16 `[InlineData]` rows in the domain suite.
+The historical figures below are left as written, because they record what was *counted from
+source* and that turned out to be wrong — the "existing" Api suite was 119, not 117. The lesson
+is the entry, not the number: counted from source: **109** `[Fact]` in the API suite (claimed
+117 with this change), and **26** `[Fact]`/`[Theory]` plus 16 `[InlineData]` rows in the domain
+suite.

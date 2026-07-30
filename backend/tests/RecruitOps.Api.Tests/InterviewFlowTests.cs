@@ -141,7 +141,7 @@ public class InterviewFlowTests : IClassFixture<CustomWebAppFactory>
 
         // Model validation catches the empty list before the service does; either way this
         // must not produce an interview nobody can score.
-        Assert.True(noPanel.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict);
+        Assert.Equal(HttpStatusCode.BadRequest, noPanel.StatusCode);
 
         var strayLead = await _scenario.Recruiter().PostAsJsonAsync(
             $"/api/applications/{applicationId}/interviews", new ScheduleInterviewRequest

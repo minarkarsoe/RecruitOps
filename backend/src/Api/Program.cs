@@ -47,7 +47,10 @@ builder.Services
         };
     });
 
-// --- Authorization: RBAC policies (Module 1) ---
+// --- Authorization: Dynamic RBAC & policies ---
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, RecruitOps.Api.Authorization.PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, RecruitOps.Api.Authorization.PermissionAuthorizationHandler>();
+
 builder.Services.AddAuthorization(options =>
 {
     // Cross-department staff.
@@ -144,7 +147,7 @@ if (behindProxy)
         // The proxy's address is assigned by Docker and not knowable ahead of time; the
         // security boundary here is the network (the API port is not published), not an
         // address allowlist. This is exactly why the flag has to be set deliberately.
-        o.KnownNetworks.Clear();
+        o.KnownIPNetworks.Clear();
         o.KnownProxies.Clear();
         // ⚠️ LOAD-BEARING: ForwardLimit = 1 means only the LAST X-Forwarded-For entry is
         // consumed — the one our own nginx appended via $proxy_add_x_forwarded_for. Raising

@@ -235,7 +235,7 @@ public class ScorecardBlindScoringTests : IClassFixture<CustomWebAppFactory>
                 },
             });
 
-        Assert.True(res.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict);
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
     }
 
     [Fact]

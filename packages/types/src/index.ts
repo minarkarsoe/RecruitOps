@@ -4,7 +4,7 @@
 
 // ---------- Enums (mirror RecruitOps.Domain.Enums) ----------
 export type UserRole =
-  | 'Admin' | 'HrDirector' | 'Recruiter' | 'HiringManager' | 'Approver';
+  | 'Admin' | 'HrDirector' | 'Recruiter' | 'HiringManager' | 'Approver' | 'SuperAdmin' | string;
 
 export type PipelineStatus =
   | 'Sourced' | 'Applied' | 'Screening' | 'Shortlisted'
@@ -32,15 +32,146 @@ export interface LoginResponse {
   role: UserRole;
   displayName: string;
   userId: string;
+  isSuperAdmin?: boolean;
+  tenantId?: string;
+  activeTenantId?: string;
+  activeTenantName?: string;
+  permissions?: string[];
 }
 
-// ---------- Users ----------
+// ---------- RBAC & User Management (Milestone 4) ----------
+export interface Permission {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  module: string;
+  feature: string;
+  action: string;
+}
+
+export interface PermissionFeature {
+  feature: string;
+  permissions: Permission[];
+}
+
+export interface PermissionModule {
+  module: string;
+  features: PermissionFeature[];
+}
+
+export interface RoleListItem {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  isSystemRole: boolean;
+  isSuperAdmin: boolean;
+  isActive: boolean;
+  userCount: number;
+  permissionCount: number;
+}
+
+export interface RoleDetail {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  isSystemRole: boolean;
+  isSuperAdmin: boolean;
+  isActive: boolean;
+  assignedPermissions: Permission[];
+  assignedPermissionCodes: string[];
+  userCount: number;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface CreateRoleRequest {
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  permissionCodes: string[];
+}
+
+export interface UpdateRoleRequest {
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  permissionCodes: string[];
+}
+
+export interface UserRoleInfo {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  isSystemRole: boolean;
+  isSuperAdmin: boolean;
+}
+
 export interface UserListItem {
   id: string;
   email: string;
   displayName: string;
-  role: UserRole;
+  role: string;
+  roleId?: string | null;
+  roleName?: string | null;
+  isActive?: boolean;
+  createdAt?: string;
 }
+
+export interface UserDetail {
+  id: string;
+  email: string;
+  displayName: string;
+  role: string;
+  roleId: string | null;
+  roleDetails: UserRoleInfo | null;
+  permissions: string[];
+  isActive: boolean;
+  isSuperAdmin: boolean;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface UserQueryParameters {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  roleId?: string;
+  isActive?: boolean;
+}
+
+export interface PagedResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+export interface CreateUserRequest {
+  email: string;
+  displayName: string;
+  password: string;
+  roleId?: string | null;
+  role?: string | null;
+}
+
+export interface UpdateUserRequest {
+  displayName: string;
+  roleId?: string | null;
+  role?: string | null;
+}
+
+export interface TenantInfo {
+  id: string;
+  name: string;
+  code: string;
+  isActive: boolean;
+}
+
 
 // ---------- Module 1: Requisition & Approval ----------
 export interface DepartmentListItem {

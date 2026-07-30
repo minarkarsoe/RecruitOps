@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/AppLayout';
 import { RequireAuth } from './components/RequireAuth';
+import { RequirePermission } from './components/RequirePermission';
 import { LoginPage } from './pages/LoginPage';
 import { RequisitionsPage } from './pages/RequisitionsPage';
 import { RequisitionDetailPage } from './pages/RequisitionDetailPage';
@@ -13,6 +14,8 @@ import { ApprovalChainsPage } from './pages/ApprovalChainsPage';
 import { JdTemplatesPage } from './pages/JdTemplatesPage';
 import { ScorecardTemplatesPage } from './pages/ScorecardTemplatesPage';
 import { DepartmentsPage } from './pages/DepartmentsPage';
+import { UsersPage } from './pages/UsersPage';
+import { RolesPage } from './pages/RolesPage';
 
 export function App() {
   return (
@@ -49,6 +52,24 @@ export function App() {
           {/* Admin only */}
           <Route path="/approvalchains" element={<ApprovalChainsPage />} />
           <Route path="/departments" element={<DepartmentsPage />} />
+
+          {/* Module 4 — User Directory & Role Builder */}
+          <Route
+            path="/users"
+            element={
+              <RequirePermission permission="permission:users:users:read">
+                <UsersPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/roles"
+            element={
+              <RequirePermission permission="permission:roles:roles:read">
+                <RolesPage />
+              </RequirePermission>
+            }
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/requisitions" replace />} />
@@ -56,3 +77,4 @@ export function App() {
     </BrowserRouter>
   );
 }
+

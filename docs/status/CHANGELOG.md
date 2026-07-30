@@ -3,9 +3,64 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
+## 2026-07-30 (latest)
+
+### ✅ Granular Dynamic RBAC, User Management, Permission-Aware UX & Full E2E Verification
+**Why:** Transition RecruitOps from static role-based checks to a fine-grained, dynamic Role-Based Access Control (RBAC) architecture with user directory management, custom role builder matrix, and permission-aware UX adaptivity across the entire internal web application.
+
+**Touched:**
+- **Audit Remediation (R1)**: Fixed PostgreSQL LINQ translation error in `UsersController`, resolved `AuthLoginTests` async/await timing issue, and upgraded `System.Security.Cryptography.Xml` to `10.0.6` to eliminate security vulnerabilities.
+- **RBAC Data Model (R2)**: Implemented domain entities (`Role`, `Permission`, `RolePermission`, `UserRoleAssignment`), database migration (`20260730000000_AddGranularRbac`), and seed data (`RbacSeedData`) mapping system roles to canonical permission strings (`permission:module:feature:action`).
+- **Backend Authorization Engine & REST APIs (R3)**: Built `[HasPermission]` policy attribute, `PermissionRequirement`, and `PermissionAuthorizationHandler` supporting SuperAdmin/Admin bypass and cached evaluation. Created `PermissionsController` (`/api/permissions`), `RolesController` (`/api/roles`), and expanded `UsersController` (`/api/users`).
+- **Frontend UI & Components (R4)**: Implemented `UserDirectoryService`, `RoleService`, `UsersPage` (with pagination, role/status filtering, user creation/editing, self-deactivation & last-admin safeguards), `RolesPage`, and `PermissionMatrixGrid`.
+- **Permission-Aware UX Adaptivity (R5)**: Updated `hasPermission` helper in `auth.ts`, dynamically filtered sidebar links in `AppLayout.tsx`, added action button permission gates across all pages (`RequisitionsPage`, `RequisitionDetailPage`, `JobPostingsPage`, `JobPostingDetailPage`, `InterviewDetailPage`, `UsersPage`, `RolesPage`), and integrated `RequirePermission` route guards.
+- **Test Suite Expansions & E2E Verification (R6)**: Expanded backend tests (`DynamicAuthorizationEngineTests.cs`), verifying 226/226 backend tests pass (51 Domain + 175 Api). Added frontend test suites (`AppLayout.test.tsx`, `RequirePermission.test.tsx`), verifying 60/60 frontend tests pass across 10 test files. Verified 0 TypeScript errors and Vite production build success.
+
 ---
 
-## 2026-07-28 (latest)
+## 2026-07-29
+
+### ✅ ADR-0019 closed — 169/169 green, and a human has read the diff
+**Why:** `GET /api/users/selectable` is an authorization change, and CLAUDE.md requires explicit
+human sign-off on those. A test suite written by the same author as the endpoint is not that
+review. Both halves are now done: CI is green on 39 domain + 130 api, and the
+`UsersController` diff (bare `[Authorize]` on the class, `AdminOnly` on `Get`,
+`RecruitmentStaff` on `selectable`) has been reviewed.
+
+**Touched:** nothing in code — this entry records verification, which is the point. The 🔴/🟡
+rows in FEATURE-STATUS.md are closed.
+
+### ✅ The stack came up — Module 3's UI is no longer "never run"
+`docker compose up --build` brings up Postgres + API + both frontends with migrations applying
+on startup, and the five Module 3 screens have been driven for the first time. That retires the
+"written but never run" pattern for the frontend the way CI retired it for the backend.
+
+⚠️ **"The stack came up" is not "the screens are correct."** Three behaviours were named as
+worth checking specifically and have *not* been eyeballed yet — they are carried forward in
+NEXT-SESSION.md rather than quietly dropped:
+
+- the **panel picker populated as a Recruiter** — ADR-0019's whole reason to exist, and it has
+  still never been *observed* working, only proved reachable by a test
+- the **blind state** on `/interviews/:id` with two panel members
+- **`.mention` styling surviving the Tailwind build** — the markup is generated in C#, so the
+  content scanner cannot see the class and would purge it; it lives in `index.css` for that
+  reason, which is exactly the kind of arrangement a build quietly breaks
+
+### 🔧 The `Test counts` step is now the only thing left in CI that can lie
+The suite is green and the **build's exit code is the authority** — one `RUN` per test project
+plus `RunConfiguration.TreatNoTestsAsError` makes a green `docker build --target test`
+impossible unless both projects ran and every case passed. What remains broken is the *reporting*
+step, which still cannot reliably lift per-assembly counts out of a BuildKit log.
+
+It can no longer fail a passing suite (that vote was taken away from it after run #5), so this is
+cosmetic. But it is the fourth appearance of one mistake — empty box, a confident `21` against a
+runner-reported `122`, a red tick over a green suite, and now a summary that sometimes just
+isn't there. **Fix it or delete it.** A half-trusted instrument is worse than either a working
+one or none, because it costs a reader time to decide which reading this one is.
+
+---
+
+## 2026-07-28
 
 ### 🔴 `GET /api/users/selectable` was unreachable by the role it was written for
 **Why:** `UsersController` carried `[Authorize(Policy = AdminOnly)]` at the **class** level and
@@ -29,6 +84,29 @@ passed assert a *refusal* — HiringManager 403, Approver 403, unauthenticated 4
 which a too-strict policy satisfies by accident. **A suite that only tested "the wrong people are
 kept out" would have been green over an endpoint nobody could reach.** ⚠️ The fix itself has not
 been through a run yet.
+
+### 🩺 The reporting step failed a green suite, so it no longer gets a vote
+**Why:** run #5 (the auth fix) built and tested clean in 47s — and the job summary announced
+*"No tests executed for: RecruitOps.Api.Tests"* about 130 tests that had just passed.
+
+BuildKit truncates a step's log at **1MiB** and what it drops is the **end** — precisely where a
+test run puts its summary. The reporting step lost the Api counts, and then adjudicated on their
+absence.
+
+**An instrument that contradicts the thing it measures is worse than no instrument.** This is the
+third variation on one mistake in a single day: an empty box (run #3), a confidently wrong `21`
+against a runner-reported `122` (run #4), and now a red tick over a green suite. Each previous
+fix corrected the *pattern*; this one removes the possibility:
+
+- **`BUILDKIT_STEP_LOG_MAX_SIZE: -1`** (and `..._MAX_SPEED`) on the build step. The log is read
+  by a script, so a partial log is a wrong answer rather than a slow one.
+- **The step reports; it does not adjudicate.** One `RUN` per project plus
+  `TreatNoTestsAsError` means a green `docker build --target test` is *impossible* unless both
+  projects ran and every case passed — so the build's exit code is the authority and there is
+  nothing left to decide. A count it cannot read is now reported as a count it cannot read.
+- The Api project's `--logger console;verbosity=detailed` and `--blame-crash` are gone. They
+  answered the MSB4181 question (8 real failures, unsummarised) and their output volume was
+  feeding the truncation. The triage recipe stays in a Dockerfile comment for next time.
 
 ### 📏 Backend counts, finally read off a run
 `RecruitOps.Domain.Tests` **39/39**; `RecruitOps.Api.Tests` **130 total, 122 passed, 8 failed**

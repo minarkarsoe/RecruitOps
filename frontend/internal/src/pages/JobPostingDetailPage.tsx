@@ -6,6 +6,7 @@ import type {
 } from '@recruitops/types';
 import { parseFormFields } from '@recruitops/types';
 import { api } from '../lib/api';
+import { auth, hasPermission } from '../lib/auth';
 import { FormFieldBuilder } from '../components/FormFieldBuilder';
 import { ApplicationDebrief } from '../components/ApplicationDebrief';
 
@@ -64,6 +65,7 @@ export function JobPostingDetailPage() {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<UpdateJobPostingRequest | null>(null);
+  const session = auth.get();
   // Which pipeline rows have their interview panel open. A set rather than a single id:
   // comparing two candidates' rounds side by side is the normal thing to want, and an
   // accordion that closes the other one makes that impossible.
@@ -250,7 +252,7 @@ export function JobPostingDetailPage() {
                     </dd>
                   </div>
                 </dl>
-                {posting.status !== 'Closed' && (
+                {posting.status !== 'Closed' && hasPermission(session, 'permission:postings:postings:update') && (
                   <Button variant="secondary" onClick={startEditing}>Edit advert</Button>
                 )}
               </div>
@@ -270,9 +272,11 @@ export function JobPostingDetailPage() {
                 Publishing creates the shareable job link. The link is minted once and kept —
                 re-publishing later will not invalidate anything already shared.
               </p>
-              <Button onClick={() => act(() => api(`/jobpostings/${id}/publish`, { method: 'POST' }))} disabled={busy}>
-                Publish
-              </Button>
+              {hasPermission(session, 'permission:postings:postings:publish') && (
+                <Button onClick={() => act(() => api(`/jobpostings/${id}/publish`, { method: 'POST' }))} disabled={busy}>
+                  Publish
+                </Button>
+              )}
             </>
           )}
           {posting.status === 'Live' && publicUrl && (
@@ -285,9 +289,11 @@ export function JobPostingDetailPage() {
                 <Button variant="secondary" onClick={() => navigator.clipboard.writeText(publicUrl)}>
                   Copy link
                 </Button>
-                <Button variant="danger" onClick={() => act(() => api(`/jobpostings/${id}/close`, { method: 'POST' }))} disabled={busy}>
-                  Close vacancy
-                </Button>
+                {hasPermission(session, 'permission:postings:postings:update') && (
+                  <Button variant="danger" onClick={() => act(() => api(`/jobpostings/${id}/close`, { method: 'POST' }))} disabled={busy}>
+                    Close vacancy
+                  </Button>
+                )}
               </div>
             </>
           )}
@@ -339,7 +345,7 @@ export function JobPostingDetailPage() {
                       <StatusPill status={item.status} />
                       {/* Terminal stages have no dropdown at all: the API refuses the move,
                           and offering it would only produce a confusing error. */}
-                      {!terminal && (
+                      {!terminal && hasPermission(session, 'permission:applications:applications:move_stage') && (
                         <select
                           className="h-8 rounded-sm border border-line-200 px-2 text-[13px]"
                           value=""

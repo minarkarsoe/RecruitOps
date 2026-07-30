@@ -228,7 +228,7 @@ public static class ApplicationFormSchema
                     break;
 
                 case "select":
-                    if (!(field.Options ?? []).Contains(text, StringComparer.Ordinal))
+                    if (!(field.Options ?? []).Contains(text!, StringComparer.Ordinal))
                     {
                         // The list is fixed; anything else came from a tampered form.
                         error = $"{field.Label} must be one of the offered choices.";

@@ -21,7 +21,7 @@ public class PipelineStatusTests
     {
         // No external "Client" role in the in-house model (ADR-0001).
         Assert.Equal(
-            new[] { "Admin", "HrDirector", "Recruiter", "HiringManager", "Approver" },
+            new[] { "SuperAdmin", "Admin", "HrDirector", "Recruiter", "HiringManager", "Approver", "Interviewer" },
             Enum.GetNames<UserRole>());
     }
 }

@@ -67,9 +67,9 @@ docs/           ← this knowledge base
 
 ## Known environment issues
 
-- **`dotnet build` / `dotnet test` have never been run.** No .NET SDK was available in
-  the authoring environment; all C# is unverified. **Run locally before trusting it.**
-  Note this must be done *together with* the .NET 10 upgrade — expect compile errors from
-  both the framework bump and the never-compiled code at once.
+- **The authoring sandbox still cannot build .NET** — no SDK, and `mcr.microsoft.com` /
+  `nuget.org` are blocked by the network allowlist. **CI is the build environment**: every push
+  runs `docker build --target test ./backend`, currently green at 169/169. Push early rather
+  than writing C# you cannot compile.
 - Git operations partly fail on the mounted Windows folder (lock files can't be
   removed by the sandbox). Use a native Windows terminal for git.

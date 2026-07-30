@@ -40,6 +40,7 @@ public class JwtTokenService : ITokenService
             new Claim(ClaimTypes.Role, user.Role.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim("name", user.DisplayName),
+            new Claim("is_super_admin", user.IsSuperAdmin.ToString().ToLowerInvariant()),
         };
 
         var token = new JwtSecurityToken(

@@ -22,6 +22,9 @@ public class AppDbContext : DbContext
     public DbSet<JobApplication> JobApplications => Set<JobApplication>();
     public DbSet<PortalLink> PortalLinks => Set<PortalLink>();
     public DbSet<ApplicationStageHistory> ApplicationStageHistories => Set<ApplicationStageHistory>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
     // Module 1 — Requisition & Approval
     public DbSet<JdTemplate> JdTemplates => Set<JdTemplate>();
@@ -112,6 +115,50 @@ public class AppDbContext : DbContext
             // (ADR-0002 known limitation). Enforcing it here makes that explicit
             // rather than leaving it as a latent ambiguity.
             e.HasIndex(x => x.Email).IsUnique();
+
+            e.HasOne(x => x.CustomRole)
+             .WithMany(r => r.Users)
+             .HasForeignKey(x => x.RoleId)
+             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ---------- Dynamic RBAC (Requirement R2) ----------
+        builder.Entity<Role>(e =>
+        {
+            e.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Code).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Description).HasMaxLength(1000);
+
+            // TenantId + Code unique index (system roles have null TenantId)
+            e.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+        });
+
+        builder.Entity<Permission>(e =>
+        {
+            e.Property(x => x.Module).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Feature).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Action).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Code).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Description).HasMaxLength(1000);
+
+            // Permission Code unique index
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+
+        builder.Entity<RolePermission>(e =>
+        {
+            e.HasKey(x => new { x.RoleId, x.PermissionId });
+
+            e.HasOne(x => x.Role)
+             .WithMany(r => r.RolePermissions)
+             .HasForeignKey(x => x.RoleId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.Permission)
+             .WithMany(p => p.RolePermissions)
+             .HasForeignKey(x => x.PermissionId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ---------- UserDepartment (access set — ADR-0003) ----------
@@ -404,6 +451,7 @@ public class AppDbContext : DbContext
         builder.Entity<ScorecardResponse>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<Note>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<NoteMention>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<Role>().HasQueryFilter(e => e.TenantId == null || e.TenantId == _tenant.TenantId);
 
         base.OnModelCreating(builder);
     }
