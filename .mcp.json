@@ -1,5 +1,12 @@
 {
   "mcpServers": {
+    "lsp": {
+      "command": "node",
+      "args": ["node_modules/lsp-mcp-server/dist/index.js"],
+      "env": {
+        "LSP_LOG_LEVEL": "info"
+      }
+    },
     "github": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
