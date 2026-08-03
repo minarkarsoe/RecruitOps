@@ -46,6 +46,26 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
    * 1. PERMISSION MATRIX GRID & ROLE BUILDER UI
    * ---------------------------------------------------------------- */
   describe('Permission Matrix Grid Toggles & Custom Role Submissions', () => {
+    beforeEach(() => {
+      // The outer beforeEach clears sessionStorage, so these role-builder scenarios ran with
+      // no session. They passed only because hasPermission() granted a null session
+      // everything; the create/edit/delete controls they drive are permission-gated.
+      auth.set({
+        accessToken: 'token-role-admin',
+        expiresAtUtc: '2099-01-01T00:00:00Z',
+        role: 'Recruiter',
+        displayName: 'Role Manager',
+        userId: 'usr-role-admin',
+        isSuperAdmin: false,
+        permissions: [
+          'permission:roles:roles:read',
+          'permission:roles:roles:create',
+          'permission:roles:roles:update',
+          'permission:roles:roles:delete',
+        ],
+      });
+    });
+
     it('toggles an entire module permissions when module checkbox is clicked', () => {
       const handleChange = vi.fn();
       render(
@@ -187,6 +207,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         displayName: 'Admin User',
         userId: 'usr-1',
         isSuperAdmin: false,
+        permissions: [],
       });
     });
 
@@ -346,6 +367,13 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         displayName: 'Recruiter User',
         userId: 'usr-recruiter',
         isSuperAdmin: false,
+        // Needed explicitly now: this overrides the Admin session from the enclosing
+        // beforeEach, and a Recruiter no longer inherits the directory controls by default.
+        permissions: [
+          'permission:users:users:read',
+          'permission:users:users:update',
+          'permission:users:users:delete',
+        ],
       });
 
       render(<UsersPage />);
@@ -375,6 +403,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         isSuperAdmin: true,
         activeTenantId: 'tenant-default',
         activeTenantName: 'Default Tenant',
+        permissions: [],
       });
 
       const handleTenantChange = vi.fn();
@@ -396,6 +425,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         displayName: 'Global Super Admin',
         userId: 'usr-super',
         isSuperAdmin: true,
+        permissions: [],
       });
 
       const handleTenantChange = vi.fn();
@@ -430,6 +460,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         isSuperAdmin: true,
         activeTenantId: 'tenant-acme-corp',
         activeTenantName: 'Acme Corp',
+        permissions: [],
       });
 
       await api('/roles');

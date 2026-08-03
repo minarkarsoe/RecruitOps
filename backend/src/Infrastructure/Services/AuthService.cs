@@ -12,12 +12,18 @@ public class AuthService : IAuthService
     private readonly AppDbContext _db;
     private readonly IPasswordHasher<User> _hasher;
     private readonly ITokenService _tokens;
+    private readonly IPermissionEvaluator _permissions;
 
-    public AuthService(AppDbContext db, IPasswordHasher<User> hasher, ITokenService tokens)
+    public AuthService(
+        AppDbContext db,
+        IPasswordHasher<User> hasher,
+        ITokenService tokens,
+        IPermissionEvaluator permissions)
     {
         _db = db;
         _hasher = hasher;
         _tokens = tokens;
+        _permissions = permissions;
     }
 
     /// <summary>A real hash of a password nobody has, verified against when the account does
@@ -55,6 +61,18 @@ public class AuthService : IAuthService
             return null;
 
         var token = _tokens.CreateToken(user);
-        return new LoginResponse(token.AccessToken, token.ExpiresAtUtc, user.Role.ToString(), user.DisplayName, user.Id);
+
+        // The SPA gates every rendered control on this set. It has to travel with the login
+        // response: without it the client cannot tell "no permissions" from "not told yet",
+        // and the version of hasPermission() that guessed guessed "allow".
+        var permissions = await _permissions.GetUserPermissionsAsync(user.Id, user.TenantId, ct);
+
+        return new LoginResponse(
+            token.AccessToken,
+            token.ExpiresAtUtc,
+            user.Role.ToString(),
+            user.DisplayName,
+            user.Id,
+            permissions.ToArray());
     }
 }

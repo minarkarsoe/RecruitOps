@@ -3,7 +3,98 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-07-30 (latest)
+## 2026-08-03 (latest)
+
+### 🔴 Fixed: permission-aware UX was fail-open — every user saw the full admin UI
+**Why:** `hasPermission()` in `frontend/internal/src/lib/auth.ts` returned `true` for a null
+session and for a session whose `permissions` array was absent, the latter commented as a
+"legacy" fallback. It was not legacy. `LoginResponse` on the backend had **no `Permissions`
+member at all** — the record was `(AccessToken, ExpiresAtUtc, Role, DisplayName, UserId)` —
+so `session.permissions` was permanently `undefined` and that branch was the *only* one
+non-admin users ever reached. Every permission-gated control across 12 files — sidebar
+filtering, `RequirePermission` route guards, and the create/update/delete/approve/publish
+buttons on requisitions, postings, interviews, scorecards, users and roles — rendered for
+everyone. The Milestone 5 "Permission-Aware UX Adaptivity (R5)" work was inert from the day
+it shipped.
+
+**Not a privilege escalation.** `PermissionAuthorizationHandler` re-derives permissions
+server-side from the signed JWT and never trusts client state, so the API always enforced
+correctly. This was UI disclosure: users saw controls that would have 403'd on click.
+
+**Touched:**
+- `backend/src/Application/DTOs/LoginResponse.cs` — added required
+  `IReadOnlyCollection<string> Permissions`.
+- `backend/src/Infrastructure/Services/AuthService.cs` — injects `IPermissionEvaluator`,
+  populates the set via `GetUserPermissionsAsync(user.Id, user.TenantId, ct)`.
+- `packages/types/src/index.ts` — `permissions` on `LoginResponse` optional → **required**,
+  so the compiler flags anything constructing the old shape.
+- `frontend/internal/src/lib/auth.ts` — `hasPermission()` fails closed on null session and on
+  absent/empty permissions. Admin/SuperAdmin bypass retained, mirroring the server handler.
+- Tests: new `frontend/internal/src/lib/auth.test.ts` (9), regressions added to
+  `RequirePermission.test.tsx` and `AppLayout.test.tsx`, two new API tests in
+  `AuthLoginTests.cs` asserting the permission set reaches the wire.
+
+⚠️ **Why the existing tests missed it:** every test constructed its session with an explicit
+`permissions` array — a shape the API never produced. The suites exercised a fiction. Making
+the field required surfaced **8 more call sites** doing the same thing, and flipping the
+default broke **8 tests across 4 files** that had been passing only because of the fail-open
+(three suites rendered permission-gated pages with *no session at all*). Those now establish
+the session their scenario requires.
+
+**Verified:** backend 228/228 (51 domain + 177 api), frontend 189/189 across 22 files,
+`npm run typecheck` clean. `security-reviewer` found no exploitable issue and confirmed the
+server-side boundary independently re-derives permissions from the validated token.
+
+**Carried forward (pre-existing, not introduced here):** `AuthService.LoginAsync` resolves the
+account with `FirstOrDefaultAsync` on email across all tenants, so a duplicate email in two
+tenants resolves an arbitrary one. Already noted in the code's own comment; needs a tenant
+selector or a DB-level uniqueness guarantee.
+
+### 🔧 LSP code intelligence wired up (TypeScript + C#)
+**Why:** Symbol-level navigation (`goToDefinition` / `findReferences` / `hover`) is more
+reliable than text search for tracing shared DTOs in `packages/types` to their backend
+counterparts, and for following Application interfaces to their Infrastructure
+implementations. `grep`/`glob` are now demoted to text and non-code files.
+
+**Touched:**
+- `.mcp.json` — added the `lsp` MCP server (`lsp-mcp-server`, 29 `lsp_*` tools) alongside
+  the existing `github` server.
+- `.lsp-mcp.json` (new) — declares two language servers: `typescript` (overrides the
+  built-in default to use the repo-local `typescript-language-server` rather than requiring
+  a global install) and `csharp` (custom; `csharp-ls` is not one of the bridge's ten
+  built-ins). `requestTimeout` raised to 120 s for Roslyn's solution load.
+- `package.json` — `lsp-mcp-server` and `typescript-language-server` added as exact-pinned
+  root devDependencies. `csharp-ls` 0.26.0 installed as a **global .NET tool** — the one
+  manual per-developer step.
+- `CLAUDE.md` — new "Code Intelligence & LSP Guidelines" section with setup + the warm-up
+  gotcha below.
+
+**Verified end-to-end**, not just configured: both servers start and answer over stdio.
+C# `HasPermissionAttribute` → 18 references across 6 files (controllers + tests).
+
+**All five workspace roots verified live** after restart: `backend/` (csharp-ls, including
+the test projects), `frontend/internal`, `frontend/public`, `packages/ui`, `packages/types`.
+`packages/ui` and `packages/types` have no `tsconfig.json` and resolve via `package.json`
+correctly; Next.js bracket routes (`app/jobs/[token]/page.tsx`) work.
+
+⚠️ **Two gotchas found during verification**, both now in CLAUDE.md:
+
+1. **Cold `find_references` under-reports on TypeScript.** `tsserver` only searches files it
+   has opened. `hasPermission` returned **1 reference / 1 file** cold and **16 references /
+   7 files** after `lsp_index_files`. A one-file answer means "not indexed", not "unused".
+   C# is unaffected (Roslyn loads the whole solution up front).
+
+2. **One tsserver per workspace — query shared types from the consumer side.** Asking for
+   `LoginResponse` references *from* `packages/types` (where it is defined) returns **1**,
+   the declaration alone; asking from `frontend/internal` returns **5**, including the
+   declaration. References resolve outward through the import, never inward. Since
+   `@recruitops/types` is consumed by `frontend/internal`, `frontend/public` and
+   `packages/ui`, a complete contract-consumer sweep means one query per consuming
+   workspace — running it from `packages/types` returns a confident, empty-looking answer.
+
+---
+
+## 2026-07-30
 
 ### ✅ Granular Dynamic RBAC, User Management, Permission-Aware UX & Full E2E Verification
 **Why:** Transition RecruitOps from static role-based checks to a fine-grained, dynamic Role-Based Access Control (RBAC) architecture with user directory management, custom role builder matrix, and permission-aware UX adaptivity across the entire internal web application.

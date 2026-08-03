@@ -27,3 +27,7 @@ infra/secrets/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Office lock/owner files — created while a .docx/.xlsx is open, and they carry
+# the editing user's name. Never useful in history.
+~$*

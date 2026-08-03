@@ -1,0 +1,32 @@
+{
+  "servers": [
+    {
+      "id": "typescript",
+      "extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
+      "languageIds": [
+        "typescript",
+        "typescriptreact",
+        "javascript",
+        "javascriptreact"
+      ],
+      "command": "node",
+      "args": [
+        "node_modules/typescript-language-server/lib/cli.mjs",
+        "--stdio"
+      ],
+      "rootPatterns": ["tsconfig.json", "package.json"]
+    },
+    {
+      "id": "csharp",
+      "extensions": [".cs"],
+      "languageIds": ["csharp"],
+      "command": "csharp-ls",
+      "args": ["--solution", "backend/RecruitOps.sln", "--loglevel", "warning"],
+      "rootPatterns": ["RecruitOps.sln"]
+    }
+  ],
+  "requestTimeout": 120000,
+  "autoStart": true,
+  "logLevel": "info",
+  "idleTimeout": 1800000
+}

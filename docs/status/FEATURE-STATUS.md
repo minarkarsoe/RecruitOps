@@ -1,15 +1,25 @@
 # Feature Status
 
-**Last updated:** 2026-07-30 (Milestone 5 complete — 226/226 backend tests + 60/60 frontend tests green, 0 typecheck errors, Vite build succeeded) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
+**Last updated:** 2026-08-03 (permission-aware UX fail-open fixed — 228/228 backend tests + 189/189 frontend tests green, 0 typecheck errors) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
 
-> ✅ **Backend: 226/226 green** (51 domain + 175 api). Covers Module 1 end to end, login
+> ✅ **Backend: 228/228 green** (51 domain + 177 api). Covers Module 1 end to end, login
 > throttling, department administration, Module 2 requisitions/postings/pipeline, Module 3 interviews/scorecards/notes, and Module 7 Dynamic RBAC & User Management.
 >
 > ✅ **`docker compose up --build` runs** — Postgres + API + both frontends, migrations applying on startup.
 >
-> ✅ **Frontend: 60/60 Vitest passing** across 10 test files, `npm run typecheck` 0 errors across both apps, Vite production build succeeded.
+> ✅ **Frontend: 189/189 Vitest passing** across 22 test files, `npm run typecheck` 0 errors across both apps.
 >
 > ✅ **Granular Dynamic RBAC & Permission-Aware UX complete** — `/api/roles`, `/api/permissions`, `/api/users`, `[HasPermission]` policy attribute, User Directory (`/users`), Role Builder (`/roles`), and dynamic permission-aware UI filtering across navigation sidebar and action buttons.
+>
+> 🔴 **Fixed 2026-08-03 — the permission-aware UX was inert from the day it shipped.**
+> `LoginResponse` had no `Permissions` member, so the SPA's `session.permissions` was always
+> `undefined`, and `hasPermission()` treated "no permissions field" as "unknown → allow".
+> Every gated sidebar link, action button and `RequirePermission` route guard rendered for
+> every user. Server-side `[HasPermission]` enforcement was never affected — the API re-derives
+> permissions from the signed JWT — so this was a UI-disclosure bug, not a privilege
+> escalation. The API now ships the permission set and the client fails closed.
+> **The tests did not catch it because every one of them constructed a session with an
+> explicit `permissions` array — a shape the API never returned.**
 
 ## Summary by module
 

@@ -11,6 +11,11 @@ export interface Session {
   isSuperAdmin?: boolean;
   activeTenantId?: string;
   activeTenantName?: string;
+  /**
+   * Optional here — unlike on the API's `LoginResponse`, where it is required — because a
+   * session persisted in `sessionStorage` before the API shipped the field will not have it.
+   * `hasPermission()` treats absent as "no permissions", never as "allow".
+   */
   permissions?: string[];
 }
 
@@ -136,12 +141,30 @@ export function isSuperAdmin(session: Session | null): boolean {
   return !!session.isSuperAdmin || session.role === 'SuperAdmin';
 }
 
+/**
+ * Whether to *render* a permission-gated control. Fails closed on every uncertain input.
+ *
+ * ⚠️ This function used to return `true` for a null session and for a session whose
+ * `permissions` array was absent — the latter commented as a "legacy" fallback. It was not
+ * legacy: the login endpoint never sent `permissions` at all, so that branch was the only
+ * one non-admin users ever reached, and every gated button, sidebar link and route guard in
+ * the app silently rendered for everyone. The tests missed it because they all constructed
+ * sessions with an explicit `permissions` array, a shape the API never actually returned.
+ *
+ * The rule now: unknown means no. An empty array is a real answer ("this user has nothing
+ * granted"), and absence — an old session in `sessionStorage` from before the API shipped
+ * the field — is treated the same way rather than being read as permission to proceed.
+ *
+ * Admin and SuperAdmin still bypass, mirroring `PermissionAuthorizationHandler` server-side.
+ *
+ * As with the role predicates above: this decides what to render, never what is allowed.
+ * The API re-answers every check.
+ */
 export function hasPermission(session: Session | null, permissionCode: string): boolean {
-  if (!session) return true;
+  if (!session) return false;
   if (isSuperAdmin(session)) return true;
   if (session.role === 'Admin') return true;
-  if (!session.permissions) return true; // Default fallback if permissions array is unpopulated (legacy)
-  return session.permissions.includes(permissionCode);
+  return session.permissions?.includes(permissionCode) ?? false;
 }
 
 

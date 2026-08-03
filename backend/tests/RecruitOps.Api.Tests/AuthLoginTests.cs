@@ -30,6 +30,47 @@ public class AuthLoginTests : IClassFixture<CustomWebAppFactory>
         Assert.Contains(jwt.Claims, c => c.Value == "Admin");
     }
 
+    /// <summary>
+    /// The login response must carry the user's permission codes.
+    ///
+    /// This is a regression guard, not a nicety. `LoginResponse` previously had no
+    /// `Permissions` member at all, so the SPA's `session.permissions` was permanently
+    /// `undefined` — and the client's `hasPermission()` read "no permissions field" as
+    /// "permissions unknown, allow", handing every user the full admin UI. Nothing on
+    /// either side failed; the contract just quietly had a hole in it.
+    /// </summary>
+    [Fact]
+    public async Task Login_Response_Carries_Permission_Codes()
+    {
+        var res = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login",
+            new LoginRequest { Email = CustomWebAppFactory.AdminEmail, Password = CustomWebAppFactory.AdminPassword });
+
+        res.EnsureSuccessStatusCode();
+        var body = await res.Content.ReadFromJsonAsync<LoginResponse>();
+
+        Assert.NotNull(body);
+        Assert.NotNull(body!.Permissions);
+        Assert.NotEmpty(body.Permissions);
+        Assert.All(body.Permissions, code => Assert.StartsWith("permission:", code));
+    }
+
+    /// <summary>
+    /// The field has to survive JSON serialization under the real casing policy — asserting
+    /// on the deserialized DTO alone would still pass if the property never reached the wire.
+    /// </summary>
+    [Fact]
+    public async Task Login_Response_Serializes_Permissions_To_The_Wire()
+    {
+        var res = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login",
+            new LoginRequest { Email = CustomWebAppFactory.AdminEmail, Password = CustomWebAppFactory.AdminPassword });
+
+        res.EnsureSuccessStatusCode();
+        var raw = await res.Content.ReadAsStringAsync();
+
+        Assert.Contains("permissions", raw, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("permission:", raw, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Wrong_Password_Is_401()
     {

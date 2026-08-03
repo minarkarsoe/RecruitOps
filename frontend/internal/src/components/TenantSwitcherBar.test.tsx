@@ -16,6 +16,7 @@ describe('TenantSwitcherBar', () => {
       displayName: 'Normal Admin',
       userId: 'usr-admin',
       isSuperAdmin: false,
+      permissions: [],
     });
 
     const { container } = render(<TenantSwitcherBar />);
@@ -30,6 +31,7 @@ describe('TenantSwitcherBar', () => {
       displayName: 'Super Admin',
       userId: 'usr-super',
       isSuperAdmin: true,
+      permissions: [],
     });
 
     render(<TenantSwitcherBar />);
@@ -45,6 +47,7 @@ describe('TenantSwitcherBar', () => {
       displayName: 'Super Admin',
       userId: 'usr-super',
       isSuperAdmin: true,
+      permissions: [],
     });
 
     const handleTenantChange = vi.fn();
