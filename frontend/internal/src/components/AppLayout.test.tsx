@@ -61,6 +61,33 @@ describe('AppLayout Permission-Aware Navigation', () => {
     expect(screen.queryByText('Role Builder')).not.toBeInTheDocument();
   });
 
+  it('hides every gated link when the session carries no permissions array', () => {
+    // Regression: this is the shape the API actually returned before `permissions` was added
+    // to LoginResponse. `hasPermission()` read the missing array as "unknown, allow", so a
+    // plain Recruiter was served the full admin sidebar — Users and Role Builder included.
+    sessionStorage.setItem(
+      'recruitops.session',
+      JSON.stringify({
+        accessToken: 'token-pre-rbac',
+        expiresAtUtc: '2099-01-01T00:00:00Z',
+        role: 'Recruiter',
+        displayName: 'Pre-RBAC Recruiter',
+        userId: 'usr-pre-rbac',
+      })
+    );
+
+    render(
+      <MemoryRouter>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByText('Users')).not.toBeInTheDocument();
+    expect(screen.queryByText('Role Builder')).not.toBeInTheDocument();
+    expect(screen.queryByText('Requisitions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Job postings')).not.toBeInTheDocument();
+  });
+
   it('renders Users and Role Builder when appropriate permissions are assigned', () => {
     auth.set({
       accessToken: 'token-custom-admin',

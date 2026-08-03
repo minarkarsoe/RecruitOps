@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { InterviewScorecards, MyScorecard, SaveScorecardRequest } from '@recruitops/types';
 import { ApiError } from '../lib/api';
+import { auth } from '../lib/auth';
 import { InterviewDetailPage } from './InterviewDetailPage';
 import { interview, myScorecard, panel, scorecard } from '../test/fixtures';
 
@@ -14,6 +15,21 @@ import { interview, myScorecard, panel, scorecard } from '../test/fixtures';
  * view bug — it looks like the *rule* is wrong, which is the expensive kind of wrong. So
  * each of the three is pinned by what the page actually says.
  */
+
+// The scorecard submit control is permission-gated. These suites ran with no session and
+// still rendered it, because hasPermission() granted a null session everything.
+beforeEach(() => {
+  sessionStorage.clear();
+  auth.set({
+    accessToken: 'token-interviewer',
+    expiresAtUtc: '2099-01-01T00:00:00Z',
+    role: 'Recruiter',
+    displayName: 'Panel Interviewer',
+    userId: 'usr-interviewer',
+    isSuperAdmin: false,
+    permissions: ['permission:scorecards:scorecards:submit'],
+  });
+});
 
 const { apiMock } = vi.hoisted(() => ({ apiMock: vi.fn() }));
 

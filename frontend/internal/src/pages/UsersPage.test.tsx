@@ -34,6 +34,7 @@ describe('UsersPage', () => {
       displayName: 'Admin User',
       userId: 'usr-1',
       isSuperAdmin: false,
+      permissions: [],
     });
 
     (userService.getUsers as any).mockResolvedValue(mockPagedUsers);
