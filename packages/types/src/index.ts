@@ -36,7 +36,12 @@ export interface LoginResponse {
   tenantId?: string;
   activeTenantId?: string;
   activeTenantName?: string;
-  permissions?: string[];
+  /**
+   * The user's resolved permission codes. Required, not optional: `hasPermission()` must be
+   * able to distinguish "no permissions" (empty array) from "not sent" — when this was
+   * optional, the missing case was read as "unknown, allow" and every user saw the full UI.
+   */
+  permissions: string[];
 }
 
 // ---------- RBAC & User Management (Milestone 4) ----------
