@@ -71,7 +71,7 @@ packages/
 | Task | Command |
 |---|---|
 | Backend build | `dotnet build backend/src/Api` |
-| Backend test | `dotnet test backend/RecruitOps.sln` (226 tests passing: 51 Domain + 175 Api) |
+| Backend test | `dotnet test backend/RecruitOps.sln` (228 tests passing: 51 Domain + 177 Api) |
 | Backend format | `dotnet format` |
 | Backend build + test in Docker | `docker build --target test -t recruitops-test ./backend` |
 | Whole stack | `docker compose up --build` |
@@ -79,7 +79,7 @@ packages/
 | Public app dev | `npm run dev:public` (repo root) |
 | Frontend build | `npm run build` (repo root, all workspaces) |
 | Frontend typecheck | `npm run typecheck` (repo root) |
-| Frontend test | `npm run test` in `frontend/internal` (60 tests passing across 10 test files) |
+| Frontend test | `npm run test` in `frontend/internal` (189 tests passing across 22 test files) |
 
 > No local .NET SDK? `docker build --target test ./backend` compiles and runs the whole
 > suite inside the SDK image. New EF migrations: see `docs/architecture/local-development.md`.
@@ -101,6 +101,89 @@ packages/
 ### Git
 - Conventional Commits: `feat|fix|chore|refactor|test|docs(scope): description`
 - One logical change per commit. Don't mix backend and frontend changes in one commit unless the change genuinely spans both (e.g. a shared API contract update).
+
+## Code Intelligence & LSP Guidelines
+
+Navigate code by **symbol**, not by string match. When an LSP is available, prefer it over
+text search for anything that has a definition.
+
+- **TypeScript / JS / Next.js / Nest.js / Node.js** (`frontend/internal`, `frontend/public`,
+  `packages/ui`, `packages/types`): use LSP `goToDefinition`, `findReferences`, and `hover`
+  to trace types, DTOs, controllers, and React components across files. Especially important
+  for shared types in `packages/types`, which mirror backend DTOs — `findReferences` shows
+  every consumer of a contract before you change its shape.
+- **C# / .NET** (`backend/src/**`): use LSP to inspect `.cs` interfaces, dependency-injection
+  bindings, and class definitions. Use it to follow an Application interface to its
+  Infrastructure implementation rather than guessing from file names, and to find every
+  endpoint carrying a given `[HasPermission(...)]` policy.
+- **Python:** use the Pyright LSP to check type hints and module definitions. (No Python in
+  this repo today — this applies to scripts or tooling added later.)
+- Reserve `grep` and `glob` strictly for text searches or non-code files (`.json`, `.csproj`,
+  `.env`, `.md`, migrations SQL). Symbol lookups go through the LSP — with one exception:
+  `grep` is the right way to build the candidate file list that feeds `lsp_index_files` on
+  the TypeScript side (see the warm-up note below).
+
+### Setup
+
+The `lsp` MCP server is declared in `.mcp.json`; the language servers it drives are
+declared in `.lsp-mcp.json`. It exposes 29 `lsp_*` tools (`lsp_goto_definition`,
+`lsp_find_references`, `lsp_hover`, `lsp_call_hierarchy`, `lsp_rename`, …).
+
+| Piece | Package | Install |
+|---|---|---|
+| MCP bridge | `lsp-mcp-server` (root devDependency) | `npm install` |
+| TS/JS server | `typescript-language-server` (root devDependency) | `npm install` |
+| C# server | `csharp-ls` (global .NET tool) | `dotnet tool install --global csharp-ls` |
+
+`npm install` covers the two Node pieces. **`csharp-ls` is the one manual step** — it is a
+global tool, not a repo dependency, so each developer installs it once. Without it the
+TypeScript side still works and C# requests fail with a "server not found" error.
+
+Workspace roots resolve automatically: `frontend/internal` (and the other npm workspaces)
+via `tsconfig.json`/`package.json`, and `backend/` via `RecruitOps.sln`.
+
+### ⚠️ TypeScript references need a warm-up first
+
+`tsserver` only searches files it has already opened, so a cold `lsp_find_references` on a
+TS symbol **silently under-reports** — it returns the declaration and nothing else. Measured
+on `hasPermission` in `frontend/internal/src/lib/auth.ts`:
+
+- cold → **1 reference, 1 file**
+- after `lsp_index_files` on the consuming files → **16 references, 7 files**
+
+So for TypeScript: `grep` first to get the candidate file list, feed it to `lsp_index_files`,
+*then* call `lsp_find_references`. A one-file answer on a symbol you expect to be shared is
+the tell that you skipped the warm-up — treat it as "not indexed yet", not as "unused".
+
+**C# does not have this problem** — `csharp-ls` loads the whole solution at startup, so
+`lsp_find_references` is complete from the first call (verified: `HasPermissionAttribute`
+returns 18 references across 6 files, tests included). The trade-off is a slow first
+request while Roslyn loads the solution; `requestTimeout` in `.lsp-mcp.json` is raised to
+120 s for that reason.
+
+### ⚠️ One tsserver per workspace — query shared types from the *consumer* side
+
+Each npm workspace gets its **own** `tsserver` process (verified: five servers run at once —
+one `csharp-ls` on `backend/`, plus one each for `frontend/internal`, `frontend/public`,
+`packages/ui`, `packages/types`). A server only sees files under its own root, and that has
+one sharp consequence for `packages/types`:
+
+| Query from | Result for `LoginResponse` |
+|---|---|
+| `packages/types/src/index.ts` (where it's **defined**) | **1** — the declaration only. Every consumer is invisible. |
+| `frontend/internal/src/lib/auth.ts` (a **consumer**) | **5** — all local usages *plus* the declaration in `packages/types`. |
+
+References resolve *outward* through the `@recruitops/types` import, never inward. So the
+CLAUDE.md rule "find every consumer of a contract before you change its shape" **must not be
+run from `packages/types`** — that returns a confident, empty-looking answer.
+
+`@recruitops/types` is consumed by three workspaces — `frontend/internal`, `frontend/public`
+and `packages/ui`. A complete answer means repeating the query once per consuming workspace,
+or falling back to `grep` for the initial sweep and using the LSP to confirm each hit.
+
+Two smaller notes from the same check: `packages/ui` and `packages/types` have **no
+`tsconfig.json`** (they resolve via `package.json` instead) and still answer correctly; and
+Next.js App Router paths containing brackets — `app/jobs/[token]/page.tsx` — work fine.
 
 ## Guardrails for Claude
 
