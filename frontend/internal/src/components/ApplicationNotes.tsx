@@ -134,9 +134,9 @@ export function ApplicationNotes({
                 {/* Only what the server actually resolved. A handle that matched nobody the
                     author can see is a silent no-op by design (ADR-0018), so listing what we
                     hoped for would be a promise the system did not make. */}
-                {note.mentions.length > 0 && (
+                {(note.mentions?.length ?? 0) > 0 && (
                   <p className="mt-1 text-[13px] text-ink-400">
-                    Mentioned: {note.mentions.map((m) => m.displayName).join(', ')}
+                    Mentioned: {note.mentions?.map((m) => m.displayName).join(', ')}
                   </p>
                 )}
               </li>

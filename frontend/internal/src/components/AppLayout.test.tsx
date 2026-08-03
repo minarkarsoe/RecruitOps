@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppLayout } from './AppLayout';
 import { auth } from '../lib/auth';
@@ -109,5 +109,87 @@ describe('AppLayout Permission-Aware Navigation', () => {
     expect(screen.getByText('Role Builder')).toBeInTheDocument();
     expect(screen.queryByText('Requisitions')).not.toBeInTheDocument();
     expect(screen.queryByText('Job postings')).not.toBeInTheDocument();
+  });
+
+  it('opens Command Palette when Ctrl+K keyboard shortcut is pressed', () => {
+    auth.set({
+      accessToken: 'token-super',
+      expiresAtUtc: '2099-01-01T00:00:00Z',
+      role: 'SuperAdmin',
+      displayName: 'Super User',
+      userId: 'usr-super',
+      isSuperAdmin: true,
+      permissions: [],
+    });
+
+    render(
+      <MemoryRouter>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+
+    expect(screen.getByRole('dialog', { name: /command palette/i })).toBeInTheDocument();
+  });
+
+  it('updates Breadcrumbs dynamically based on the current location route', () => {
+    auth.set({
+      accessToken: 'token-super',
+      expiresAtUtc: '2099-01-01T00:00:00Z',
+      role: 'SuperAdmin',
+      displayName: 'Super User',
+      userId: 'usr-super',
+      isSuperAdmin: true,
+      permissions: [],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/requisitions/req-123/edit']}>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    const breadcrumbNav = screen.getByRole('navigation', { name: /breadcrumb/i });
+    expect(breadcrumbNav).toBeInTheDocument();
+    expect(screen.getAllByText('Requisitions').length).toBeGreaterThan(0);
+    expect(screen.getByText('Requisition Details')).toBeInTheDocument();
+    expect(screen.getByText('Edit')).toBeInTheDocument();
+  });
+
+  it('allows searching and route navigation via Command Palette', () => {
+    auth.set({
+      accessToken: 'token-super',
+      expiresAtUtc: '2099-01-01T00:00:00Z',
+      role: 'SuperAdmin',
+      displayName: 'Super User',
+      userId: 'usr-super',
+      isSuperAdmin: true,
+      permissions: [],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    const searchBtn = screen.getByRole('button', { name: /search commands/i });
+    fireEvent.click(searchBtn);
+
+    const dialog = screen.getByRole('dialog', { name: /command palette/i });
+    expect(dialog).toBeInTheDocument();
+
+    const input = screen.getByPlaceholderText(/type a command or search/i);
+    fireEvent.change(input, { target: { value: 'Role Builder' } });
+
+    const roleOption = within(dialog).getByText('Role Builder');
+    expect(roleOption).toBeInTheDocument();
+
+    fireEvent.click(roleOption);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
