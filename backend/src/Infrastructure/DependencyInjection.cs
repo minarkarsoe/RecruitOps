@@ -15,8 +15,17 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services, IConfiguration config)
     {
-        services.AddDbContext<AppDbContext>(opt =>
-            opt.UseNpgsql(config.GetConnectionString("Default")));
+        var connStr = config.GetConnectionString("Default");
+        if (string.Equals(connStr, "InMemory", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(connStr, "UseInMemoryDatabase", StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrEmpty(connStr))
+        {
+            services.AddDbContext<AppDbContext>(opt => opt.UseInMemoryDatabase("RecruitOpsDev"));
+        }
+        else
+        {
+            services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(connStr));
+        }
 
         services.AddSingleton(TimeProvider.System);
         services.AddMemoryCache();
