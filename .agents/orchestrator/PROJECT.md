@@ -1,31 +1,66 @@
-# Project: RecruitOps Comprehensive Audit & End-to-End Verification
+# Project: RecruitOps Sprint 0 Infrastructure Foundation
 
 ## Architecture
-- Backend: .NET 10 (Clean Architecture: Domain, Application, Infrastructure, Api), PostgreSQL, Docker Compose
-- Frontends:
-  - Internal SPA (`frontend/internal`): Vite + React + TypeScript
-  - Public SSR app (`frontend/public`): Next.js + React + TypeScript
-- Auth: JWT + RBAC (Admin, HrDirector, Recruiter, HiringManager, Approver)
-- Multi-tenancy: Query filters for tenant isolation
-- Scope: Modules 1-3 (Module 1: Requisition & Approval, Module 2: ATS & Sourcing, Module 3: Interview & Assessment)
+- **Clean Architecture (.NET 10 LTS)**: `backend/src/Domain`, `backend/src/Application`, `backend/src/Infrastructure`, `backend/src/Api`.
+- **Shared Types Package**: `packages/types`.
+- **Frontend CRM**: `frontend/internal`.
+
+## Feature Inventory
+| # | Feature | Description | Milestone | Source |
+|---|---------|-------------|-----------|--------|
+| 1 | IFileStorage Interface & DTOs | Application layer storage abstraction (Upload, Download, Delete, PresignedUrl) | M1 | ORIGINAL_REQUEST R1 |
+| 2 | S3FileStorage & MinIO/R2 Config | S3-compatible storage service in Infrastructure with MinIO local & Cloudflare R2 support | M1 | ORIGINAL_REQUEST R1 |
+| 3 | Storage Unit & Integration Tests | 3+ tests covering storage operations & service DI registration | M1 | ORIGINAL_REQUEST R1 |
+| 4 | IMyanmarScriptNormalizer Interface | Application layer normalization service contract | M2 | ORIGINAL_REQUEST R2 |
+| 5 | MyanmarScriptNormalizer Implementation | In-process Zawgyi detection + regex conversion + Unicode NFC normalization | M2 | ORIGINAL_REQUEST R2 |
+| 6 | MyanmarScriptNormalizer Unit Tests | 5+ unit tests covering pure Unicode, Zawgyi, mixed, empty/null, Burmese sentence | M2 | ORIGINAL_REQUEST R2 |
+| 7 | RefreshToken Entity & EF Migration | Domain entity `RefreshToken`, DbContext mapping, EF migration | M3 | ORIGINAL_REQUEST R3 |
+| 8 | Auth Refresh & Revocation Service/Endpoints | `POST /api/auth/refresh` & `revoke`, token rotation, revocation, 401 handling | M3 | ORIGINAL_REQUEST R3 |
+| 9 | Shared Types & Frontend Silent Refresh | Update `@recruitops/types` and frontend `auth.ts` for silent refresh | M3 | ORIGINAL_REQUEST R3 |
+| 10| Refresh Token Integration Tests | 5+ backend tests covering valid, expired, revoked, reuse detection, login pair | M3 | ORIGINAL_REQUEST R3 |
+| 11| Cross-Cutting E2E Verification | All 228+ backend + 189+ frontend tests pass, 0 typecheck errors, docker build clean | M4 | ORIGINAL_REQUEST Verification |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | Existing Test Suite & Typecheck Validation | Run 169 backend tests, 27 frontend Vitest tests, `npm run typecheck`, inspect assertion quality | none | DONE |
-| 2 | Backend API Audit & Data Integrity | Audit authorization matrix, business logic, tenant isolation, department scoping, known gaps (R1) | M1 | DONE |
-| 3 | Frontend UI Workflow & Behavior Verification | Verify internal SPA flows, public app flows, and 3 specific UI gaps (panel picker, blind state, .mention) (R2) | M1 | DONE |
-| 4 | End-to-End Integration Testing | Write and execute API integration tests for full user journey from requisition to scorecard & stage history (R4) | M2, M3 | DONE |
-| 5 | Gap Analysis & Findings Report | Synthesize all findings into structured report (🔴/🟡/🟢), update known gaps status, production recommendations (R5) | M1, M2, M3, M4 | DONE |
+| M1 | Object Storage Abstraction (R1) | `IFileStorage` interface, `S3FileStorage` implementation, options/appsettings, docker-compose, 3+ tests | None | DONE |
+| M2 | Myanmar Script Normalization (R2) | `IMyanmarScriptNormalizer` interface, in-process Zawgyi->Unicode converter, DI, 5+ unit tests | None | DONE |
+| M3 | Refresh Token Mechanism (R3) | `RefreshToken` DB entity & migration, `POST /api/auth/refresh`, revocation, 5+ tests, `@recruitops/types` & `auth.ts` | None | PLANNED |
+| M4 | Final E2E Integration & Verification | Backend + frontend test execution, typecheck, docker build validation | M1, M2, M3 | PLANNED |
 
 ## Interface Contracts
-- Backend API endpoints: REST API `/api/...` returning JSON payloads
-- Auth Header: `Authorization: Bearer <jwt_token>`
-- Tenant Isolation: TenantId claims in JWT claims & EF Core global query filters
+### Application Layer Storage Abstraction (M1) - [DONE]
+- Interface: `IFileStorage` (`backend/src/Application/Interfaces/IFileStorage.cs`)
+- Operations:
+  - `Task<UploadFileResponse> UploadAsync(UploadFileRequest request, CancellationToken cancellationToken = default)`
+  - `Task<StorageObject?> DownloadAsync(string fileKey, CancellationToken cancellationToken = default)`
+  - `Task<bool> DeleteAsync(string fileKey, CancellationToken cancellationToken = default)`
+  - `Task<string> GetPresignedUrlAsync(PresignedUrlRequest request, CancellationToken cancellationToken = default)`
+  - `Task<bool> ExistsAsync(string fileKey, CancellationToken cancellationToken = default)`
+
+### Application Layer Myanmar Script Normalizer (M2) - [DONE]
+- Interface: `IMyanmarScriptNormalizer` (`backend/src/Application/Interfaces/IMyanmarScriptNormalizer.cs`)
+- Operations:
+  - `string Normalize(string? input)`
+  - `bool IsZawgyi(string? input)`
+
+### Auth Refresh Token Interface & DTOs (M3)
+- Endpoint: `POST /api/auth/refresh`
+  - Request: `{ refreshToken: string }`
+  - Response: `{ accessToken: string, refreshToken: string, tokenType: "Bearer", expiresIn: number }`
+- Shared Types (`packages/types/src/index.ts`):
+  - `RefreshRequest`, updated `LoginResponse` / `AuthResponse`.
 
 ## Code Layout
-- Backend: `backend/src/` (Domain, Application, Infrastructure, Api), `backend/tests/`
-- Frontend Internal: `frontend/internal/src/`
-- Frontend Public: `frontend/public/src/`
-- Documentation: `docs/status/FEATURE-STATUS.md`, `docs/status/NEXT-SESSION.md`, `CLAUDE.md`
-- Agent Workspace: `.agents/`
+- `backend/src/Application/Interfaces/IFileStorage.cs`
+- `backend/src/Application/DTOs/StorageDtos.cs`
+- `backend/src/Infrastructure/Services/FileStorage/S3FileStorage.cs`
+- `backend/src/Infrastructure/Options/FileStorageOptions.cs`
+- `backend/src/Application/Interfaces/IMyanmarScriptNormalizer.cs`
+- `backend/src/Infrastructure/Services/MyanmarScript/MyanmarScriptNormalizer.cs`
+- `backend/src/Domain/Entities/RefreshToken.cs`
+- `backend/src/Infrastructure/Persistence/Migrations/`
+- `backend/src/Application/Services/AuthService.cs`
+- `backend/src/Api/Controllers/AuthController.cs`
+- `packages/types/src/`
+- `frontend/internal/src/services/auth.ts`

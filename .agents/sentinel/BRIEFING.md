@@ -1,28 +1,26 @@
-# BRIEFING — 2026-08-03T10:43:46Z
+# BRIEFING — 2026-08-07T21:24:00Z
 
 ## Mission
-Refactor RecruitOps frontend into a modern high-density Ashby/Linear-style Recruit CRM with feature-based architecture.
+Build CV Upload & Local Text Extraction Flow (Person A - Flow 1): CV file upload API, local document text extraction (PDF, DOCX, image OCR fallback with Zawgyi→Unicode normalization via IMyanmarScriptNormalizer), bulk CV background processing job, drag-and-drop upload UI inside Candidate 360 SlideOver, and parsed data human-review/confirmation panel.
 
 ## 🔒 My Identity
 - Archetype: sentinel
 - Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\sentinel
-- Orchestrator: cba658b6-613b-4fb0-a41c-da9fcfe37ef8
-- Victory Auditor: TBD
-- Cron 1 Task ID: task-13
-- Cron 2 Task ID: task-15
+- Orchestrator: 1fa70592-c1be-4b51-9e84-2eac90b569ea (Gen 6)
+- Victory Auditor: to be spawned on victory claim
 
 ## 🔒 Key Constraints
 - No technical decisions — relay only
 - Victory Audit is MANDATORY before reporting completion
-- Run progress reporting cron (*/8 * * * *) and liveness check cron (*/10 * * * *)
+- Must manage Project Orchestrator subagent and set up monitoring crons
 
 ## User Context
-- **Last user request**: Frontend refactor into modern high-density Recruit CRM with UI primitives, redesigned layout, feature-based refactor, and clean verification passing.
+- **Last user request**: Build complete CV Upload & Local Text Extraction Flow (R1 Backend API & extraction, R2 Bulk upload job, R3 Candidate 360 & Parsed Profile UI).
 - **Pending clarifications**: none
 - **Delivered results**: none
 
 ## Project Status
-- **Phase**: in progress
+- **Phase**: starting
 
 ## Victory Audit Status
 - **Triggered**: no
@@ -30,5 +28,6 @@ Refactor RecruitOps frontend into a modern high-density Ashby/Linear-style Recru
 - **Retry count**: 0
 
 ## Artifact Index
-- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\ORIGINAL_REQUEST.md — Original User Request
-- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\ORIGINAL_REQUEST.md — Original User Request (root)
+- `.agents/ORIGINAL_REQUEST.md` — Verbatim original user request
+- `.agents/sentinel/BRIEFING.md` — Sentinel operational briefing index
+

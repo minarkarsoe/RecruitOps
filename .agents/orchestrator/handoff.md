@@ -1,43 +1,47 @@
-# Soft Handoff Report — Orchestrator Generation 1
+# Soft Handoff Report — Orchestrator Generation 1 -> Generation 2
 
 ## Milestone State
-- **Milestone 1 (Design System & UI Primitives)**: DONE (Gate PASSED - 5/5 CLEAN/APPROVE verdicts)
-- **Milestone 2 (App Layout & Command Palette)**: DONE (Gate PASSED - 5/5 CLEAN/APPROVE verdicts)
-- **Milestone 3 (Feature Modules Reconstruct)**: IN_PROGRESS (Gate FAILED - 3 APPROVE, 1 REQUEST_CHANGES, 1 INTEGRITY VIOLATION due to uncaught TypeError in `ApplicationNotes.tsx:134:32` when `note.mentions` is undefined)
-- **Milestone 4 (Integration & Verification)**: PLANNED
+| Milestone | Description | Status | Verification Summary |
+|-----------|-------------|--------|----------------------|
+| M1 | Object Storage Abstraction (R1) | **DONE** | GATE PASSED (CLEAN Audit, 304/304 tests passing) |
+| M2 | Myanmar Script Normalization (R2) | **DONE** | GATE PASSED (CLEAN Audit, 327/327 tests passing) |
+| M3 | Refresh Token Mechanism (R3) | **PLANNED** | Ready for iteration loop execution based on `survey_r3.md` |
+| M4 | Final E2E Integration & Quality Verification | **PLANNED** | Cross-cutting backend/frontend tests, typecheck, docker build |
+
+## Observation & Logic Chain
+- Initial survey completed by 3 parallel explorers (`survey_r1.md`, `survey_r2.md`, `survey_r3.md`).
+- Milestone 1 implemented `IFileStorage` and `S3FileStorage` in `Infrastructure/Services/FileStorage/`. Passed all reviewers, challengers, and forensic audit cleanly.
+- Milestone 2 implemented `IMyanmarScriptNormalizer` and `MyanmarScriptNormalizer` in `Infrastructure/Services/MyanmarScript/`. First iteration flagged a false-positive Zawgyi regex pattern for standard Unicode Asat sequences (`သစ်သား`). Remediation iteration fixed `ZawgyiExclusiveRegex` and `SubjoinedRules`, passing all 327 backend tests cleanly with a CLEAN audit verdict.
 
 ## Active Subagents
-None (all 21 spawned subagents have completed and delivered handoffs).
+- None currently active or pending.
 
-## Pending Decisions & Gate Remediation
-- **Milestone 3 Failure Remediation**:
-  - The Forensic Auditor (`auditor_m3_1`) and Reviewer 2 (`reviewer_m3_2`) identified an unhandled runtime `TypeError: Cannot read properties of undefined (reading 'length')` in `frontend/internal/src/components/ApplicationNotes.tsx:134:32` when rendering a note object where `note.mentions` is undefined/null (e.g. `(note.mentions?.length ?? 0) > 0`).
-  - Full Auditor Evidence Report: `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\auditor_m3_1\handoff.md`
-  - Full Reviewer 2 Report: `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\reviewer_m3_2\handoff.md`
-  - The successor must start by spawning an Explorer (`explorer_m3_retry_1`) equipped with the full auditor evidence report to formulate a fix strategy, then dispatch a Worker (`worker_m3_retry_1`) to implement the fix in `ApplicationNotes.tsx` (and `features/pipeline` / `features/interviews`), verify with `npm run test` and `npm run typecheck`, and run the gate check (Reviewers, Challengers, Auditor).
+## Remaining Work for Successor (Generation 2)
+1. **Execute Milestone 3 (Refresh Token Mechanism R3)**:
+   - Read `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\teamwork_preview_explorer_survey_3\survey_r3.md`.
+   - Dispatch Worker (`teamwork_preview_worker`) for M3 implementation:
+     - `RefreshToken` entity in `Domain/Entities/RefreshToken.cs` inheriting `BaseEntity`, `ITenantScoped`.
+     - `AppDbContext` mapping & EF migration in `Infrastructure/Persistence/Migrations/`.
+     - `POST /api/auth/refresh` & `POST /api/auth/revoke` in `AuthController` & `AuthService`/`JwtTokenService`.
+     - Update `@recruitops/types` package and frontend `auth.ts` / `api.ts` for silent refresh.
+     - Add 5+ tests covering valid refresh, expired refresh, revoked refresh, token reuse detection, and login refresh token pair.
+   - Run Gate Panel (2 Reviewers, 2 Challengers, 1 Forensic Auditor) for Milestone 3.
 
-## Remaining Work for Successor
-1. **Fix Milestone 3**:
-   - Dispatch `explorer_m3_retry_1` with full auditor report from `.agents/auditor_m3_1/handoff.md`.
-   - Dispatch worker to fix `ApplicationNotes.tsx` safely (`note.mentions?.length > 0` or default `mentions: []`).
-   - Run verification gate for M3 (Reviewers, Challengers, Auditor).
-   - Upon Gate PASS, update `PROJECT.md` M3 Status -> `DONE`, M4 -> `IN_PROGRESS`.
-2. **Execute Milestone 4 (Page Integration & Quality Verification)**:
-   - Connect feature modules (`features/requisitions`, `features/pipeline`, `features/interviews`) into application pages (`RequisitionsPage.tsx`, `JobPostingDetailPage.tsx`, `InterviewDetailPage.tsx`, `App.tsx`).
-   - Ensure Candidate 360 profile drawer opens instantly without full page refresh.
-   - Ensure Ctrl+K Command Palette opens globally and allows search & navigation.
-   - Dispatch Worker M4, then 5 verification agents (Reviewers, Challengers, Auditor).
-   - Upon Gate PASS, update `PROJECT.md` M4 Status -> `DONE`.
-3. **Final Verification**:
-   - Confirm `npm run typecheck` passes with 0 errors across all workspaces.
-   - Confirm `npm run test` in `frontend/internal` passes clean.
-   - Present final success report to user.
+2. **Execute Milestone 4 (Final E2E Integration & Quality Verification)**:
+   - Verify backend tests: `dotnet test backend/RecruitOps.sln` (228 existing + new tests pass).
+   - Verify frontend tests: `npm run test` in `frontend/internal` (189 tests pass).
+   - Verify typecheck: `npm run typecheck` (0 errors across all workspaces).
+   - Verify docker compose build.
+   - Run final Forensic Auditor (`teamwork_preview_auditor`).
 
-## Key Artifacts Index
-- `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\ORIGINAL_REQUEST.md` — User request
-- `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\PROJECT.md` — Project scope & milestone tracker
-- `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\orchestrator\DISPATCH.md` — Dispatch record
-- `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\orchestrator\BRIEFING.md` — Orchestrator briefing state
-- `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\orchestrator\progress.md` — Progress log
-- `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\orchestrator\GATE_STATUS.md` — Gate verdicts
-- `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\auditor_m3_1\handoff.md` — Full audit evidence report for M3 failure
+3. **Report Project Completion to Sentinel**:
+   - Send final project completion message to Sentinel (`cfc6b3c5-95b2-4d61-83cf-635993aeb66d`).
+
+## Key Artifacts
+- `.agents/ORIGINAL_REQUEST.md` — Original verbatim request
+- `.agents/orchestrator/PROJECT.md` — Feature inventory & milestone decomposition
+- `.agents/orchestrator/GATE_STATUS.md` — Gate verdicts history
+- `.agents/orchestrator/progress.md` — Execution progress log
+- `.agents/teamwork_preview_explorer_survey_1/survey_r1.md` — R1 Storage Survey
+- `.agents/teamwork_preview_explorer_survey_2/survey_r2.md` — R2 Myanmar Script Survey
+- `.agents/teamwork_preview_explorer_survey_3/survey_r3.md` — R3 Refresh Token Survey

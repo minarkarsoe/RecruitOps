@@ -1,37 +1,92 @@
-# Handoff Report — Requirement R2: Granular Dynamic RBAC Data Model
+# Handoff Report: Milestone 2 — Myanmar Script Normalization (Requirement R2)
+
+**Author:** teamwork_preview_worker (Milestone 2)  
+**Date:** 2026-08-07  
+**Working Directory:** `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\teamwork_preview_worker_m2_1`  
+
+---
 
 ## 1. Observation
-- Verified solution state before and after implementation: `dotnet test backend/RecruitOps.sln` passed all 180 unit and API integration tests (47 in `RecruitOps.Domain.Tests`, 133 in `RecruitOps.Api.Tests`).
-- Entities created/modified:
-  - `backend/src/Domain/Entities/Role.cs`: Implemented entity with `Guid? TenantId`, `string Name`, `string Code`, `string Description`, `bool IsSystemRole`, `bool IsSuperAdmin`, `bool IsActive`, `ICollection<RolePermission> RolePermissions`, `ICollection<User> Users`.
-  - `backend/src/Domain/Entities/Permission.cs`: Implemented entity with `string Module`, `string Feature`, `string Action`, `string Name`, `string Description`, `string Code` (`permission:<module>:<feature>:<action>`), `ICollection<RolePermission> RolePermissions`.
-  - `backend/src/Domain/Entities/RolePermission.cs`: Implemented join entity with `Guid RoleId`, `Role Role`, `Guid PermissionId`, `Permission Permission`, `DateTimeOffset AssignedAt`.
-  - `backend/src/Domain/Entities/User.cs`: Added `Guid? RoleId`, `Role? CustomRole`, `bool IsSuperAdmin`, maintaining `UserRole Role` enum for backwards compatibility.
-  - `backend/src/Domain/Enums/UserRole.cs`: Added `SuperAdmin` and `Interviewer` enum values.
-- Infrastructure and Persistence updates:
-  - `backend/src/Infrastructure/Persistence/AppDbContext.cs`: Added `DbSet<Role> Roles`, `DbSet<Permission> Permissions`, `DbSet<RolePermission> RolePermissions`. Configured EF Fluent API for composite primary key `(RoleId, PermissionId)` on `RolePermission`, unique indexes `(TenantId, Code)` on `Role` and `Code` on `Permission`, cascade delete on `RolePermission`, restrict on `User.CustomRole`, and query filter `e.TenantId == null || e.TenantId == _tenant.TenantId` on `Role`.
-  - `backend/src/Infrastructure/Persistence/RbacSeedData.cs`: Defined 29 canonical permissions across 9 modules (`requisitions`, `postings`, `applications`, `interviews`, `scorecards`, `users`, `roles`, `settings`, `system`) and role-permission mappings for 7 default system roles (`SuperAdmin`, `Admin`, `HrDirector`, `Recruiter`, `HiringManager`, `Approver`, `Interviewer`).
-  - `backend/src/Infrastructure/Persistence/DbInitializer.cs`: Implemented `SeedPermissionsAndRolesAsync` to seed permissions and system roles idempotently into database on startup and link existing users without `RoleId` to their corresponding seeded `Role`.
-  - `backend/src/Infrastructure/Migrations/20260729162915_AddDynamicRbacDataModel.cs`: Created EF Core migration `AddDynamicRbacDataModel`.
-- Unit tests:
-  - `backend/tests/RecruitOps.Domain.Tests/RbacDomainTests.cs`: Verified entity defaults, permission code format, join entity structure, user role compatibility, canonical permissions/roles in `RbacSeedData`, and idempotent `DbInitializer.SeedPermissionsAndRolesAsync` execution.
+
+### Implementation & Test Artifacts
+1. **Application Interface & Contract**:
+   - `backend/src/Application/Interfaces/IMyanmarScriptNormalizer.cs`
+     - Exposes `MyanmarEncoding` enum (`NonMyanmar = 0, Unicode = 1, Zawgyi = 2`).
+     - Exposes `MyanmarScriptNormalizationResult` record (`NormalizedText`, `OriginalText`, `IsZawgyiDetected`, `ConfidenceScore`, `DetectedEncoding`) with an implicit `string` operator for convenience.
+     - Exposes `IMyanmarScriptNormalizer` contract with `Normalize(string? input)` and `IsZawgyi(string? input)`.
+
+2. **Infrastructure Service Implementation**:
+   - `backend/src/Infrastructure/Services/MyanmarScript/MyanmarScriptNormalizer.cs`
+     - 100% in-process logic with zero network dependencies or external CLI calls.
+     - Implements Zawgyi detection using codepoint distribution and Zawgyi-exclusive illegal sequence checks (`ZawgyiExclusiveRegex`).
+     - Implements rule-based Zawgyi-to-Unicode conversion using a 4-phase transformation engine:
+       1. Glyph pre-substitutions (`\u106A`, `\u106B`, `\u1086`..`\u1097`).
+       2. Subjoined consonant mappings (`\u1060`..`\u1069`, `\u106C`..`\u1070`, `\u1071`..`\u107C`, `\u107E`..`\u1084` -> `\u1039` + consonant, and consonant + `\u103A` + consonant -> `$1\u1039$2`).
+       3. Visual E-Vowel & Medial Reordering (`\u1031` preceding consonant -> moving `\u1031` after consonant/medials).
+       4. Post-fixes (diacritic ordering, tall vs curvature A-vowels, standalone virama to asat).
+     - Applies Unicode Canonical Composition (`Normalize(NormalizationForm.FormC)`).
+
+3. **Dependency Injection Registration**:
+   - `backend/src/Infrastructure/DependencyInjection.cs`
+     - Added `services.AddSingleton<IMyanmarScriptNormalizer, MyanmarScriptNormalizer>();`.
+
+4. **Unit Test Suite**:
+   - `backend/tests/RecruitOps.Api.Tests/MyanmarScriptNormalizerTests.cs`
+     - Includes 7 unit test methods covering all 5 mandatory scenarios:
+       - `Normalize_PureUnicodeInput_RemainsValidUnicodeNfc`
+       - `Normalize_ZawgyiInput_ConvertsCorrectlyToUnicodeNfc`
+       - `Normalize_MixedContent_PreservesNonMyanmarTextWhileNormalizingScript`
+       - `Normalize_EmptyOrNullInput_ReturnsGracefullyWithoutThrowing`
+       - `Normalize_RealWorldBurmeseSentence_ConvertsAndNormalizesCleanly`
+       - `ImplicitOperator_AllowsDirectStringAssignment`
+       - `DependencyInjection_RegistersAsSingleton`
+
+### Verification Execution Results
+- Command: `dotnet test backend/RecruitOps.sln`
+- Output:
+  - `RecruitOps.Domain.Tests.dll`: Passed 51/51
+  - `RecruitOps.Api.Tests.dll`: Passed 262/262
+  - **Total**: 313/313 tests passed cleanly (0 failed, 0 skipped).
+
+---
 
 ## 2. Logic Chain
-1. The objective required a granular, dynamic RBAC data model that supports system-wide default roles as well as tenant-specific custom roles while retaining backwards compatibility with the existing `UserRole` enum.
-2. `Role` was defined with nullable `TenantId` so system roles (`TenantId = null`) can be shared globally across tenants, whereas tenant custom roles are scoped by `TenantId`. The EF query filter `e.TenantId == null || e.TenantId == _tenant.TenantId` ensures tenants can read system roles alongside their own custom roles.
-3. `Permission` codes follow the strict string format `permission:<module>:<feature>:<action>` and are indexed uniquely across the system.
-4. `RolePermission` explicitly manages the many-to-many join between `Role` and `Permission` with composite primary key `(RoleId, PermissionId)` and cascade deletion behavior.
-5. `DbInitializer.SeedPermissionsAndRolesAsync` guarantees idempotency by checking existing permissions by `Code` and system roles by `Code` (`IsSystemRole = true`) before creating them, and dynamically assigning `RoleId` to existing users lacking one based on their `UserRole` enum value.
+
+1. **Requirement Compliance**:
+   - `ADR-0009` and Sprint 0 Requirement R2 require all ingested text to undergo Zawgyi detection and normalization to standard Unicode Form C (NFC).
+2. **Architecture Separation**:
+   - Following Clean Architecture, `IMyanmarScriptNormalizer` was placed in `Application/Interfaces`, while `MyanmarScriptNormalizer` implementation was placed in `Infrastructure/Services/MyanmarScript`.
+3. **Stateless & Thread-Safe Singleton**:
+   - The normalization engine uses compiled static regular expressions and pure function transformations without state retention. Registering as a `Singleton` in `DependencyInjection.cs` optimizes performance without side effects.
+4. **Comprehensive Test Validation**:
+   - 7 unit tests directly verify edge cases (null, empty, whitespace, mixed scripts, real-world Burmese sentences, pure Unicode, Zawgyi conversion, DI lifetime, implicit conversion).
+
+---
 
 ## 3. Caveats
-- No caveats. All entities, DbContext configurations, seeding framework, migrations, and unit tests have been implemented and verified.
+
+- **No Caveats**: The implementation operates 100% in-process with zero network call, zero third-party copyleft dependency, and zero hardcoded test returns. All 313 backend tests pass cleanly.
+
+---
 
 ## 4. Conclusion
-Requirement R2 (Granular Dynamic RBAC Data Model, Domain Entities, EF Core Configuration, Seed Data & Migration) is fully implemented, verified, and passing 100% of unit and integration tests across the solution.
+
+Milestone 2 (Requirement R2: Myanmar Script Normalization) is fully implemented, registered in Dependency Injection as a Singleton, thoroughly tested, and verified.
+
+---
 
 ## 5. Verification Method
-1. Execute solution build:
-   `dotnet build backend/RecruitOps.sln`
-2. Execute full test suite:
-   `dotnet test backend/RecruitOps.sln`
-   All 180 tests (47 Domain + 133 Api) pass with 0 failures.
+
+To independently verify the implementation:
+
+1. **Run Backend Test Suite**:
+   ```bash
+   dotnet test backend/RecruitOps.sln
+   ```
+   *Expected Result*: All 313 tests pass (51 Domain + 262 Api).
+
+2. **Inspect Created/Modified Files**:
+   - `backend/src/Application/Interfaces/IMyanmarScriptNormalizer.cs`
+   - `backend/src/Infrastructure/Services/MyanmarScript/MyanmarScriptNormalizer.cs`
+   - `backend/src/Infrastructure/DependencyInjection.cs`
+   - `backend/tests/RecruitOps.Api.Tests/MyanmarScriptNormalizerTests.cs`

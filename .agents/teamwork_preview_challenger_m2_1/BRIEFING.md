@@ -1,47 +1,37 @@
-# BRIEFING — 2026-07-29T23:32:10+07:00
+# BRIEFING — 2026-08-07T06:38:40Z
 
 ## Mission
-Empirically challenge and test Milestone 2 RBAC seeding in RecruitOps, verifying idempotency and canonical roles/permissions count. [COMPLETED]
+Empirically test and challenge the `MyanmarScriptNormalizer` implementation for Milestone 2 (Myanmar Script Normalization R2).
 
 ## 🔒 My Identity
-- Archetype: EMPIRICAL CHALLENGER
+- Archetype: Empirical Challenger
 - Roles: critic, specialist
 - Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\teamwork_preview_challenger_m2_1
-- Original parent: c4c3e39d-ffc9-485f-87b2-94418da7d123
-- Milestone: Milestone 2
+- Original parent: 5e3504be-f24d-44aa-a419-bc85a7b3e7ef
+- Milestone: Myanmar Script Normalization R2 (Milestone 2)
 - Instance: 1 of 1
 
 ## 🔒 Key Constraints
-- Review-only — do NOT modify implementation code
-- Empirical verification mandatory — run tests directly and inspect results
-- Write reports to challenge.md and handoff.md in working directory
-- Send message to parent agent when finished
+- Review-only — do NOT modify implementation code directly (findings reported to parent)
+- Must execute tests and verify claims empirically
 
 ## Current Parent
-- Conversation ID: c4c3e39d-ffc9-485f-87b2-94418da7d123
-- Updated: 2026-07-29T23:32:10+07:00
+- Conversation ID: 5e3504be-f24d-44aa-a419-bc85a7b3e7ef
+- Updated: 2026-08-07T06:38:40Z
 
 ## Review Scope
-- **Files to review**: RBAC seeding code (DbInitializer, RbacDomainTests, permissions/roles definitions)
-- **Interface contracts**: PROJECT.md / SCOPE.md
-- **Review criteria**: Correctness, Idempotency, 29 canonical permissions, 7 system roles, test coverage
-
-## Attack Surface
-- **Hypotheses tested**: 3x seeding idempotency, exact permissions count (34 >= 29), exact default system role count (7), permission exclusion for Admin vs SuperAdmin, multi-tenant unassigned user role linking.
-- **Vulnerabilities found**: None in single-process mode. Analyzed low-risk multi-replica concurrent initialization edge case.
-- **Untested angles**: None within RBAC seeding scope.
-
-## Loaded Skills
-- [None]
+- **Files to review**: `backend/src/Infrastructure/Services/MyanmarScript/MyanmarScriptNormalizer.cs` and test files
+- **Interface contracts**: `backend/src/Application/Interfaces/IMyanmarScriptNormalizer.cs`
+- **Review criteria**: Null/empty/whitespace handling, mixed English/Myanmar text, complex Zawgyi combinations, NFC/NFD Unicode normalization, performance/stress testing.
 
 ## Key Decisions Made
-- Confirmed idempotency across 1x, 2x, and 3x DB seed calls.
-- Confirmed 34 canonical permissions across 9 modules and 7 system roles.
-- Completed empirical verification and written challenge.md and handoff.md.
+- Empirically challenged implementation by creating `MyanmarScriptNormalizerChallengerTests.cs`.
+- Discovered CRITICAL data corruption bug: Valid Unicode Myanmar text containing Asat sequences (e.g. `သစ်သား`, `စစ်ကိုင်း`, `အသစ်ပြောင်း`) is misdetected as Zawgyi and corrupted into invalid subjoined Virama stackers (`သစ္သား`).
+- Issued verdict: REQUEST_CHANGES.
 
 ## Artifact Index
-- ORIGINAL_REQUEST.md — Original user request log
-- BRIEFING.md — Working memory index
-- progress.md — Heartbeat progress log
-- challenge.md — Detailed challenge report
-- handoff.md — 5-component handoff report
+- DISPATCH.md — incoming instructions log
+- BRIEFING.md — persistent state briefing
+- progress.md — task progress log
+- challenge_report.md — detailed adversarial challenge report
+- handoff.md — self-contained handoff report

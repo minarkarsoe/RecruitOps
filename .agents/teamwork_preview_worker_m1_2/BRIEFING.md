@@ -1,50 +1,63 @@
-# BRIEFING — 2026-07-29T23:24:35+07:00
+# BRIEFING — 2026-08-07T21:38:30Z
 
 ## Mission
-Upgrade System.Security.Cryptography.Xml from 10.0.6 to 10.0.10 in RecruitOps.Infrastructure.csproj and RecruitOps.Api.Tests.csproj, and verify build/tests.
+Implement Milestone 1: CV Resume Storage & Document Extraction Backend API.
 
 ## 🔒 My Identity
-- Archetype: worker
+- Archetype: teamwork_preview_worker
 - Roles: implementer, qa, specialist
 - Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\teamwork_preview_worker_m1_2
-- Original parent: c4c3e39d-ffc9-485f-87b2-94418da7d123
-- Milestone: Milestone 1
+- Original parent: 1fa70592-c1be-4b51-9e84-2eac90b569ea
+- Milestone: Milestone 1 - CV Resume Storage & Document Extraction Backend API
 
 ## 🔒 Key Constraints
-- Upgrade System.Security.Cryptography.Xml from 10.0.6 to 10.0.10 in specified csproj files.
-- 0 NU1903 warnings, 0 build errors.
-- Pass all tests (172+).
-- Write report to handoff.md, update progress.md, send message to orchestrator.
+- Pure local in-process text extraction (PDF, DOCX, Image/scanned PDF fallback).
+- Script normalization via `IMyanmarScriptNormalizer`.
+- Route storage through `IFileStorage` abstraction.
+- Enforce file size limit <= 10MB and format validation (PDF/DOCX/PNG/JPG).
+- Department scoping & candidate exclusion security checks.
+- Build/test suite MUST pass (333 baseline + 8 new tests).
+- NO CHEATING / HARDCODING.
 
 ## Current Parent
-- Conversation ID: c4c3e39d-ffc9-485f-87b2-94418da7d123
-- Updated: 2026-07-29T23:24:35+07:00
+- Conversation ID: 1fa70592-c1be-4b51-9e84-2eac90b569ea
+- Updated: 2026-08-07T21:38:30Z
 
 ## Task Summary
-- **What to build**: Upgrade System.Security.Cryptography.Xml package reference from 10.0.6 to 10.0.10 in RecruitOps.Infrastructure.csproj and RecruitOps.Api.Tests.csproj.
-- **Success criteria**: Clean build with 0 NU1903 warnings, 0 build errors, 172+ passing tests.
-- **Interface contracts**: N/A
-- **Code layout**: .NET solution under backend/RecruitOps.sln
+- **What to build**: Milestone 1 CV Resume Storage & Document Extraction API
+- **Success criteria**: All 9 tasks in dispatch executed, 341 passing tests (including 8 new tests and baseline empirical tests), genuine implementations.
+- **Interface contracts**: `IDocumentTextExtractor`, `IResumeService`, DTOs, `ApplicationsController` endpoints.
+- **Code layout**: Clean Architecture (Domain, Application, Infrastructure, Api, Tests).
 
 ## Key Decisions Made
-- Upgraded System.Security.Cryptography.Xml to version 10.0.10 across both target project files.
-- Confirmed zero warnings/errors during dotnet build and 172/172 passed tests in dotnet test.
+- Added `UglyToad.PdfPig` (Apache-2.0) for PDF text extraction.
+- Used `ZipArchive` OpenXML parsing for DOCX files.
+- Integrated `IMyanmarScriptNormalizer` for Zawgyi -> Unicode NFC conversion.
+- Extracted contact heuristics (Email, Phone, Candidate Name, Experience Years, Skills).
+- Added regex match timeouts to prevent catastrophic backtracking.
 
 ## Artifact Index
-- handoff.md — Final handoff report
-- progress.md — Task progress tracking
+- handoff.md — Final implementation report
 
 ## Change Tracker
 - **Files modified**:
-  - `backend/src/Infrastructure/RecruitOps.Infrastructure.csproj`: Updated System.Security.Cryptography.Xml to 10.0.10
-  - `backend/tests/RecruitOps.Api.Tests/RecruitOps.Api.Tests.csproj`: Updated System.Security.Cryptography.Xml to 10.0.10
-- **Build status**: PASS (0 Warnings, 0 Errors)
+  - `backend/src/Domain/Entities/JobApplication.cs`: added resume metadata properties
+  - `backend/src/Application/DTOs/ResumeExtractionDtos.cs`: created DTOs
+  - `backend/src/Application/Interfaces/IDocumentTextExtractor.cs`: created interface
+  - `backend/src/Application/Interfaces/IResumeService.cs`: created interface
+  - `backend/src/Application/RecruitOps.Application.csproj`: added FrameworkReference for Http
+  - `backend/src/Infrastructure/Services/DocumentExtraction/DocumentTextExtractor.cs`: implemented extraction logic
+  - `backend/src/Infrastructure/Services/ResumeService.cs`: implemented resume service
+  - `backend/src/Infrastructure/DependencyInjection.cs`: registered services
+  - `backend/src/Api/Controllers/ApplicationsController.cs`: added POST/GET resume endpoints
+  - `backend/tests/RecruitOps.Api.Tests/ResumeExtractionTests.cs`: added 8 new integration tests
+- **Build status**: Success
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: PASS (172 tests passed: 39 Domain + 133 Api.Tests)
-- **Lint status**: Clean (0 NU1903 warnings)
-- **Tests added/modified**: None required (all 172 existing tests executed and passed)
+- **Build/test result**: 341 tests passing (51 Domain + 290 Api)
+- **Lint status**: 0 violations
+- **Tests added/modified**: 8 new tests added, all passing
 
 ## Loaded Skills
 - None

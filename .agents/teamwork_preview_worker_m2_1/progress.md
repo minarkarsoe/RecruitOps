@@ -1,11 +1,16 @@
-# Progress Log
+# Progress - Milestone 2 (Myanmar Script Normalization - R2)
 
-Last visited: 2026-07-29T23:29:40Z
+Last visited: 2026-08-07T13:35:40+07:00
 
-## Tasks
-- [x] Task 1: Codebase investigation & existing entity audit
-- [x] Task 2: Implement Domain Entities (`Role`, `Permission`, `RolePermission`, update `User`, update `UserRole`)
-- [x] Task 3: Update Infrastructure (`AppDbContext`, entity configurations, `RbacSeedData`, `DbInitializer`)
-- [x] Task 4: Implement Unit Tests (`RecruitOps.Domain.Tests`)
-- [x] Task 5: Build and verify solution (`dotnet test`) - 100% Passed (180/180)
-- [x] Task 6: Document changes and generate `handoff.md` & `changes.md`
+## Completed Tasks
+- [x] Read DISPATCH, ORIGINAL_REQUEST, PROJECT.md, and survey_r2.md specifications.
+- [x] Verified baseline build and tests (`dotnet test backend/RecruitOps.sln` passes 304 baseline tests).
+- [x] Created `IMyanmarScriptNormalizer` interface and DTOs in `backend/src/Application/Interfaces/IMyanmarScriptNormalizer.cs`.
+- [x] Implemented `MyanmarScriptNormalizer` in `backend/src/Infrastructure/Services/MyanmarScript/MyanmarScriptNormalizer.cs` (in-process detection + 4-phase transformation engine + FormC normalization).
+- [x] Registered `IMyanmarScriptNormalizer` as a Singleton service in `backend/src/Infrastructure/DependencyInjection.cs`.
+- [x] Added unit tests in `backend/tests/RecruitOps.Api.Tests/MyanmarScriptNormalizerTests.cs` covering all 5 mandatory test scenarios + DI + implicit operator.
+- [x] Verified `dotnet test backend/RecruitOps.sln` passes cleanly (313 total passing tests: 51 Domain + 262 Api).
+
+## Current Task
+- [x] Write detailed `handoff.md` in working directory.
+- [x] Send completion message to parent.

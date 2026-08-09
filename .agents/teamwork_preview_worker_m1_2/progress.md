@@ -1,16 +1,16 @@
-# Progress Log
+# Milestone 1 Progress Log
 
-Last visited: 2026-07-29T23:24:30+07:00
+## Status: Completed
 
-## Current Task
-Upgrading System.Security.Cryptography.Xml package reference from 10.0.6 to 10.0.10 in infrastructure and test projects.
+### Step-by-Step Progress:
+- [x] Task 1: Updated `JobApplication.cs` entity with resume tracking properties.
+- [x] Task 2: Created `ResumeExtractionDtos.cs` (`ParsedContactInfoDto`, `ResumeExtractionResultDto`).
+- [x] Task 3: Created `IDocumentTextExtractor` interface and `DocumentExtractionResult` record.
+- [x] Task 4: Created `IResumeService` interface.
+- [x] Task 5: Added `UglyToad.PdfPig` dependency and implemented `DocumentTextExtractor.cs` with PDF, DOCX, Image fallback, Zawgyi normalization, contact heuristics, and regex timeout limits.
+- [x] Task 6: Implemented `ResumeService.cs` handling upload validation, storage, extraction, security checks, and retrieval. Registered services in `DependencyInjection.cs`.
+- [x] Task 7: Updated `ApplicationsController.cs` with POST and GET `/api/applications/{id}/resume` endpoints with 10MB size limit and file extension validation.
+- [x] Task 8: Created 8 comprehensive integration/unit tests in `ResumeExtractionTests.cs`.
+- [x] Task 9: Executed `dotnet test backend/RecruitOps.sln`. Verified that all 341 tests (333 baseline + 8 new) pass cleanly with 0 failures.
 
-## Status Summary
-- [x] Initialized workspace and briefing
-- [x] View target csproj files to verify current contents
-- [x] Update RecruitOps.Infrastructure.csproj line 22 (10.0.6 -> 10.0.10)
-- [x] Update RecruitOps.Api.Tests.csproj line 18 (10.0.6 -> 10.0.10)
-- [x] Run `dotnet build backend/RecruitOps.sln` (0 errors, 0 warnings)
-- [x] Run `dotnet test backend/RecruitOps.sln` (172/172 tests passed)
-- [x] Create handoff.md
-- [x] Send message to orchestrator
+Last visited: 2026-08-07T21:48:00Z

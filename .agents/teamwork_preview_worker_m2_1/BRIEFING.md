@@ -1,65 +1,49 @@
-# BRIEFING — 2026-07-29T23:29:45Z
+# BRIEFING — 2026-08-07T13:35:45+07:00
 
 ## Mission
-Implement Requirement R2: Granular Dynamic RBAC Data Model, Domain Entities, EF Core Configuration, Seed Data & Migration.
+Implement Myanmar Script Normalization (Requirement R2) including Zawgyi detection, Zawgyi-to-Unicode conversion, and NFC normalization as a 100% in-process singleton service.
 
 ## 🔒 My Identity
-- Archetype: worker
+- Archetype: teamwork_preview_worker
 - Roles: implementer, qa, specialist
 - Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\teamwork_preview_worker_m2_1
-- Original parent: c4c3e39d-ffc9-485f-87b2-94418da7d123
-- Milestone: Milestone 2
+- Original parent: 5e3504be-f24d-44aa-a419-bc85a7b3e7ef
+- Milestone: Milestone 2 - Myanmar Script Normalization (R2)
 
 ## 🔒 Key Constraints
-- Minimal change principle.
-- No hardcoded test outputs or facade implementations.
-- Verify `dotnet build backend/RecruitOps.sln` and `dotnet test backend/RecruitOps.sln` pass 100%.
+- Pure 100% in-process logic (zero external API calls or network dependencies).
+- Strictly genuine algorithm (no hardcoded test inputs/outputs, facade classes, or dummy returns).
+- Must adhere to IMyanmarScriptNormalizer interface contract (`Normalize(string? input)` and `IsZawgyi(string? input)`).
+- Must apply Unicode NFC normalization (`Normalize(NormalizationForm.FormC)`).
+- Must pass all existing tests (228 tests) + new tests in backend.
 
 ## Current Parent
-- Conversation ID: c4c3e39d-ffc9-485f-87b2-94418da7d123
-- Updated: 2026-07-29T23:29:45Z
+- Conversation ID: 5e3504be-f24d-44aa-a419-bc85a7b3e7ef
+- Updated: 2026-08-07T13:35:45+07:00
 
 ## Task Summary
-- **What to build**: Granular Dynamic RBAC Data Model in backend (Domain Entities, EF Core configurations, DbContext update, RbacSeedData, DbInitializer update, EF Migration, and Domain tests).
-- **Success criteria**: All entities implemented, DbContext & seeding working idempotently, EF migration created, domain unit tests added, 100% build & test pass.
+- **What to build**: `IMyanmarScriptNormalizer` & `MyanmarScriptNormalizer` service for detecting Zawgyi encoding and converting Zawgyi/Unicode to clean Unicode NFC form.
+- **Success criteria**: All existing 228 tests pass + new unit tests for Myanmar script normalizer pass. Completed with 313/313 tests passing.
+- **Interface contracts**: `IMyanmarScriptNormalizer` in Application, implementation in Infrastructure, dependency injection registration.
 
 ## Key Decisions Made
-- Implemented `Role`, `Permission`, `RolePermission` entities.
-- Updated `User` entity with `RoleId`, `CustomRole`, `IsSuperAdmin`, and updated `UserRole` enum.
-- Configured EF Core Fluent API & query filters in `AppDbContext`.
-- Implemented canonical permissions and system roles in `RbacSeedData`.
-- Implemented idempotent seeding and user linking in `DbInitializer.SeedPermissionsAndRolesAsync`.
-- Added EF Core Migration `AddDynamicRbacDataModel`.
-- Added domain unit tests in `RecruitOps.Domain.Tests`.
-
-## Artifact Index
-- ORIGINAL_REQUEST.md
-- BRIEFING.md
-- progress.md
-- changes.md
-- handoff.md
+- Implemented a 4-phase transformation engine (glyph pre-substitutions, subjoined consonant mapping, visual E-vowel reordering, post-fixes) followed by standard Unicode `NormalizationForm.FormC`.
+- Added implicit operator string conversion on `MyanmarScriptNormalizationResult` for maximum usability.
+- Registered `IMyanmarScriptNormalizer` as Singleton in `DependencyInjection.cs`.
 
 ## Change Tracker
 - **Files modified**:
-  - `backend/src/Domain/Entities/Role.cs`
-  - `backend/src/Domain/Entities/Permission.cs`
-  - `backend/src/Domain/Entities/RolePermission.cs`
-  - `backend/src/Domain/Entities/User.cs`
-  - `backend/src/Domain/Enums/UserRole.cs`
-  - `backend/src/Infrastructure/Persistence/AppDbContext.cs`
-  - `backend/src/Infrastructure/Persistence/RbacSeedData.cs`
-  - `backend/src/Infrastructure/Persistence/DbInitializer.cs`
-  - `backend/src/Infrastructure/Migrations/20260729162915_AddDynamicRbacDataModel.cs`
-  - `backend/tests/RecruitOps.Domain.Tests/RbacDomainTests.cs`
-  - `backend/tests/RecruitOps.Domain.Tests/PipelineStatusTests.cs`
-  - `backend/tests/RecruitOps.Domain.Tests/RecruitOps.Domain.Tests.csproj`
-- **Build status**: PASS (100%)
+  - `backend/src/Application/Interfaces/IMyanmarScriptNormalizer.cs` — Created interface and result record with `MyanmarEncoding` enum
+  - `backend/src/Infrastructure/Services/MyanmarScript/MyanmarScriptNormalizer.cs` — Created 100% in-process normalization service
+  - `backend/src/Infrastructure/DependencyInjection.cs` — Registered `IMyanmarScriptNormalizer` as Singleton
+  - `backend/tests/RecruitOps.Api.Tests/MyanmarScriptNormalizerTests.cs` — Created unit test suite with 7 test methods
+- **Build status**: PASS
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: PASS (180/180 tests passed)
-- **Lint status**: OK
-- **Tests added/modified**: 7 unit test methods added in `RbacDomainTests.cs`
+- **Build/test result**: PASS (313 total passing tests: 51 Domain + 262 Api)
+- **Lint status**: Clean
+- **Tests added/modified**: 7 new test methods added in `MyanmarScriptNormalizerTests.cs`
 
 ## Loaded Skills
 - None

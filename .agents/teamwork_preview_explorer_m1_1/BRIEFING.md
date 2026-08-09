@@ -1,43 +1,46 @@
-# BRIEFING — 2026-07-29T16:13:20Z
+# BRIEFING — 2026-08-07T14:26:45Z
 
 ## Mission
-Investigate and produce a detailed fix proposal for Milestone 1 Requirement R1: GET /api/users SQL translation bug in UsersController.cs and deceptive assertion in AuthLoginTests.cs.
+Investigate and design technical specifications for Milestone 1: CV Resume Storage & Document Extraction Backend API.
 
 ## 🔒 My Identity
-- Archetype: Teamwork Explorer
-- Roles: Read-only investigator, analyzer
+- Archetype: teamwork_preview_explorer
+- Roles: Technical Explorer & Architect
 - Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\teamwork_preview_explorer_m1_1
-- Original parent: c4c3e39d-ffc9-485f-87b2-94418da7d123
-- Milestone: Milestone 1 (R1)
+- Original parent: 1fa70592-c1be-4b51-9e84-2eac90b569ea
+- Milestone: Milestone 1 - CV Resume Storage & Document Extraction Backend API
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes in backend source files directly.
-- Write investigation findings and proposal to `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\teamwork_preview_explorer_m1_1\analysis.md`.
-- Update `progress.md`.
-- Send message to parent/orchestrator when finished.
+- Read-only investigation — do NOT implement source code changes directly
+- Output complete technical specifications to analysis.md and handoff.md in working directory
+- Send completion message to parent when done
 
 ## Current Parent
-- Conversation ID: c4c3e39d-ffc9-485f-87b2-94418da7d123
-- Updated: 2026-07-29T16:13:20Z
+- Conversation ID: 1fa70592-c1be-4b51-9e84-2eac90b569ea
+- Updated: 2026-08-07T14:26:45Z
 
 ## Investigation State
 - **Explored paths**:
-  - `backend/src/Api/Controllers/UsersController.cs`
-  - `backend/tests/RecruitOps.Api.Tests/AuthLoginTests.cs`
-  - `backend/tests/RecruitOps.Api.Tests/CustomWebAppFactory.cs`
-  - `backend/tests/RecruitOps.Api.Tests/TestAuthHandler.cs`
-  - `backend/tests/RecruitOps.Api.Tests/UserDirectoryTests.cs`
+  - `backend/src/Api/Controllers/ApplicationsController.cs`
+  - `backend/src/Infrastructure/DependencyInjection.cs`
+  - `backend/src/Application/Interfaces/IFileStorage.cs`
+  - `backend/src/Application/Interfaces/IMyanmarScriptNormalizer.cs`
+  - `backend/src/Infrastructure/Services/MyanmarScript/MyanmarScriptNormalizer.cs`
+  - `backend/src/Domain/Entities/JobApplication.cs` & `Candidate.cs`
+  - `backend/tests/RecruitOps.Api.Tests/` test structure and web app factory
 - **Key findings**:
-  - `UsersController.cs`: `u.Role.ToString()` in `Get` fails under PostgreSQL EF Core LINQ translation because `enum.ToString()` cannot be translated to SQL. Two-step in-memory projection solves it.
-  - `AuthLoginTests.cs`: `Issued_Token_Grants_Access_To_Protected_Endpoint` only asserts token non-null/empty. Need to send HTTP GET to `/api/departments` with `Authorization: Bearer <AccessToken>` and assert 200 OK.
-- **Unexplored areas**: None for Requirement R1.
+  - `ApplicationsController` currently handles stage movement and history; endpoints for `POST /api/applications/{id}/resume` and `GET /api/applications/{id}/resume` need to be added.
+  - `IFileStorage` (Scoped) and `IMyanmarScriptNormalizer` (Singleton) are already registered in `DependencyInjection.cs`.
+  - Defined `IDocumentTextExtractor` interface and `DocumentTextExtractor` implementation supporting PDF stream parsing, DOCX OpenXML parsing, image OCR fallback, Zawgyi normalization, and contact info extraction.
+  - Designed DTOs `ResumeExtractionResultDto` and `ParsedContactInfoDto`.
+  - Designed API endpoints, entity extensions, and unit/integration test specifications in `ResumeExtractionTests.cs`.
+- **Unexplored areas**: None for Milestone 1.
 
 ## Key Decisions Made
-- Finalized investigation report in `analysis.md` and `handoff.md`.
+- Fully specified `analysis.md` and `handoff.md` with complete, production-ready code samples and verification steps.
 
 ## Artifact Index
-- `.agents/teamwork_preview_explorer_m1_1/ORIGINAL_REQUEST.md` — Original request
-- `.agents/teamwork_preview_explorer_m1_1/BRIEFING.md` — Working memory
-- `.agents/teamwork_preview_explorer_m1_1/progress.md` — Liveness heartbeat
-- `.agents/teamwork_preview_explorer_m1_1/analysis.md` — Detailed investigation report & refactor proposals
-- `.agents/teamwork_preview_explorer_m1_1/handoff.md` — Handoff report
+- DISPATCH.md — Dispatch log
+- BRIEFING.md — Persistent briefing state
+- analysis.md — Detailed technical design and specifications
+- handoff.md — 5-component handoff report

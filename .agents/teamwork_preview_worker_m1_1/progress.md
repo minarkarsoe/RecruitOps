@@ -1,16 +1,15 @@
-# Progress Log
+# Progress Log - teamwork_preview_worker_m1_1
 
-Last visited: 2026-07-29T23:20:06+07:00
+Last visited: 2026-08-07T13:30:00Z
 
-## Status: COMPLETED
-
-### Completed Steps
-- [x] Initialized agent environment, `ORIGINAL_REQUEST.md`, `BRIEFING.md`, and `progress.md`.
-- [x] Inspected target files before applying fixes.
-- [x] Implemented fix 1: `UsersController.cs` two-step projection.
-- [x] Implemented fix 2: `AuthLoginTests.cs` bearer token test update.
-- [x] Implemented fix 3: Warnings cleanup in `Program.cs` and `ApplicationFormSchema.cs`.
-- [x] Implemented fix 4: Loose assertions cleanup in `InterviewFlowTests.cs`, `ScorecardBlindScoringTests.cs`, `ScorecardTemplateResolutionTests.cs`, and `ApplicationFormSchemaTests.cs`.
-- [x] Verified build and tests with `dotnet build backend/RecruitOps.sln` and `dotnet test backend/RecruitOps.sln` (172 tests passed, 0 failed, 0 errors).
-- [x] Written `changes.md` and `handoff.md`.
-- [x] Notified orchestrator via `send_message`.
+- [x] Read dispatch, ORIGINAL_REQUEST.md, PROJECT.md, and survey_r1.md.
+- [x] Initialized DISPATCH.md and BRIEFING.md.
+- [x] Inspected existing backend files and solution structure.
+- [x] Implemented Application layer interfaces (`IFileStorage.cs`) and DTOs (`StorageDtos.cs`).
+- [x] Added `AWSSDK.S3` (3.7.400) dependency to `RecruitOps.Infrastructure.csproj`.
+- [x] Implemented Infrastructure layer `FileStorageOptions` and `S3FileStorage`.
+- [x] Registered services in `DependencyInjection.cs`.
+- [x] Updated `appsettings.json`, `appsettings.Development.json`, and `docker-compose.yml`.
+- [x] Added 7 unit & integration tests for `S3FileStorage` in `S3FileStorageTests.cs`.
+- [x] Ran `dotnet test backend/RecruitOps.sln` and verified all 276 tests pass cleanly with 0 failures.
+- [x] Generated `handoff.md` and notified parent.

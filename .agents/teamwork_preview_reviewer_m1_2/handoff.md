@@ -1,58 +1,85 @@
-# Handoff Report — Milestone 1 Reviewer 2
+# Handoff Report — Milestone 1 Review (Object Storage Abstraction R1)
 
 ## 1. Observation
 
-- **Test Suite Execution**: Executed `dotnet test backend/RecruitOps.sln`.
-  - `RecruitOps.Domain.Tests.dll`: Total 39, Passed 39, Failed 0, Duration 161 ms.
-  - `RecruitOps.Api.Tests.dll`: Total 133, Passed 133, Failed 0, Duration 4 s.
-  - Total test count across solution: **172 passed, 0 failed**.
-- **`UsersController.cs` (lines 46-57)**: Replaced direct enum `.ToString()` projection inside SQL query with two-step projection:
-  ```csharp
-  var rows = await _db.Users
-      .AsNoTracking()
-      .Where(u => u.IsActive)
-      .OrderBy(u => u.DisplayName)
-      .Select(u => new { u.Id, u.Email, u.DisplayName, u.Role })
-      .ToListAsync(ct);
+Directly observed the following implementation artifacts and test verification output:
 
-  var users = rows
-      .Select(u => new UserListItemDto(u.Id, u.Email, u.DisplayName, u.Role.ToString()))
-      .ToList();
-  ```
-- **`AuthLoginTests.cs` (lines 50-64) & `TestAuthHandler.cs` (lines 28-40)**: Updated bearer token test to set `DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body.AccessToken)` and execute `GET /api/departments`. `TestAuthHandler` parses `Bearer` tokens via `JwtSecurityTokenHandler.ReadJwtToken()`.
-- **Warning Cleanups & Test Assertions**:
-  - `backend/src/Api/Program.cs`: `o.KnownIPNetworks.Clear()` replaces `o.KnownNetworks.Clear()`.
-  - `backend/src/Domain/ApplicationFormSchema.cs`: `text!` nullability suppression in option validation.
-  - `backend/tests/RecruitOps.Api.Tests/InterviewFlowTests.cs`, `ScorecardBlindScoringTests.cs`, `ScorecardTemplateResolutionTests.cs`: `Assert.True(... is BadRequest or Conflict)` replaced with `Assert.Equal(HttpStatusCode.BadRequest, ...)`.
-  - `backend/tests/RecruitOps.Domain.Tests/ApplicationFormSchemaTests.cs`: Added `Assert.Contains("characters or fewer", error)`.
+1. `backend/src/Application/Interfaces/IFileStorage.cs`
+   - Defines async storage contract (`UploadAsync`, `DownloadAsync`, `DeleteAsync`, `GetPresignedUrlAsync`, `ExistsAsync`, `GetMetadataAsync`).
+2. `backend/src/Application/DTOs/StorageDtos.cs`
+   - `StorageObject` implements `IDisposable` and `IAsyncDisposable` (lines 28-32), calling `Content.Dispose()` and `Content.DisposeAsync()`.
+3. `backend/src/Infrastructure/Services/FileStorage/S3FileStorage.cs`
+   - Configures `PutObjectRequest.AutoCloseStream = false` (line 45) to prevent premature disposal of input stream.
+   - Catches `AmazonS3Exception` (lines 113 & 228) for 404 / `NoSuchKey` / `NotFound` errors in `DownloadAsync` and `GetMetadataAsync`, returning `null`.
+   - Performs presigned URL authority rewriting (lines 167-183) to translate internal Docker endpoint (`http://storage:9000`) to external host (`http://localhost:9000`).
+4. `backend/src/Infrastructure/Options/FileStorageOptions.cs`
+   - Options class with `SectionName = "FileStorage"` mapping S3/MinIO configuration.
+5. `backend/src/Infrastructure/DependencyInjection.cs`
+   - Binds `FileStorageOptions` and registers `IAmazonS3` (Singleton) and `IFileStorage` -> `S3FileStorage` (Scoped) (lines 81-94).
+6. `backend/src/Api/appsettings.json` & `docker-compose.yml`
+   - Contains complete `FileStorage` configuration keys and environment variables for local dev MinIO.
+7. `backend/tests/RecruitOps.Api.Tests/S3FileStorageTests.cs`
+   - 7 unit tests testing upload, download (found/missing), delete, presigned URL generation with authority rewrite, and existence checks.
+
+**Test Command Verification Output**:
+Ran `dotnet test backend/RecruitOps.sln`:
+```text
+Passed!  - Failed:     0, Passed:    51, Skipped:     0, Total:    51, Duration: 1 s - RecruitOps.Domain.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   253, Skipped:     0, Total:   253, Duration: 9 s - RecruitOps.Api.Tests.dll (net10.0)
+```
+Total: **304 passed**, 0 failed, 0 skipped.
+
+---
 
 ## 2. Logic Chain
 
-1. **Test Execution**: Verification via `dotnet test backend/RecruitOps.sln` confirmed all 172 tests in the suite compile cleanly and pass without errors.
-2. **LINQ Projection Safety**: EF Core 10 cannot translate `.ToString()` on enums into database SQL queries. Materializing an anonymous type with primitive/enum fields in EF Core before projecting to `UserListItemDto` in memory ensures database translation succeeds without runtime SQL translation exceptions.
-3. **Bearer Token Authentication Realism**: The test handler update in `TestAuthHandler` allows `AuthLoginTests` to test real HTTP request authorization using JWT access tokens issued by `/api/auth/login`. This eliminates facade assertions and validates claim transport.
-4. **Codebase Hardening**: Eliminating deprecated ASP.NET Core API usages (`KnownNetworks`) and tightening test assertion status codes from vague pattern matching (`BadRequest or Conflict`) to explicit equality (`BadRequest`) prevents status code regression.
-5. **Integrity Verification**: Code inspection revealed no hardcoded test stubs, fake implementations, or bypassed checks.
+1. **Verification of Architectural Decoupling**:
+   - `IFileStorage.cs` and `StorageDtos.cs` reside in `RecruitOps.Application` without any AWS SDK dependency.
+   - `S3FileStorage.cs` resides in `RecruitOps.Infrastructure` and depends on `AWSSDK.S3`.
+   - Clean Architecture separation strictly maintained.
+
+2. **Verification of Resource Cleanup & Stream Safety**:
+   - `StorageObject` record implements both `IDisposable` and `IAsyncDisposable`, ensuring streams returned by `DownloadAsync` can be disposed by caller via `using` / `await using`.
+   - `S3FileStorage.UploadAsync` sets `AutoCloseStream = false` on `PutObjectRequest`, ensuring caller-supplied upload streams remain open.
+
+3. **Verification of Error Handling & Presigned URL Expiry**:
+   - Catches 404 / `NoSuchKey` / `NotFound` S3 exceptions cleanly and converts them to `null` return values for `DownloadAsync` and `GetMetadataAsync`.
+   - Presigned URL requests calculate expiry via `DateTime.UtcNow.Add(request.ExpiresIn)` and support authority rewriting for Docker network topologies.
+
+4. **Verification of Integrity & Test Coverage**:
+   - Zero hardcoded test shortcuts, dummy facades, or self-certifying work. Real AWS S3 SDK integration calls wrapped cleanly.
+   - All 304 solution backend tests pass with 0 failures.
+
+---
 
 ## 3. Caveats
 
-- Tests executed using `CustomWebAppFactory` (in-memory SQLite/EF Core test runner). Full database migration execution against PostgreSQL production environment should be verified in staging CI.
+No caveats. All requirement specifications and test expectations have been fully implemented, tested, and validated.
+
+---
 
 ## 4. Conclusion
 
-- **Verdict**: **APPROVE**
-- All code changes made in Milestone 1 are correct, safe, introduce no regressions or side effects, and maintain 100% test pass rate (172/172 tests).
+**Verdict: APPROVE**
+
+Milestone 1 (Requirement R1: Object Storage Abstraction) meets all correctness, exception safety, resource cleanup, architectural, and test coverage requirements.
+
+---
 
 ## 5. Verification Method
 
-To independently verify these results:
-1. Run test suite:
+To independently verify this verdict:
+
+1. Run the full solution test suite:
    ```powershell
    dotnet test backend/RecruitOps.sln
    ```
-   Confirm output displays `Passed! - Failed: 0, Passed: 39` for `RecruitOps.Domain.Tests.dll` and `Passed! - Failed: 0, Passed: 133` for `RecruitOps.Api.Tests.dll`.
-2. Inspect modified files:
-   - `backend/src/Api/Controllers/UsersController.cs`
-   - `backend/tests/RecruitOps.Api.Tests/AuthLoginTests.cs`
-   - `backend/tests/RecruitOps.Api.Tests/TestAuthHandler.cs`
-   - `backend/src/Api/Program.cs`
+   Expect: 304 passed (51 Domain + 253 Api), 0 failed, 0 skipped.
+
+2. Inspect the primary implementation files:
+   - `backend/src/Application/Interfaces/IFileStorage.cs`
+   - `backend/src/Application/DTOs/StorageDtos.cs`
+   - `backend/src/Infrastructure/Services/FileStorage/S3FileStorage.cs`
+   - `backend/src/Infrastructure/Options/FileStorageOptions.cs`
+   - `backend/src/Infrastructure/DependencyInjection.cs`
+   - `backend/tests/RecruitOps.Api.Tests/S3FileStorageTests.cs`
