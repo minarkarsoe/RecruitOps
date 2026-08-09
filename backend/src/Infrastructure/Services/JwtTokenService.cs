@@ -1,5 +1,7 @@
+using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -8,11 +10,12 @@ using RecruitOps.Domain.Entities;
 
 namespace RecruitOps.Infrastructure.Services;
 
-/// <summary>Issues self-issued HS256 JWTs. Claims: sub, tenant_id, role, email, name.
+/// <summary>Issues self-issued HS256 JWTs and secure random refresh tokens. Claims: sub, tenant_id, role, email, name.
 /// The role claim uses ClaimTypes.Role to match the API's token validation.</summary>
 public class JwtTokenService : ITokenService
 {
     private const int LifetimeHours = 8;
+    private const int RefreshTokenLifetimeDays = 14;
     private readonly IConfiguration _config;
     private readonly TimeProvider _clock;
 
@@ -22,20 +25,22 @@ public class JwtTokenService : ITokenService
         _clock = clock;
     }
 
-    public TokenResult CreateToken(User user)
+    public TokenResult CreateTokens(User user)
     {
         var jwt = _config.GetSection("Jwt");
         var key = jwt["Key"];
         if (string.IsNullOrWhiteSpace(key))
             throw new InvalidOperationException("Jwt:Key is not configured. Set it via user-secrets or env.");
 
-        var expires = _clock.GetUtcNow().AddHours(LifetimeHours);
+        var now = _clock.GetUtcNow();
+        var expires = now.AddHours(LifetimeHours);
         var creds = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim("tenant_id", user.TenantId.ToString()),
             new Claim(ClaimTypes.Role, user.Role.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
@@ -50,6 +55,18 @@ public class JwtTokenService : ITokenService
             expires: expires.UtcDateTime,
             signingCredentials: creds);
 
-        return new TokenResult(new JwtSecurityTokenHandler().WriteToken(token), expires);
+        var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
+        var refreshToken = GenerateSecureRandomToken();
+        var refreshExpires = now.AddDays(RefreshTokenLifetimeDays);
+
+        return new TokenResult(accessToken, expires, refreshToken, refreshExpires);
+    }
+
+    public TokenResult CreateToken(User user) => CreateTokens(user);
+
+    public string GenerateSecureRandomToken()
+    {
+        var randomBytes = RandomNumberGenerator.GetBytes(64);
+        return Convert.ToBase64String(randomBytes);
     }
 }

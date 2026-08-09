@@ -40,17 +40,19 @@ public class AuthService : IAuthService
 
     public async Task<LoginResponse?> LoginAsync(LoginRequest request, CancellationToken ct = default)
     {
+        return await LoginAsync(request, ipAddress: null, ct);
+    }
+
+    public async Task<LoginResponse?> LoginAsync(LoginRequest request, string? ipAddress = null, CancellationToken ct = default)
+    {
         // Pre-authentication: there is no tenant context yet, so bypass the tenant
-        // query filter to find the user. (Email is treated as unique per user for now;
-        // multi-tenant same-email login needs a tenant selector — see TODO in docs.)
+        // query filter to find the user.
         var user = await _db.Users
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Email == request.Email && u.IsActive, ct);
 
         if (user is null)
         {
-            // Burn the same work an existing account would have cost. The result is
-            // discarded; only the elapsed time matters.
             var (dummyUser, dummyHash) = DummyCredential.Value;
             _hasher.VerifyHashedPassword(dummyUser, dummyHash, request.Password);
             return null;
@@ -60,19 +62,123 @@ public class AuthService : IAuthService
         if (result == PasswordVerificationResult.Failed)
             return null;
 
-        var token = _tokens.CreateToken(user);
+        var tokenResult = _tokens.CreateTokens(user);
 
-        // The SPA gates every rendered control on this set. It has to travel with the login
-        // response: without it the client cannot tell "no permissions" from "not told yet",
-        // and the version of hasPermission() that guessed guessed "allow".
+        var refreshTokenEntity = new RefreshToken
+        {
+            TenantId = user.TenantId,
+            UserId = user.Id,
+            Token = tokenResult.RefreshToken,
+            ExpiresAt = tokenResult.RefreshTokenExpiresAtUtc,
+            CreatedByIp = ipAddress,
+            IsRevoked = false
+        };
+
+        _db.RefreshTokens.Add(refreshTokenEntity);
+        await _db.SaveChangesAsync(ct);
+
         var permissions = await _permissions.GetUserPermissionsAsync(user.Id, user.TenantId, ct);
 
         return new LoginResponse(
-            token.AccessToken,
-            token.ExpiresAtUtc,
+            tokenResult.AccessToken,
+            tokenResult.ExpiresAtUtc,
+            tokenResult.RefreshToken,
+            tokenResult.RefreshTokenExpiresAtUtc,
             user.Role.ToString(),
             user.DisplayName,
             user.Id,
             permissions.ToArray());
+    }
+
+    public async Task<LoginResponse?> RefreshTokenAsync(RefreshRequest request, string? ipAddress = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            return null;
+
+        var existingToken = await _db.RefreshTokens
+            .IgnoreQueryFilters()
+            .Include(r => r.User)
+            .FirstOrDefaultAsync(r => r.Token == request.RefreshToken, ct);
+
+        if (existingToken is null)
+            return null;
+
+        // Reuse detection: if token is already revoked, revoke all active refresh tokens for the user
+        if (existingToken.IsRevoked)
+        {
+            var activeTokens = await _db.RefreshTokens
+                .IgnoreQueryFilters()
+                .Where(r => r.UserId == existingToken.UserId && !r.IsRevoked)
+                .ToListAsync(ct);
+
+            foreach (var t in activeTokens)
+            {
+                t.IsRevoked = true;
+                t.RevokedAt = DateTimeOffset.UtcNow;
+                t.RevokedByIp = ipAddress;
+            }
+
+            await _db.SaveChangesAsync(ct);
+            return null;
+        }
+
+        if (existingToken.IsExpired || existingToken.User is null || !existingToken.User.IsActive)
+            return null;
+
+        // Token rotation: revoke current token and issue new token pair
+        var newTokenResult = _tokens.CreateTokens(existingToken.User);
+
+        existingToken.IsRevoked = true;
+        existingToken.RevokedAt = DateTimeOffset.UtcNow;
+        existingToken.RevokedByIp = ipAddress;
+        existingToken.ReplacedByToken = newTokenResult.RefreshToken;
+
+        var newRefreshTokenEntity = new RefreshToken
+        {
+            TenantId = existingToken.User.TenantId,
+            UserId = existingToken.User.Id,
+            Token = newTokenResult.RefreshToken,
+            ExpiresAt = newTokenResult.RefreshTokenExpiresAtUtc,
+            CreatedByIp = ipAddress,
+            IsRevoked = false
+        };
+
+        _db.RefreshTokens.Add(newRefreshTokenEntity);
+        await _db.SaveChangesAsync(ct);
+
+        var permissions = await _permissions.GetUserPermissionsAsync(existingToken.User.Id, existingToken.User.TenantId, ct);
+
+        return new LoginResponse(
+            newTokenResult.AccessToken,
+            newTokenResult.ExpiresAtUtc,
+            newTokenResult.RefreshToken,
+            newTokenResult.RefreshTokenExpiresAtUtc,
+            existingToken.User.Role.ToString(),
+            existingToken.User.DisplayName,
+            existingToken.User.Id,
+            permissions.ToArray());
+    }
+
+    public async Task<bool> RevokeTokenAsync(string refreshToken, string? ipAddress = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            return false;
+
+        var token = await _db.RefreshTokens
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.Token == refreshToken, ct);
+
+        if (token is null)
+            return false;
+
+        if (!token.IsRevoked)
+        {
+            token.IsRevoked = true;
+            token.RevokedAt = DateTimeOffset.UtcNow;
+            token.RevokedByIp = ipAddress;
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return true;
     }
 }

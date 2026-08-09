@@ -10,7 +10,7 @@ namespace RecruitOps.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[AllowAnonymous] // login must be reachable without a token
+[AllowAnonymous] // login/refresh/revoke must be reachable without an access token
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _auth;
@@ -22,11 +22,9 @@ public class AuthController : ControllerBase
         _throttle = throttle;
     }
 
-    /// <summary>Exchanges email + password for a signed JWT.
+    /// <summary>Exchanges email + password for a signed JWT + refresh token.
     /// <para>Rate-limited on two axes: per IP by the <see cref="RateLimitPolicies.Login"/>
-    /// policy, and per account by <see cref="ILoginThrottle"/>. Without an anonymous
-    /// endpoint that verifies a secret being limited, the password policy is the only thing
-    /// standing between an attacker and every account.</para></summary>
+    /// policy, and per account by <see cref="ILoginThrottle"/>.</para></summary>
     [HttpPost("login")]
     [EnableRateLimiting(RateLimitPolicies.Login)]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request, CancellationToken ct)
@@ -37,9 +35,6 @@ public class AuthController : ControllerBase
             Response.Headers.RetryAfter =
                 ((int)Math.Ceiling(retryAfter.Value.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
 
-            // Note this is returned for unknown emails too. Only locking out real accounts
-            // would make the 429 an existence oracle, undoing the enumeration protection
-            // the matching 401s below are there to provide.
             return StatusCode(StatusCodes.Status429TooManyRequests, new ProblemDetails
             {
                 Title = "Too many attempts",
@@ -47,17 +42,42 @@ public class AuthController : ControllerBase
             });
         }
 
-        var result = await _auth.LoginAsync(request, ct);
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var result = await _auth.LoginAsync(request, ipAddress, ct);
 
         if (result is null)
         {
             _throttle.RecordFailure(request.Email);
-            // Same 401 for unknown user and bad password — don't reveal which.
             return Unauthorized();
         }
 
-        // A user who mistypes twice then succeeds shouldn't stay one slip from a lockout.
         _throttle.Reset(request.Email);
         return Ok(result);
+    }
+
+    /// <summary>Exchanges a valid refresh token for a new access token and rotated refresh token.</summary>
+    [HttpPost("refresh")]
+    public async Task<ActionResult<LoginResponse>> Refresh([FromBody] RefreshRequest request, CancellationToken ct)
+    {
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var result = await _auth.RefreshTokenAsync(request, ipAddress, ct);
+        if (result is null)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Title = "Unauthorized",
+                Detail = "Invalid, expired, or revoked refresh token."
+            });
+        }
+        return Ok(result);
+    }
+
+    /// <summary>Revokes a refresh token (e.g. on user logout).</summary>
+    [HttpPost("revoke")]
+    public async Task<IActionResult> Revoke([FromBody] RefreshRequest request, CancellationToken ct)
+    {
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+        await _auth.RevokeTokenAsync(request.RefreshToken, ipAddress, ct);
+        return NoContent();
     }
 }
