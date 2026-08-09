@@ -11,13 +11,17 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="10.0.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />
     <!-- Security: pin away from the vulnerable transitive 9.0.0 (CVE-2026-33116,
          EncryptedXml DoS). Vulnerable ranges: [8.0.0,8.0.2] [9.0.0,9.0.14] [10.0.0,10.0.5]
          — so 10.0.6 is the first patched build on the 10.x line. Pulled in transitively
          by the EF Design / Mvc.Testing packages, not referenced directly by our code. -->
+    <PackageReference Include="AWSSDK.S3" Version="3.7.400" />
     <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
+    <PackageReference Include="UglyToad.PdfPig" Version="1.7.0-custom-5" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Domain\RecruitOps.Domain.csproj" />

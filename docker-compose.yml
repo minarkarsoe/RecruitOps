@@ -54,6 +54,12 @@ services:
       # Optional dev seed: creates one company + admin on startup when both are set.
       Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-}
       Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
+      FileStorage__ServiceUrl: "http://storage:9000"
+      FileStorage__PublicServiceUrl: "http://localhost:9000"
+      FileStorage__BucketName: "recruitops-dev"
+      FileStorage__AccessKey: ${MINIO_USER:-minioadmin}
+      FileStorage__SecretKey: ${MINIO_PASSWORD:-minioadmin}
+      FileStorage__ForcePathStyle: "true"
     ports:
       # ⚠️ Publishing this port is a DEV convenience (Swagger, curl against the API directly).
       # It is also why ReverseProxy__TrustForwardedHeaders stays false: while the API is

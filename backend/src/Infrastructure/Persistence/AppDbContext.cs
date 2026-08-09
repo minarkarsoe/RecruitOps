@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     // Module 1 — Requisition & Approval
     public DbSet<JdTemplate> JdTemplates => Set<JdTemplate>();
@@ -420,6 +421,19 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // ---------- RefreshToken ----------
+        builder.Entity<RefreshToken>(e =>
+        {
+            e.Property(x => x.Token).IsRequired().HasMaxLength(256);
+            e.HasIndex(x => x.Token).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.UserId });
+
+            e.HasOne(x => x.User)
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
         // ---------- Tenant query filters ----------
         // Each company has its own database (ADR-0004), so these are a dormant safety
         // net against misconfiguration — NOT the primary isolation boundary. The
@@ -452,6 +466,7 @@ public class AppDbContext : DbContext
         builder.Entity<Note>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<NoteMention>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<Role>().HasQueryFilter(e => e.TenantId == null || e.TenantId == _tenant.TenantId);
+        builder.Entity<RefreshToken>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
 
         base.OnModelCreating(builder);
     }

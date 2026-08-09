@@ -91,6 +91,11 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase(_databaseName, Root));
 
+            // Replace IFileStorage with InMemoryFileStorage so integration tests run completely offline without S3/MinIO
+            var storageDescriptors = services.Where(d => d.ServiceType == typeof(RecruitOps.Application.Interfaces.IFileStorage)).ToList();
+            foreach (var d in storageDescriptors) services.Remove(d);
+            services.AddSingleton<RecruitOps.Application.Interfaces.IFileStorage, InMemoryFileStorage>();
+
             // Force the Test auth scheme as the default.
             services.AddAuthentication(TestAuthHandler.SchemeName)
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });

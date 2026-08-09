@@ -65,7 +65,14 @@ public static class RbacSeedData
 
         // 9. System
         new Permission { Module = "system", Feature = "system", Action = "manage", Name = "Manage System", Description = "Full administrative control over system infrastructure", Code = "permission:system:system:manage" },
-        new Permission { Module = "system", Feature = "system", Action = "audit", Name = "Audit System", Description = "View system audit logs and metrics", Code = "permission:system:system:audit" }
+        new Permission { Module = "system", Feature = "system", Action = "audit", Name = "Audit System", Description = "View system audit logs and metrics", Code = "permission:system:system:audit" },
+
+        // 10. AI Services
+        new Permission { Module = "ai", Feature = "resume", Action = "parse", Name = "Parse Resume", Description = "Parse and structure resume documents using Claude AI", Code = "permission:ai:resume:parse" },
+        new Permission { Module = "ai", Feature = "matching", Action = "analyze", Name = "Analyze Candidate Matching", Description = "Perform detailed candidate-job matching analysis using Claude AI", Code = "permission:ai:matching:analyze" },
+        new Permission { Module = "ai", Feature = "summary", Action = "generate", Name = "Generate Executive Summary", Description = "Generate executive summary and interview questions using Gemini AI", Code = "permission:ai:summary:generate" },
+        new Permission { Module = "ai", Feature = "document", Action = "prepare", Name = "Prepare Dossier & Interview Kit", Description = "Prepare client dossiers and interview kits using Gemini AI", Code = "permission:ai:document:prepare" },
+        new Permission { Module = "ai", Feature = "localization", Action = "translate", Name = "Burmese Localization", Description = "Translate content between English and Burmese using Gemini AI", Code = "permission:ai:localization:translate" }
     };
 
     public static List<SystemRoleSeedDefinition> GetSystemRoles() => new()
@@ -99,7 +106,8 @@ public static class RbacSeedData
                 "permission:applications:applications:read", "permission:applications:applications:create", "permission:applications:applications:update", "permission:applications:applications:delete", "permission:applications:applications:move_stage",
                 "permission:interviews:interviews:read", "permission:interviews:interviews:create", "permission:interviews:interviews:update", "permission:interviews:interviews:cancel",
                 "permission:scorecards:scorecards:read", "permission:scorecards:scorecards:submit", "permission:scorecards:scorecards:manage_templates",
-                "permission:users:users:read", "permission:roles:roles:read", "permission:settings:settings:read", "permission:system:system:audit"
+                "permission:users:users:read", "permission:roles:roles:read", "permission:settings:settings:read", "permission:system:system:audit",
+                "permission:ai:resume:parse", "permission:ai:matching:analyze", "permission:ai:summary:generate", "permission:ai:document:prepare", "permission:ai:localization:translate"
             }
         },
         new SystemRoleSeedDefinition
@@ -115,7 +123,8 @@ public static class RbacSeedData
                 "permission:applications:applications:read", "permission:applications:applications:create", "permission:applications:applications:update", "permission:applications:applications:delete", "permission:applications:applications:move_stage",
                 "permission:interviews:interviews:read", "permission:interviews:interviews:create", "permission:interviews:interviews:update", "permission:interviews:interviews:cancel",
                 "permission:scorecards:scorecards:read", "permission:scorecards:scorecards:submit",
-                "permission:users:users:read"
+                "permission:users:users:read",
+                "permission:ai:resume:parse", "permission:ai:matching:analyze", "permission:ai:summary:generate", "permission:ai:document:prepare", "permission:ai:localization:translate"
             }
         },
         new SystemRoleSeedDefinition

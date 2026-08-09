@@ -246,7 +246,7 @@ public class RbacDomainTests
     }
 
     [Fact]
-    public async Task DbInitializer_SeedPermissionsAndRolesAsync_Verifies_Exact_34_Permissions_And_7_System_Roles()
+    public async Task DbInitializer_SeedPermissionsAndRolesAsync_Verifies_Exact_39_Permissions_And_7_System_Roles()
     {
         using var db = CreateDbContext();
 
@@ -256,8 +256,8 @@ public class RbacDomainTests
         var roles = await db.Roles.IgnoreQueryFilters().Include(r => r.RolePermissions).ThenInclude(rp => rp.Permission).ToListAsync();
 
         // Verification of requirement R2 & milestone scope:
-        // Canonical permission count: 34 permissions total across 9 modules (exceeds the 29 requirement threshold)
-        Assert.Equal(34, permissions.Count);
+        // Canonical permission count: 39 permissions total across 10 modules (exceeds the 29 requirement threshold)
+        Assert.Equal(39, permissions.Count);
         Assert.True(permissions.Count >= 29);
 
         // Canonical system roles: 7 default roles
@@ -265,20 +265,20 @@ public class RbacDomainTests
 
         var roleMap = roles.ToDictionary(r => r.Code);
 
-        // SuperAdmin: Has all 34 permissions
+        // SuperAdmin: Has all 39 permissions
         Assert.True(roleMap["SuperAdmin"].IsSuperAdmin);
-        Assert.Equal(34, roleMap["SuperAdmin"].RolePermissions.Count);
+        Assert.Equal(39, roleMap["SuperAdmin"].RolePermissions.Count);
 
-        // Admin: Has 33 permissions (all except permission:system:system:manage)
+        // Admin: Has 38 permissions (all except permission:system:system:manage)
         Assert.False(roleMap["Admin"].IsSuperAdmin);
-        Assert.Equal(33, roleMap["Admin"].RolePermissions.Count);
+        Assert.Equal(38, roleMap["Admin"].RolePermissions.Count);
         Assert.DoesNotContain(roleMap["Admin"].RolePermissions, rp => rp.Permission.Code == "permission:system:system:manage");
 
-        // HrDirector: 26 permissions
-        Assert.Equal(26, roleMap["HrDirector"].RolePermissions.Count);
+        // HrDirector: 31 permissions
+        Assert.Equal(31, roleMap["HrDirector"].RolePermissions.Count);
 
-        // Recruiter: 18 permissions
-        Assert.Equal(18, roleMap["Recruiter"].RolePermissions.Count);
+        // Recruiter: 23 permissions
+        Assert.Equal(23, roleMap["Recruiter"].RolePermissions.Count);
 
         // HiringManager: 11 permissions
         Assert.Equal(11, roleMap["HiringManager"].RolePermissions.Count);

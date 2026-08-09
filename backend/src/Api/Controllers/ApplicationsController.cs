@@ -15,8 +15,15 @@ namespace RecruitOps.Api.Controllers;
 public class ApplicationsController : ControllerBase
 {
     private readonly IPipelineService _pipeline;
+    private readonly IResumeService _resumeService;
 
-    public ApplicationsController(IPipelineService pipeline) => _pipeline = pipeline;
+    public ApplicationsController(
+        IPipelineService pipeline,
+        IResumeService resumeService)
+    {
+        _pipeline = pipeline;
+        _resumeService = resumeService;
+    }
 
     [HttpPost("{id:guid}/stage")]
     [Authorize(Policy = Policies.RecruitmentStaff)] // hiring managers comment; recruiters move
@@ -40,5 +47,50 @@ public class ApplicationsController : ControllerBase
     {
         var result = await _pipeline.GetHistoryAsync(id, ct);
         return result is null ? NotFound() : Ok(result);
+    }
+
+    /// <summary>Upload and extract candidate resume document (PDF, DOCX, PNG, JPG).</summary>
+    [HttpPost("{id:guid}/resume")]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<ResumeExtractionResultDto>> UploadResume(
+        Guid id, IFormFile file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new ProblemDetails { Title = "Invalid File", Detail = "File is empty or missing." });
+        }
+
+        if (file.Length > 10 * 1024 * 1024) // 10MB
+        {
+            return BadRequest(new ProblemDetails { Title = "File Too Large", Detail = "File size exceeds maximum limit of 10MB." });
+        }
+
+        var allowedExtensions = new[] { ".pdf", ".docx", ".png", ".jpg", ".jpeg" };
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!allowedExtensions.Contains(ext))
+        {
+            return BadRequest(new ProblemDetails { Title = "Unsupported Format", Detail = "Allowed formats are PDF, DOCX, PNG, JPG, JPEG." });
+        }
+
+        var result = await _resumeService.UploadAndExtractResumeAsync(id, file, ct);
+        if (result is null)
+        {
+            return NotFound(new ProblemDetails { Title = "Not Found", Detail = "Application not found or unauthorized." });
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>Download stored candidate resume document stream.</summary>
+    [HttpGet("{id:guid}/resume")]
+    public async Task<IActionResult> GetResume(Guid id, CancellationToken ct)
+    {
+        var fileResult = await _resumeService.GetResumeFileAsync(id, ct);
+        if (fileResult is null)
+        {
+            return NotFound(new ProblemDetails { Title = "Not Found", Detail = "Resume not found or unauthorized." });
+        }
+
+        return File(fileResult.Value.Stream, fileResult.Value.ContentType, fileResult.Value.FileName);
     }
 }
