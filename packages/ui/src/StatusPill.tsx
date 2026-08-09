@@ -7,9 +7,25 @@ import type {
 // the interview lifecycle so one component carries the whole status language. Adding a
 // status type here is cheaper than the alternative: a page-local badge that drifts from the
 // design system the first time a colour changes.
-type Status = PipelineStatus | RequisitionStatus | JobStatus | InterviewStatus;
+export type ExtendedStatusVocabulary =
+  | 'Sent to Client' | 'SentToClient'
+  | 'Placed'
+  | 'Accepted'
+  | 'Need More Info' | 'NeedMoreInfo'
+  | 'Active'
+  | 'Expiring Soon' | 'ExpiringSoon'
+  | 'Expired';
 
-const STYLES: Record<Status, string> = {
+export type StatusPillVocabulary =
+  | PipelineStatus
+  | RequisitionStatus
+  | JobStatus
+  | InterviewStatus
+  | ExtendedStatusVocabulary;
+
+type Status = StatusPillVocabulary;
+
+const STYLES: Record<string, string> = {
   // Candidate pipeline
   Sourced: 'bg-surface-50 text-ink-600',
   Applied: 'bg-info-100 text-info-600',
@@ -34,6 +50,17 @@ const STYLES: Record<Status, string> = {
   NoShow: 'bg-warning-100 text-warning-600',
   // Shared
   Rejected: 'bg-danger-100 text-danger-600',
+  // Extended vocabulary (Design System §5.2)
+  'Sent to Client': 'bg-info-100 text-info-600',
+  SentToClient: 'bg-info-100 text-info-600',
+  Placed: 'bg-success-100 text-success-600',
+  Accepted: 'bg-success-100 text-success-600',
+  'Need More Info': 'bg-warning-100 text-warning-600',
+  NeedMoreInfo: 'bg-warning-100 text-warning-600',
+  Active: 'bg-success-100 text-success-600',
+  'Expiring Soon': 'bg-warning-100 text-warning-600',
+  ExpiringSoon: 'bg-warning-100 text-warning-600',
+  Expired: 'bg-danger-100 text-danger-600',
 };
 
 // Insert a space before capitals so "PendingApproval" reads as "Pending Approval",
@@ -42,13 +69,15 @@ function humanise(status: string): string {
   return status.replace(/([a-z])([A-Z])/g, '$1 $2');
 }
 
-export function StatusPill({ status }: { status: Status }) {
+export function StatusPill({ status }: { status: Status | string }) {
+  const styleClass = STYLES[status] || 'bg-surface-50 text-ink-600';
   return (
     <span
-      className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold ${STYLES[status]}`}
+      className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold ${styleClass}`}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
       {humanise(status)}
     </span>
   );
 }
+

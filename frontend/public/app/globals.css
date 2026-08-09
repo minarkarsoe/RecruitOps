@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&family=Noto+Sans+Myanmar:wght@400;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,7 +10,7 @@ body {
   background: theme('colors.surface.50');
   color: theme('colors.ink.900');
   font-family: theme('fontFamily.sans');
-  line-height: 1.6; /* Burmese-safe (design system §1) */
+  line-height: 1.7; /* Burmese-safe (design system §1) */
 }
 
 @media (prefers-reduced-motion: reduce) {

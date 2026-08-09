@@ -11,7 +11,7 @@ body {
   color: theme('colors.ink.900');
   font-family: theme('fontFamily.sans');
   /* Burmese-safe line height (design system §1). */
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 /*

@@ -5,6 +5,8 @@ const STORAGE_KEY = 'recruitops.session';
 export interface Session {
   accessToken: string;
   expiresAtUtc: string;
+  refreshToken?: string;
+  refreshTokenExpiresAtUtc?: string;
   role: UserRole;
   displayName: string;
   userId: string;
@@ -38,8 +40,9 @@ export const auth = {
     if (!raw) return null;
     try {
       const session = JSON.parse(raw) as Session;
-      // Expired tokens are useless; drop them rather than letting the API 401 later.
-      if (new Date(session.expiresAtUtc).getTime() <= Date.now()) {
+      // If access token is expired AND there is no refresh token, drop session.
+      // Silent refresh in apiFetch will handle renewing the access token if refresh token is present.
+      if (!session.refreshToken && new Date(session.expiresAtUtc).getTime() <= Date.now()) {
         sessionStorage.removeItem(STORAGE_KEY);
         return null;
       }
@@ -51,15 +54,18 @@ export const auth = {
   },
 
   set(response: LoginResponse): Session {
+    const current = auth.get();
     const session: Session = {
       accessToken: response.accessToken,
       expiresAtUtc: response.expiresAtUtc,
+      refreshToken: response.refreshToken,
+      refreshTokenExpiresAtUtc: response.refreshTokenExpiresAtUtc,
       role: response.role,
       displayName: response.displayName,
       userId: response.userId,
       isSuperAdmin: response.isSuperAdmin || response.role === 'SuperAdmin',
-      activeTenantId: response.activeTenantId ?? response.tenantId,
-      activeTenantName: response.activeTenantName,
+      activeTenantId: response.activeTenantId ?? response.tenantId ?? current?.activeTenantId,
+      activeTenantName: response.activeTenantName ?? current?.activeTenantName,
       permissions: response.permissions,
     };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));

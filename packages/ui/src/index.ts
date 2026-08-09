@@ -1,4 +1,8 @@
-export { StatusPill } from './StatusPill';
+export {
+  StatusPill,
+  type StatusPillVocabulary,
+  type ExtendedStatusVocabulary,
+} from './StatusPill';
 export { Button, type ButtonProps } from './Button';
 export { Card } from './Card';
 export {
@@ -59,3 +63,22 @@ export {
 } from './Skeleton';
 export { Input, type InputProps } from './Input';
 export { Select, type SelectProps, type SelectOption } from './Select';
+export {
+  PipelineStageRail,
+  type PipelineStageRailProps,
+  type PipelineStageItem,
+} from './PipelineStageRail';
+export {
+  ExpiryAttentionCard,
+  type ExpiryAttentionCardProps,
+  type ExpiryItem,
+} from './ExpiryAttentionCard';
+export {
+  ClientPortalCard,
+  ClientFeedbackBar,
+  type ClientPortalCardProps,
+  type ClientPortalCandidate,
+  type ClientFeedbackBarProps,
+  type ClientFeedbackStatus,
+} from './ClientPortalCard';
+

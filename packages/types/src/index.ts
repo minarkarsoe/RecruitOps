@@ -26,9 +26,15 @@ export type SourceChannel =
 // ---------- Auth ----------
 export interface LoginRequest { email: string; password: string; }
 
+export interface RefreshRequest {
+  refreshToken: string;
+}
+
 export interface LoginResponse {
   accessToken: string;
   expiresAtUtc: string;
+  refreshToken?: string;
+  refreshTokenExpiresAtUtc?: string;
   role: UserRole;
   displayName: string;
   userId: string;
@@ -700,3 +706,195 @@ export interface CreateNoteRequest {
   /** Optionally pin the note to one interview round. */
   interviewId?: string | null;
 }
+
+// ---------- Hybrid AI Integration (Milestone 2 / 3) ----------
+// Mirrors RecruitOps.Application.DTOs.Ai — Claude handles data analytics,
+// Gemini handles document generation & localization (ADR-0021).
+
+// ── Claude: Resume Parsing ────────────────────────────────────────────────
+export interface ParseResumeRequest {
+  resumeText: string;
+  /** e.g. "PDF", "DOCX", "plain" */
+  sourceFormat?: string;
+  language?: string;
+}
+
+export interface ParsedSkill {
+  name: string;
+  level?: string;
+}
+
+export interface ParsedExperience {
+  company: string;
+  title: string;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+}
+
+export interface ParsedEducation {
+  institution: string;
+  degree?: string;
+  field?: string;
+  graduationYear?: number;
+}
+
+export interface ParsedResumeResult {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  summary?: string;
+  skills: ParsedSkill[];
+  experience: ParsedExperience[];
+  education: ParsedEducation[];
+  languages?: string[];
+  confidenceScore: number;
+  rawMarkdown?: string;
+}
+
+// ── Claude: Candidate Matching ────────────────────────────────────────────
+export interface MatchCandidateRequest {
+  candidateId: string;
+  jobPostingId: string;
+}
+
+export interface MatchCriterion {
+  criterion: string;
+  score: number;
+  rationale: string;
+}
+
+export interface CandidateMatchAnalysis {
+  candidateId: string;
+  jobPostingId: string;
+  overallScore: number;
+  recommendation: 'StrongMatch' | 'GoodMatch' | 'PossibleMatch' | 'LowMatch';
+  strengths: string[];
+  gaps: string[];
+  criteria: MatchCriterion[];
+  suggestedInterviewQuestions: string[];
+  summary: string;
+}
+
+// ── Gemini: Executive Summary ─────────────────────────────────────────────
+export interface GenerateExecutiveSummaryRequest {
+  candidateId: string;
+  jobPostingId?: string;
+  /** Audience for the summary: "client" (portal-safe) or "internal" */
+  audience?: 'client' | 'internal';
+  /** Output language: "en", "my" (Burmese), or "bilingual" */
+  language?: 'en' | 'my' | 'bilingual';
+}
+
+export interface ExecutiveSummaryResult {
+  candidateId: string;
+  headline: string;
+  summary: string;
+  keyStrengths: string[];
+  suggestedInterviewQuestions: string[];
+  /** True when output includes Burmese content */
+  isBilingual: boolean;
+}
+
+// ── Gemini: Document Preparation ─────────────────────────────────────────
+export interface PrepareDocumentRequest {
+  candidateId: string;
+  jobPostingId: string;
+  /** "InterviewKit" | "ClientDossier" | "OfferLetter" | "JobDescription" */
+  documentType: string;
+  language?: 'en' | 'my' | 'bilingual';
+}
+
+export interface DocumentPrepResult {
+  candidateId: string;
+  jobPostingId: string;
+  documentType: string;
+  markdownContent: string;
+  htmlContent: string;
+  generatedAtUtc: string;
+}
+
+// ── Gemini: Burmese Localization ──────────────────────────────────────────
+export interface BurmeseLocalizationRequest {
+  sourceText: string;
+  /** "en" → "my", or "my" → "en" */
+  targetLanguage: 'en' | 'my';
+  context?: string;
+}
+
+export interface BurmeseLocalizationResult {
+  originalText: string;
+  translatedText: string;
+  targetLanguage: string;
+  confidenceScore: number;
+}
+
+// ── Single CV Extraction & Human Review DTOs (Milestones 1 & 3) ──────────────
+
+export interface ParsedContactInfo {
+  candidateName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  yearsOfExperience?: number | null;
+  skills?: string[];
+}
+
+export interface ResumeExtractionResult {
+  applicationId: string;
+  fileKey: string;
+  fileName: string;
+  fileSizeBytes: number;
+  extractedText: string;
+  originalText?: string | null;
+  detectedLanguage: string;
+  isZawgyiNormalized: boolean;
+  parsedContactInfo: ParsedContactInfo | null;
+  processedAt: string;
+}
+
+export interface ConfirmParsedProfileRequest {
+  candidateName: string;
+  email?: string | null;
+  phone?: string | null;
+  yearsOfExperience?: number | null;
+  skills?: string[];
+}
+
+// ── Bulk CV Upload & Background Processing DTOs (Milestones 2 & 3) ─────────
+
+export type BulkFileStatus = 'Queued' | 'Processing' | 'Success' | 'Skipped' | 'Failed';
+
+export interface BulkFileItemStatus {
+  fileId?: string | null;
+  fileName: string;
+  fileSizeBytes: number;
+  status: BulkFileStatus;
+  errorMessage?: string | null;
+  createdApplicationId?: string | null;
+  createdCandidateId?: string | null;
+  candidateName?: string | null;
+}
+
+export interface BulkResumeUploadResponse {
+  batchId: string;
+  jobPostingId: string;
+  totalFiles: number;
+  status: 'Queued' | 'Processing' | 'Completed' | 'PartialSuccess' | 'Failed' | string;
+  createdAt: string;
+}
+
+export interface BulkResumeBatchStatus {
+  batchId: string;
+  jobPostingId: string;
+  totalFiles: number;
+  processedCount: number;
+  successCount: number;
+  failedCount: number;
+  skippedCount?: number;
+  status: 'Queued' | 'Processing' | 'Completed' | 'PartialSuccess' | 'Failed' | string;
+  files: BulkFileItemStatus[];
+  createdAt: string;
+  completedAt?: string | null;
+}
+

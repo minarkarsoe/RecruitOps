@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Badge,
   Button,
+  Input,
   Sheet,
   SheetBody,
   SheetHeader,
@@ -12,9 +13,10 @@ import {
   TabsList,
   TabsTrigger,
 } from '@recruitops/ui';
-import type { Interview, PipelineItem, StageHistoryItem } from '@recruitops/types';
+import type { Interview, PipelineItem, ResumeExtractionResult, StageHistoryItem } from '@recruitops/types';
 import { parseFormFields } from '@recruitops/types';
 import { ApplicationNotes } from '../../components/ApplicationNotes';
+import { resumeApi } from '../../lib/api';
 
 export interface CandidateSlideOverProps {
   candidate: PipelineItem | null;
@@ -24,6 +26,7 @@ export interface CandidateSlideOverProps {
   interviews?: Interview[];
   onOpenScorecard?: (interviewId: string) => void;
   onMoveStage?: (applicationId: string, toStatus: any) => Promise<void>;
+  onProfileUpdated?: () => void;
   applicationFormFieldsJson?: string | null;
   initialTab?: string;
   className?: string;
@@ -64,6 +67,339 @@ function CustomAnswersView({
   );
 }
 
+export function CvAndDocumentsTab({
+  candidate,
+  onProfileUpdated,
+}: {
+  candidate: PipelineItem;
+  onProfileUpdated?: () => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [extractionResult, setExtractionResult] = useState<ResumeExtractionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmSuccess, setConfirmSuccess] = useState(false);
+
+  const [form, setForm] = useState({
+    candidateName: candidate.candidateName || '',
+    email: candidate.email || '',
+    phone: candidate.phone || '',
+    yearsOfExperience: '' as number | '',
+    skills: [] as string[],
+    newSkillInput: '',
+  });
+
+  const handleFileUpload = async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size exceeds maximum limit of 10MB.');
+      return;
+    }
+    const validExts = ['.pdf', '.docx', '.png', '.jpg', '.jpeg'];
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    if (!validExts.includes(ext)) {
+      setError('Invalid file format. Allowed formats: PDF, DOCX, PNG, JPG, JPEG.');
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(30);
+    setError(null);
+    setConfirmSuccess(false);
+
+    try {
+      setUploadProgress(60);
+      const result = await resumeApi.uploadCandidateResume(candidate.id, file);
+      setUploadProgress(100);
+      setExtractionResult(result);
+
+      const info = result.parsedContactInfo;
+      if (info) {
+        setForm((prev) => ({
+          ...prev,
+          candidateName: info.candidateName || prev.candidateName,
+          email: info.email || prev.email,
+          phone: info.phone || prev.phone,
+          yearsOfExperience: info.yearsOfExperience ?? prev.yearsOfExperience,
+          skills: info.skills ?? prev.skills,
+        }));
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to upload and extract CV.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleConfirmProfile = async () => {
+    if (!form.candidateName.trim()) {
+      setError('Candidate Name is required.');
+      return;
+    }
+    setConfirming(true);
+    setError(null);
+    try {
+      await resumeApi.confirmParsedProfile(candidate.id, {
+        candidateName: form.candidateName.trim(),
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        yearsOfExperience: form.yearsOfExperience === '' ? null : Number(form.yearsOfExperience),
+        skills: form.skills,
+      });
+      setConfirmSuccess(true);
+      if (onProfileUpdated) onProfileUpdated();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to confirm profile updates.');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const handleDownloadCv = async () => {
+    try {
+      const blob = await resumeApi.downloadCandidateResume(candidate.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${candidate.candidateName.replace(/\s+/g, '_')}_CV.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Download failed.');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Candidate Resume File Header */}
+      <div className="flex items-center justify-between rounded-md border border-line-200 bg-surface-50 p-3">
+        <div className="flex items-center gap-2">
+          <svg className="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span className="text-sm font-semibold text-ink-900">
+            {candidate.candidateName}_Resume.pdf
+          </span>
+        </div>
+      </div>
+
+      {/* Drag and drop single file upload zone */}
+      <div
+        className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${
+          dragActive
+            ? 'border-primary-500 bg-primary-50/50'
+            : 'border-line-300 bg-surface-50 hover:border-primary-400'
+        }`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragActive(true);
+        }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragActive(false);
+          if (e.dataTransfer.files?.[0]) handleFileUpload(e.dataTransfer.files[0]);
+        }}
+      >
+        <input
+          type="file"
+          id="cv-single-upload"
+          className="hidden"
+          accept=".pdf,.docx,.png,.jpg,.jpeg"
+          onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+        />
+        <label
+          htmlFor="cv-single-upload"
+          className="flex cursor-pointer flex-col items-center justify-center text-center"
+        >
+          <svg className="h-10 w-10 text-ink-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <span className="text-sm font-semibold text-primary-600 hover:underline">
+            Click to upload CV document
+          </span>
+          <span className="mt-1 text-xs text-ink-500">
+            Supports PDF, DOCX, PNG, JPG up to 10MB
+          </span>
+        </label>
+      </div>
+
+      {/* Upload progress bar */}
+      {uploading && (
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-ink-600 font-medium">
+            <span>Uploading and extracting text...</span>
+            <span>{uploadProgress}%</span>
+          </div>
+          <div className="w-full bg-line-200 h-2 rounded-full overflow-hidden">
+            <div
+              className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {error && <div className="rounded-md bg-danger-50 p-3 text-xs text-danger-700 font-medium">{error}</div>}
+      {confirmSuccess && (
+        <div className="rounded-md bg-success-50 p-3 text-xs text-success-700 font-medium">
+          Candidate profile updated and confirmed successfully!
+        </div>
+      )}
+
+      {/* Side-by-side view: Raw extracted text & Human Review form */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Extracted Raw CV Text */}
+        <div className="flex flex-col rounded-md border border-line-200 bg-surface-0 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-500">
+              Extracted Raw CV Text
+            </h4>
+            {extractionResult?.isZawgyiNormalized && (
+              <Badge variant="cyan">Zawgyi → Unicode Normalized</Badge>
+            )}
+          </div>
+
+          {extractionResult ? (
+            <div className="flex-1 max-h-80 overflow-y-auto rounded bg-surface-50 p-3 font-mono text-xs text-ink-900 whitespace-pre-wrap border border-line-200">
+              {extractionResult.extractedText || 'No text extracted from document.'}
+            </div>
+          ) : (
+            <div className="flex min-h-[220px] flex-col items-center justify-center rounded bg-surface-50 p-6 text-center text-xs text-ink-500 border border-line-200">
+              <h4 className="text-sm font-semibold text-ink-900 mb-1">CV Document Preview</h4>
+              <p>Upload a CV document above to extract and view readable text.</p>
+            </div>
+          )}
+
+          {extractionResult && (
+            <div className="mt-3 flex items-center justify-between text-xs text-ink-500">
+              <span>File: {extractionResult.fileName}</span>
+              <span>Language: {extractionResult.detectedLanguage || 'EN'}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Parsed Profile Human Review Form */}
+        <div className="rounded-md border border-line-200 bg-surface-0 p-4 space-y-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-500 border-b border-line-200 pb-2">
+            Parsed Profile Human Review
+          </h4>
+
+          <div className="space-y-3 text-xs">
+            <div>
+              <label className="block font-semibold text-ink-700 mb-1">Candidate Name *</label>
+              <Input
+                value={form.candidateName}
+                onChange={(e) => setForm({ ...form, candidateName: e.target.value })}
+                placeholder="Candidate Full Name"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-ink-700 mb-1">Email Address</label>
+                <Input
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="candidate@example.com"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-ink-700 mb-1">Phone Number</label>
+                <Input
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="+95 9..."
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-ink-700 mb-1">Years of Experience</label>
+              <Input
+                type="number"
+                value={form.yearsOfExperience}
+                onChange={(e) =>
+                  setForm({ ...form, yearsOfExperience: e.target.value === '' ? '' : Number(e.target.value) })
+                }
+                placeholder="e.g. 5"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-ink-700 mb-1">Skills</label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {form.skills.map((skill, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 rounded bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 border border-primary-200"
+                  >
+                    {skill}
+                    <button
+                      type="button"
+                      className="text-primary-500 hover:text-primary-800"
+                      onClick={() => setForm({ ...form, skills: form.skills.filter((_, i) => i !== idx) })}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={form.newSkillInput}
+                  onChange={(e) => setForm({ ...form, newSkillInput: e.target.value })}
+                  placeholder="Add skill (e.g. React)"
+                  className="text-xs h-8"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-8 px-3 text-xs"
+                  onClick={() => {
+                    if (form.newSkillInput.trim()) {
+                      setForm({
+                        ...form,
+                        skills: [...form.skills, form.newSkillInput.trim()],
+                        newSkillInput: '',
+                      });
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-line-200 flex justify-end">
+            <Button
+              onClick={handleConfirmProfile}
+              disabled={confirming}
+              className="bg-primary-600 hover:bg-primary-700 text-white"
+            >
+              {confirming ? 'Saving Profile...' : 'Confirm & Apply to Profile'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Download Original CV Document button */}
+      <div className="flex justify-end pt-2">
+        <Button variant="secondary" onClick={handleDownloadCv} className="flex items-center gap-2 text-xs">
+          <svg className="h-4 w-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Download Original CV Document
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function CandidateSlideOver({
   candidate,
   isOpen,
@@ -71,6 +407,7 @@ export function CandidateSlideOver({
   stageHistory = [],
   interviews = [],
   onOpenScorecard,
+  onProfileUpdated,
   applicationFormFieldsJson,
   initialTab = 'overview',
   className = '',
@@ -171,26 +508,7 @@ export function CandidateSlideOver({
 
               {/* Tab 2: CV Viewer */}
               <TabsContent value="cv" className="space-y-4">
-                <div className="flex items-center justify-between rounded-md border border-line-200 bg-surface-50 p-3">
-                  <div className="flex items-center gap-2">
-                    <svg className="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span className="text-sm font-semibold text-ink-900">
-                      {candidate.candidateName}_Resume.pdf
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex min-h-[380px] flex-col items-center justify-center rounded-md border border-line-200 bg-surface-50/50 p-8 text-center">
-                  <svg className="h-12 w-12 text-ink-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                  <h4 className="text-base font-semibold text-ink-900">CV Document Preview</h4>
-                  <p className="mt-1 max-w-sm text-xs text-ink-600">
-                    Document preview is loaded.
-                  </p>
-                </div>
+                <CvAndDocumentsTab candidate={candidate} onProfileUpdated={onProfileUpdated} />
               </TabsContent>
 
               {/* Tab 3: Stage History */}
@@ -297,3 +615,4 @@ export function CandidateSlideOver({
     </Sheet>
   );
 }
+

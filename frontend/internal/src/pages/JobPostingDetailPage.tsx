@@ -9,6 +9,7 @@ import { api } from '../lib/api';
 import { auth, hasPermission } from '../lib/auth';
 import { FormFieldBuilder } from '../components/FormFieldBuilder';
 import { ApplicationDebrief } from '../components/ApplicationDebrief';
+import { BulkCvUploadModal } from '../features/pipeline/BulkCvUploadModal';
 
 /**
  * Answers to the posting's custom questions (Module 2.2).
@@ -70,6 +71,7 @@ export function JobPostingDetailPage() {
   // comparing two candidates' rounds side by side is the normal thing to want, and an
   // accordion that closes the other one makes that impossible.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -307,9 +309,22 @@ export function JobPostingDetailPage() {
 
         {/* ── Pipeline ── */}
         <Card>
-          <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
-            Pipeline · {pipeline.length} {pipeline.length === 1 ? 'candidate' : 'candidates'}
-          </h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+              Pipeline · {pipeline.length} {pipeline.length === 1 ? 'candidate' : 'candidates'}
+            </h2>
+            <Button
+              variant="secondary"
+              className="flex items-center gap-1.5 text-xs h-8 px-3"
+              onClick={() => setIsBulkModalOpen(true)}
+            >
+              <svg className="h-4 w-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Bulk Upload CVs
+            </Button>
+          </div>
+
 
           {pipeline.length === 0 ? (
             <p className="text-[15px] text-ink-600">No applications yet.</p>
@@ -392,6 +407,15 @@ export function JobPostingDetailPage() {
           )}
         </Card>
       </div>
+
+      <BulkCvUploadModal
+        jobPostingId={id ?? ''}
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        onUploadComplete={() => {
+          load().catch(() => {});
+        }}
+      />
     </>
   );
 }
