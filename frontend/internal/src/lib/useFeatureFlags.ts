@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from './api';
+import { apiFetch } from './api';
 import type { VersionInfo } from '@recruitops/types';
 
 let cachedVersionInfo: VersionInfo | null = null;
@@ -8,8 +8,8 @@ let fetchPromise: Promise<VersionInfo | null> | null = null;
 export async function getVersionInfo(): Promise<VersionInfo | null> {
   if (cachedVersionInfo) return cachedVersionInfo;
   if (!fetchPromise) {
-    fetchPromise = api.version()
-      .then((data) => {
+    fetchPromise = apiFetch<VersionInfo>('/version')
+      .then((data: VersionInfo) => {
         cachedVersionInfo = data;
         return data;
       })
