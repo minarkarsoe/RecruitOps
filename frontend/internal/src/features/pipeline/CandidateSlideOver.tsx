@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Badge,
   Button,
@@ -13,13 +13,22 @@ import {
   TabsList,
   TabsTrigger,
 } from '@recruitops/ui';
-import type { Interview, PipelineItem, ResumeExtractionResult, StageHistoryItem } from '@recruitops/types';
+import type {
+  CandidateMatchAnalysis,
+  Interview,
+  PipelineItem,
+  ResumeExtractionResult,
+  StageHistoryItem,
+} from '@recruitops/types';
 import { parseFormFields } from '@recruitops/types';
 import { ApplicationNotes } from '../../components/ApplicationNotes';
 import { resumeApi } from '../../lib/api';
+import { SmartMatchBreakdown, getMatchBadgeConfig } from './SmartMatchBreakdown';
+import { ExecutiveSummaryPanel } from './ExecutiveSummaryPanel';
 
 export interface CandidateSlideOverProps {
   candidate: PipelineItem | null;
+  jobPostingId?: string;
   isOpen: boolean;
   onClose: () => void;
   stageHistory?: StageHistoryItem[];
@@ -30,6 +39,7 @@ export interface CandidateSlideOverProps {
   applicationFormFieldsJson?: string | null;
   initialTab?: string;
   className?: string;
+  initialMatchAnalysis?: CandidateMatchAnalysis | null;
 }
 
 function CustomAnswersView({
@@ -402,6 +412,7 @@ export function CvAndDocumentsTab({
 
 export function CandidateSlideOver({
   candidate,
+  jobPostingId,
   isOpen,
   onClose,
   stageHistory = [],
@@ -411,10 +422,18 @@ export function CandidateSlideOver({
   applicationFormFieldsJson,
   initialTab = 'overview',
   className = '',
+  initialMatchAnalysis = null,
 }: CandidateSlideOverProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+  const [matchAnalysis, setMatchAnalysis] = useState<CandidateMatchAnalysis | null>(initialMatchAnalysis);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   if (!isOpen) return null;
+
+  const matchBadgeConfig = matchAnalysis ? getMatchBadgeConfig(matchAnalysis.recommendation, matchAnalysis.overallScore) : null;
 
   return (
     <Sheet isOpen={isOpen} onClose={onClose} size="xl" className={className}>
@@ -423,28 +442,53 @@ export function CandidateSlideOver({
           <div className="py-12 text-center text-ink-600">No candidate profile selected.</div>
         </SheetBody>
       ) : (
-        <div className="flex h-full flex-col">
-          {/* Candidate 360 Header */}
-          <SheetHeader>
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3">
-                  <SheetTitle>{candidate.candidateName}</SheetTitle>
-                  <StatusPill status={candidate.status} />
-                  {candidate.source && <Badge variant="cyan">{candidate.source}</Badge>}
-                </div>
-                <p className="mt-1 text-sm text-ink-600">
-                  {candidate.email || 'No email'} · {candidate.phone || 'No phone'} · Applied{' '}
-                  {new Date(candidate.appliedAt).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className="flex h-full flex-col">
+            {/* Candidate 360 Header */}
+            <SheetHeader>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <SheetTitle>{candidate.candidateName}</SheetTitle>
+                    <StatusPill status={candidate.status} />
+                    {candidate.source && <Badge variant="cyan">{candidate.source}</Badge>}
 
-            {/* Navigation Tabs */}
-            <div className="mt-4">
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    {/* Smart Match Header Badge */}
+                    {matchBadgeConfig ? (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('ai')}
+                        aria-label="View Smart Match Breakdown"
+                        className="inline-flex items-center gap-1 hover:opacity-85 transition-opacity"
+                      >
+                        <Badge variant={matchBadgeConfig.variant} className="cursor-pointer font-bold">
+                          {matchAnalysis?.overallScore}% Match
+                        </Badge>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('ai')}
+                        className="inline-flex items-center gap-1 hover:opacity-85 transition-opacity"
+                      >
+                        <Badge variant="primary" className="cursor-pointer">
+                          AI Smart Match
+                        </Badge>
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-1 text-sm text-ink-600">
+                    {candidate.email || 'No email'} · {candidate.phone || 'No phone'} · Applied{' '}
+                    {new Date(candidate.appliedAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Navigation Tabs */}
+              <div className="mt-4">
                 <TabsList>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="ai">AI Insights</TabsTrigger>
                   <TabsTrigger value="cv">CV Viewer</TabsTrigger>
                   <TabsTrigger value="history" count={stageHistory.length}>
                     Stage History
@@ -454,13 +498,25 @@ export function CandidateSlideOver({
                   </TabsTrigger>
                   <TabsTrigger value="notes">Notes & Debrief</TabsTrigger>
                 </TabsList>
-              </Tabs>
-            </div>
-          </SheetHeader>
+              </div>
+            </SheetHeader>
 
-          {/* Drawer Body Content */}
-          <SheetBody className="flex-1 overflow-y-auto">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+            {/* Drawer Body Content */}
+            <SheetBody className="flex-1 overflow-y-auto">
+              {/* Tab: AI Insights */}
+              <TabsContent value="ai" className="space-y-6">
+                <SmartMatchBreakdown
+                  candidateId={candidate.candidateId || candidate.id}
+                  jobPostingId={jobPostingId}
+                  initialAnalysis={matchAnalysis}
+                  onAnalysisUpdated={setMatchAnalysis}
+                />
+                <ExecutiveSummaryPanel
+                  candidateId={candidate.candidateId || candidate.id}
+                  jobPostingId={jobPostingId}
+                  candidateName={candidate.candidateName}
+                />
+              </TabsContent>
               {/* Tab 1: Overview */}
               <TabsContent value="overview" className="space-y-6">
                 {/* Contact & Meta Card */}
@@ -608,9 +664,9 @@ export function CandidateSlideOver({
               <TabsContent value="notes" className="space-y-4">
                 <ApplicationNotes applicationId={candidate.id} interviews={interviews} />
               </TabsContent>
-            </Tabs>
-          </SheetBody>
-        </div>
+            </SheetBody>
+          </div>
+        </Tabs>
       )}
     </Sheet>
   );

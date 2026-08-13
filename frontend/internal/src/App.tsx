@@ -16,6 +16,7 @@ import { ScorecardTemplatesPage } from './pages/ScorecardTemplatesPage';
 import { DepartmentsPage } from './pages/DepartmentsPage';
 import { UsersPage } from './pages/UsersPage';
 import { RolesPage } from './pages/RolesPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
 
 export function App() {
   return (
@@ -70,6 +71,8 @@ export function App() {
               </RequirePermission>
             }
           />
+          {/* Module 5 — Reporting & Analytics */}
+          <Route path="/analytics" element={<AnalyticsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/requisitions" replace />} />

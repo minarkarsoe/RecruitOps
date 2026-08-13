@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-07-30 · **Milestones 1–5 Complete · Zero Audit Findings Open · 226 Backend Tests + 60 Frontend Tests Passing**
+**Last updated:** 2026-08-13 · **Delivery & Deployment Prerequisites Complete · 507 Backend Tests + 318 Frontend Tests Passing**
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
 > deliberately short-lived — one feature each — because conversation history is re-sent on
@@ -11,7 +11,7 @@
 
 ## Where the product is
 
-The governance loop, the hiring loop, the interview loop, and Dynamic RBAC are connected and verified:
+The governance loop, the hiring loop, the interview loop, AI CV Profiling, Reporting & Analytics, Full-Text Search, Dynamic RBAC, and Feature Flags Gating are connected and verified:
 
 ```
 Hiring Manager raises a requisition
@@ -20,22 +20,23 @@ Hiring Manager raises a requisition
   → Recruiter creates a job posting FROM that requisition
   → publishes it, getting an unguessable public link
   → a stranger applies on the public page (custom questions supported)
-  → the application lands in the pipeline at "Applied"
+  → recruiter uploads bulk PDF/Word CVs into local extraction pipeline
+  → AI profiles candidate skills & generates Burmese/English executive summary
+  → recruiter searches candidates via trigram full-text search
+  → application lands in pipeline at "Applied"
   → recruiter moves it through stages, every move recorded in append-only history
   → recruiter schedules an interview
-  → the panel scores it blind, and debriefs in notes with @mentions
-  → Admin / HR Director manages Users Directory & Custom Roles in Role Builder
-  → UI dynamically adapts sidebar links and action buttons based on session permissions
+  → panel scores it blind, and debriefs in notes with @mentions
+  → Analytics dashboard renders time-to-hire, funnel, bottleneck metrics
+  → Admin manages Users Directory, Custom Roles, Feature Flags & Version endpoints
 ```
 
-## ✅ Milestones 1–5 Verification & Deliverables Summary
+## ✅ Recent Verification & Deliverables Summary
 
-- **226/226 Backend Tests Passing**: 51 Domain + 175 Api integration tests executing via `dotnet test backend/RecruitOps.sln`.
-- **60/60 Frontend Tests Passing**: 10 Vitest test suites executing clean in `frontend/internal`.
+- **507/507 Backend Tests Passing**: 51 Domain + 456 Api integration tests executing via `dotnet test backend/RecruitOps.sln`.
+- **318/318 Frontend Tests Passing**: 39 Vitest test suites executing clean in `frontend/internal`.
 - **0 TypeScript Errors**: `npm run typecheck` clean across all workspaces.
-- **Production Build Clean**: `npm run build` in `frontend/internal` succeeds without errors.
-- **Granular Dynamic RBAC Engine**: `[HasPermission("permission:...")]` policy attribute, `PermissionsController`, `RolesController`, `UsersController`, seed permissions data, and dynamic permission evaluation.
-- **Permission-Aware UX**: Sidebar menu filtering in `AppLayout.tsx` and action button gating across all feature screens.
+- **Delivery Prerequisites (ADR-0004 & ADR-0007)**: `IFeatureFlagService`, `[FeatureGate]`, `GET /api/version`, `GET /health`, `docker-compose.prod.yml`, Nginx proxy configuration, `docs/architecture/deployment-runbook.md`, `docs/architecture/server-sizing-guide.md`.
 
 🔧 **One loose end, cosmetic:** the CI `Test counts` job summary still can't reliably lift
 per-assembly numbers out of a BuildKit log. It reports and no longer adjudicates, so it cannot

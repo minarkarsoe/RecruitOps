@@ -898,3 +898,51 @@ export interface BulkResumeBatchStatus {
   completedAt?: string | null;
 }
 
+export * from './analytics';
+
+// ── Search & Command Palette DTOs (Milestones 1, 2, 3) ─────────────────────
+
+export type SearchCategory = 'All' | 'Candidates' | 'Postings' | 'Requisitions';
+
+export interface SearchQueryParameters {
+  q: string;
+  category?: SearchCategory | string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CategoryCounts {
+  all: number;
+  candidates: number;
+  postings: number;
+  requisitions: number;
+}
+
+export interface SearchResultItem {
+  id: string;
+  category: SearchCategory | string;
+  title: string;
+  subtitle: string;
+  descriptionSnippet: string | null;
+  targetUrl: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  relevanceScore: number;
+  createdAt: string;
+}
+
+export interface SearchResponse {
+  query: string;
+  normalizedQuery: string;
+  category: SearchCategory | string;
+  totalMatches: number;
+  categoryCounts: CategoryCounts;
+  items: SearchResultItem[];
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export * from './version';
+
+

@@ -1,119 +1,91 @@
-# Handoff Report: Requirement R1 (Design System & UI Primitives)
-
-**Agent:** Explorer 1 (Design System & UI Primitives)  
-**Working Directory:** `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_1`  
-**Date:** 2026-08-03  
-
----
+# Handoff Report: Person B - Flow 1 Backend Survey (Full-text Search API & Scoping)
 
 ## 1. Observation
 
-1. **Preset & Tailwind Config:**
-   - File `packages/ui/tailwind-preset.js`:
-     Lines 8–16:
-     ```js
-     colors: {
-       ink: { 900: '#16232B', 600: '#4A5B66', 400: '#8A99A3' },
-       line: { 200: '#E3E9EC' },
-       surface: { 0: '#FFFFFF', 50: '#F6F9F9' },
-       primary: { 700: '#0B5654', 600: '#0E6E6B', 100: '#DCEFEE' },
-       accent: { 500: '#F2A33C', 100: '#FCF0DC' },
-       success: { 600: '#1E8E5A', 100: '#E2F4EA' },
-       warning: { 600: '#C97A0A', 100: '#FCF0DC' },
-       danger: { 600: '#C94430', 100: '#FBE8E4' },
-       info: { 600: '#2E6ECF', 100: '#E6EEFB' },
-     }
-     ```
-     Lines 18–22:
-     ```js
-     fontFamily: {
-       sans: ['Inter', '"Noto Sans Myanmar"', 'system-ui', 'sans-serif'],
-       display: ['"Bricolage Grotesque"', 'Inter', '"Noto Sans Myanmar"', 'sans-serif'],
-       mono: ['"IBM Plex Mono"', 'monospace'],
-     }
-     ```
+Direct observations from the codebase investigation and test suite run:
 
-2. **Font Imports:**
-   - File `frontend/internal/index.html` (13 lines total) contains HTML boilerplate with no `<link>` tags for Google Fonts (`Bricolage Grotesque`, `Inter`, `IBM Plex Mono`, `Noto Sans Myanmar`).
-   - File `frontend/internal/src/index.css` (39 lines total) imports `@tailwind base; @tailwind components; @tailwind utilities;` but contains no `@import url(...)` for Google Fonts.
+1. **Backend Architecture**:
+   - Solution location: `backend/RecruitOps.sln`.
+   - Core projects: `src/Domain`, `src/Application`, `src/Infrastructure`, `src/Api`, `tests/RecruitOps.Domain.Tests`, `tests/RecruitOps.Api.Tests`.
+   - `DependencyInjection.cs` at `backend/src/Infrastructure/DependencyInjection.cs`: line 100 registers `IMyanmarScriptNormalizer` as a `Singleton` service (`services.AddSingleton<IMyanmarScriptNormalizer, MyanmarScriptNormalizer>();`).
 
-3. **Existing UI Components:**
-   - Directory `packages/ui/src` contains:
-     - `Button.tsx` (exports `Button` component)
-     - `Card.tsx` (exports `Card` component)
-     - `StatusPill.tsx` (exports `StatusPill` component)
-     - `index.ts` (re-exports `StatusPill`, `Button`, `Card`)
-   - Directory `frontend/internal/src/components/ui` currently does NOT exist.
+2. **Entities and Search Properties**:
+   - `Candidate` (`backend/src/Domain/Entities/Candidate.cs`): `FullName` (line 17), `Email` (line 20), `Phone` (line 26), `Source` (line 27).
+   - `JobApplication` (`backend/src/Domain/Entities/JobApplication.cs`): `ResumeExtractedText` (line 36), `CoverNote` (line 27), `CustomFieldsJson` (line 25), `CandidateId` (line 14), `JobPostingId` (line 13).
+   - `JobPosting` (`backend/src/Domain/Entities/JobPosting.cs`): `Title` (line 26), `Description` (line 27), `EmploymentType` (line 30), `ApplicationFormFieldsJson` (line 44), `DepartmentId` (line 16), `Status` (line 21).
+   - `Requisition` (`backend/src/Domain/Entities/Requisition.cs`): `Title` (line 18), `JobDescription` (line 19), `DepartmentId` (line 13), `Status` (line 26).
+   - `Department` (`backend/src/Domain/Entities/Department.cs`): `Name` (line 10), `Code` (line 11).
 
-4. **Missing UI Primitive Components:**
-   - The following 9 required primitives are completely missing:
-     1. Sheet / Drawer (`Sheet.tsx` / `Drawer.tsx`)
-     2. Badge (`Badge.tsx`)
-     3. Table (`Table.tsx` - high density)
-     4. CommandPalette (`CommandPalette.tsx` - Ctrl+K)
-     5. Dialog (`Dialog.tsx`)
-     6. Tabs (`Tabs.tsx`)
-     7. Skeleton (`Skeleton.tsx`)
-     8. Input (`Input.tsx`)
-     9. Select (`Select.tsx`)
+3. **Myanmar Script Normalizer**:
+   - Interface: `backend/src/Application/Interfaces/IMyanmarScriptNormalizer.cs` line 21 (`IMyanmarScriptNormalizer`).
+   - Implementation: `backend/src/Infrastructure/Services/MyanmarScript/MyanmarScriptNormalizer.cs` line 109 (`Normalize(string? input)`).
 
-5. **Typecheck Command Result:**
-   - Executed `npm run typecheck` across root workspaces:
-     Exit Code: 0 (`tsc --noEmit` passed clean across `@recruitops/internal` and `@recruitops/public`).
+4. **Department Reach Scoping & Role Scope**:
+   - `RoleScope.cs` (`backend/src/Domain/RoleScope.cs`): line 26 (`IsDepartmentScoped` is true for `UserRole.HiringManager`), line 42 (`IsExcludedFromCandidateData` is true for `UserRole.Approver`).
+   - `IDepartmentAccess` (`backend/src/Application/Common/IDepartmentAccess.cs`) & `DepartmentAccess` (`backend/src/Infrastructure/Services/DepartmentAccess.cs`).
+   - `ApplicationAccess` (`backend/src/Infrastructure/Services/ApplicationAccess.cs`): line 49 checks `_user.IsExcludedFromCandidateData` (ADR-0018) and `_departments.CanAccessAsync(row.DepartmentId, ct)` (ADR-0003), plus panel participation exception (ADR-0017 §4).
+
+5. **Test Suite Baseline & Database Provider**:
+   - Test execution command: `dotnet test backend/RecruitOps.sln`.
+   - Result: Passed 51 Domain tests + 336 Api tests = **387 total passing tests** (0 failed).
+   - Integration test factory: `backend/tests/RecruitOps.Api.Tests/CustomWebAppFactory.cs` replaces PostgreSQL with EF Core `UseInMemoryDatabase` (line 92).
 
 ---
 
 ## 2. Logic Chain
 
-1. **From Observation 1 & 2:**
-   - `packages/ui/tailwind-preset.js` defines custom font families (`Bricolage Grotesque`, `Inter`, `IBM Plex Mono`, `Noto Sans Myanmar`), but neither `frontend/internal/index.html` nor `frontend/internal/src/index.css` loads these font files from Google Fonts or a local asset directory.
-   - *Logic:* Without importing the font CSS or link tags, headings that rely on `font-display` (`Bricolage Grotesque`) will fall back to `Inter` or standard browser fallback fonts (`sans-serif`). Importing Google Fonts in `index.html` or `index.css` resolves this gap.
+1. **Architecture & Scope Alignment**:
+   - *Observation 1*: Clean Architecture dictates interface in `Application`, implementation in `Infrastructure`, controller in `Api`.
+   - *Logic*: Search service interface `ISearchService` should be placed in `Application/Interfaces`, implementation `SearchService` in `Infrastructure/Services`, and controller `SearchController` in `Api/Controllers`.
 
-2. **From Observation 1:**
-   - `packages/ui/tailwind-preset.js` defines custom `ink`, `line`, `surface`, and `primary` (Teal `#0E6E6B`) tokens.
-   - Requirement R1 asks for "Zinc neutrals, Cyan/Teal primary brand tokens, semantic status badges".
-   - *Logic:* Adding explicit color mappings/aliases for `zinc`, `cyan`, and `teal` in `tailwind-preset.js` allows components written with either standard Tailwind names or custom design system token names to work seamlessly without breaking existing theme definitions.
+2. **Burmese Text Normalization Strategy**:
+   - *Observation 3*: `IMyanmarScriptNormalizer` is registered as a singleton service and converts Zawgyi text to Unicode FormC. Stored CV text (`JobApplication.ResumeExtractedText`) is already normalized via `IMyanmarScriptNormalizer`.
+   - *Logic*: In `SearchService`, passing `query` through `_normalizer.Normalize(query).NormalizedText` ensures input queries in Zawgyi automatically map to Unicode database records without database-level text conversions.
 
-3. **From Observation 3 & 4:**
-   - Currently, `@recruitops/ui` only exports `Button`, `Card`, and `StatusPill`.
-   - Feature requirements R2 (AppLayout & global Ctrl+K search) and R3 (Candidate 360 profile drawer, Requisition table & drawer, Blind scorecard drawer) depend directly on `Sheet/Drawer`, `CommandPalette`, `Table`, `Badge`, `Tabs`, `Dialog`, `Skeleton`, `Input`, and `Select`.
-   - *Logic:* Building these 9 primitive components in `packages/ui/src` (and re-exporting via `frontend/internal/src/components/ui/index.ts`) will satisfy Requirement R1 and provide the foundation for Requirements R2 and R3.
+3. **Database Provider & Search Query Method**:
+   - *Observation 5*: Integration tests rely on `UseInMemoryDatabase`. Raw PostgreSQL SQL (`FromSqlRaw`, `%` trigram syntax) is incompatible with `UseInMemoryDatabase`.
+   - *Logic*: To maintain 100% green tests while supporting trigram acceleration in production, search LINQ queries must use `EF.Functions.Like(column, $"%{normalizedQuery}%")` or `EF.Functions.ILike(...)`. In PostgreSQL, EF Core `ILIKE` / `LIKE` automatically leverages GIN trigram indexes (`pg_trgm`).
+
+4. **Department Reach Scoping Enforcement**:
+   - *Observation 4*: `HiringManager` is department scoped (ADR-0003) and `Approver` is excluded from candidate data unless on panel (ADR-0018).
+   - *Logic*: In `SearchService`, candidate, job posting, and requisition query filters must inject `IDepartmentAccess` and `ICurrentUser` to enforce:
+     - Requisitions & Postings: Filter by `allowedDepartmentIds` for `HiringManager`.
+     - Candidates: Filter by `allowedDepartmentIds` OR interview panel participation for `HiringManager`. Exclude for `Approver` unless on interview panel.
+
+5. **Test Implementation & Quality Assurance**:
+   - *Observation 5*: Baseline has 387 passing tests.
+   - *Logic*: New search unit/integration tests added in `RecruitOps.Api.Tests` will execute cleanly against `CustomWebAppFactory`, verifying query accuracy, Zawgyi normalization, category filtering, department scoping, and candidate data exclusion without breaking any existing tests.
 
 ---
 
 ## 3. Caveats
 
-- **No Code Changes Applied:** As Explorer 1 operating under a read-only investigation mandate, no source code files in `packages/ui` or `frontend/internal/src` were edited. All proposed changes and specifications are recorded in `analysis.md` for the implementer agent.
-- **External Network Access for Fonts:** Loading Google Fonts via CDN (`fonts.googleapis.com`) requires internet connectivity during browser rendering. Standard web fallback fonts are configured in `fontFamily` as a safe offline fallback.
+- **No Caveats**: All 6 required investigation points were fully verified by reading source files, examining EF Core configuration, inspecting ADRs, and running the 387 test suite.
 
 ---
 
 ## 4. Conclusion
 
-Requirement R1 requires adding Google Font imports, expanding Tailwind color aliases (`zinc`, `cyan`/`teal`), and creating 9 reusable UI primitives (`Sheet/Drawer`, `Badge`, `Table`, `CommandPalette`, `Dialog`, `Tabs`, `Skeleton`, `Input`, `Select`) in `packages/ui/src`.
-
-The detailed specifications, component contracts, and step-by-step implementation plan are fully documented in `analysis.md`.
+The survey confirms that the backend codebase is cleanly structured and ready for Person B - Flow 1 implementation:
+- Full-text search should be exposed via `GET /api/search?q={query}&category={category}` guarded by `[Authorize(Policy = Policies.InternalUser)]`.
+- Search query normalization via `IMyanmarScriptNormalizer` will seamlessly support Zawgyi and Unicode Burmese inputs.
+- Scoping must use `IDepartmentAccess` and `RoleScope` rules to satisfy ADR-0003 and ADR-0018.
+- LINQ queries with `EF.Functions.Like` / `ILike` ensure complete compatibility with EF Core InMemory test runners while enabling PostgreSQL `pg_trgm` GIN index acceleration in production.
 
 ---
 
 ## 5. Verification Method
 
-1. **Verify Font Imports:**
-   Inspect `frontend/internal/index.html` or `frontend/internal/src/index.css` to confirm `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..700&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap">` or `@import` is present.
+To independently verify this survey's findings and baseline:
 
-2. **Verify Primitive Component Exports:**
-   Inspect `packages/ui/src/index.ts` to ensure `Button`, `Card`, `StatusPill`, `Sheet`, `Badge`, `Table`, `CommandPalette`, `Dialog`, `Tabs`, `Skeleton`, `Input`, `Select` are exported.
-
-3. **TypeScript Build Verification:**
-   Run:
-   ```bash
-   npm run typecheck
+1. **Run Backend Test Suite**:
+   ```powershell
+   dotnet test backend/RecruitOps.sln
    ```
-   *Expected Result:* 0 TypeScript errors across all workspaces.
+   *Expected Result*: Total 387 passed (51 Domain, 336 Api).
 
-4. **Internal Test Suite Verification:**
-   Run:
-   ```bash
-   npm run test --workspace @recruitops/internal
-   ```
-   *Expected Result:* All tests in `frontend/internal` pass.
+2. **Inspect Survey Report**:
+   - View `backend/src/Infrastructure/Services/MyanmarScript/MyanmarScriptNormalizer.cs`
+   - View `backend/src/Infrastructure/Services/DepartmentAccess.cs`
+   - View `backend/src/Domain/RoleScope.cs`
+   - View `.agents/explorer_survey_1/analysis.md`

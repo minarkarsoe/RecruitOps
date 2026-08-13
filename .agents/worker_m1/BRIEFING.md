@@ -1,56 +1,51 @@
-# BRIEFING — 2026-08-03T10:48:10Z
+# BRIEFING — 2026-08-11T02:08:15Z
 
 ## Mission
-Implement Milestone 1 (Design System & UI Primitive Library) for RecruitOps frontend CRM refactor.
+Implement Milestone 1 - Full-text Search Backend API for RecruitOps (Zawgyi/Unicode normalization, Department Reach Scoping, Candidate Data Exclusion, pg_trgm migration, scoring & snippets, SearchController, SearchApiTests).
 
 ## 🔒 My Identity
-- Archetype: implementer
+- Archetype: implementer, qa, specialist
 - Roles: implementer, qa, specialist
 - Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\worker_m1
-- Original parent: cba658b6-613b-4fb0-a41c-da9fcfe37ef8
-- Milestone: M1 (Design System & UI Primitives)
+- Original parent: 258a0dde-667b-4662-b08c-36ead83a8e7e
+- Milestone: Milestone 1 - Full-text Search Backend API
 
 ## 🔒 Key Constraints
-- Exclusive write access:
-  - packages/ui/tailwind-preset.js
-  - packages/ui/src/*
-  - frontend/internal/index.html
-  - frontend/internal/src/index.css
-  - frontend/internal/src/components/ui/*
-- DO NOT CHEAT: Genuine implementations required. Zero hardcoding.
-- Pass `npm run typecheck` across all workspaces with 0 errors.
-- Pass `npm run test` in `frontend/internal` (all tests passing).
+- All 387 existing backend tests MUST pass.
+- At least 8 (or 10) new backend integration tests MUST pass (Total >= 395 tests).
+- Enforce Department Reach Scoping (ADR-0003) and Candidate Data Exclusion for Approvers (ADR-0018).
+- Normalize Zawgyi Burmese search inputs to Unicode NFC via IMyanmarScriptNormalizer.
 
 ## Current Parent
-- Conversation ID: cba658b6-613b-4fb0-a41c-da9fcfe37ef8
-- Updated: 2026-08-03T10:48:10Z
+- Conversation ID: 258a0dde-667b-4662-b08c-36ead83a8e7e
+- Updated: 2026-08-11T02:08:15Z
 
 ## Task Summary
-- **What to build**: Design system token updates (zinc neutrals, cyan/teal brand colors), font imports (Bricolage Grotesque, Inter, IBM Plex Mono, Noto Sans Myanmar), 9 primitive UI components (`Sheet`, `Badge`, `Table`, `CommandPalette`, `Dialog`, `Tabs`, `Skeleton`, `Input`, `Select`), workspace index exports and frontend re-export bridge.
-- **Success criteria**: 0 TypeScript errors on `npm run typecheck`, 100% tests passing on `npm run test` in `frontend/internal`.
-- **Interface contracts**: `PROJECT.md` Section UI Primitives.
+- **What to build**: Full-text Search Backend API for Candidates, Job Postings, and Requisitions.
+- **Success criteria**: All 397 backend tests passing.
+- **Interface contracts**: `GET /api/search?q={query}&category={category}&page={page}&pageSize={pageSize}`
+- **Code layout**: `backend/src/Application/DTOs/Search/SearchDtos.cs`, `ISearchService.cs`, `SearchService.cs`, `SearchController.cs`, `SearchApiTests.cs`.
 
 ## Change Tracker
-- **packages/ui/tailwind-preset.js**: Extended color tokens with `zinc` neutrals and `cyan`/`teal` brand tokens.
-- **frontend/internal/index.html**: Added Google Fonts link tags (Bricolage Grotesque, Inter, IBM Plex Mono, Noto Sans Myanmar).
-- **frontend/internal/src/index.css**: Added `@import` for Google Fonts.
-- **packages/ui/src/Sheet.tsx**: Slide-over drawer primitive with backdrop, slide animation, and ESC key dismissal.
-- **packages/ui/src/Badge.tsx**: Status & client tier badge primitive with variants (gold, silver, bronze, cyan, teal, etc.).
-- **packages/ui/src/Table.tsx**: High-density table primitive supporting both prop-driven and compound subcomponent structures.
-- **packages/ui/src/CommandPalette.tsx**: Global Ctrl+K modal search/command component with keyboard navigation.
-- **packages/ui/src/Dialog.tsx**: Modal dialog primitive for confirmations and form overlays.
-- **packages/ui/src/Tabs.tsx**: Underline-style tab navigation primitive with count badge support.
-- **packages/ui/src/Skeleton.tsx**: Loading state placeholder component with text/avatar/row/card layout helpers.
-- **packages/ui/src/Input.tsx**: Form text input primitive with integrated label and error state.
-- **packages/ui/src/Select.tsx**: Form dropdown select primitive with integrated label and error state.
-- **packages/ui/src/index.ts**: Central export file for all 12 UI primitives.
-- **frontend/internal/src/components/ui/index.ts**: Re-export bridge connecting `@recruitops/ui` to internal frontend workspace.
-- **frontend/internal/src/components/ui/primitives.test.tsx**: Vitest test suite verifying functionality of all 9 new primitives.
+- **Files modified/created**:
+  - `backend/src/Application/DTOs/Search/SearchDtos.cs` — Search DTOs (SearchResultItemDto, CategoryCountsDto, SearchResponseDto, SearchQueryParameters)
+  - `backend/src/Application/Interfaces/ISearchService.cs` — ISearchService interface
+  - `backend/src/Infrastructure/Services/SearchService.cs` — SearchService implementation with Zawgyi normalization, scoping, scoring & snippets
+  - `backend/src/Infrastructure/DependencyInjection.cs` — AddScoped<ISearchService, SearchService>()
+  - `backend/src/Infrastructure/Persistence/Migrations/20260811000000_AddPgTrgmAndSearchIndexes.cs` — pg_trgm extension & GIN indexes EF Core migration
+  - `backend/src/Infrastructure/Migrations/20260811000000_AddPgTrgmAndSearchIndexes.cs` & `.Designer.cs` — Infrastructure migration
+  - `backend/src/Api/Controllers/SearchController.cs` — GET /api/search endpoint with validation & auth
+  - `backend/tests/RecruitOps.Api.Tests/Search/SearchApiTests.cs` — 10 new integration tests
+- **Build status**: PASSING (397/397 tests passing)
+- **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: PASS (0 TypeScript errors in `npm run typecheck`; 78/78 tests passing in `npm run test`).
-- **Lint status**: CLEAN.
-- **Tests added/modified**: 18 new unit tests in `primitives.test.tsx`.
+- **Build/test result**: 397 passed (51 Domain + 346 Api), 0 failed.
+- **Lint status**: Clean (0 warnings).
+- **Tests added/modified**: 10 new integration tests in `SearchApiTests.cs`.
 
-## Handoff Artifact Index
-- `handoff.md` — Detailed handoff report.
+## Loaded Skills
+- None required directly.
+
+## Artifact Index
+- `handoff.md` — Handoff report with implementation details and test output.

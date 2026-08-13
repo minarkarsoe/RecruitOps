@@ -1,13 +1,13 @@
 # Feature Status
 
-**Last updated:** 2026-08-03 (permission-aware UX fail-open fixed — 228/228 backend tests + 189/189 frontend tests green, 0 typecheck errors) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
+**Last updated:** 2026-08-13 (Delivery Readiness & Feature Flags complete — 507/507 backend tests + 318/318 frontend tests green, 0 typecheck errors) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
 
-> ✅ **Backend: 228/228 green** (51 domain + 177 api). Covers Module 1 end to end, login
-> throttling, department administration, Module 2 requisitions/postings/pipeline, Module 3 interviews/scorecards/notes, and Module 7 Dynamic RBAC & User Management.
+> ✅ **Backend: 507/507 green** (51 domain + 456 api). Covers Module 1 end to end, login
+> throttling, department administration, Module 2 requisitions/postings/pipeline/CV ingestion/Full-Text search, Module 3 interviews/scorecards/notes, Module 5 Reporting & Analytics, Module 7 Dynamic RBAC & User Management, and Delivery Prerequisites (`/api/version`, Feature Flags, Healthchecks).
 >
 > ✅ **`docker compose up --build` runs** — Postgres + API + both frontends, migrations applying on startup.
 >
-> ✅ **Frontend: 189/189 Vitest passing** across 22 test files, `npm run typecheck` 0 errors across both apps.
+> ✅ **Frontend: 318/318 Vitest passing** across 39 test files, `npm run typecheck` 0 errors across both apps.
 >
 > ✅ **Granular Dynamic RBAC & Permission-Aware UX complete** — `/api/roles`, `/api/permissions`, `/api/users`, `[HasPermission]` policy attribute, User Directory (`/users`), Role Builder (`/roles`), and dynamic permission-aware UI filtering across navigation sidebar and action buttons.
 >

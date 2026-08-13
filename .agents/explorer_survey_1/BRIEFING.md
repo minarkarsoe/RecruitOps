@@ -1,38 +1,47 @@
-# BRIEFING — 2026-08-03T17:46:20Z
+# BRIEFING — 2026-08-11T09:01:25Z
 
 ## Mission
-Comprehensive survey of codebase regarding Requirement R1 (Design System & UI Primitives).
+Survey backend codebase for Person B - Flow 1 (Full-text Search API & Scoping) covering architecture, entities, IMyanmarScriptNormalizer, EF Core setup/trigram feasibility, Department Reach Scoping (ADR-0003), and backend test patterns.
 
 ## 🔒 My Identity
 - Archetype: Teamwork explorer
-- Roles: Explorer 1 (Design System & UI Primitives)
+- Roles: Backend Investigator, Surveyor
 - Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_1
-- Original parent: cba658b6-613b-4fb0-a41c-da9fcfe37ef8
-- Milestone: Explorer Survey R1
+- Original parent: 258a0dde-667b-4662-b08c-36ead83a8e7e
+- Milestone: Person B - Flow 1 Backend Survey
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes in project source files
-- Target output files: analysis.md and handoff.md in working directory
-- Focus on Design System & UI Primitives (Requirement R1)
+- Read-only investigation — do NOT implement backend changes in production codebase
+- Produce analysis.md and handoff.md in working directory
+- Send a message back to parent with summary and file path
 
 ## Current Parent
-- Conversation ID: cba658b6-613b-4fb0-a41c-da9fcfe37ef8
-- Updated: 2026-08-03T17:46:20Z
+- Conversation ID: 258a0dde-667b-4662-b08c-36ead83a8e7e
+- Updated: 2026-08-11T09:01:25Z
 
 ## Investigation State
-- **Explored paths**: `packages/ui`, `packages/ui/tailwind-preset.js`, `frontend/internal/src/index.css`, `frontend/internal/index.html`, `packages/ui/src/*`, `frontend/internal/src/pages/*`, `frontend/internal/src/components/*`
-- **Key findings**: 
-  - Font imports missing in `index.html` / `index.css` for Bricolage Grotesque & Inter & IBM Plex Mono.
-  - Custom Tailwind tokens defined in preset (`ink`, `line`, `surface`, `primary`), needs zinc/cyan/teal aliases.
-  - 3 components exist (`Button`, `Card`, `StatusPill`).
-  - 9 missing primitive components identified (`Sheet/Drawer`, `Badge`, `Table`, `CommandPalette`, `Dialog`, `Tabs`, `Skeleton`, `Input`, `Select`).
-- **Unexplored areas**: None.
+- **Explored paths**:
+  - `backend/src/Domain/Entities` (Candidate.cs, JobApplication.cs, JobPosting.cs, Requisition.cs, Department.cs)
+  - `backend/src/Domain/RoleScope.cs`
+  - `backend/src/Application/Interfaces/IMyanmarScriptNormalizer.cs`
+  - `backend/src/Infrastructure/Services/MyanmarScript/MyanmarScriptNormalizer.cs`
+  - `backend/src/Infrastructure/Services/DepartmentAccess.cs`
+  - `backend/src/Infrastructure/Services/ApplicationAccess.cs`
+  - `backend/src/Infrastructure/Persistence/AppDbContext.cs`
+  - `backend/src/Infrastructure/DependencyInjection.cs`
+  - `backend/tests/RecruitOps.Api.Tests/CustomWebAppFactory.cs`
+- **Key findings**:
+  - Full backend test suite passing cleanly (387 total tests: 51 Domain + 336 Api).
+  - `IMyanmarScriptNormalizer` is registered as a Singleton and converts Zawgyi input queries to Unicode FormC prior to database querying.
+  - EF Core InMemory test runner requires LINQ `EF.Functions.Like` / `ILike` rather than raw Postgres SQL, ensuring full test suite compatibility while allowing PostgreSQL `pg_trgm` GIN indexes in production.
+  - Department Reach Scoping (ADR-0003) and Approver candidate exclusion (ADR-0018) are enforced via `IDepartmentAccess`, `ICurrentUser`, and `RoleScope`.
+- **Unexplored areas**: None (all survey items complete).
 
 ## Key Decisions Made
-- Survey completed. Produced detailed specifications and step-by-step implementation guide in `analysis.md` and 5-component report in `handoff.md`.
+- Survey completed and documented in analysis.md and handoff.md.
 
 ## Artifact Index
-- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_1\DISPATCH.md — Dispatch log
-- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_1\BRIEFING.md — Working state index
-- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_1\analysis.md — Comprehensive R1 survey and analysis report
-- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_1\handoff.md — 5-component handoff report
+- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_1\DISPATCH.md
+- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_1\BRIEFING.md
+- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_1\analysis.md
+- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_1\handoff.md

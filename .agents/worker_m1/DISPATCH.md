@@ -1,35 +1,41 @@
-## 2026-08-03T10:46:31Z
-Worker 1 (Design System & UI Primitives).
-Working Directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\worker_m1
-Original Request Path: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\ORIGINAL_REQUEST.md
-Project Scope Path: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\PROJECT.md
-Survey Analysis Path: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_1\analysis.md
+## 2026-08-11T02:03:53Z
+You are worker_m1 (teamwork_preview_worker). Your working directory is c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\worker_m1.
+
+Read ORIGINAL_REQUEST.md at c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\ORIGINAL_REQUEST.md and PROJECT.md at c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\PROJECT.md.
+Also read the blueprints from:
+- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_m1_1\analysis.md
+- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_m1_2\analysis.md
+- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_m1_3\analysis.md
 
 MANDATORY INTEGRITY WARNING:
 DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
 
-File Ownership:
-You have exclusive write access to:
-- packages/ui/tailwind-preset.js
-- packages/ui/src/* (Button.tsx, Card.tsx, StatusPill.tsx, Sheet.tsx, Badge.tsx, Table.tsx, CommandPalette.tsx, Dialog.tsx, Tabs.tsx, Skeleton.tsx, Input.tsx, Select.tsx, index.ts)
-- frontend/internal/index.html
-- frontend/internal/src/index.css
-- frontend/internal/src/components/ui/*
+Task: Implement Milestone 1 - Full-text Search Backend API for RecruitOps.
 
-Task Description:
-Implement Milestone 1 (Design System & UI Primitive Library):
-1. Update packages/ui/tailwind-preset.js to include color aliases for zinc neutrals and cyan/teal brand tokens while keeping existing ink/line/surface/primary/accent/success/warning/danger tokens.
-2. Update frontend/internal/index.html and/or frontend/internal/src/index.css to import Google Fonts (Bricolage Grotesque, Inter, IBM Plex Mono, Noto Sans Myanmar).
-3. Build the missing 9 primitive components in packages/ui/src/:
-   - Sheet.tsx (Slide-over panel/drawer)
-   - Badge.tsx (Status badges with variants)
-   - Table.tsx (High-density table)
-   - CommandPalette.tsx (Ctrl+K modal search/command component)
-   - Dialog.tsx (Modal dialog)
-   - Tabs.tsx (Tab navigation)
-   - Skeleton.tsx (Loading state placeholder)
-   - Input.tsx (Styled text input)
-   - Select.tsx (Styled dropdown select)
-4. Export all components in packages/ui/src/index.ts and create frontend/internal/src/components/ui/index.ts re-exporting primitives.
-5. Run `npm run typecheck` across all workspaces and `npm run test` in frontend/internal. Ensure 0 TypeScript errors and all tests pass.
-6. Write a detailed handoff report to c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\worker_m1\handoff.md documenting exact changes made and command results. Send a message to parent when done.
+Implementation Steps:
+1. Create Search DTOs in backend/src/Application/DTOs/Search/SearchDtos.cs (SearchResultItemDto, CategoryCountsDto, SearchResponseDto, SearchQueryParameters).
+2. Create ISearchService in backend/src/Application/Interfaces/ISearchService.cs.
+3. Create SearchService in backend/src/Infrastructure/Services/SearchService.cs implementing ISearchService:
+   - Normalize Zawgyi Burmese search inputs to Unicode NFC via IMyanmarScriptNormalizer.
+   - Support text matching on Candidate, JobPosting, and Requisition.
+   - Enforce Department Reach Scoping (ADR-0003 & ADR-0018): HiringManager scoped to allowedDepartmentIds or interview participation, Approver excluded from candidates unless an interview participant, Admin/HrDirector/Recruiter unscoped.
+   - Calculate relevance scores (0.0 to 100.0) based on match field priority.
+   - Extract centered ~180-char context snippets with <mark> highlighting around match terms.
+   - Aggregate category counts and execute pagination.
+4. Register ISearchService as Scoped in backend/src/Infrastructure/DependencyInjection.cs.
+5. Create EF Core Migration for pg_trgm extension and GIN trigram indexes in backend/src/Infrastructure/Persistence/Migrations/20260811000000_AddPgTrgmAndSearchIndexes.cs.
+6. Create SearchController in backend/src/Api/Controllers/SearchController.cs exposing GET /api/search?q={query}&category={category}&page={page}&pageSize={pageSize}.
+7. Create integration tests in backend/tests/RecruitOps.Api.Tests/Search/SearchApiTests.cs with at least 8 (ideally 10) new tests covering:
+   - Search across categories and score ranking
+   - Zawgyi query normalization to Unicode
+   - Candidates CV text matching
+   - HiringManager department reach scoping
+   - Approver candidate data exclusion
+   - Category filtering
+   - Pagination
+   - Empty/whitespace query string handling
+   - Tenant isolation
+8. Run build and test suite via dotnet test backend/RecruitOps.sln. All 387 existing tests MUST pass, and at least 8 new tests MUST pass (Total: >= 395 tests passing).
+
+Write your handoff report to c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\worker_m1\handoff.md with full build and test output.
+Send a message back to parent with summary and file path when complete.

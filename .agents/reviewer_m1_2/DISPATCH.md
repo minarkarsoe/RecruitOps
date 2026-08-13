@@ -1,13 +1,14 @@
-## 2026-08-03T10:48:19Z
-You are Reviewer 2 for Milestone 1 (Design System & UI Primitives).
-Working Directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\reviewer_m1_2
-Original Request Path: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\ORIGINAL_REQUEST.md
-Project Scope Path: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\PROJECT.md
-Worker Handoff Path: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\worker_m1\handoff.md
+## 2026-08-11T02:08:19Z
+Task: Independently review Milestone 1 Security & Department Reach Scoping (ADR-0003 & ADR-0018).
+Inspect:
+- SearchService.cs scoping predicates for HiringManager, Approver, Admin, Recruiter.
+- SearchController.cs authorization attributes [Authorize(Policy = Policies.InternalUser)].
+- SearchApiTests.cs scoping tests.
 
-Task:
-1. Examine code changes in packages/ui/tailwind-preset.js, frontend/internal/index.html, frontend/internal/src/index.css, packages/ui/src/*, and frontend/internal/src/components/ui/*.
-2. Verify all 9 requested primitives (Sheet/Drawer, Badge, Table, CommandPalette, Dialog, Tabs, Skeleton, Input, Select) work properly and are cleanly exported.
-3. Execute `npm run typecheck` across workspaces and `npm run test` in `frontend/internal`.
-4. Determine your verdict: APPROVE or REQUEST_CHANGES.
-5. Write your detailed review to c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\reviewer_m1_2\handoff.md and report your verdict via send_message to parent.
+Verify:
+1. Hiring Managers cannot reach candidates, requisitions, or job postings outside their permitted department scope.
+2. Approvers have IsExcludedFromCandidateData == true enforced, returning 0 candidate search matches unless listed on an interview panel.
+3. Run dotnet test backend/RecruitOps.sln and verify all tests pass.
+
+Write your review and handoff report to c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\reviewer_m1_2\handoff.md. Must state explicit verdict: APPROVE or REQUEST_CHANGES.
+Send a message back to parent with summary and file path.

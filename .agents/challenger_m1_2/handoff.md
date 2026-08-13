@@ -1,95 +1,126 @@
-# Handoff Report — Challenger 2 (Milestone 1 Verification)
+# Milestone 1 Challenge & Handoff Report
 
-**Author:** Challenger 2 (Empirical Challenger)  
-**Date:** 2026-08-03  
-**Working Directory:** `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\challenger_m1_2`  
-**Verdict:** APPROVE  
+**Agent**: `challenger_m1_2` (Empirical Challenger)  
+**Milestone**: Milestone 1 — Access Control & Boundary Conditions  
+**Working Directory**: `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\challenger_m1_2`  
+**Date**: 2026-08-11  
 
 ---
 
-## 1. Observation
+## 1. Challenge Summary & Risk Assessment
 
-### Verification of Core Deliverables
+- **Overall Risk Assessment**: **LOW**
+- **Explicit Verdict**: **APPROVE**
 
-1. **Tailwind Preset & Color Tokens (`packages/ui/tailwind-preset.js`)**:
-   - `zinc`: Full neutral scale mapped (50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950).
-   - `cyan` / `teal`: Full brand color scales mapped (50, 100, 200, 500, 600, 700, 800, 900).
-   - Existing color tokens (`ink`, `line`, `surface`, `primary`, `accent`, `success`, `warning`, `danger`, `info`) preserved.
-   - Font family mappings configured for `sans` (Inter, Noto Sans Myanmar), `display` (Bricolage Grotesque, Inter), and `mono` (IBM Plex Mono).
+Milestone 1 Access Control & Boundary Conditions have been empirically stress-tested across all role configurations, tenant isolation boundaries, and edge/boundary cases. All core access control predicates (`RoleScope.cs`, `DepartmentAccess.cs`, `ApplicationAccess.cs`, `AppDbContext.cs`), search query handling (`SearchService.cs`, `SearchController.cs`), and background data handling execute deterministically and safely.
 
-2. **Font Imports**:
-   - `frontend/internal/index.html`: Google Fonts `<link>` tag loaded for `Bricolage Grotesque`, `IBM Plex Mono`, `Inter`, and `Noto Sans Myanmar`.
-   - `frontend/internal/src/index.css`: `@import url(...)` present at the top of the stylesheet preceding `@tailwind` directives.
+---
 
-3. **UI Primitives Library (`packages/ui/src/`)**:
-   - Implemented 9 missing UI primitives: `Sheet`, `Badge`, `Table`, `CommandPalette`, `Dialog`, `Tabs`, `Skeleton`, `Input`, `Select`.
-   - Preserved original 3 primitives: `Button`, `Card`, `StatusPill`.
-   - Compound subcomponents and prop-driven patterns supported across `Sheet`, `Table`, `Dialog`, `Tabs`, and `Skeleton`.
+## 2. Empirical Test Results & Verification Scope
 
-4. **Re-Export Bridge (`frontend/internal/src/components/ui/index.ts`)**:
-   - Re-exports all components and types via `export * from '@recruitops/ui'`.
+### A. Department Reach Scoping (ADR-0003 & ADR-0018)
 
-5. **Empirical Execution & Command Output**:
-   - Command: `npm run typecheck` (Root workspace)
+| Role Configuration | Test Scenario / Operation | Expected Behavior | Actual Behavior | Result |
+|-------------------|---------------------------|-------------------|-----------------|--------|
+| `Admin` | Access requisitions, candidates, postings & search across all departments | Unscoped full reach | Returned items across Sales and Finance departments | **PASS** |
+| `HrDirector` | Access requisitions, candidates, postings & search across all departments | Unscoped full reach | Returned items across Sales and Finance departments | **PASS** |
+| `Recruiter` | Access requisitions, candidates, postings & search across all departments | Unscoped full reach | Returned items across Sales and Finance departments | **PASS** |
+| `HiringManager` (Sales Only) | Access requisitions, candidates, postings & search | Department-scoped (`SalesDepartmentId` only) | Returned only Sales items; Finance requisitions/postings/candidates hidden | **PASS** |
+| `HiringManager` (Multi-Dept) | Manager assigned to Sales AND Finance departments | Reaches both assigned departments | Reaches both Sales and Finance data | **PASS** |
+| `HiringManager` (0-Dept) | Manager assigned to 0 departments in `UserDepartment` | Reaches 0 departments | Returns empty list / 0 items | **PASS** |
+| `HiringManager` (Panel Participant) | Sales Manager added to Finance candidate interview panel | Granted access to that specific candidate application via participation grant (ADR-0017 §4) | `ApplicationAccess.ResolveAsync` returns `Kind = Participation`; search includes candidate | **PASS** |
+| `Approver` | Search & Requisition access across departments | Sees requisitions company-wide BUT strictly excluded from candidate data (ADR-0018) | Requisitions visible across depts; candidate search/notes/pipeline returns 0 items | **PASS** |
+| `Approver` (Panel Participant) | Approver added to interview panel for candidate | Granted access ONLY to that specific candidate application | Candidate data visible for that application only; unassigned candidates remain hidden | **PASS** |
+| Unrecognized Role | Invalid/null role claim in JWT | Fails closed on both scoping axes | `IsDepartmentScoped` = true, `IsExcludedFromCandidateData` = true (fails closed) | **PASS** |
+
+### B. Tenant Isolation
+
+| Tenant Scope | Scenario | Expected Behavior | Actual Result | Status |
+|--------------|----------|-------------------|---------------|--------|
+| Tenant A User | Query search or fetch resources | Sees Tenant A data only | 0 items from Tenant B returned | **PASS** |
+| Tenant B User | Query search or fetch resources | Sees Tenant B data only | 0 items from Tenant A returned | **PASS** |
+| New Entity Write | Save entity without explicit `TenantId` | `StampTenantAndTimestamps()` auto-stamps ambient `TenantId` | Prevents silent Guid.Empty orphaned data bugs | **PASS** |
+
+### C. Boundary Cases & Security Robustness
+
+| Boundary Input | Target Area | Expected Behavior | Actual Behavior | Result |
+|----------------|-------------|-------------------|-----------------|--------|
+| Empty Query (`q=""`) | `GET /api/search?q=` | HTTP 400 Bad Request | Returned 400 Bad Request with ProblemDetails | **PASS** |
+| Whitespace Query (`q="   "`, `q="\t\n"`) | `GET /api/search?q=%20` | HTTP 400 Bad Request | Returned 400 Bad Request with ProblemDetails | **PASS** |
+| SQL Injection Payload (`' OR '1'='1`, `'; DROP TABLE Candidates; --`) | Search query parameter | Handled safely by EF LINQ parameterization | HTTP 200 OK with 0 or safe matches; no 500 error | **PASS** |
+| XSS Payload (`<script>alert(1)</script>`) | Search query parameter | Encoded via `WebUtility.HtmlEncode()` | HTML tags escaped in `DescriptionSnippet`; no script execution | **PASS** |
+| SQL Wildcards (`%_[]`) | Search query parameter | Handled safely in LINQ matchers | HTTP 200 OK with exact/safe matches; no unhandled exception | **PASS** |
+| Zawgyi Script (`\u1031\u1021\u102B\u1004\u103A`) | Burmese search query | Converted to Unicode NFC (`အောင်`) via `IMyanmarScriptNormalizer` | `NormalizedQuery` = `"အောင်"`; matches Unicode candidate | **PASS** |
+| Page Number < 1 (`page=0`, `page=-5`) | Search pagination | HTTP 400 Bad Request | Returned 400 Bad Request | **PASS** |
+| Page Size < 1 or > 100 (`pageSize=0`, `pageSize=101`) | Search pagination | HTTP 400 Bad Request | Returned 400 Bad Request | **PASS** |
+| Page Size Max (`pageSize=100`) | Search pagination | HTTP 200 OK | Returned page size 100 cleanly | **PASS** |
+
+---
+
+## 3. Observation
+
+1. **Test Suite Execution Results**:
+   - `dotnet test backend/RecruitOps.sln`: **411 tests passed, 0 failed, 0 skipped** (51 Domain tests + 360 Api tests).
+   - `npm run typecheck` (all workspaces): **0 errors**.
+2. **Access Control Implementation**:
+   - `RoleScope.cs` (lines 26 & 42):
+     ```csharp
+     public static bool IsDepartmentScoped(UserRole role) => role is UserRole.HiringManager;
+     public static bool IsExcludedFromCandidateData(UserRole role) => role is UserRole.Approver;
      ```
-     > recruitops@0.1.0 typecheck
-     > npm run typecheck --workspaces --if-present
-
-     > @recruitops/internal@0.1.0 typecheck
-     > tsc --noEmit
-
-     > @recruitops/public@0.1.0 typecheck
-     > tsc --noEmit
-     Exit Code: 0
-     ```
-   - Command: `npm run test` (`frontend/internal`)
-     ```
-     Test Files  13 passed (13)
-          Tests  111 passed (111)
-       Start at  17:49:20
-       Duration  6.83s
-     Exit Code: 0
-     ```
+   - `ApplicationAccess.cs` (lines 49-59): Clause 0 checks `!_user.IsExcludedFromCandidateData`, Clause 1 checks `_departments.CanAccessAsync`, Clause 2 checks `IsOnPanelForAsync`.
+   - `SearchService.cs` (lines 178-228): Excludes candidates for `Approver` unless on an interview panel; restricts `HiringManager` to `AllowedDepartmentIds` plus interview panel applications.
+   - `AppDbContext.cs` (lines 442-470): Enforces EF Core global query filters on all `ITenantScoped` entities using `_tenant.TenantId`.
 
 ---
 
-## 2. Logic Chain
+## 4. Logic Chain
 
-1. **Token Consistency & Preserved Interfaces**:
-   Extending `tailwind-preset.js` with `zinc` and `cyan`/`teal` without replacing existing keys (`primary`, `ink`, `line`, `surface`) guarantees backward compatibility for existing pages while establishing design system tokens for upcoming feature modules.
-2. **Font Coverage**:
-   Dual inclusion in `index.html` (for faster initial render/preconnect) and `index.css` (for CSS bundle independence) ensures typography renders consistently across both dev servers and production builds.
-3. **Primitive Versatility**:
-   The dual-pattern implementation (supporting both prop-driven and compound subcomponents) enables simple usages (e.g. `<Table headers={...} data={...} renderRow={...} />`) as well as rich interactive containers (e.g. `<SheetHeader>`, `<TabsList>`, `<TabsTrigger>`).
-4. **Empirical Test Validation**:
-   Created `frontend/internal/src/components/ui/challenger_m1_2.test.tsx` to stress-test ref-forwarding on `Input`/`Select`, ESC key handlers and body scroll locking on `Sheet`/`Dialog`, keyboard navigation index wrapping in `CommandPalette`, compound context switching in `Tabs`, and all 13 `Badge` variants. All 111 tests across 13 test files passed cleanly with zero type errors.
+1. **Observation**: All 411 backend unit/integration tests pass cleanly, including dedicated empirical challenger tests in `Milestone1EmpiricalAccessControlAndBoundaryTests.cs` and `SearchApiTests.cs`.
+2. **Observation**: `RoleScope.IsDepartmentScoped` restricts `HiringManager` to their department, while `RoleScope.IsExcludedFromCandidateData` excludes `Approver` from standing candidate reach per ADR-0018.
+3. **Observation**: `ApplicationAccess` and `SearchService` consistently call `RoleScope` predicates, ensuring no role literals are duplicated or out of sync across services.
+4. **Observation**: Invalid boundary inputs (empty/whitespace query strings, invalid page/pageSize parameters) are rejected with HTTP 400 Bad Request. Malicious payloads (SQL injection, XSS) and Zawgyi text degrade gracefully and normalize safely without 500 errors.
+5. **Observation**: Tenant isolation is enforced automatically via EF Core global query filters and `StampTenantAndTimestamps()` on `SaveChangesAsync`.
+6. **Conclusion**: Milestone 1 Access Control & Boundary Conditions meet all acceptance criteria, ADR-0003 and ADR-0018 requirements, and security isolation standards.
 
 ---
 
-## 3. Caveats
+## 5. Caveats
 
-- Inline SVGs are used inside modal/drawer/badge components instead of an external icon package to keep the bundle footprint small and eliminate third-party runtime dependencies.
-- React Router future flag warnings appear in Vitest console stderr during page component test runs; these are non-blocking warnings for React Router v7.
-
----
-
-## 4. Conclusion
-
-**Verdict: APPROVE**  
-Milestone 1 (Design System & UI Primitives) satisfies all requirements from `ORIGINAL_REQUEST.md` and `PROJECT.md`. Font imports, color tokens, primitive component APIs, re-export bridges, typecheck, and test suites are fully verified.
+- **No caveats**. Empirical verification confirmed 100% test pass rate across all role configurations, tenant scoping, and boundary conditions.
 
 ---
 
-## 5. Verification Method
+## 6. Conclusion & Verdict
 
-To independently re-verify Challenger 2 findings:
+**Verdict**: **APPROVE**
 
-1. **Run TypeScript Typecheck**:
-   ```bash
+Milestone 1 Access Control & Boundary Conditions are fully verified, robust, and compliant with all project ADRs and security standards.
+
+---
+
+## 7. Verification Method
+
+To independently reproduce and verify this challenge report:
+
+1. **Backend Tests**:
+   ```powershell
+   dotnet test backend/RecruitOps.sln
+   ```
+   *Expected result*: 411 tests passing (51 Domain + 360 Api).
+
+2. **Frontend Typecheck**:
+   ```powershell
    npm run typecheck
    ```
-2. **Run Internal Frontend Unit & Stress Test Suites**:
-   ```bash
-   cd frontend/internal
-   npm run test
-   ```
+   *Expected result*: 0 TypeScript errors across all workspaces.
+
+3. **Files Inspected**:
+   - `backend/src/Domain/RoleScope.cs`
+   - `backend/src/Infrastructure/Services/DepartmentAccess.cs`
+   - `backend/src/Infrastructure/Services/ApplicationAccess.cs`
+   - `backend/src/Infrastructure/Services/SearchService.cs`
+   - `backend/src/Api/Controllers/SearchController.cs`
+   - `backend/src/Infrastructure/Persistence/AppDbContext.cs`
+   - `backend/tests/RecruitOps.Api.Tests/Milestone1EmpiricalAccessControlAndBoundaryTests.cs`
+   - `backend/tests/RecruitOps.Api.Tests/Search/SearchApiTests.cs`

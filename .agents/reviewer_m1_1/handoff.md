@@ -1,142 +1,85 @@
-# Handoff Report: Milestone 1 Review (Design System & UI Primitives)
-
-**Author:** Reviewer 1 (Milestone 1 Reviewer & Adversarial Critic)  
-**Date:** 2026-08-03  
-**Working Directory:** `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\reviewer_m1_1`  
-**Verdict:** **APPROVE**  
-
----
+# Handoff Report — Milestone 1 Backend Search Review
 
 ## 1. Observation
 
-### Verified Command Outputs
-1. **TypeScript Typecheck (`npm run typecheck`)**:
-   - Command: `npm run typecheck`
-   - Result: Exit Code 0 across `@recruitops/internal`, `@recruitops/public`, `@recruitops/types`, and `@recruitops/ui`.
-   - Output Snippet:
-     ```
-     > recruitops@0.1.0 typecheck
-     > npm run typecheck --workspaces --if-present
+- **Inspected Files**:
+  - `backend/src/Application/DTOs/Search/SearchDtos.cs` (lines 1-76): Contains record definitions for `SearchQueryParameters`, `SearchResultItemDto`, `CategoryCountsDto`, and `SearchResponseDto`.
+  - `backend/src/Application/Interfaces/ISearchService.cs` (lines 1-19): Defines contract method `Task<SearchResponseDto> SearchAsync(SearchQueryParameters queryParams, CancellationToken ct = default)`.
+  - `backend/src/Infrastructure/Services/SearchService.cs` (lines 1-577): Implements `ISearchService`, handles Zawgyi script normalization via `_scriptNormalizer.Normalize(rawQuery)`, department scoping (`_departmentAccess.AccessibleDepartmentIdsAsync`), candidate data exclusion (ADR-0018), relevance scoring, and HTML snippet highlighting (`<mark>`).
+  - `backend/src/Api/Controllers/SearchController.cs` (lines 1-91): Exposes `GET /api/search?q={query}&category={category}&page={page}&pageSize={pageSize}`, decorated with `[Authorize(Policy = Policies.InternalUser)]`, handles parameter validation (`q` required, `page >= 1`, `pageSize 1-100`).
+  - `backend/src/Infrastructure/DependencyInjection.cs` (lines 111-113): Registers `services.AddScoped<ISearchService, SearchService>();`.
+  - `backend/tests/RecruitOps.Api.Tests/Search/SearchApiTests.cs` (lines 1-296): Contains 10 end-to-end integration tests for unauthenticated search, empty query handling, multi-category ranking, Zawgyi normalization, CV extracted text search, category filtering, department scoping, candidate privacy, pagination, and tenant isolation.
 
-     > @recruitops/internal@0.1.0 typecheck
-     > tsc --noEmit
-
-     > @recruitops/public@0.1.0 typecheck
-     > tsc --noEmit
-     ```
-
-2. **Internal Frontend Tests (`npm run test`)**:
-   - Command: `npm run test` inside `frontend/internal`
-   - Result: Exit Code 0. All 11 test suites and 78 unit tests passed cleanly.
-   - Output Snippet:
-     ```
-     RUN  v2.1.9 C:/Users/Min Arkar Soe/Desktop/Freelance_Project/RecruitOps/frontend/internal
-
-     ✓ src/lib/scorecard.test.ts (14 tests)
-     ✓ src/components/RequirePermission.test.tsx (2 tests)
-     ✓ src/components/TenantSwitcherBar.test.tsx (3 tests)
-     ✓ src/components/AppLayout.test.tsx (3 tests)
-     ✓ src/components/PermissionMatrixGrid.test.tsx (4 tests)
-     ✓ src/pages/RolesPage.test.tsx (3 tests)
-     ✓ src/pages/UsersPage.test.tsx (3 tests)
-     ✓ src/components/ui/primitives.test.tsx (18 tests)
-     ✓ src/components/ApplicationNotes.test.tsx (6 tests)
-     ✓ src/test/milestone4EmpiricalChallenge.test.tsx (15 tests)
-     ✓ src/pages/InterviewDetailPage.test.tsx (7 tests)
-
-     Test Files  11 passed (11)
-          Tests  78 passed (78)
-     ```
-
-### Inspection of Code Changes & Artifacts
-- `packages/ui/tailwind-preset.js`: Correctly extended with `zinc` neutrals scale (50 to 950), `cyan` brand tokens (50 to 900), and `teal` brand tokens (50 to 900) while preserving existing token mappings.
-- `frontend/internal/index.html`: Google Fonts preconnect and font links for `Bricolage Grotesque`, `Inter`, `IBM Plex Mono`, and `Noto Sans Myanmar` added.
-- `frontend/internal/src/index.css`: `@import url(...)` included before `@tailwind` directives; Burmese-safe line height (1.6) and `.mention` styling configured.
-- `packages/ui/src/`: 9 requested primitive components created (`Sheet.tsx`, `Badge.tsx`, `Table.tsx`, `CommandPalette.tsx`, `Dialog.tsx`, `Tabs.tsx`, `Skeleton.tsx`, `Input.tsx`, `Select.tsx`) alongside pre-existing primitives (`Button.tsx`, `Card.tsx`, `StatusPill.tsx`).
-- `packages/ui/src/index.ts`: Re-exports all components and TypeScript interfaces.
-- `frontend/internal/src/components/ui/index.ts`: Re-export bridge (`export * from '@recruitops/ui'`) implemented.
-- `frontend/internal/src/components/ui/primitives.test.tsx`: 18 tests added testing rendering, interaction, backdrop clicks, filtering, and keyboard listeners for primitives.
-
----
+- **Test Execution Command & Result**:
+  - Command: `dotnet test backend/RecruitOps.sln`
+  - Result: Exit Code 0.
+  - Details:
+    - `RecruitOps.Domain.Tests.dll`: 51 Passed, 0 Failed, 0 Skipped.
+    - `RecruitOps.Api.Tests.dll`: 346 Passed, 0 Failed, 0 Skipped.
+    - Total: 397 Passed out of 397 tests.
 
 ## 2. Logic Chain
 
-1. **Design System & Typography Alignment**:
-   `tailwind-preset.js` and `index.html` / `index.css` provide the exact font families and color scales (`zinc`, `cyan`, `teal`) required by the design system specification.
-2. **Primitive Component Completeness**:
-   All 9 required primitive components (`Sheet`, `Badge`, `Table`, `CommandPalette`, `Dialog`, `Tabs`, `Skeleton`, `Input`, `Select`) are implemented with high-density styling, accessible ARIA roles, and keyboard navigation handlers (ESC key, Arrow navigation, focus management).
-3. **Interface Contracts & Subcomponents**:
-   Components support both prop-driven configurations and flexible compound subcomponents (e.g. `SheetHeader`/`SheetBody`/`SheetFooter`, `TableHeader`/`TableCell`, `TabsList`/`TabsTrigger`/`TabsContent`).
-4. **Integrity Check**:
-   No hardcoded test mocks, facade components, or shortcuts were found in source code. Primitive implementations are genuine functional React components.
-5. **Verification**:
-   Typecheck and Vitest test suites executed directly and passed without errors or regressions.
+1. **Clean Architecture Conformance**:
+   - `SearchDtos.cs` and `ISearchService.cs` reside strictly within the `RecruitOps.Application` layer with no outer layer dependencies.
+   - `SearchService.cs` resides in `RecruitOps.Infrastructure.Services` and implements `ISearchService` using `AppDbContext`, `IMyanmarScriptNormalizer`, `ICurrentUser`, and `IDepartmentAccess`.
+   - `SearchController.cs` resides in `RecruitOps.Api.Controllers` and depends strictly on `ISearchService` interface via constructor injection.
+   - `DependencyInjection.cs` wires up `ISearchService` as a Scoped service.
 
----
+2. **Burmese Zawgyi->Unicode Normalization**:
+   - In `SearchService.cs` (line 52), `rawQuery` is passed to `_scriptNormalizer.Normalize(rawQuery)`.
+   - If Zawgyi input is passed (e.g. `"\u1031\u1021\u102B\u1004\u103A"` in `SearchApiTests.cs` line 191), it normalizes to Unicode NFC `"အောင်"`, matching target candidates in the database.
+
+3. **Scoring, Snippets & Category Breakdown**:
+   - `CalculateCandidateScore`, `CalculatePostingScore`, and `CalculateRequisitionScore` calculate multi-tier relevance scores based on match location (Exact Title/FullName = 100.0, Prefix = 95.0, Substring = 85.0, Secondary fields = 60.0-80.0) plus term occurrence frequency multipliers.
+   - `ExtractHighlightedSnippet` safely HTML-encodes the raw content slice prior to performing case-insensitive regex replacement `<mark>$0</mark>`, eliminating potential XSS risks.
+   - `CategoryCountsDto` correctly reports aggregate counts for `All`, `Candidates`, `Postings`, and `Requisitions`.
+
+4. **Integrity Violation Audit**:
+   - Verification confirms no hardcoded test outputs, facade/stub implementations, or bypassed checks exist in `SearchService.cs` or `SearchController.cs`.
+   - Data is dynamically queried from `AppDbContext` and filtered according to caller permissions and role scope.
+
+5. **Test Suite Verification**:
+   - All 397 unit and integration tests pass cleanly in `dotnet test backend/RecruitOps.sln`, validating both existing baseline functionality and new search capabilities.
 
 ## 3. Caveats
 
-- **No external icon library dependency added**: Inline SVG elements are used across components (`Sheet`, `Badge`, `CommandPalette`, `Dialog`, `Select`) to maintain zero third-party icon dependency footprint.
-- **Select Option React prop handling**: Default placeholder option in `Select.tsx` uses standard HTML `value="" disabled hidden`, which functions properly across supported browsers and testing environments.
+- PostgreSQL trigram migration (`pg_trgm`) is intended for production PostgreSQL environments; in-memory tests fall back to EF Core string matching (`Contains` / `StringComparison.OrdinalIgnoreCase`), which is appropriate and standard for unit/integration test compatibility.
 
----
+## 4. Conclusion & Review Verdict
 
-## 4. Conclusion
+- **Verdict**: **APPROVE**
+- **Rationale**: Milestone 1 Backend Search implementation is fully complete, satisfies all architectural and functional requirements, enforces role/department scoping and Burmese script normalization, includes safe HTML snippet formatting, and passes all 397 backend tests cleanly.
 
-Milestone 1 (Design System & UI Primitives) meets all acceptance criteria, design system specifications, accessibility requirements, and type/test checks.
-**Verdict:** **APPROVE**
+## 5. Review Summary & Details
 
----
+### Findings
+- **Critical / Major / Minor Findings**: None.
 
-## 5. Verification Method
+### Verified Claims
+- `GET /api/search` returns ranked search results across Candidates, Postings, Requisitions → Verified via `SearchApiTests.Test3` → PASS
+- Burmese Zawgyi script normalized to Unicode NFC → Verified via `SearchApiTests.Test4` → PASS
+- Department Reach Scoping (ADR-0003) enforced for Hiring Manager → Verified via `SearchApiTests.Test7` → PASS
+- Approver role candidate data exclusion (ADR-0018) enforced → Verified via `SearchApiTests.Test8` → PASS
+- Tenant isolation enforced → Verified via `SearchApiTests.Test10` → PASS
+- Backend test suite pass rate → 397 / 397 tests pass → PASS
 
-To independently verify the Milestone 1 implementation:
+### Coverage Gaps
+- None.
 
-1. **Execute Monorepo Typecheck**:
-   ```bash
-   npm run typecheck
-   ```
-   *Expected Result:* 0 TypeScript errors across all workspace packages.
+### Unverified Items
+- None.
 
-2. **Execute Internal Frontend Test Suite**:
-   ```bash
-   cd frontend/internal
-   npm run test
-   ```
-   *Expected Result:* All 11 test suites and 78 unit tests pass (including 18 primitive unit tests in `primitives.test.tsx`).
+## 6. Verification Method
 
----
-
-## Review Summary
-
-**Verdict**: **APPROVE**
-
-## Verified Claims
-
-- `npm run typecheck` clean across workspaces → verified via `run_command` → **pass**
-- `npm run test` in `frontend/internal` 78/78 tests pass → verified via `run_command` → **pass**
-- All 9 requested primitives present in `@recruitops/ui` → verified via `view_file` → **pass**
-- Re-export bridge in `frontend/internal/src/components/ui/index.ts` → verified via `view_file` → **pass**
-- Zero integrity violations detected → verified via `view_file` → **pass**
-
-## Coverage Gaps
-
-- None identified for Milestone 1 scope.
-
----
-
-## Challenge Summary
-
-**Overall risk assessment**: **LOW**
-
-## Challenges
-
-### [Low] Challenge 1: Dialog and Sheet Body Scroll Trap
-- Assumption challenged: Backdrop scroll lock (`document.body.style.overflow = 'hidden'`) cleans up when unmounted.
-- Stress test: Verified that `useEffect` cleanup handler restores `document.body.style.overflow = ''` when `isOpen` becomes `false` or component unmounts.
-- Result: **Pass**.
-
-### [Low] Challenge 2: Command Palette Search Performance & Keyboard Traversal
-- Assumption challenged: Arrow navigation wraps smoothly across filtered result boundaries.
-- Stress test: Verified `setSelectedIndex` logic handles modulo math for non-empty filtered items array cleanly.
-- Result: **Pass**.
+- Re-run test suite:
+  ```powershell
+  dotnet test backend/RecruitOps.sln
+  ```
+- Inspect code files:
+  - `backend/src/Application/DTOs/Search/SearchDtos.cs`
+  - `backend/src/Application/Interfaces/ISearchService.cs`
+  - `backend/src/Infrastructure/Services/SearchService.cs`
+  - `backend/src/Api/Controllers/SearchController.cs`
+  - `backend/src/Infrastructure/DependencyInjection.cs`
+  - `backend/tests/RecruitOps.Api.Tests/Search/SearchApiTests.cs`

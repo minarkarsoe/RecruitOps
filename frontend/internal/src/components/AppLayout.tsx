@@ -1,33 +1,58 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { CommandPalette } from '@recruitops/ui';
+import { CommandPalette, type CommandItem } from '@recruitops/ui';
 import { auth, hasPermission } from '../lib/auth';
 import { TenantSwitcherBar } from './TenantSwitcherBar';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { useSearch } from '../features/search/useSearch';
 
 export function AppLayout() {
   const navigate = useNavigate();
   const session = auth.get();
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
+  const { query, setQuery, results, isLoading, error, clear } = useSearch({
+    enabled: isCommandPaletteOpen,
+  });
+
+  const searchResults: CommandItem[] = (results?.items ?? []).map((item) => ({
+    id: item.id,
+    title: item.title,
+    description:
+      item.subtitle ||
+      (item.descriptionSnippet ? item.descriptionSnippet.replace(/<[^>]+>/g, '') : undefined),
+    category: item.category === 'Postings' ? 'Job Postings' : item.category,
+    path: item.targetUrl,
+  }));
+
   function signOut() {
     auth.clear();
     navigate('/login', { replace: true });
   }
+
+  const handleClosePalette = () => {
+    setIsCommandPaletteOpen(false);
+    clear();
+  };
 
   // Global Ctrl+K / Cmd+K keyboard shortcut listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setIsCommandPaletteOpen((prev) => !prev);
+        setIsCommandPaletteOpen((prev) => {
+          if (prev) {
+            clear();
+          }
+          return !prev;
+        });
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [clear]);
 
   const rawCommandItems = [
     {
@@ -81,6 +106,15 @@ export function AppLayout() {
       category: 'Navigation',
       path: '/scorecardtemplates',
       permission: 'permission:scorecards:scorecards:manage_templates',
+    },
+    {
+      id: 'nav-analytics',
+      title: 'Reporting & Analytics',
+      description: 'Recruitment KPIs, time-to-hire, funnel conversion & custom reports',
+      category: 'Insights',
+      path: '/analytics',
+      shortcut: 'G A',
+      permission: 'permission:requisitions:requisitions:read',
     },
     {
       id: 'nav-approvalchains',
@@ -143,13 +177,19 @@ export function AppLayout() {
       {/* Global Command Palette modal primitive */}
       <CommandPalette
         isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
+        onClose={handleClosePalette}
         onSelectRoute={(path) => {
           navigate(path);
-          setIsCommandPaletteOpen(false);
+          handleClosePalette();
         }}
         items={commandItems}
+        searchResults={searchResults}
+        query={query}
+        onQueryChange={setQuery}
+        isLoading={isLoading}
+        error={error}
       />
     </div>
   );
 }
+

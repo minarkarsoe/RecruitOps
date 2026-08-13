@@ -4,7 +4,7 @@ export interface CommandItem {
   id: string;
   title: string;
   description?: string;
-  category?: 'Navigation' | 'Quick Actions' | 'Candidates' | 'Requisitions' | string;
+  category?: 'Navigation' | 'Quick Actions' | 'Candidates' | 'Requisitions' | 'Job Postings' | string;
   icon?: React.ReactNode;
   shortcut?: string;
   path?: string;
@@ -16,6 +16,11 @@ export interface CommandPaletteProps {
   onClose: () => void;
   onSelectRoute?: (path: string) => void;
   items?: CommandItem[];
+  searchResults?: CommandItem[];
+  query?: string;
+  onQueryChange?: (q: string) => void;
+  isLoading?: boolean;
+  error?: string | null;
   placeholder?: string;
 }
 
@@ -41,7 +46,7 @@ const DEFAULT_ITEMS: CommandItem[] = [
     title: 'Job Postings',
     description: 'Manage external and internal job boards',
     category: 'Navigation',
-    path: '/job-postings',
+    path: '/jobpostings',
     shortcut: 'G J',
   },
   {
@@ -65,25 +70,41 @@ const DEFAULT_ITEMS: CommandItem[] = [
     title: 'Create New Job Posting',
     description: 'Publish a new open role to public portal',
     category: 'Quick Actions',
-    path: '/job-postings/new',
+    path: '/jobpostings/new',
     shortcut: 'N J',
   },
 ];
+
+const CATEGORY_ORDER = ['Quick Actions', 'Navigation', 'Candidates', 'Requisitions', 'Job Postings'];
 
 export function CommandPalette({
   isOpen,
   onClose,
   onSelectRoute,
   items = DEFAULT_ITEMS,
+  searchResults = [],
+  query: propQuery,
+  onQueryChange,
+  isLoading = false,
+  error,
   placeholder = 'Type a command or search...',
 }: CommandPaletteProps) {
-  const [query, setQuery] = useState('');
+  const [localQuery, setLocalQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Filter items by query
-  const filteredItems = items.filter((item) => {
-    const q = query.toLowerCase().trim();
+  const currentQuery = propQuery !== undefined ? propQuery : localQuery;
+
+  const handleQueryChange = (val: string) => {
+    setLocalQuery(val);
+    if (onQueryChange) {
+      onQueryChange(val);
+    }
+  };
+
+  // Filter static items by query
+  const q = currentQuery.toLowerCase().trim();
+  const filteredStaticItems = items.filter((item) => {
     if (!q) return true;
     return (
       item.title.toLowerCase().includes(q) ||
@@ -92,15 +113,31 @@ export function CommandPalette({
     );
   });
 
+  // Combine static filtered items and dynamic search results (deduplicating by ID)
+  const combinedMap = new Map<string, CommandItem>();
+  filteredStaticItems.forEach((item) => combinedMap.set(item.id, item));
+  searchResults.forEach((item) => combinedMap.set(item.id, item));
+
+  const allCombinedItems = Array.from(combinedMap.values()).sort((a, b) => {
+    const catA = CATEGORY_ORDER.indexOf(a.category ?? 'Quick Actions');
+    const catB = CATEGORY_ORDER.indexOf(b.category ?? 'Quick Actions');
+    const orderA = catA === -1 ? 999 : catA;
+    const orderB = catB === -1 ? 999 : catB;
+    return orderA - orderB;
+  });
+
   // Reset index when query changes
   useEffect(() => {
     setSelectedIndex(0);
-  }, [query]);
+  }, [currentQuery]);
 
-  // Focus input when opened
+  // Focus input and reset local query when opened
   useEffect(() => {
     if (isOpen) {
-      setQuery('');
+      setLocalQuery('');
+      if (onQueryChange) {
+        onQueryChange('');
+      }
       setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
@@ -117,26 +154,26 @@ export function CommandPalette({
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex((prev) =>
-          filteredItems.length > 0 ? (prev + 1) % filteredItems.length : 0
+          allCombinedItems.length > 0 ? (prev + 1) % allCombinedItems.length : 0
         );
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedIndex((prev) =>
-          filteredItems.length > 0
-            ? (prev - 1 + filteredItems.length) % filteredItems.length
+          allCombinedItems.length > 0
+            ? (prev - 1 + allCombinedItems.length) % allCombinedItems.length
             : 0
         );
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        if (filteredItems[selectedIndex]) {
-          handleExecuteItem(filteredItems[selectedIndex]);
+        if (allCombinedItems[selectedIndex]) {
+          handleExecuteItem(allCombinedItems[selectedIndex]);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, filteredItems, selectedIndex, onClose]);
+  }, [isOpen, allCombinedItems, selectedIndex, onClose]);
 
   const handleExecuteItem = (item: CommandItem) => {
     if (item.onSelect) {
@@ -149,10 +186,16 @@ export function CommandPalette({
 
   if (!isOpen) return null;
 
-  // Group items by category
-  const categories = Array.from(
-    new Set(filteredItems.map((item) => item.category || 'General'))
-  );
+  // Group items by category in preferred order
+  const categorySet = new Set(allCombinedItems.map((item) => item.category || 'General'));
+  const categories: string[] = [];
+  CATEGORY_ORDER.forEach((cat) => {
+    if (categorySet.has(cat)) {
+      categories.push(cat);
+      categorySet.delete(cat);
+    }
+  });
+  categorySet.forEach((cat) => categories.push(cat));
 
   let globalIndexCounter = 0;
 
@@ -192,13 +235,34 @@ export function CommandPalette({
             type="text"
             className="w-full bg-transparent text-base text-ink-900 placeholder-ink-400 focus:outline-none"
             placeholder={placeholder}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={currentQuery}
+            onChange={(e) => handleQueryChange(e.target.value)}
           />
-          {query && (
+          {isLoading && (
+            <svg
+              className="animate-spin h-4 w-4 text-primary-600 ml-2 flex-shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+          )}
+          {currentQuery && (
             <button
               type="button"
-              onClick={() => setQuery('')}
+              onClick={() => handleQueryChange('')}
               className="text-xs text-ink-400 hover:text-ink-600 px-2 py-1"
             >
               Clear
@@ -209,15 +273,37 @@ export function CommandPalette({
           </span>
         </div>
 
+        {/* Error Banner */}
+        {error && (
+          <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 flex items-center gap-2">
+            <svg
+              className="h-4 w-4 text-amber-600 flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <span>Failed to search backend. Displaying navigation shortcuts.</span>
+          </div>
+        )}
+
         {/* Results List */}
         <div className="overflow-y-auto p-2 flex-1">
-          {filteredItems.length === 0 ? (
+          {allCombinedItems.length === 0 ? (
             <div className="p-8 text-center text-sm text-ink-400">
-              No matching commands or routes found for &quot;{query}&quot;
+              {isLoading
+                ? 'Searching RecruitOps CRM...'
+                : `No matching commands or routes found for "${currentQuery}"`}
             </div>
           ) : (
             categories.map((category) => {
-              const categoryItems = filteredItems.filter(
+              const categoryItems = allCombinedItems.filter(
                 (item) => (item.category || 'General') === category
               );
               if (categoryItems.length === 0) return null;

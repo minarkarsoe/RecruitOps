@@ -1,9 +1,14 @@
-# Local development + a reference topology for a per-company install (ADR-0004).
-# Quick start:  cp .env.example .env  &&  docker compose up --build
+# Local development + production reference topology for RecruitOps (ADR-0004 & ADR-0013).
+# Quick start: cp .env.example .env && docker compose up --build
 name: recruitops
 
 services:
   db:
+    # Do NOT lower this major version. A Postgres data directory cannot be downgraded in place:
+    # a `pgdata` volume written by 17 makes 16 exit(1) with "database files are incompatible with
+    # server", so every existing install and every developer machine stops booting. This was
+    # briefly 16 and nothing caught it — the whole suite runs on EF's in-memory provider, so no
+    # test touches a real Postgres at all.
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -13,6 +18,7 @@ services:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init-pgtrgm.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-recruitops}"]
       interval: 5s
@@ -38,10 +44,28 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
+  # Auto-creates the recruitops-cvs bucket in MinIO on startup
+  create-buckets:
+    image: minio/mc:latest
+    depends_on:
+      storage:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://storage:9000 ${MINIO_USER:-minioadmin} ${MINIO_PASSWORD:-minioadmin};
+      /usr/bin/mc mb --ignore-existing myminio/recruitops-cvs;
+      /usr/bin/mc anonymous set download myminio/recruitops-cvs;
+      exit 0;
+      "
+
+  backend:
     build:
       context: ./backend
       target: final
+    networks:
+      default:
+        aliases:
+          - api
     depends_on:
       db:
         condition: service_healthy
@@ -56,45 +80,35 @@ services:
       Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
       FileStorage__ServiceUrl: "http://storage:9000"
       FileStorage__PublicServiceUrl: "http://localhost:9000"
-      FileStorage__BucketName: "recruitops-dev"
+      FileStorage__BucketName: "recruitops-cvs"
       FileStorage__AccessKey: ${MINIO_USER:-minioadmin}
       FileStorage__SecretKey: ${MINIO_PASSWORD:-minioadmin}
       FileStorage__ForcePathStyle: "true"
     ports:
       # ⚠️ Publishing this port is a DEV convenience (Swagger, curl against the API directly).
-      # It is also why ReverseProxy__TrustForwardedHeaders stays false: while the API is
-      # reachable without going through nginx, X-Forwarded-For is attacker-controlled, and
-      # trusting it would let anyone mint a fresh partition key per request and walk straight
-      # past the login rate limiter.
-      #
-      # For a real install: delete this `ports` block so only `internal` and `web` are
-      # exposed, then set ReverseProxy__TrustForwardedHeaders=true so the limiter sees real
-      # client addresses instead of putting every user in nginx's single bucket.
       - "${API_PORT:-5080}:8080"
 
-  # Internal dashboards (Vite SPA behind nginx). Build context is the repo root
-  # because both frontends consume packages/* (ADR-0012).
-  internal:
+  # Internal dashboards (Vite SPA behind nginx).
+  frontend-internal:
     build:
       context: .
       dockerfile: frontend/internal/Dockerfile
       target: final
     depends_on:
-      - api
+      - backend
     ports:
       - "${INTERNAL_PORT:-5173}:80"
 
-  # Public job pages (Next.js SSR — needed for Open Graph previews on social shares).
-  web:
+  # Public job pages (Next.js SSR).
+  frontend-public:
     build:
       context: .
       dockerfile: frontend/public/Dockerfile
       target: final
     depends_on:
-      - api
+      - backend
     environment:
-      # Server Components have no origin, so they need the absolute in-network URL.
-      API_INTERNAL_URL: "http://api:8080/api"
+      API_INTERNAL_URL: "http://backend:8080/api"
       NEXT_PUBLIC_API_BASE_URL: "/api"
     ports:
       - "${WEB_PORT:-3000}:3000"

@@ -8,22 +8,27 @@ public class AiIntegrationService : IAiIntegrationService
 {
     private readonly IClaudeService _claudeService;
     private readonly IGeminiService _geminiService;
+    private readonly IMyanmarScriptNormalizer _normalizer;
     private readonly ILogger<AiIntegrationService> _logger;
 
     public AiIntegrationService(
         IClaudeService claudeService,
         IGeminiService geminiService,
+        IMyanmarScriptNormalizer normalizer,
         ILogger<AiIntegrationService> logger)
     {
         _claudeService = claudeService;
         _geminiService = geminiService;
+        _normalizer = normalizer;
         _logger = logger;
     }
 
     public Task<ParsedResumeResultDto> ParseResumeAsync(ParseResumeRequest request, CancellationToken ct = default)
     {
         _logger.LogInformation("Routing ParseResume request to Claude API service.");
-        return _claudeService.ParseResumeAsync(request, ct);
+        var normalizedText = _normalizer.Normalize(request.ResumeText).NormalizedText;
+        var normalizedReq = request with { ResumeText = normalizedText };
+        return _claudeService.ParseResumeAsync(normalizedReq, ct);
     }
 
     public Task<CandidateMatchAnalysisDto> MatchCandidateAsync(MatchCandidateRequest request, CancellationToken ct = default)
@@ -47,6 +52,8 @@ public class AiIntegrationService : IAiIntegrationService
     public Task<BurmeseLocalizationResultDto> TranslateBurmeseAsync(BurmeseLocalizationRequest request, CancellationToken ct = default)
     {
         _logger.LogInformation("Routing BurmeseLocalization request (Target: {TargetLanguage}) to Gemini API service.", request.TargetLanguage);
-        return _geminiService.TranslateBurmeseAsync(request, ct);
+        var normalizedSource = _normalizer.Normalize(request.SourceText).NormalizedText;
+        var normalizedReq = request with { SourceText = normalizedSource };
+        return _geminiService.TranslateBurmeseAsync(normalizedReq, ct);
     }
 }

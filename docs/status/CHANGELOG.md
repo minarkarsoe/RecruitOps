@@ -3,7 +3,71 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-08-03 (latest)
+## 2026-08-13 (latest)
+
+### ✅ Delivery & Deployment Prerequisites Complete (ADR-0004 & ADR-0007)
+**Why:** Provide the operational, versioning, feature-flag add-on gating, container security packaging, and documentation prerequisites required for per-company single-tenant installations.
+
+**Touched:**
+- **Feature Flags Engine**: Implemented `IFeatureFlagService`, `FeatureFlagService`, `[FeatureGate("FeatureName")]` attribute, and `FeatureGateFilter` returning 403 Forbidden with `FeatureDisabled` payload for disabled add-on features. Added `useFeatureFlags` hook, `<FeatureGate>` wrapper component, and dynamic navigation filtering in `Sidebar.tsx`.
+- **System Versioning & Health**: Implemented `GET /api/version` (`VersionController`) returning version string, environment, timestamp, deployment tier, and active feature flags dictionary. Added `/health` alias endpoint to `HealthController`.
+- **Production Container Packaging**: Created `docker-compose.prod.yml` and `infra/nginx/nginx.conf` reverse proxy topology, dropping API port publishing in production and configuring `ReverseProxy__TrustForwardedHeaders=true`.
+- **Operational Documentation**: Created `docs/architecture/deployment-runbook.md` (automated EF Core startup migrations, Postgres backup/restore runbook, upgrade procedures) and `docs/architecture/server-sizing-guide.md` (vCPU/RAM/Storage matrix by company tier).
+- **Test Suite**: Added `FeatureFlagAndVersionTests.cs` and `FeatureGate.test.tsx`, verifying 507/507 backend tests pass and 318/318 frontend tests pass across all workspaces with 0 TypeScript errors.
+
+---
+
+## 2026-08-12
+
+### 🔴 Fixed: the AI endpoints invented candidates instead of reporting the feature was off
+**Why:** `ClaudeOptions`/`GeminiOptions` shipped `EnableFallback = true` and `RequireApiKey = false`,
+and `appsettings.json` carried **no `AI` section at all** — so those defaults were what a customer
+install got. With no API key, `POST /api/ai/parse-resume` answered **200** with a hardcoded
+"Aung Kyaw Thu / +959123456789 / Tech Myanmar Solutions", and `match-candidate` answered **88%
+"Strong Fit"** for every candidate–job pair; the stub ignored the request entirely. Worse, both
+clients wrapped the provider call in `catch (Exception)` and returned the same stub, so an invalid
+key (401), a rate limit (429), a timeout or a network fault also produced a fabricated analysis
+under a 200. ADR-0008 makes AI optional and key-gated; "optional" has to mean the feature reports
+itself off, not that it makes something up. The CV pipeline writes a confirmed parsed profile to the
+candidate record, so this path put invented PII in the database — and a recruiter has no way to tell
+a stub from a real answer.
+
+**Now:**
+- `EnableFallback` defaults to **false**, and `appsettings.json` declares the `AI` section
+  explicitly with a note on why. No key → **402**, as the contract in `PROJECT.md` always said.
+- The stubs survive only as a local-development convenience (`appsettings.Development.json`), and
+  every stubbed response is stamped **`X-Ai-Simulated: true`** via the new scoped
+  `IAiSimulationScope`, set by the provider clients and read by `AiController`.
+- A configured key never falls back. Any unusable provider outcome — non-success status, timeout,
+  transport fault, unexpected body shape — raises the new `AiProviderUnavailableException` and
+  surfaces as **502**. A caller-cancelled request stays a cancellation.
+- `RequireApiKey` and the `X-Require-Api-Key` request header are **gone**. A client-supplied header
+  deciding server-side gating was the only reason the 402 tests passed, and nothing in the frontend
+  ever sent it — the default that actually shipped had no test at all.
+- `AiController`'s five copies of the same `try/catch` are one `RunAsync` helper, so the sibling
+  rule this repo keeps breaking cannot be applied to four endpoints out of five.
+
+**Tests:** 468 → **484**. `AiApiKeyGatingDefaultsTests` boots the API through the new
+`NoAiFallbackWebAppFactory` — the configuration a customer install actually gets — and asserts 402
+plus "the body never contains `Aung Kyaw Thu` or `Strong Fit`". `AiStressAndResilienceTests` had
+four tests *asserting the fabrication was correct behaviour* ("Handles_Http_Errors_Gracefully"
+expected `Aung Kyaw Thu`); they now assert `AiProviderUnavailableException`. Both directions were
+proved by mutation: dropping the `EnableFallback` check fails 6 gating tests, and restoring the
+`catch → stub` line fails 6 resilience tests.
+
+**Touched:** `Infrastructure/Options/{Claude,Gemini}Options.cs`,
+`Infrastructure/Services/{Claude,Gemini}ApiClient.cs`, `Infrastructure/Services/AiSimulationScope.cs`
+(new), `Infrastructure/DependencyInjection.cs`, `Application/Interfaces/IAiSimulationScope.cs` (new),
+`Application/Common/Exceptions/AiProviderUnavailableException.cs` (new),
+`Api/Controllers/AiController.cs`, `Api/appsettings.json`, `Api/appsettings.Development.json`,
+and four test files.
+
+**Still open:** the internal SPA renders a 502 through its existing non-402 error banner, which is
+correct but generic, and it ignores `X-Ai-Simulated` — so a demo environment running with the
+development fallback still shows "88% Match" with no marker on screen. Surfacing that header in
+`SmartMatchBreakdown` and `ExecutiveSummaryPanel` is the obvious follow-up.
+
+## 2026-08-03
 
 ### 🔴 Fixed: permission-aware UX was fail-open — every user saw the full admin UI
 **Why:** `hasPermission()` in `frontend/internal/src/lib/auth.ts` returned `true` for a null

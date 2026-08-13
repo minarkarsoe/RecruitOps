@@ -9,13 +9,17 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RecruitOps.Api.Auth;
+using RecruitOps.Api.Middleware;
 using RecruitOps.Application.Common;
 using RecruitOps.Infrastructure;
 using RecruitOps.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<RecruitOps.Api.Filters.FeatureGateFilter>();
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
@@ -195,6 +199,7 @@ if (app.Environment.IsDevelopment())
 // Must run before anything reads the client address — the rate limiter does.
 if (behindProxy) app.UseForwardedHeaders();
 
+app.UseSecurityHeaders();
 app.UseCors(DevCors);
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -204,6 +209,7 @@ app.MapControllers();
 // Apply pending migrations before serving traffic (ADR-0004: unattended installs).
 // No-ops on the in-memory provider used by tests.
 await DatabaseStartup.MigrateAsync(app.Services);
+await DbInitializer.SeedPermissionsAndRolesAsync(app.Services);
 
 if (app.Environment.IsDevelopment())
     await DbInitializer.SeedAsync(app.Services);

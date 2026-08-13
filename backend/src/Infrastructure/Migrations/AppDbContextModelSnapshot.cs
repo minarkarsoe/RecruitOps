@@ -413,8 +413,23 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.Property<string>("CustomFieldsJson")
                         .HasColumnType("jsonb");
 
+                    b.Property<bool>("IsZawgyiNormalized")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("JobPostingId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ResumeExtractedText")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResumeFileKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResumeFileName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ResumeUploadedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Source")
                         .IsRequired()

@@ -1,36 +1,24 @@
-## 2026-08-03T10:49:48Z
+## 2026-08-11T02:13:49Z
+You are worker_m2 (teamwork_preview_worker). Your working directory is c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\worker_m2.
 
-You are Worker 2 (App Layout & Global Navigation).
-Working Directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\worker_m2
-Original Request Path: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\ORIGINAL_REQUEST.md
-Project Scope Path: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\PROJECT.md
-Survey Analysis Path: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_2\analysis.md
+Read ORIGINAL_REQUEST.md at c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\ORIGINAL_REQUEST.md and PROJECT.md at c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\PROJECT.md.
+Also read blueprints from:
+- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_m2_1\analysis.md
+- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_m2_2\analysis.md
 
 MANDATORY INTEGRITY WARNING:
 DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
 
-File Ownership:
-You have exclusive write access to:
-- frontend/internal/src/components/AppLayout.tsx
-- frontend/internal/src/components/Header.tsx
-- frontend/internal/src/components/Sidebar.tsx
-- frontend/internal/src/components/Breadcrumbs.tsx
-- frontend/internal/src/components/TenantSwitcherBar.tsx
-- frontend/internal/src/components/AppLayout.test.tsx
+Task: Implement Milestone 2 - Global Ctrl+K Command Palette UI for RecruitOps.
 
-Task Description:
-Implement Milestone 2 (Application Layout & Global Navigation):
-1. Redesign `AppLayout.tsx` to incorporate a high-density, modern CRM shell:
-   - Modern collateral sidebar (`Sidebar.tsx`) with grouped navigation links (Recruitment, Team, Governance).
-   - Top Header (`Header.tsx`) with dynamic route-based Breadcrumbs (`Breadcrumbs.tsx`), department/user profile info, and search button with `Ctrl+K` shortcut indicator badge.
-   - Global `Ctrl+K` / `Cmd+K` keyboard event listener that opens/closes the `CommandPalette` modal primitive from `@recruitops/ui`.
-   - Preserve `TenantSwitcherBar` context bar for SuperAdmin users.
-   - Permission-aware navigation link rendering using `hasPermission(session, code)`.
-2. Ensure backward compatibility with existing tests in `AppLayout.test.tsx`:
-   - Keep all navigation link labels ("Requisitions", "Job postings", "Inbox", "Users", "Role Builder", etc.) so existing query selectors match.
-3. Add new unit tests to `AppLayout.test.tsx` to verify:
-   - `Ctrl+K` keyboard shortcut opens the Command Palette overlay.
-   - Breadcrumbs update dynamically based on the current location route.
-   - Command palette allows searching and route navigation.
-4. Run `npm run typecheck` across workspaces and `npm run test` in frontend/internal. Ensure 0 TypeScript errors and all tests pass.
-5. Write a detailed handoff report to c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\worker_m2\handoff.md documenting changes and test command results. Send a message to parent when done.
+Implementation Steps:
+1. Add Search DTO types to packages/types/src/index.ts (SearchCategory, SearchQueryParameters, CategoryCounts, SearchResultItem, SearchResponse).
+2. Create frontend/internal/src/features/search/searchApi.ts calling GET /api/search via apiFetch with authorization token and query params.
+3. Create frontend/internal/src/features/search/useSearch.ts hook with 300ms debouncing, instant clearing on empty input, and AbortController request cancellation.
+4. Enhance CommandPalette primitive in packages/ui/src/CommandPalette.tsx and AppLayout.tsx / Header.tsx to execute live debounced search, display categorized sections (Quick Actions, Candidates, Requisitions, Job Postings), and support full keyboard navigation (Up/Down arrow key selection, Enter to navigate, Escape to close).
+5. Create frontend/internal/src/features/search/__tests__/CommandPalette.test.tsx with Vitest tests for keyboard navigation, debounced live search, and result selection.
+6. Verify typecheck via npm run typecheck (0 errors across all workspaces).
+7. Run frontend test suite via npm run test in frontend/internal. All 274 existing tests MUST pass, and at least 3 new tests MUST pass cleanly (Total: >= 277 tests passing).
+
+Write your handoff report to c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\worker_m2\handoff.md with full typecheck and Vitest test output.
+Send a message back to parent with summary and file path when complete.

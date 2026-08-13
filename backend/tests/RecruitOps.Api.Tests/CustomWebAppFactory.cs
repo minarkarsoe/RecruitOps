@@ -52,6 +52,13 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
     public readonly Guid TenantA = Guid.NewGuid();
     public readonly Guid TenantB = Guid.NewGuid();
 
+    /// <summary>
+    /// Whether the AI endpoints may answer from development stubs when no key is configured.
+    /// True here so the AI integration tests have something to assert against; overridden to
+    /// false by <see cref="NoAiFallbackWebAppFactory"/>, which is the value that ships.
+    /// </summary>
+    protected virtual bool EnableAiFallback => true;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureAppConfiguration((_, cfg) =>
@@ -67,6 +74,13 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 // ordering. Raised here so the per-ACCOUNT throttle can be tested on its own
                 // — LoginThrottleTests is what proves brute-force protection works.
                 ["RateLimit:Login:PermitLimit"] = "10000",
+                ["RateLimit:PublicApply:PermitLimit"] = "10000",
+                // No AI keys in tests, so the endpoints answer from the development stubs. That
+                // mirrors appsettings.Development.json, NOT the shipped default — which is
+                // EnableFallback: false, i.e. 402. NoAiFallbackWebAppFactory flips this back to
+                // the shipped value so the default is covered too.
+                ["AI:Claude:EnableFallback"] = EnableAiFallback ? "true" : "false",
+                ["AI:Gemini:EnableFallback"] = EnableAiFallback ? "true" : "false",
             }));
 
         builder.ConfigureTestServices(services =>

@@ -1,15 +1,11 @@
-## 2026-08-03T10:44:08Z
-You are Explorer 3 (Feature-Based Architecture & Test Suite).
-Working Directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_3
-Original Request Path: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\ORIGINAL_REQUEST.md
+## 2026-08-11T09:00:10Z
+Task: Survey the specification, ADRs, database migrations, and cross-cutting requirements for Person B - Flow 1.
+Investigate:
+1. docs/decisions/ADR-0003-department-scoped-access-control.md, ADR-0009-myanmar-script-handling.md, and any other relevant ADRs or product docs.
+2. PostgreSQL pg_trgm extension requirement and EF Core migration requirements.
+3. Scoring/ranking algorithm expectations for category & full search.
+4. Exact API endpoints, request params, and response DTO schemas needed for GET /api/search?q={query}&category={category}.
+5. Match term highlighting requirements and snippets generation.
 
-Task: Read ORIGINAL_REQUEST.md and perform a comprehensive survey of the codebase regarding Requirement R3 (Feature Modules & Testing/Typecheck Guardrails).
-Specifically:
-1. Survey existing components, pages, hooks, state, and API services in frontend/internal/src.
-2. Detail how code should be reorganized into feature modules:
-   - src/features/requisitions (RequisitionTable, RequisitionDrawer, useRequisitions)
-   - src/features/pipeline (PipelineKanbanBoard, CandidateSlideOver with 360 profile, CV viewer, stage history, scorecard summaries, notes, usePipeline)
-   - src/features/interviews (BlindScorecardDrawer with split view 1-5 rating, @Mentions note thread, useInterviews)
-3. Inspect package.json scripts (`npm run typecheck`, `npm run test` in frontend/internal), Vitest config, existing Vitest test files (60+ tests), and TypeScript workspace configuration.
-
-Write your analysis report to c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_3\analysis.md and a handoff report at c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_3\handoff.md. Include full findings, file locations, test structure, dependencies, and recommended implementation steps. Send a message to parent when complete.
+Write your findings and handoff report to c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_3\analysis.md and handoff.md.
+Send a message back to parent with summary and file path.

@@ -15,6 +15,7 @@ import type {
   ConfirmParsedProfileRequest,
   BulkResumeUploadResponse,
   BulkResumeBatchStatus,
+  VersionInfo,
 } from '@recruitops/types';
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
@@ -240,6 +241,9 @@ export const aiApi = {
       method: 'POST',
       body: JSON.stringify(req),
     }),
+
+  /** Get system version metadata and active feature flags. */
+  version: (): Promise<VersionInfo> => apiFetch<VersionInfo>('/version'),
 };
 
 

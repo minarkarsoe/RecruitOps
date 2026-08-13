@@ -50,6 +50,13 @@ public static class DbInitializer
         await db.SaveChangesAsync(ct);
     }
 
+    public static async Task SeedPermissionsAndRolesAsync(IServiceProvider services, CancellationToken ct = default)
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await SeedPermissionsAndRolesAsync(db, ct);
+    }
+
     /// <summary>Idempotently seeds permissions and system roles into database and links existing users without a RoleId to their corresponding seeded Role (Requirement R2).</summary>
     public static async Task SeedPermissionsAndRolesAsync(AppDbContext db, CancellationToken ct = default)
     {

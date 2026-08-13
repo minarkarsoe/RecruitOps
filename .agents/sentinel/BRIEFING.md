@@ -1,26 +1,25 @@
-# BRIEFING — 2026-08-07T21:24:00Z
+# BRIEFING — 2026-08-11T22:03:55Z
 
 ## Mission
-Build CV Upload & Local Text Extraction Flow (Person A - Flow 1): CV file upload API, local document text extraction (PDF, DOCX, image OCR fallback with Zawgyi→Unicode normalization via IMyanmarScriptNormalizer), bulk CV background processing job, drag-and-drop upload UI inside Candidate 360 SlideOver, and parsed data human-review/confirmation panel.
+Monitor Person B - Flow 2: Build the complete AI Integration Flow (5 Endpoints End-to-End) for RecruitOps per ADR-0008 and ADR-0009.
 
 ## 🔒 My Identity
 - Archetype: sentinel
 - Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\sentinel
-- Orchestrator: 1fa70592-c1be-4b51-9e84-2eac90b569ea (Gen 6)
+- Orchestrator: 72fedbc6-6fd9-4b85-b9dd-400bed405682
 - Victory Auditor: to be spawned on victory claim
 
 ## 🔒 Key Constraints
 - No technical decisions — relay only
 - Victory Audit is MANDATORY before reporting completion
-- Must manage Project Orchestrator subagent and set up monitoring crons
 
 ## User Context
-- **Last user request**: Build complete CV Upload & Local Text Extraction Flow (R1 Backend API & extraction, R2 Bulk upload job, R3 Candidate 360 & Parsed Profile UI).
+- **Last user request**: Person B - Flow 2: Build AI Integration Flow (5 endpoints, UI, tests, API key gating)
 - **Pending clarifications**: none
 - **Delivered results**: none
 
 ## Project Status
-- **Phase**: starting
+- **Phase**: in progress
 
 ## Victory Audit Status
 - **Triggered**: no
@@ -28,6 +27,5 @@ Build CV Upload & Local Text Extraction Flow (Person A - Flow 1): CV file upload
 - **Retry count**: 0
 
 ## Artifact Index
-- `.agents/ORIGINAL_REQUEST.md` — Verbatim original user request
-- `.agents/sentinel/BRIEFING.md` — Sentinel operational briefing index
-
+- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\ORIGINAL_REQUEST.md — Original User Request
+- c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\ORIGINAL_REQUEST.md — Duplicate Original Request

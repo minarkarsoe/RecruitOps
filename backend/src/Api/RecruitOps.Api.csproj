@@ -3,6 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseAppHost>false</UseAppHost>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
@@ -10,6 +11,12 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Do NOT add <Private>False</Private> here. It stops these assemblies being copied to
+         output, so `dotnet publish` yields an app missing two of its four assemblies and the
+         process dies at startup with FileNotFoundException on RecruitOps.Infrastructure — while
+         the whole test suite stays green, because the test project references these projects
+         itself. A broken deployment artifact behind a green suite is exactly the failure this
+         repo keeps having. -->
     <ProjectReference Include="..\Application\RecruitOps.Application.csproj" />
     <ProjectReference Include="..\Infrastructure\RecruitOps.Infrastructure.csproj" />
   </ItemGroup>

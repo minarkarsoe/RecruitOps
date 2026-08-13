@@ -1,227 +1,171 @@
 # Original User Request
 
-## Initial Request — 2026-08-03T10:43:38Z
+## Initial Request — 2026-08-11T22:03:46Z
 
-Project Goal: Refactor the RecruitOps frontend into a modern, high-density Recruit CRM (Ashby / Linear-style) experience with sleek UI components, high-density scannable layouts, slide-over detail drawers, and a clean Feature-Based (Domain-Driven) Frontend Architecture.
-
-Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps
-Integrity mode: development
-
-## Requirements
-
-### R1. Design System & UI Primitive Library (packages/ui & frontend/internal/src/components/ui)
-Upgrade Tailwind configuration and typography in packages/ui/tailwind-preset.js and frontend/internal/src/index.css (Bricolage Grotesque & Inter fonts, Zinc neutrals, Cyan/Teal primary brand tokens, semantic status badges). Build reusable primitive components in packages/ui or src/components/ui: Sheet/Drawer (slide-over panel), Badge, Table, CommandPalette (Ctrl+K), Dialog, Tabs, Skeleton, Input, Select.
-
-### R2. Application Layout & Global Navigation
-Redesign AppLayout.tsx with a sleek collateral sidebar, header breadcrumbs, global Ctrl+K search command palette, department/user switcher, and permission-aware action buttons.
-
-### R3. Feature-Based Architecture Refactor (frontend/internal/src/features)
-Reorganize frontend code into feature modules:
-- src/features/requisitions: RequisitionTable, RequisitionDrawer, useRequisitions hook.
-- src/features/pipeline: PipelineKanbanBoard, CandidateSlideOver (360 profile drawer with CV viewer, stage history, scorecard summaries, notes), usePipeline hook.
-- src/features/interviews: BlindScorecardDrawer (split view 1-5 rating, @Mentions note thread), useInterviews hook.
-
-## Acceptance Criteria
-
-### Verification & Quality Guardrails
-- [ ] `npm run typecheck` passes clean across all workspaces with 0 TypeScript errors.
-- [ ] `npm run test` in `frontend/internal` passes clean (all 60+ Vitest tests passing).
-- [ ] Candidate 360 profile opens instantly via Slide-Over Drawer without full page refresh.
-- [ ] Global Ctrl+K Command Palette opens and allows searching & navigation.
-
-## Follow-up — 2026-08-06T13:12:10Z
-
-# RecruitOps Project Refactor & Hybrid AI Integration Plan
-
-Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps
-Integrity mode: development
-
-## Requirements
-
-### R1. Complete Frontend CRM Features & UI Primitives
-Complete feature modules in `frontend/internal/src/features/`:
-- `requisitions`: RequisitionTable, RequisitionDrawer, useRequisitions hook.
-- `pipeline`: PipelineKanbanBoard, CandidateSlideOver (360 profile drawer with CV viewer, stage history, scorecard summaries, notes), usePipeline hook.
-- `interviews`: BlindScorecardDrawer (split view 1-5 rating, @Mentions note thread), useInterviews hook.
-
-### R2. Dual Surface & Design System Compliance
-Ensure strict compliance with `RecruitOps_Design_System.md` ("Clear Pipeline"):
-- Bricolage Grotesque & Inter fonts with Noto Sans Myanmar fallback (line-height >= 1.7).
-- Status pills, Pipeline stage rails, Client portal cards, and Expiry attention cards.
-
-### R3. Hybrid AI API Integration
-Set up API routes:
-- Claude API endpoint for Resume Parsing, Structuring, and Candidate Matching data analysis.
-- Gemini API endpoint for Document Preparation, Executive Summaries, and Burmese Localization.
-
-## Acceptance Criteria
-
-### Quality & Verification Guardrails
-- [ ] `npm run typecheck` passes cleanly across all workspaces with 0 TypeScript errors.
-- [ ] `npm run test` in `frontend/internal` passes cleanly (all Vitest tests passing).
-- [ ] Candidate 360 profile opens instantly via Slide-Over Drawer without full page refresh.
-- [ ] Global Ctrl+K Command Palette allows searching and route navigation.
-
-## Follow-up — 2026-08-07T13:17:00Z
-
-Sprint 0 (Person A): Build three infrastructure foundation pieces for the RecruitOps in-house recruitment SaaS — an object storage abstraction, Myanmar script normalization, and a refresh token mechanism. These are prerequisites for the CV upload, search, and auth hardening features that follow.
+Person B - Flow 2: Build the complete AI Integration Flow (5 Endpoints End-to-End) for RecruitOps per ADR-0008. This includes provider-agnostic Claude (Data Analysis / Smart Match) and Gemini (Doc Gen / Localization) API clients with API-key gating, backend AI endpoints, and rich frontend UI in CandidateSlideOver, Document Prep Modal, and Burmese translation.
 
 Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps
 Integrity mode: development
 
 Reference material:
-- `docs/decisions/ADR-0013-infrastructure-and-storage.md` — Cloudflare R2 hosted, MinIO on-prem, behind S3-compatible abstraction
-- `docs/decisions/ADR-0009-myanmar-script-handling.md` — Zawgyi↔Unicode normalization required for all text ingestion
-- `docs/decisions/ADR-0016-login-brute-force-protection.md` — current auth flow (JWT 8h, no refresh token)
-- `CLAUDE.md` — conventions, stack (.NET 10 LTS, Clean Architecture), build/test commands
-
-## Verification Resources
-
-The project has an existing test suite that must remain green after changes:
-- Backend: `dotnet test backend/RecruitOps.sln` — **228 tests passing** (51 Domain + 177 Api)
-- Frontend: `npm run test` in `frontend/internal` — **189 tests passing**
-- Typecheck: `npm run typecheck` — **0 errors** across all workspaces
-- Docker: `docker compose up --build` runs cleanly
-
-## Requirements
-
-### R1. Object Storage Abstraction
-An abstraction over S3-compatible object storage that lets the application store and retrieve files (CVs, documents, profile photos) without knowing whether the backing store is Cloudflare R2 or a local MinIO instance. The abstraction must sit in the Application layer (interface) with the implementation in Infrastructure. Configuration is via environment variables — the same image runs against either backend. Refer to ADR-0013 for the rationale. The application must never call R2 or MinIO APIs directly outside this abstraction.
-
-### R2. Myanmar Script Normalization (Zawgyi→Unicode)
-A normalization service that detects Zawgyi-encoded Myanmar text and converts it to Unicode (NFC). This is required for all text ingestion paths (CV text extraction, candidate form submissions, search indexing) per ADR-0009. The detection + conversion must work without network access (local, in-process). Expose it as an injectable service in the Application layer.
-
-### R3. Refresh Token Mechanism
-Extend the existing JWT auth flow to support refresh tokens. Currently the system issues an 8-hour access token with no refresh path — when it expires, the user must re-login. Add a refresh token that allows the frontend to silently obtain a new access token. The refresh token should be stored server-side (database) and be revocable. Follow the existing auth patterns in `AuthService` and `JwtTokenService`.
-
-## Acceptance Criteria
-
-### Object Storage (R1)
-- [ ] An `IFileStorage` interface (or equivalent) exists in the Application layer with methods for upload, download, delete, and presigned-URL generation
-- [ ] At least one implementation exists in Infrastructure that works against an S3-compatible API
-- [ ] The MinIO container in `docker-compose.yml` is usable as the storage backend for local development
-- [ ] Configuration (endpoint, bucket, credentials) is via environment variables — no hard-coded values
-- [ ] `dotnet build backend/src/Api` compiles cleanly after changes
-- [ ] All **228 existing backend tests** still pass (`dotnet test backend/RecruitOps.sln`)
-- [ ] At least 3 new integration or unit tests covering upload, download, and delete operations
-
-### Myanmar Script Normalization (R2)
-- [ ] A service exists that accepts a string, detects whether it is Zawgyi-encoded, and returns a Unicode-normalized (NFC) string
-- [ ] The service works in-process with no network dependency
-- [ ] At least 5 unit tests covering: pure Unicode input (no-op), Zawgyi input (converts), mixed content, empty/null input, and a real-world Burmese sentence
-- [ ] All **228 existing backend tests** still pass
-
-### Refresh Token (R3)
-- [ ] A `POST /api/auth/refresh` endpoint exists that accepts a refresh token and returns a new access + refresh token pair
-- [ ] Refresh tokens are persisted server-side (database entity + EF migration)
-- [ ] A refresh token can be revoked (e.g., on logout or password change)
-- [ ] Expired or revoked refresh tokens return 401
-- [ ] The frontend `auth.ts` module is updated to use the refresh mechanism (attempt silent refresh before redirecting to login)
-- [ ] The `@recruitops/types` shared package includes the updated auth response type
-- [ ] All **228 existing backend tests** still pass
-- [ ] At least 5 new tests covering: valid refresh, expired refresh, revoked refresh, reuse detection, and login returns a refresh token
-- [ ] `npm run typecheck` passes with 0 errors after frontend changes
-
-### Cross-cutting
-- [ ] `docker compose up --build` still runs cleanly
-- [ ] No new TypeScript errors (`npm run typecheck`)
-- [ ] Changes follow existing Clean Architecture conventions (interface in Application, implementation in Infrastructure)
-- [ ] New packages (if any) are permissive-licensed (MIT/Apache-2.0/BSD) — no copyleft/AGPL
-
-## Follow-up — 2026-08-07T21:24:00Z
-
-Person A - Flow 1: Build the complete CV Upload & Local Text Extraction Flow for RecruitOps. This includes CV file upload API, local document text extraction (PDF, DOCX, image OCR fallback with Zawgyi→Unicode normalization via `IMyanmarScriptNormalizer`), bulk CV background processing job, drag-and-drop upload UI inside Candidate 360 SlideOver, and parsed data human-review/confirmation panel.
-
-Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps
-Integrity mode: development
-
-Reference material:
-- `docs/decisions/ADR-0008-document-extraction-and-ai-profiling.md` — Local extraction mandatory MVP, AI optional
-- `docs/decisions/ADR-0009-myanmar-script-handling.md` — Zawgyi→Unicode normalization required on extracted text
-- `docs/decisions/ADR-0013-infrastructure-and-storage.md` — Storage via `IFileStorage` (S3/MinIO)
+- `docs/decisions/ADR-0008-document-extraction-and-ai-profiling.md` — AI optional, API-key gated, human confirmation mandatory
+- `docs/decisions/ADR-0009-myanmar-script-handling.md` — Burmese ↔ English AI translation and script handling
+- `CLAUDE.md` — Clean Architecture, TypeScript types, build/test commands
 
 ## Verification Resources
 
 Existing test suite baseline that MUST remain green:
-- Backend: `dotnet test backend/RecruitOps.sln` — **333 tests passing** (51 Domain + 282 Api)
-- Frontend: `npm run test` in `frontend/internal` — **233 tests passing**
+- Backend: `dotnet test backend/RecruitOps.sln` — **411 tests passing** (51 Domain + 360 Api)
+- Frontend: `npm run test` in `frontend/internal` — **295 tests passing**
 - Typecheck: `npm run typecheck` — **0 errors** across all workspaces
 
 ## Requirements
 
-### R1. CV Resume Storage & Extraction Backend API
-Build backend APIs and domain/infrastructure services for CV file management:
-- Endpoint `POST /api/applications/{id}/resume` to accept single CV upload (PDF/DOCX/PNG/JPG up to 10MB), store via `IFileStorage`, and extract text.
-- Endpoint `GET /api/applications/{id}/resume` to download/view the stored CV file.
-- Document extraction service supporting:
-  - PDF text extraction (text streams)
-  - DOCX text extraction (OpenXML document body)
-  - Image OCR fallback (for scanned PDFs or image CVs)
-  - Automatic Zawgyi normalization via `IMyanmarScriptNormalizer` on all extracted text
-- Return structured extraction results (`extractedText`, `detectedLanguage`, `isZawgyiNormalized`, `parsedContactInfo`).
+### R1. AI Provider Abstraction & API Key Gating Backend
+Build backend services in `RecruitOps.Infrastructure` & `RecruitOps.Application`:
+- Provider-agnostic interfaces `IAiIntegrationService`, `IClaudeService`, `IGeminiService`.
+- Implement Claude API client for Data Analysis:
+  - `POST /api/ai/parse-resume`: Extracted text → structured candidate JSON
+  - `POST /api/ai/match-candidate`: Candidate vs. Job Posting match scoring (0-100), criteria compatibility breakdown, suggested interview questions
+- Implement Gemini API client for Document Generation & Localization:
+  - `POST /api/ai/executive-summary`: Candidate profile executive summary
+  - `POST /api/ai/document-prep`: Interview Kit / Client Dossier document generation
+  - `POST /api/ai/translate`: Burmese ↔ English text localization
+- API Key Gating: If no API key is configured in environment/secrets, endpoints return explicit `402 Payment Required` or feature-disabled response without throwing 500 errors.
 
-### R2. Bulk CV Upload Background Job
-Build a background processing job for bulk CV ingest:
-- Endpoint `POST /api/jobpostings/{jobPostingId}/resumes/bulk` to accept up to 50 CV files in a single batch.
-- Process files asynchronously using background job runner without blocking HTTP requests.
-- Track per-file processing status (`Queued`, `Processing`, `Success`, `Skipped`, `Failed`) with progress summary endpoint `GET /api/jobpostings/{jobPostingId}/resumes/bulk/{batchId}`.
-
-### R3. Candidate 360 SlideOver CV Viewer & Parsed Profile UI
+### R2. Smart Match & Executive Summary UI in Candidate 360
 Build frontend components inside `@recruitops/internal`:
-- Add a "CV & Documents" tab/section in `CandidateSlideOver.tsx` with drag-and-drop upload zone, upload progress bar, and embedded CV text viewer.
-- Add a "Parsed Profile Human Review" panel that shows extracted text side-by-side with editable candidate profile fields (Name, Email, Phone, Experience, Skills), requiring explicit recruiter confirmation before applying changes to candidate profile.
-- Add a Bulk CV Upload modal on `JobPostingDetailPage` allowing recruiters to drag-and-drop multiple CVs with live progress indicators.
+- Enhance `CandidateSlideOver.tsx`:
+  - **Smart Match Badge & Breakdown:** Match score badge (e.g. "85% Match"), detailed criteria breakdown drawer, suggested interview questions list.
+  - **Executive Summary Panel:** "Generate AI Summary" button, EN / MY / Bilingual language toggle, copy text / export buttons.
+
+### R3. AI Document Prep Modal & Burmese Localization UI
+Build frontend components inside `@recruitops/internal`:
+- Add `AiDocumentPrepModal.tsx` on Candidate 360 / Job Posting pages allowing recruiters to generate and preview Interview Kits / Dossiers.
+- Add inline "Translate (EN ↔ MY)" button on long text fields (Job Descriptions, Candidate Notes).
 
 ## Acceptance Criteria
 
 ### Backend Criteria
-- [ ] `POST /api/applications/{id}/resume` stores file using `IFileStorage` and extracts text cleanly
-- [ ] PDF and DOCX text extraction returns readable plain text
-- [ ] Any extracted text containing Zawgyi Myanmar script is automatically converted to Unicode NFC via `IMyanmarScriptNormalizer`
-- [ ] Bulk upload endpoint `POST /api/jobpostings/{jobPostingId}/resumes/bulk` accepts up to 50 files and returns batch tracking ID
-- [ ] All **333 existing backend tests** pass cleanly (`dotnet test backend/RecruitOps.sln`)
-- [ ] At least 8 new backend tests covering CV upload, PDF/DOCX extraction, Zawgyi normalization on extracted text, and bulk job batch status
+- [ ] 5 AI endpoints (`parse-resume`, `match-candidate`, `executive-summary`, `document-prep`, `translate`) execute cleanly with mock/real provider response
+- [ ] If API keys are unconfigured, endpoints gracefully return feature-disabled status without 500 server crashes
+- [ ] Extracted AI structured data requires explicit human review/confirmation before mutating database records (ADR-0008)
+- [ ] All **411 existing backend tests** pass cleanly (`dotnet test backend/RecruitOps.sln`)
+- [ ] At least 10 new backend tests covering AI provider client mocking, API key gating fallback, match scoring calculation, and translation endpoints
 
 ### Frontend Criteria
-- [ ] `CandidateSlideOver.tsx` displays CV upload zone, file preview link, and extracted text viewer
-- [ ] Recruiter can edit and confirm parsed profile data before updating candidate records
-- [ ] Bulk upload modal on `JobPostingDetailPage` displays progress bar per file
-- [ ] `npm run typecheck` passes with **0 errors** across `@recruitops/internal`, `@recruitops/public`, and `@recruitops/types`
-- [ ] All **233 existing frontend tests** pass cleanly (`npm run test` in `frontend/internal`)
-- [ ] At least 5 new frontend Vitest tests covering CV upload component interactions and parsed profile review panel
+- [ ] `CandidateSlideOver.tsx` renders AI Match Score badge, criteria breakdown, and suggested interview questions
+- [ ] Executive Summary panel generates summary with language switcher
+- [ ] Document Prep Modal generates Interview Kit preview
+- [ ] `npm run typecheck` passes with **0 errors** across all workspaces
+- [ ] All **295 existing frontend tests** pass cleanly (`npm run test` in `frontend/internal`)
+- [ ] At least 6 new frontend Vitest tests covering AI component interactions, loading states, and error handling
 
 ---
 *Cross-cutting: Maintain Clean Architecture principles, full TypeScript & C# types alignment.*
 
-## Follow-up — 2026-08-08T14:57:03Z
+## Follow-up — 2026-08-12T19:48:19Z
 
-Person A - Flow 1 (Milestone 2 & 3): Resume work to complete the remaining parts of Person A Flow 1 (Bulk CV Upload Background Job & Candidate 360 CV Viewer / Parsed Data UI).
+Person B - Flow 3: Build the complete Deployment & Operational Readiness Flow (End-to-End) for RecruitOps. This includes multi-container `docker-compose.yml` production setup (PostgreSQL with `pg_trgm`, MinIO S3 storage, .NET 10 API, Internal Frontend, Public Portal), backend `/healthz` health check endpoint, rate-limiting & security headers middleware, automated EF Core startup database migrations & RBAC seed verification, and production build checks.
 
 Working directory: c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps
 Integrity mode: development
 
-Current Status:
-- Milestone 1 (R1: CV Upload & Extraction API, `IDocumentTextExtractor`, `POST/GET /api/applications/{id}/resume`, Zawgyi normalization integration) is COMPLETE and PASSING all 349 backend tests.
+Reference material:
+- `docker-compose.yml` — Multi-container compose configuration
+- `docs/decisions/ADR-0013-infrastructure-and-storage.md` — Cloudflare R2 / MinIO storage configuration
+- `docs/decisions/ADR-0016-login-brute-force-protection.md` — Rate limiting and brute-force protection
+- `CLAUDE.md` — Clean Architecture, TypeScript types, build/test commands
 
-Remaining Work:
-### R2. Bulk CV Upload Background Job (Milestone 2)
-- Endpoint `POST /api/jobpostings/{jobPostingId}/resumes/bulk` to accept up to 50 CV files in a single batch.
-- Process files asynchronously using background job runner without blocking HTTP requests.
-- Track per-file processing status (`Queued`, `Processing`, `Success`, `Skipped`, `Failed`) with progress summary endpoint `GET /api/jobpostings/{jobPostingId}/resumes/bulk/{batchId}`.
+## Verification Resources
 
-### R3. Candidate 360 SlideOver CV Viewer & Parsed Profile UI (Milestone 3)
-- Update `CandidateSlideOver.tsx` in `@recruitops/internal`:
-  - Add "CV & Documents" tab/section with drag-and-drop upload zone, upload progress bar, and embedded CV text viewer / download button.
-  - Add "Parsed Profile Human Review" panel that shows extracted text side-by-side with editable candidate profile fields (Name, Email, Phone, Experience, Skills), requiring explicit recruiter confirmation before applying changes to candidate profile.
-- Add Bulk CV Upload modal on `JobPostingDetailPage` allowing recruiters to drag-and-drop multiple CVs with live progress indicators per file.
+Existing test suite baseline that MUST remain green:
+- Backend: `dotnet test backend/RecruitOps.sln` — **454 tests passing** (51 Domain + 403 Api)
+- Frontend: `npm run test` in `frontend/internal` — **318 tests passing**
+- Typecheck: `npm run typecheck` — **0 errors** across all workspaces
+
+## Requirements
+
+### R1. Health Check Endpoint & Operational Monitoring Backend
+Build operational endpoints in `RecruitOps.Api`:
+- Endpoint `GET /healthz` returning 200 OK with detailed health status:
+  - Database connectivity (PostgreSQL query check)
+  - Object storage connectivity (`IFileStorage` bucket check)
+  - Memory usage & uptime metrics
+- Add ASP.NET Core Rate Limiting middleware to prevent brute-force attacks on `POST /api/auth/login` and `POST /api/public/applications` (10 requests / min limit per IP).
+- Add security headers middleware (X-Content-Type-Options: nosniff, X-Frame-Options: DENY, Referrer-Policy: strict-origin-when-cross-origin, Content-Security-Policy).
+
+### R2. Automated DB Migrations & Production Seeding
+Enhance application startup flow in `Program.cs` / `DependencyInjection.cs`:
+- Automated EF Core database migration check on application startup (applies pending migrations cleanly without data loss).
+- Ensure idempotent execution of `RbacSeedData.cs` initializing default tenant, system roles, permissions, and initial SuperAdmin account.
+
+### R3. Multi-Container Docker Compose & Production Build Verification
+Verify multi-container deployment setup:
+- Update `docker-compose.yml` defining services:
+  - `db`: PostgreSQL 16 with `pg_trgm` pre-initialized
+  - `storage`: MinIO S3-compatible object storage with auto-created `recruitops-cvs` bucket
+  - `backend`: .NET 10 Web API built via multi-stage Dockerfile
+  - `frontend-internal`: React CRM frontend
+  - `frontend-public`: Public Career Portal
+- Verify `docker compose up --build` config without missing env vars or broken network alias links.
 
 ## Acceptance Criteria
-- [ ] Bulk upload endpoint `POST /api/jobpostings/{jobPostingId}/resumes/bulk` accepts up to 50 files and returns batch tracking ID
-- [ ] Batch progress endpoint `GET /api/jobpostings/{jobPostingId}/resumes/bulk/{batchId}` returns per-file status summary
-- [ ] `CandidateSlideOver.tsx` displays CV upload zone, file preview link, and extracted text viewer
-- [ ] Recruiter can edit and confirm parsed profile data before updating candidate records
-- [ ] Bulk upload modal on `JobPostingDetailPage` displays progress bar per file
-- [ ] All 349+ existing backend tests pass cleanly (`dotnet test backend/RecruitOps.sln`)
-- [ ] All 233+ existing frontend tests pass cleanly (`npm run test` in `frontend/internal`)
-- [ ] `npm run typecheck` passes with 0 errors across all workspaces
 
+### Backend Criteria
+- [ ] `GET /healthz` returns HTTP 200 with DB and Storage health status
+- [ ] Rate limiting middleware blocks excessive requests (>10 reqs/min) on `/api/auth/login` with 429 Too Many Requests
+- [ ] Security headers are present on all HTTP API responses
+- [ ] EF Core startup migration applies cleanly without throwing exceptions
+- [ ] All **454 existing backend tests** pass cleanly (`dotnet test backend/RecruitOps.sln`)
+- [ ] At least 8 new backend tests covering `/healthz` endpoint, rate limiting middleware, and security headers
+
+### Frontend & Build Criteria
+- [ ] `npm run typecheck` passes with **0 errors** across all 4 workspaces (`@recruitops/internal`, `@recruitops/public`, `@recruitops/types`, `@recruitops/ui`)
+- [ ] All **318 existing frontend tests** pass cleanly (`npm run test` in `frontend/internal`)
+- [ ] `docker-compose.yml` parses cleanly without syntax errors
+- [ ] Production frontend bundle builds cleanly (`npm run build` in `@recruitops/internal` and `@recruitops/public`)
+
+---
+*Cross-cutting: Maintain Clean Architecture principles, full TypeScript & C# types alignment.*
+
+
+---
+
+## Request — 2026-08-12T13:34:24Z (Claude Code `/teamwork`)
+
+ကျန်တဲ့ finding သုံးခုကို ဆက်ပြင်ပေးပါ
+
+Context: three findings left open after the AI-fallback fix earlier the same day.
+
+1. 🟠 Rate limit regression — `appsettings.json` had Login `60 → 10` and PublicApply
+   `120 → 10`, while the inline `// note` above each still explains why they were 60 and 120
+   ("must clear a whole office signing in at 09:00 through one NAT or proxy address").
+   A shared office IP now trips 429 on login.
+2. 🟡 Orphan migration — `backend/src/Infrastructure/Persistence/Migrations/20260811000000_AddPgTrgmAndSearchIndexes.cs`
+   duplicates the one under `Infrastructure/Migrations/` with a different namespace and no
+   `.Designer.cs`, so it carries no `[Migration]` attribute and EF never discovers it.
+3. 🟡 Docs untouched across four multi-agent flows — `docs/status/FEATURE-STATUS.md` and
+   `NEXT-SESSION.md` still describe Milestones 1–5 at 226 backend / 60 frontend tests, with no
+   record of refresh tokens, the CV + AI pipeline, Search, Analytics, or the health/rate-limit work.
+
+Orchestrator note: the fit of the full six-agent gate was questioned for findings 1 and 2 (three
+lines of change) and for 3 (documentation, which a Challenger cannot execute against). The user
+reaffirmed the full run, so it runs as specified.
+
+---
+
+## Request — 2026-08-12T15:40:00Z (Claude Code `/teamwork`)
+
+အရင်ဆုံ Containerize လုပ်လိုက်ပြီးမှ M2 ကိုဆက်လုပ်
+
+("Containerize first, then continue with M2.")
+
+Context: the M1 gate found that `RecruitOps.Api.csproj` carried `<Private>False</Private>` on both
+ProjectReferences, so `dotnet publish` produced an app missing `Application.dll` and
+`Infrastructure.dll` and the artifact died at startup with FileNotFoundException — while all 507
+tests stayed green. The Orchestrator fixed it and verified a local publish now boots. Containerizing
+is the end-to-end proof that the fix holds in the artifact that actually ships, and is the check
+that would have caught the defect in the first place.
+
+New milestone M1.5 (containerize + prove the stack runs) inserted ahead of M2.

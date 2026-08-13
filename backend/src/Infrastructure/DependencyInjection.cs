@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IPermissionEvaluator, PermissionEvaluator>();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IFeatureFlagService, FeatureFlagService>();
 
         // Singleton: the failure counters have to outlive the request that recorded them,
         // which is the entire point.
@@ -81,6 +82,10 @@ public static class DependencyInjection
         services.AddHttpClient<IGeminiService, GeminiApiClient>();
         services.AddScoped<IAiIntegrationService, AiIntegrationService>();
 
+        // Per-request flag: set when a provider client serves a development stub, read by
+        // AiController to stamp X-Ai-Simulated so sample data is never mistaken for an analysis.
+        services.AddScoped<IAiSimulationScope, AiSimulationScope>();
+
         // Object Storage (ADR-0013)
         services.Configure<FileStorageOptions>(config.GetSection(FileStorageOptions.SectionName));
         services.AddSingleton<IAmazonS3>(sp =>
@@ -105,7 +110,12 @@ public static class DependencyInjection
         services.AddScoped<IBulkResumeService, BulkResumeService>();
         services.AddScoped<Application.Common.Interfaces.IBulkResumeService, BulkResumeService>();
 
-        // TODO: module services as they are built (offers, analytics).
+        // Module 5 — Reporting & Analytics
+        services.AddScoped<IAnalyticsService, AnalyticsService>();
+
+        // Module 2 / Milestone 1 — Full-text Search Service
+        services.AddScoped<ISearchService, SearchService>();
+
         return services;
     }
 }

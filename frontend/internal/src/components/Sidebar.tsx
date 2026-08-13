@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { auth, hasPermission, isSuperAdmin, Session } from '../lib/auth';
+import { useFeatureFlags } from '../lib/useFeatureFlags';
 
 interface SidebarProps {
   session?: Session | null;
@@ -10,6 +11,7 @@ interface NavItem {
   to: string;
   label: string;
   permission: string;
+  featureFlag?: string;
 }
 
 interface NavGroup {
@@ -20,6 +22,7 @@ interface NavGroup {
 export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
   const navigate = useNavigate();
   const session = propSession !== undefined ? propSession : auth.get();
+  const { isFeatureEnabled } = useFeatureFlags();
 
   function handleSignOut() {
     if (onSignOut) {
@@ -58,6 +61,17 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
           to: '/scorecardtemplates',
           label: 'Scorecard templates',
           permission: 'permission:scorecards:scorecards:manage_templates',
+        },
+      ],
+    },
+    {
+      title: 'Insights',
+      items: [
+        {
+          to: '/analytics',
+          label: 'Analytics',
+          permission: 'permission:requisitions:requisitions:read',
+          featureFlag: 'EnableAnalytics',
         },
       ],
     },
@@ -122,7 +136,8 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
         <div className="space-y-5">
           {navGroups.map((group) => {
             const visibleItems = group.items.filter((item) =>
-              hasPermission(session, item.permission)
+              hasPermission(session, item.permission) &&
+              (!item.featureFlag || isFeatureEnabled(item.featureFlag))
             );
 
             if (visibleItems.length === 0) return null;

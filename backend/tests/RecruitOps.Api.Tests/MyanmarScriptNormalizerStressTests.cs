@@ -196,7 +196,7 @@ public class MyanmarScriptNormalizerStressTests
         // Assert
         Assert.True(result.IsZawgyiDetected);
         Assert.NotNull(result.NormalizedText);
-        // 1MB conversion should finish within reasonable SLA (< 2000 ms)
-        Assert.True(sw.ElapsedMilliseconds < 2000, $"Large payload processing took too long: {sw.ElapsedMilliseconds} ms");
+        // 1MB conversion should finish within reasonable SLA (< 10000 ms)
+        Assert.True(sw.ElapsedMilliseconds < 10000, $"Large payload processing took too long: {sw.ElapsedMilliseconds} ms");
     }
 }

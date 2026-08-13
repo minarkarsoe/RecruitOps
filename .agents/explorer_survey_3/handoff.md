@@ -1,57 +1,78 @@
-# Explorer 3 Handoff Report: Requirement R3 (Feature Modules & Test Suite)
+# Handoff Report: Person B - Flow 1 Specification Survey
+
+**Agent**: explorer_survey_3  
+**Working Directory**: `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_3`  
+**Handoff Type**: Hard (Task Complete)
+
+---
 
 ## 1. Observation
-- **Root & Internal Workspaces**: `package.json` at root includes workspaces `["packages/*", "frontend/internal", "frontend/public"]`.
-- **Existing `frontend/internal/src` Directory Structure**:
-  - `src/pages/`: `RequisitionsPage.tsx` (85 lines), `RequisitionDetailPage.tsx` (241 lines), `JobPostingDetailPage.tsx` (398 lines), `InterviewDetailPage.tsx` (446 lines), `RolesPage.tsx`, `UsersPage.tsx`, etc.
-  - `src/components/`: `ApplicationDebrief.tsx` (582 lines), `ApplicationNotes.tsx` (192 lines), `AppLayout.tsx`, `FormFieldBuilder.tsx`, `PermissionMatrixGrid.tsx`, `TenantSwitcherBar.tsx`, `RequirePermission.tsx`, `RequireAuth.tsx`.
-  - `src/lib/`: `api.ts` (53 lines), `auth.ts` (148 lines), `scorecard.ts` (83 lines), `scorecard.test.ts` (14 tests).
-  - `src/test/`: `fixtures.ts` (99 lines), `rbacFixtures.ts`, `setup.ts`, `milestone4EmpiricalChallenge.test.tsx` (15 tests).
-- **TypeScript Configuration (`frontend/internal/tsconfig.json`)**:
-  - `target`: `ES2020`, `strict`: `true`, `noEmit`: `true`, `include`: `["src"]`.
-  - Execution command: `npm run typecheck` inside `frontend/internal`.
-  - Observed output: Exited with code 0 (0 errors).
-- **Vitest Configuration & Tests (`frontend/internal/vitest.config.ts`)**:
-  - `environment`: `'jsdom'`, `setupFiles`: `['./src/test/setup.ts']`, `include`: `['src/**/*.test.{ts,tsx}']`.
-  - Execution command: `npm run test` inside `frontend/internal`.
-  - Observed output: `Test Files 10 passed (10), Tests 60 passed (60)` (and on rerun 65 tests passed across the 10 files).
-  - The 10 test files:
-    1. `src/lib/scorecard.test.ts`
-    2. `src/components/RequirePermission.test.tsx`
-    3. `src/components/TenantSwitcherBar.test.tsx`
-    4. `src/components/PermissionMatrixGrid.test.tsx`
-    5. `src/components/ApplicationNotes.test.tsx`
-    6. `src/pages/RolesPage.test.tsx`
-    7. `src/components/AppLayout.test.tsx`
-    8. `src/pages/UsersPage.test.tsx`
-    9. `src/test/milestone4EmpiricalChallenge.test.tsx`
-    10. `src/pages/InterviewDetailPage.test.tsx`
+
+1. **ADRs and Authorization Rules**:
+   - `docs/decisions/ADR-0003-department-scoping.md` (lines 22–27, 38–41): `HiringManager` sees only data belonging to their own department (`Requisition`, `JobPosting`, `JobApplication`, `Candidate`). Scoping is enforced explicitly in the application layer via `IDepartmentAccess` / `ApplicationAccess` rather than EF Core global query filters.
+   - `docs/decisions/ADR-0018-approver-candidate-data-exclusion.md` & `backend/src/Domain/RoleScope.cs` (lines 28–42): `Approver` role is company-wide on requisitions axis, BUT `IsExcludedFromCandidateData` is `true`. Approvers have no standing reach into candidate data (candidates, applications, scorecards, notes).
+   - `docs/decisions/ADR-0009-myanmar-script-handling.md` (lines 31–39, 73–82): All text entry points (and search queries) must convert Zawgyi → Unicode NFC at the boundary before processing. PostgreSQL default FTS tokenisation does not support Burmese without spaces; trigram indexing (`pg_trgm`) over normalized Unicode is specified.
+
+2. **Existing Infrastructure & Codebase**:
+   - `backend/src/Infrastructure/Services/MyanmarScript/MyanmarScriptNormalizer.cs` (lines 109–152): Injectable `IMyanmarScriptNormalizer` service already exists in Application/Infrastructure layer, producing normalized Unicode NFC strings.
+   - `backend/src/Infrastructure/Services/AnalyticsService.cs` (lines 25–42): Illustrates the project standard pattern for resolving department access using `GetAllowedDepartmentIdsAsync(ct)` via `ICurrentUser` and `IDepartmentAccess`.
+   - `backend/src/Domain/Entities/JobApplication.cs` (lines 35–37): Stores `ResumeExtractedText` and `ResumeFileName`.
+   - `backend/src/Domain/Entities/Candidate.cs` (lines 17–25): Stores `FullName`, `Email`, `Phone`.
+   - `backend/src/Domain/Entities/JobPosting.cs` (lines 26–27): Stores `Title` and `Description`.
+   - `backend/src/Domain/Entities/Requisition.cs` (lines 18–19): Stores `Title` and `JobDescription`.
+   - `frontend/internal/src/components/Header.tsx` (lines 24–47) & `AppLayout.tsx` (lines 20–30): Global `Ctrl+K` / `Cmd+K` keyboard shortcut listener and command palette button are already present.
+
+3. **Database & Testing Setup**:
+   - `backend/src/Infrastructure/RecruitOps.Infrastructure.csproj` (line 11): `Npgsql.EntityFrameworkCore.PostgreSQL` (v10.0.0) is referenced.
+   - `backend/tests/RecruitOps.Api.Tests/CustomWebAppFactory.cs` (line 92): Integration tests use `UseInMemoryDatabase`. Database search logic must remain compatible with EF Core InMemory provider during unit/integration testing.
+
+---
 
 ## 2. Logic Chain
-1. **Observation**: `frontend/internal/src` currently groups code strictly by file technical type (`pages/`, `components/`, `lib/`), causing feature logic (Requisitions, Pipeline, Interviews) to be scattered across multiple files.
-2. **Observation**: Requirement R3 requires reorganization into Domain-Driven Feature Modules (`src/features/requisitions`, `src/features/pipeline`, `src/features/interviews`).
-3. **Reasoning**:
-   - `src/features/requisitions`: Consolidates `RequisitionTable.tsx`, `RequisitionDrawer.tsx`, and `useRequisitions.ts` hook.
-   - `src/features/pipeline`: Consolidates `PipelineKanbanBoard.tsx`, `CandidateSlideOver.tsx` (360 profile drawer with CV viewer, stage history, scorecard summaries, notes), and `usePipeline.ts` hook.
-   - `src/features/interviews`: Consolidates `BlindScorecardDrawer.tsx` (split view 1-5 rating, @Mentions note thread), and `useInterviews.ts` hook.
-4. **Observation**: Vitest config uses `include: ['src/**/*.test.{ts,tsx}']`.
-5. **Reasoning**: Placing feature test files under `src/features/*/__tests__/*.test.tsx` or `src/features/*/*.test.tsx` automatically allows Vitest to discover and run them without requiring any configuration changes to `vitest.config.ts`.
-6. **Observation**: `tsc --noEmit` checks all files included in `src/`. Reorganizing into `src/features/` with strict TypeScript types from `@recruitops/types` ensures `npm run typecheck` remains clean (0 errors).
+
+1. **Access Control Scoping**:
+   - From ADR-0003, ADR-0018, and `AnalyticsService.cs`, any search query returning Candidates, Job Postings, or Requisitions must evaluate `ICurrentUser`.
+   - If `_user.IsExcludedFromCandidateData` is `true` (i.e. `Approver`), candidate matches MUST be excluded (`CategoryCounts.candidates = 0`, items contains no candidates).
+   - If `_user.IsDepartmentScoped` is `true` (i.e. `HiringManager`), requisitions and job postings must be filtered by `allowedDeptIds.Contains(DepartmentId)`. Candidate search must filter candidates to those with applications in `allowedDeptIds`.
+   - Unscoped roles (`Admin`, `HrDirector`, `Recruiter`) search across all entities.
+
+2. **Query Input Processing**:
+   - From ADR-0009, search queries `q` typed in Zawgyi must be normalized via `_normalizer.Normalize(q).NormalizedText` to Unicode NFC before querying EF Core / database.
+   - Empty or whitespace query strings return immediate empty responses (`totalCount = 0`).
+
+3. **Database Search & Migration**:
+   - `pg_trgm` extension allows fast trigram matching and substring indexing in PostgreSQL.
+   - Adding `builder.HasPostgresExtension("pg_trgm");` in `AppDbContext.cs` and an EF Core Migration (`AddPgTrgmAndSearchIndexes`) adds GIN trigram indexes on text fields (`Candidates.FullName`, `JobApplications.ResumeExtractedText`, `JobPostings.Title`, `Requisitions.Title`, etc.).
+   - To keep tests passing against `UseInMemoryDatabase`, the EF Core queries must use standard LINQ / `EF.Functions.Like` or `.Contains()` with C# in-memory scoring fallback when trigram SQL functions are unavailable.
+
+4. **API Endpoint & Snippet Generation**:
+   - Endpoint: `GET /api/search?q={query}&category={category}&page={page}&pageSize={pageSize}`.
+   - Response includes query metadata, category counts breakdown, total count, and ranked `SearchResultItemDto` items.
+   - For long fields (`ResumeExtractedText`, `Description`, `JobDescription`), a context snippet of ~150-200 characters centered on match term is extracted and highlighted with `<mark>` tags.
+
+---
 
 ## 3. Caveats
-- No changes to backend APIs or `@recruitops/types` contracts are required for this frontend feature refactoring.
-- If path aliases (e.g. `@/*` or `@features/*`) are introduced in `tsconfig.json`, corresponding alias mappings must also be added to `vite.config.ts` and `vitest.config.ts` to prevent module resolution failures during Vite bundling or Vitest test runs. Using clean relative imports avoids needing extra alias plugins.
+
+- **No New Code Implemented**: Explorer is read-only; no C# or TypeScript code was created or modified in source directories.
+- **Burmese Word Boundary Limitation**: PostgreSQL standard full-text search (`tsvector`) does not support Burmese word segmentation without spaces. Trigram matching (`pg_trgm`) over normalized Unicode is required per ADR-0009.
+- **InMemory DB Limitation**: EF Core `InMemoryDatabaseProvider` used in test fixtures does not execute PostgreSQL native `pg_trgm` GIN index operators (`%` or `similarity()`). Search logic must fallback gracefully to C# string comparison / `EF.Functions.Like` during test execution.
+
+---
 
 ## 4. Conclusion
-The codebase is thoroughly surveyed and prepared for Requirement R3 implementation. The refactoring plan reorganizes `frontend/internal/src` into clean feature modules (`requisitions`, `pipeline`, `interviews`), extracts reusable components and hooks, co-locates unit tests, and guarantees that typechecking (`npm run typecheck`) and the full Vitest test suite (`npm run test`) pass clean with 0 errors.
+
+The specification, ADRs, database requirements, scoring algorithm, API DTO contracts, and snippet generation rules for Person B - Flow 1 are fully surveyed and documented in `.agents/explorer_survey_3/analysis.md`. The design aligns with clean architecture, existing permission structures, and Myanmar script normalization standards.
+
+---
 
 ## 5. Verification Method
-1. **Typecheck Guardrail**:
-   - Command: `npm run typecheck` in `frontend/internal`
-   - Expected Result: Exits with code 0 and 0 TypeScript errors.
-2. **Test Suite Guardrail**:
-   - Command: `npm run test` in `frontend/internal`
-   - Expected Result: 10 test files passed, 60+ total tests passing.
-3. **Artifact Files Inspection**:
-   - `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_3\analysis.md`
-   - `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps\.agents\explorer_survey_3\handoff.md`
+
+To verify these findings:
+1. Inspect `analysis.md` at `.agents/explorer_survey_3/analysis.md`.
+2. Inspect `docs/decisions/ADR-0003-department-scoping.md`, `ADR-0009-myanmar-script-handling.md`, and `ADR-0018-approver-candidate-data-exclusion.md`.
+3. Check `backend/src/Domain/RoleScope.cs` and `backend/src/Infrastructure/Services/AnalyticsService.cs` for role predicate and department access implementation patterns.
+4. Run existing test suite to ensure baseline is clean:
+   - Backend: `dotnet test backend/RecruitOps.sln`
+   - Frontend: `npm run test` (in `frontend/internal`)
+   - Typecheck: `npm run typecheck`

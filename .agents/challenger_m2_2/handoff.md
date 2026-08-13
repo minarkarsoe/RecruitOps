@@ -1,103 +1,92 @@
-# Handoff Report — Challenger 2 (Milestone 2: App Layout & Global Navigation)
+# Milestone 2 Component Integration & Routing — Empirical Challenge Report
 
-## Verdict: APPROVE
-
----
+**Verdict: REJECT**
 
 ## 1. Observation
 
-### Implementation & Test Files Inspected
-- `frontend/internal/src/components/AppLayout.tsx`: Verified `useEffect` keyboard listener setup and cleanup (`window.removeEventListener('keydown', handleKeyDown)` on unmount). Verified permission filtering on `rawCommandItems` and modal primitive `<CommandPalette />` wiring.
-- `frontend/internal/src/components/Sidebar.tsx`: Verified `NavLink` usage with active class function (`bg-primary-100 font-semibold text-primary-700 border-l-2 border-primary-600` when `isActive: true`), permission checks via `hasPermission`, grouped layout (`Recruitment`, `Team`, `Governance`), user profile card, and sign-out handler.
-- `frontend/internal/src/components/Header.tsx`: Verified dynamic breadcrumb placement, quick action button permission check (`permission:requisitions:requisitions:create`), user badge display, and search command button with `aria-label="Search commands"`.
-- `frontend/internal/src/components/Breadcrumbs.tsx`: Verified `getBreadcrumbsForPath(pathname)` path segment resolution, `<nav aria-label="Breadcrumb">` wrapper, `<ol>`/`<li>` HTML elements, and `aria-current="page"` assignment on the current leaf segment.
-- `frontend/internal/src/components/TenantSwitcherBar.tsx`: Verified super-admin context banner rendering (`isSuperAdmin(session)` check).
-- `frontend/internal/src/components/AppLayout.test.tsx`: Verified existing test coverage for permission-aware nav items, Ctrl+K modal opening, dynamic breadcrumbs, and command palette route navigation.
-- `frontend/internal/src/components/AppLayout_challenger_m2.test.tsx`: Created empirical verification suite containing 9 new test cases.
+### Command Executions & Test Results:
+1. **TypeScript Typecheck**:
+   - Command: `npm run typecheck` (in root workspace `c:\Users\Min Arkar Soe\Desktop\Freelance_Project\RecruitOps`)
+   - Result: **PASSED** (Exit code 0, 0 TypeScript errors across `@recruitops/internal` and `@recruitops/public`).
 
-### Test Execution Commands & Results
-- **Vitest Unit Test Suite**:
-  - Command: `npm run test` in `frontend/internal`
-  - Result: **14/14 test files passed (123/123 unit tests passed)** in 3.09 seconds.
-  - Specifically:
-    - `src/components/AppLayout_challenger_m2.test.tsx` (9/9 passed)
-    - `src/components/AppLayout.test.tsx` (6/6 passed)
-    - All existing page, component, and primitive tests (108/108 passed)
+2. **Frontend Unit & Integration Tests**:
+   - Command: `npm run test` (in `frontend/internal`)
+   - Result: **FAILED** (Exit code 1, 3 failed tests out of 291).
+   - Failed test 1: `src/features/search/__tests__/M2_Debounce_Keyboard_Empirical_Challenge.test.tsx > Empirical Challenge: Milestone 2 Debounce, AbortController & Keyboard Navigation > 2. Rapid Keyboard Navigation & Edge Case Selection Indexing > 2.1. wraps around cleanly when pressing ArrowDown at the last item and ArrowUp at the first item`
+     - Error: `AssertionError: expected 'spy' to be called with arguments: [ '/path-2' ], Received: [ '/path-3' ]`.
+   - Failed test 2: `src/features/search/__tests__/M2_Debounce_Keyboard_Empirical_Challenge.test.tsx > Empirical Challenge: Milestone 2 Debounce, AbortController & Keyboard Navigation > 2. Rapid Keyboard Navigation & Edge Case Selection Indexing > 2.2. handles rapid sequence of ArrowDown, ArrowUp, and Enter key events without dropping selection`
+     - Error: `AssertionError: expected 'spy' to be called with arguments: [ '/path-1' ], Received: [ '/path-2' ]`.
+   - Failed test 3: `src/features/pipeline/__tests__/CandidateSlideOverChallengerM3.test.tsx > Candidate 360 SlideOver CV Viewer & Human Review Empirical Stress Tests > 2. Parsed Profile Editing & Explicit Recruiter Confirmation Requirement > allows editing Name, Email, Phone, Experience, Skills without triggering API until explicit button click`
+     - Error: `Test timed out in 5000ms`.
 
-- **TypeScript Compiler Typecheck**:
-  - Command: `npm run typecheck` in `frontend/internal`
-  - Result: Failed with 2 errors in Milestone 1 test files:
-    ```
-    src/components/ui/challenger_m1_2.test.tsx(272,35): error TS6133: 'content' is declared but its value is never read.
-    src/test/milestone1EmpiricalChallenge.test.tsx(31,3): error TS6133: 'Skeleton' is declared but its value is never read.
-    ```
-  - Milestone 2 production code files (`AppLayout.tsx`, `Sidebar.tsx`, `Header.tsx`, `Breadcrumbs.tsx`, `TenantSwitcherBar.tsx`) and Milestone 2 test files contain **0 TypeScript errors**.
+3. **Isolated Empirical Bug Demonstration**:
+   - Command: `npx vitest run src/features/search/__tests__/M2_Empirical_Verification.test.tsx`
+   - Output snippet:
+     `Empirical Keyboard Selection Path at index 0: /requisitions`
+     `AssertionError: expected '/requisitions' to be '/requisitions/new'`
 
----
+### Code Inspection Observations:
+- **`packages/ui/src/CommandPalette.tsx`**:
+  - Line 119: `const allCombinedItems = Array.from(combinedMap.values());` creates an items array based on insertion order.
+  - Lines 181-190 & 277-290: The component groups and renders items by category using `CATEGORY_ORDER` (`['Quick Actions', 'Navigation', 'Candidates', 'Requisitions', 'Job Postings']`). In JSX rendering, `globalIndexCounter` assigns index `0` to the first item in the first category rendered (`Quick Actions`).
+  - Lines 158-164: `handleKeyDown` for `Enter` calls `handleExecuteItem(allCombinedItems[selectedIndex])`.
+  - When `allCombinedItems[0]` is a `Navigation` item, but `Quick Actions` items exist, `allCombinedItems[0]` is rendered at index 1 or 2, while index 0 in the DOM visual list is assigned to a `Quick Actions` item.
+  - Pressing `Enter` at `selectedIndex = 0` triggers `allCombinedItems[0]` (`Navigation`), navigating to a different target path than what is visually highlighted on screen.
+
+- **`frontend/internal/src/components/AppLayout.tsx` & `useSearch.ts`**:
+  - `useSearch` hook handles API search requests and sets `error` state on failure.
+  - `AppLayout.tsx` consumes `useSearch`, but ignores `error` and does not pass error info to `CommandPalette`.
+  - `CommandPalette` lacks an `error` prop and error UI fallback, causing network/server errors to silently display as "No matching commands or routes found for <query>".
 
 ## 2. Logic Chain
 
-1. **Ctrl+K Keyboard Handler Event Listener Cleanup**:
-   - `AppLayout.tsx` registers a `keydown` handler inside a `useEffect` hook with an empty dependency array (`[]`).
-   - The hook explicitly returns a cleanup function: `return () => window.removeEventListener('keydown', handleKeyDown);`.
-   - Empirical verification in `AppLayout_challenger_m2.test.tsx` used `vi.spyOn(window, 'removeEventListener')` to confirm that unmounting `AppLayout` invokes `removeEventListener` with the exact function reference as `addEventListener`.
-   - Subsequent `fireEvent.keyDown(window, ...)` calls after component unmount verified no state updates or React unmounted component warnings occur.
-
-2. **Active Link Styling in Sidebar**:
-   - `Sidebar.tsx` defines `linkClass` which evaluates `{ isActive: boolean }` from React Router's `NavLink`.
-   - When `isActive` is true, the computed class includes `bg-primary-100 font-semibold text-primary-700 border-l-2 border-primary-600`.
-   - Empirical verification confirmed that rendering `Sidebar` at route `/requisitions` applies `bg-primary-100` and `border-l-2` to the `Requisitions` link while inactive links maintain `text-ink-600`. Switching routes dynamically updates active classes to the matching link.
-
-3. **Accessibility Attributes**:
-   - `Breadcrumbs.tsx` renders `<nav aria-label="Breadcrumb">` containing an `<ol>` list. The active leaf segment renders a `<span>` element with `aria-current="page"`.
-   - `Header.tsx` provides an accessible `<button aria-label="Search commands">` trigger with an inline `kbd` visual indicator (`Ctrl+K`).
-   - `Sidebar.tsx` uses semantic HTML `<aside>` and `<nav>` elements for each navigation group.
-   - `CommandPalette.tsx` renders a modal dialog with `role="dialog"`, `aria-label="Command palette"`, and `aria-modal="true"`.
-
-4. **Dynamic Route Breadcrumbs**:
-   - `getBreadcrumbsForPath` parses arbitrary URL paths (e.g. `/jobpostings/jp-99/edit`) and generates dynamic labels (`Home` > `Job Postings` > `Posting Details` > `Edit`).
-   - Verified through unit tests in both `AppLayout.test.tsx` and `AppLayout_challenger_m2.test.tsx`.
-
----
+1. `npm run test` failed with 3 test failures in `frontend/internal`.
+2. Trace of failure 1 & 2: `M2_Debounce_Keyboard_Empirical_Challenge.test.tsx` failed because pressing keyboard arrows and pressing `Enter` selected incorrect items.
+3. Code trace in `CommandPalette.tsx`:
+   - `allCombinedItems` array maintains initial map order (e.g. `[itemA (Nav), itemB (Quick Actions)]`).
+   - The render function iterates over `CATEGORY_ORDER` (`['Quick Actions', 'Navigation']`), rendering `itemB` first and assigning `itemB` `currentIndex = 0` via `globalIndexCounter++`.
+   - `itemA` gets rendered second and receives `currentIndex = 1`.
+   - When the palette opens, `selectedIndex` is initialized to `0`. The UI visually highlights `itemB`.
+   - When `Enter` key is pressed, `handleKeyDown` selects `allCombinedItems[0]`, which is `itemA`.
+   - Therefore, keyboard navigation from search results executes the wrong route.
+4. Trace of search error fallbacks:
+   - `useSearch` captures API errors into an `error` variable.
+   - `AppLayout` calls `useSearch`, but fails to pass `error` to `CommandPalette`.
+   - `CommandPalette` does not accept an `error` prop and has no visual error fallback handling.
+   - When search fails due to backend errors, users are shown misleading "No matching commands found" messages instead of error alerts.
+5. Because core acceptance criteria for Milestone 2 (keyboard route navigation, test suite passing, and error fallback handling) are failing, the milestone cannot be approved.
 
 ## 3. Caveats
 
-- **Pre-existing TS6133 Unused Variable Errors in M1 Test Files**:
-  - `src/components/ui/challenger_m1_2.test.tsx` (line 272) contains an unused variable `content`.
-  - `src/test/milestone1EmpiricalChallenge.test.tsx` (line 31) contains an unused import `Skeleton`.
-  - These two pre-existing lines cause `tsc --noEmit` (`npm run typecheck`) to fail because `tsconfig.json` enforces `noUnusedLocals: true`.
-  - All Milestone 2 implementation files and test files strictly pass typechecking with 0 errors. Per review-only challenger guidelines, implementation code outside our milestone was left untouched.
-
----
+- `npm run typecheck` passed cleanly across all workspaces with 0 errors.
+- Mouse click navigation directly on items functions correctly because `onClick={() => handleExecuteItem(item)}` passes the specific `item` object rather than indexing into `allCombinedItems`. The bug is specific to keyboard navigation (Arrow keys + Enter).
 
 ## 4. Conclusion
 
-- **Verdict**: **APPROVE**
-- Milestone 2 Application Layout & Global Navigation is fully implemented, empirically verified, completely accessible, and backwards-compatible with all pre-existing tests.
-- All 123 Vitest tests across 14 test files pass cleanly.
-- Event listener cleanup on unmount, active link styling, and accessibility semantics are 100% verified empirically.
+**Verdict: REJECT**
 
----
+Milestone 2 Component Integration & Routing MUST BE REJECTED due to:
+1. **Critical Indexing Mismatch Bug in CommandPalette Keyboard Navigation**: Rendered visual category ordering is out of sync with keydown array indexing. Pressing `Enter` on a highlighted search result executes the wrong route.
+2. **`npm run test` Failures**: `frontend/internal` test suite fails (3 failed tests, process exit code 1).
+3. **Missing Error Fallback Handling**: API errors during search are ignored by `AppLayout` and omitted in `CommandPalette`, misinforming users with false "no matches" states.
 
 ## 5. Verification Method
 
-To independently verify this result:
+To independently verify these findings:
 
-1. **Run Vitest Test Suite**:
+1. **Run test suite**:
    ```bash
    cd frontend/internal
    npm run test
    ```
-   Expect output: `Test Files 14 passed (14), Tests 123 passed (123)`.
+   *Expected outcome*: Exits with code 1; 3 tests fail.
 
-2. **Run M2 Empirical Challenger Test File**:
+2. **Run isolated empirical challenge test**:
    ```bash
    cd frontend/internal
-   npx vitest run src/components/AppLayout_challenger_m2.test.tsx
+   npx vitest run src/features/search/__tests__/M2_Empirical_Verification.test.tsx
    ```
-   Expect output: `Test Files 1 passed (1), Tests 9 passed (9)`.
+   *Expected outcome*: Fails with `AssertionError: expected '/requisitions' to be '/requisitions/new'`, proving index mismatch between visual category render and keyboard selection handler.
 
-3. **Inspect Component Source Files**:
-   - `frontend/internal/src/components/AppLayout.tsx` (lines 20-30 for `useEffect` listener cleanup)
-   - `frontend/internal/src/components/Sidebar.tsx` (lines 96-101 for active link styling)
-   - `frontend/internal/src/components/Breadcrumbs.tsx` (lines 76 & 98 for `aria-label="Breadcrumb"` and `aria-current="page"`)
+3. **Inspect `packages/ui/src/CommandPalette.tsx`**:
+   Compare `allCombinedItems` indexing in `handleKeyDown` (line 161) against `globalIndexCounter` during `categories.map` (line 289).
