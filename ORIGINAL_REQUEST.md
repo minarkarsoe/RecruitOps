@@ -169,3 +169,15 @@ is the end-to-end proof that the fix holds in the artifact that actually ships, 
 that would have caught the defect in the first place.
 
 New milestone M1.5 (containerize + prove the stack runs) inserted ahead of M2.
+
+---
+
+## 2026-08-14T00:00:00Z — teamwork run `tw2`
+
+> ငါ့ကို တစ်ခုလုပ်ပေး ငါ approval chain flow ကိုကြည့်တာခုထိမပြီးသေးဘူး အဲ့တာဘာလို့လဲစစ်ပေးပါ။
+
+(Verbatim, as typed. Translation for later readers: "Do something for me — I've been
+looking at the approval chain flow and it's still not finished. Check why that is.")
+
+Shape: this is a **diagnosis**, not a build request. Phase 1 survey runs first; the
+milestone gate is only spun up if the user chooses to fix what the survey finds.

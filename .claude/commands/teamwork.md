@@ -56,12 +56,31 @@ Show the user the milestone list before you start Phase 3.
 For each milestone, in order:
 
 1. **Worker.** One `teamwork-worker`, given the blueprints and the milestone. Wait for it.
-2. **Gate, in parallel:** two `teamwork-reviewer` (different remits — e.g. one on authorization and
-   contracts, one on architecture and tests) and two `teamwork-challenger` (one on the happy path
-   driven as the role the feature is for, one on inputs, defaults and edge cases). Four agents, one
-   dispatch block, backgrounded so the user can interject.
+2. **Gate:** two `teamwork-reviewer` (different remits — e.g. one on authorization and contracts,
+   one on architecture and tests) and two `teamwork-challenger` (one on the happy path driven as
+   the role the feature is for, one on inputs, defaults and edge cases). Backgrounded so the user
+   can interject. **Reviewers are read-only, so run both in parallel with everything else.
+   Challengers are not: run the two Challengers one after the other.**
+
+   > **Why Challengers must not overlap.** A Challenger's job includes mutation testing — it
+   > reverts product code to a broken state to prove its own tests can fail, then restores it.
+   > Two of them in one working tree means one is running the suite while the other has the code
+   > reverted. Measured on run `tw2`/M1: one Challenger reported `42 files / 344 tests, 7 failed`
+   > where every failure belonged to the other agent's half-written file, while its own mutation
+   > window silently corrupted the other's baseline. **Any full-suite number produced during an
+   > overlap is worthless, and worse, it looks authoritative.** The rule that serialises Workers
+   > exists for exactly this reason; it applies with more force to agents whose method is
+   > deliberately breaking the tree.
+
+   Tell each Challenger to leave the tree byte-identical when it finishes (`git diff --stat`
+   against the Worker's delivery) and to say so in its report.
+
 3. **Auditor.** Only once all four have reported. One `teamwork-auditor`, given every handoff.
 4. **Verdict.** The milestone passes only on **4 × APPROVE + CLEAN**.
+
+   **Verify the tree is green yourself before recording a pass.** Agents leave test files behind,
+   and a Challenger's deliberate red pins can be indistinguishable from a genuine regression in a
+   summary. Run the suite in your own session and read the number.
 
 On any REJECT or INTEGRITY_VIOLATION: dispatch a fresh Worker with the specific findings and rerun
 the gate. **Cap at two remediation loops.** On the third failure, stop the run and bring it to the
