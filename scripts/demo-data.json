@@ -1,0 +1,289 @@
+{
+  "_comment": "Demo dataset for RecruitOps. Read as UTF-8 by seed-demo-data.ps1 — do not inline these strings into the .ps1, because Windows PowerShell 5.1 mangles non-ASCII in a BOM-less script. Myanmar names are deliberate: ADR-0009 covers Myanmar script, and a demo that only shows ASCII proves nothing about it.",
+
+  "demoPassword": "Demo@2026!",
+
+  "departments": [
+    { "key": "eng",   "name": "Engineering",        "code": "ENG" },
+    { "key": "fin",   "name": "Finance",            "code": "FIN" },
+    { "key": "hr",    "name": "Human Resources",    "code": "HR"  },
+    { "key": "sales", "name": "Sales & Marketing",  "code": "SLS" }
+  ],
+
+  "users": [
+    { "key": "hrdir",   "email": "khinmyo.aye@recruitops.demo",   "displayName": "Daw Khin Myo Aye",   "role": "HrDirector",   "dept": "hr"    },
+    { "key": "rec1",    "email": "susu.hlaing@recruitops.demo",   "displayName": "Ma Su Su Hlaing",    "role": "Recruiter",    "dept": "hr"    },
+    { "key": "rec2",    "email": "zawmin.htun@recruitops.demo",   "displayName": "Ko Zaw Min Htun",    "role": "Recruiter",    "dept": "hr"    },
+    { "key": "hmEng",   "email": "aungkyaw.moe@recruitops.demo",  "displayName": "U Aung Kyaw Moe",    "role": "HiringManager","dept": "eng"   },
+    { "key": "hmSales", "email": "nwenwe.win@recruitops.demo",    "displayName": "Daw Nwe Nwe Win",    "role": "HiringManager","dept": "sales" },
+    { "key": "engHead", "email": "myoset.paing@recruitops.demo",  "displayName": "U Myo Set Paing",    "role": "Approver",     "dept": "eng"   },
+    { "key": "finHead", "email": "thein.tun@recruitops.demo",     "displayName": "U Thein Tun",        "role": "Approver",     "dept": "fin"   },
+    { "key": "intv1",   "email": "thiri.kyaw@recruitops.demo",    "displayName": "Ma Thiri Kyaw",      "role": "Interviewer",  "dept": "eng"   },
+    { "key": "intv2",   "email": "kaung.myat@recruitops.demo",    "displayName": "Ko Kaung Myat",      "role": "Interviewer",  "dept": "eng"   }
+  ],
+
+  "approvalChains": [
+    {
+      "key": "engChain",
+      "name": "Engineering headcount approval",
+      "dept": "eng",
+      "steps": [
+        { "label": "Engineering Head", "user": "engHead" },
+        { "label": "Finance",          "user": "finHead" },
+        { "label": "HR Director",      "user": "hrdir"   }
+      ]
+    },
+    {
+      "key": "salesChain",
+      "name": "Sales headcount approval",
+      "dept": "sales",
+      "steps": [
+        { "label": "Finance",     "user": "finHead" },
+        { "label": "HR Director", "user": "hrdir"   }
+      ]
+    },
+    {
+      "key": "defaultChain",
+      "name": "Company-wide default approval",
+      "dept": null,
+      "steps": [
+        { "label": "Finance",     "user": "finHead" },
+        { "label": "HR Director", "user": "hrdir"   }
+      ]
+    }
+  ],
+
+  "_jdTemplateComment": "Module 1.2 -- the JD Template Library. A recruiter pulls one of these into a new requisition instead of writing the description from scratch. departmentNull = available to every department.",
+
+  "jdTemplates": [
+    {
+      "title": "Backend Engineer (.NET) -- master JD",
+      "dept": "eng",
+      "content": "ROLE\nBuild and maintain ASP.NET Core services for our recruitment platform.\n\nRESPONSIBILITIES\n- Design and ship features across Domain, Application, Infrastructure and API layers\n- Write EF Core migrations and own their safe rollout\n- Keep the test suite meaningful, not merely green\n\nREQUIREMENTS\n- 4+ years C# / .NET, ideally ASP.NET Core\n- Solid PostgreSQL and relational modelling\n- Comfortable with Docker and CI\n\nNICE TO HAVE\n- Clean Architecture or CQRS experience\n- Burmese and English working proficiency"
+    },
+    {
+      "title": "Frontend Engineer (React) -- master JD",
+      "dept": "eng",
+      "content": "ROLE\nBuild the internal dashboards recruiters and hiring managers use every day.\n\nRESPONSIBILITIES\n- Ship features in React + TypeScript on Vite\n- Own accessibility and responsive behaviour\n- Co-locate components with their tests\n\nREQUIREMENTS\n- 3+ years React with TypeScript\n- Strong CSS; comfortable with a design system\n- Able to read an API contract and build against it\n\nNICE TO HAVE\n- Next.js App Router\n- Myanmar font and script rendering experience"
+    },
+    {
+      "title": "Sales Executive -- master JD",
+      "dept": "sales",
+      "content": "ROLE\nOwn a territory end to end, from first contact to signed contract.\n\nRESPONSIBILITIES\n- Build and work an outbound pipeline\n- Run discovery and product demonstrations\n- Forecast accurately and keep the CRM current\n\nREQUIREMENTS\n- 3+ years B2B sales, preferably SaaS\n- Fluent Burmese and English\n- Track record against a quota\n\nNICE TO HAVE\n- HR or recruitment domain knowledge"
+    },
+    {
+      "title": "Generic role -- company-wide starting point",
+      "dept": null,
+      "content": "ROLE\n[One sentence on why this role exists.]\n\nRESPONSIBILITIES\n- [What this person owns]\n- [What they deliver in the first 90 days]\n\nREQUIREMENTS\n- [Must-have experience]\n- [Must-have skills]\n\nNICE TO HAVE\n- [Differentiators, not gatekeepers]\n\nNOTE TO THE HIRING MANAGER\nKeep requirements to what the job genuinely needs. Every extra line narrows the pool."
+    }
+  ],
+
+  "_scorecardTemplateComment": "Module 3 -- interview scorecards. Resolution is posting-level first, then department, then the company-wide default, so this set demonstrates all three layers. Criterion types are Rating, YesNo and Text.",
+
+  "scorecardTemplates": [
+    {
+      "name": "Company-wide default scorecard",
+      "description": "Used whenever no department or posting template applies.",
+      "dept": null,
+      "criteria": [
+        { "label": "Communication",              "type": "Rating", "guidance": "Clarity, listening, and whether they check understanding before answering.", "isRequired": true },
+        { "label": "Role-relevant experience",   "type": "Rating", "guidance": "Depth against what this specific role needs, not seniority in general.",     "isRequired": true },
+        { "label": "Problem solving",            "type": "Rating", "guidance": "How they decompose an unfamiliar problem out loud.",                        "isRequired": true },
+        { "label": "Would you work with them?",  "type": "YesNo",  "guidance": "Answer for the team, not for yourself personally.",                          "isRequired": true },
+        { "label": "Evidence for your rating",   "type": "Text",   "guidance": "Quote something they actually said. A rating without evidence is a vote.",    "isRequired": true }
+      ]
+    },
+    {
+      "name": "Engineering interview scorecard",
+      "description": "Engineering department default, for all technical roles.",
+      "dept": "eng",
+      "criteria": [
+        { "label": "Technical depth",            "type": "Rating", "guidance": "Do they understand why, not just how? Probe one topic to its limit.",        "isRequired": true },
+        { "label": "Code quality and testing",   "type": "Rating", "guidance": "Do they test behaviour or implementation? Do they notice their own bugs?",   "isRequired": true },
+        { "label": "System design",              "type": "Rating", "guidance": "Trade-offs named explicitly, not just a diagram.",                           "isRequired": true },
+        { "label": "Debugging approach",         "type": "Rating", "guidance": "Do they form a hypothesis and test it, or change things at random?",         "isRequired": true },
+        { "label": "Collaboration",              "type": "Rating", "guidance": "How they handle being disagreed with during the interview itself.",          "isRequired": true },
+        { "label": "Ships to production?",       "type": "YesNo",  "guidance": "Have they owned something real, in front of real users?",                     "isRequired": true },
+        { "label": "Strongest and weakest area", "type": "Text",   "guidance": "Both. A scorecard with no weakness recorded is not a scorecard.",             "isRequired": true }
+      ]
+    },
+    {
+      "name": "Sales interview scorecard",
+      "description": "Sales & Marketing department default.",
+      "dept": "sales",
+      "criteria": [
+        { "label": "Discovery skill",            "type": "Rating", "guidance": "Did they ask you questions, or only pitch?",                                  "isRequired": true },
+        { "label": "Objection handling",         "type": "Rating", "guidance": "Give them a real objection and watch what they do with it.",                  "isRequired": true },
+        { "label": "Pipeline discipline",        "type": "Rating", "guidance": "Can they describe their own funnel with numbers?",                            "isRequired": true },
+        { "label": "Burmese and English",        "type": "Rating", "guidance": "Both languages, in a customer-facing register.",                              "isRequired": true },
+        { "label": "Quota history verified?",    "type": "YesNo",  "guidance": "Specific numbers and periods, not 'always exceeded'.",                        "isRequired": true },
+        { "label": "Deal they lost, and why",    "type": "Text",   "guidance": "Candidates who cannot name one have not reflected on their own losses.",      "isRequired": true }
+      ]
+    }
+  ],
+
+  "_requisitionComment": "One requisition per lifecycle state, so the demo can show every branch of the approval flow on one screen. 'decisions' is the ordered list of approver verdicts to drive after submit; each entry logs in as that approver and posts a real decision, so the RequisitionApproval rows and the resulting status are produced by the real service rather than hand-written.",
+
+  "requisitions": [
+    {
+      "key": "draftBackend",
+      "requester": "hmEng", "dept": "eng",
+      "title": "Senior Backend Engineer (.NET)",
+      "headcount": 1, "salaryBudget": 4500000,
+      "jobDescription": "Design and build ASP.NET Core services for the recruitment platform. Clean Architecture, EF Core, PostgreSQL. 5+ years experience.",
+      "submit": false, "decisions": []
+    },
+    {
+      "key": "pendingStep1",
+      "requester": "hmEng", "dept": "eng",
+      "title": "Frontend Engineer (React)",
+      "headcount": 2, "salaryBudget": 3200000,
+      "jobDescription": "Build internal dashboards in React + TypeScript with Vite. Strong CSS and accessibility skills required.",
+      "submit": true, "decisions": []
+    },
+    {
+      "key": "pendingStep2",
+      "requester": "hmEng", "dept": "eng",
+      "title": "DevOps Engineer",
+      "headcount": 1, "salaryBudget": 5000000,
+      "jobDescription": "Own CI/CD, Docker and observability for the platform. Experience with GitHub Actions and Postgres operations.",
+      "submit": true,
+      "decisions": [ { "by": "engHead", "approve": true, "comment": "Agreed, we need this before the next release." } ]
+    },
+    {
+      "key": "approvedDesigner",
+      "requester": "hmEng", "dept": "eng",
+      "title": "Product Designer",
+      "headcount": 1, "salaryBudget": 3800000,
+      "jobDescription": "Own the design system and end-to-end flows for the recruiter dashboards. Figma, prototyping, and a portfolio of shipped B2B work.",
+      "submit": true,
+      "decisions": [
+        { "by": "engHead", "approve": true, "comment": "Long overdue." },
+        { "by": "finHead", "approve": true, "comment": "Within the Q3 budget envelope." },
+        { "by": "hrdir",   "approve": true, "comment": "Approved. Recruiting can start." }
+      ]
+    },
+    {
+      "key": "rejectedQa",
+      "requester": "hmEng", "dept": "eng",
+      "title": "Junior QA Engineer",
+      "headcount": 3, "salaryBudget": 1800000,
+      "jobDescription": "Manual and automated testing across the platform.",
+      "submit": true,
+      "decisions": [ { "by": "engHead", "approve": false, "comment": "Headcount of 3 is not justified this quarter. Resubmit for 1 and we will revisit." } ]
+    },
+    {
+      "key": "approvedSales",
+      "requester": "hmSales", "dept": "sales",
+      "title": "Sales Executive (Yangon)",
+      "headcount": 2, "salaryBudget": 2500000,
+      "jobDescription": "Own the Yangon enterprise pipeline end to end. Fluent Burmese and English, 3+ years B2B SaaS sales.",
+      "submit": true,
+      "decisions": [
+        { "by": "finHead", "approve": true, "comment": "Commission plan is already budgeted." },
+        { "by": "hrdir",   "approve": true, "comment": "Go ahead." }
+      ]
+    },
+    {
+      "key": "cancelledOps",
+      "requester": "hmSales", "dept": "sales",
+      "title": "Operations Coordinator",
+      "headcount": 1, "salaryBudget": 1500000,
+      "jobDescription": "Coordinate scheduling and vendor logistics for the sales team.",
+      "submit": true, "cancel": true,
+      "decisions": []
+    }
+  ],
+
+  "_postingComment": "Only APPROVED requisitions can become postings — that is the real rule, not a demo shortcut. Publishing mints the public portal link the candidate applies through.",
+
+  "postings": [
+    { "key": "designerPosting", "requisition": "approvedDesigner", "location": "Yangon (Hybrid)", "publish": true,
+      "salaryMin": 3000000, "salaryMax": 3800000, "showSalary": true },
+    { "key": "salesPosting",    "requisition": "approvedSales",    "location": "Yangon",          "publish": true,
+      "salaryMin": 1800000, "salaryMax": 2500000, "showSalary": false }
+  ],
+
+  "_candidateComment": "Applications are submitted through the real public apply endpoint so the pipeline, the candidate records and the analytics counts are all genuine. Stage names must match the JobApplication stage vocabulary.",
+
+  "candidates": [
+    { "posting": "designerPosting", "fullName": "Ma Ei Phyu Sin",     "email": "eiphyu.sin@example.com",  "phone": "+959770000101", "coverNote": "Six years of product design, most recently on an HR SaaS product. Portfolio attached.", "stage": "Interview" },
+    { "posting": "designerPosting", "fullName": "Ko Naing Lin Aung",  "email": "nainglin@example.com",    "phone": "+959770000102", "coverNote": "Design systems specialist. Built the component library at my current company.", "stage": "Screening" },
+    { "posting": "designerPosting", "fullName": "Daw Hnin Wai Phyo",  "email": "hninwai@example.com",     "phone": "+959770000103", "coverNote": "Strong B2B dashboard background, keen to work on recruitment tooling.", "stage": "Applied" },
+    { "posting": "designerPosting", "fullName": "Ko Si Thu Aung",     "email": "sithu.aung@example.com",  "phone": "+959770000104", "coverNote": "Junior designer, two years experience.", "stage": "Rejected" },
+    { "posting": "salesPosting",    "fullName": "Ko Wai Yan Htet",    "email": "waiyan.htet@example.com", "phone": "+959770000201", "coverNote": "Four years selling ERP into Yangon manufacturers. Consistently over quota.", "stage": "Offer" },
+    { "posting": "salesPosting",    "fullName": "Ma Yamin Thu",       "email": "yamin.thu@example.com",   "phone": "+959770000202", "coverNote": "SaaS account executive, fluent Burmese and English.", "stage": "Interview" },
+    { "posting": "salesPosting",    "fullName": "U Kyaw Swar Lin",    "email": "kyawswar@example.com",    "phone": "+959770000203", "coverNote": "Ten years enterprise sales, looking for a player-coach role.", "stage": "Screening" }
+  ],
+
+  "_interviewComment": "Interviews are scheduled only for candidates already at the Interview stage, so the demo data stays internally consistent — no interview exists for someone who never got past screening.",
+
+  "interviews": [
+    { "candidate": "Ma Ei Phyu Sin", "title": "Portfolio review",     "panel": ["intv1", "hmEng", "rec1"], "daysFromNow": 2, "durationMinutes": 60, "complete": true },
+    { "candidate": "Ma Yamin Thu",   "title": "First-round interview", "panel": ["intv2", "hmSales"],       "daysFromNow": 4, "durationMinutes": 45, "complete": false }
+  ],
+
+  "_interviewerRoleBug": "Panels deliberately include an Interviewer (intv1/intv2) but no scorecard is authored by one. That is not a modelling choice -- the Interviewer role CANNOT submit a scorecard today. RbacSeedData.cs:158-165 grants it interviews:read, scorecards:read and scorecards:submit, but InterviewsController is gated on Policies.InternalUser, which is RequireRole(Admin, HrDirector, Recruiter, HiringManager, Approver) at Program.cs:66-68 -- Interviewer is absent, so every interview and scorecard endpoint returns 403 to the one role that exists to use them. Scorecards below are therefore authored by a Hiring Manager and a Recruiter, who can. Fix the policy and the Interviewer entries become authorable.",
+
+  "_scorecardComment": "Submitted feedback for the completed interview, plus one deliberate draft. Two panel members disagreeing on the same candidate is the point: a demo where every interviewer says StrongYes shows nothing about how the product handles a split panel. Ratings are 1-5; recommendation is one of StrongNo, No, Yes, StrongYes. Answers are matched to criteria by label at seed time, because criterion ids only exist once the template has been created.",
+
+  "scorecards": [
+    {
+      "interview": "Portfolio review", "by": "rec1", "submit": true,
+      "recommendation": "StrongYes",
+      "summaryComment": "Best portfolio we have seen for this role. Walked through a design-system migration she led end to end, including the parts that went badly and what she changed as a result. Would hire.",
+      "answers": [
+        { "label": "Technical depth",            "rating": 4, "comment": "Strong on component architecture; less deep on performance budgets." },
+        { "label": "Code quality and testing",   "rating": 4, "comment": "Ships her own Storybook cases and visual regression tests." },
+        { "label": "System design",              "rating": 5, "comment": "Named the trade-off between token flexibility and consistency without being prompted." },
+        { "label": "Debugging approach",         "rating": 4, "comment": "Hypothesis first, then bisect. Did not guess." },
+        { "label": "Collaboration",              "rating": 5, "comment": "I pushed back on one of her choices and she engaged with the argument rather than defending." },
+        { "label": "Ships to production?",       "yesNo": true, "comment": "Design system in production at her current company, used by four teams." },
+        { "label": "Strongest and weakest area", "comment": "Strongest: systems thinking and written communication. Weakest: has not worked at our data volume, and said so herself." }
+      ]
+    },
+    {
+      "interview": "Portfolio review", "by": "hmEng", "submit": true,
+      "recommendation": "Yes",
+      "summaryComment": "Agree she is strong, with one reservation my colleague did not share: she has only worked on greenfield systems. Our codebase is not that. I still say yes -- the reservation is a ramp-up risk, not a capability one.",
+      "answers": [
+        { "label": "Technical depth",            "rating": 4, "comment": "Solid." },
+        { "label": "Code quality and testing",   "rating": 3, "comment": "Testing story was thinner than I expected for the seniority." },
+        { "label": "System design",              "rating": 4, "comment": "Good instincts, all from greenfield contexts." },
+        { "label": "Debugging approach",         "rating": 3, "comment": "Fine, but she has not had to debug someone else's five-year-old code." },
+        { "label": "Collaboration",              "rating": 5, "comment": "No concerns at all." },
+        { "label": "Ships to production?",       "yesNo": true, "comment": "Yes, though always systems she started herself." },
+        { "label": "Strongest and weakest area", "comment": "Strongest: communication. Weakest: no legacy-codebase experience. Worth probing in the next round." }
+      ]
+    },
+    {
+      "interview": "First-round interview", "by": "hmSales", "submit": false,
+      "recommendation": null,
+      "summaryComment": "Draft -- interview has not happened yet, notes from CV screen only.",
+      "answers": [
+        { "label": "Discovery skill", "rating": 3, "comment": "To confirm in the interview; CV suggests a pitch-led style." }
+      ]
+    }
+  ],
+
+  "_noteComment": "Module 3.4 -- collaborative notes with @mentions. A handle is the local part of the user's email, so @susu.hlaing resolves to Ma Su Su Hlaing. Notes marked pinToInterview attach to that interview round rather than to the application generally.",
+
+  "notes": [
+    { "candidate": "Ma Ei Phyu Sin", "by": "rec1",
+      "body": "Screening call done. Six years in product design, currently owns the design system at an HR SaaS company. Available in four weeks. @aungkyaw.moe her portfolio is the strongest we have had for this role -- worth your time before the panel." },
+    { "candidate": "Ma Ei Phyu Sin", "by": "hmEng", "pinToInterview": "Portfolio review",
+      "body": "Panel debrief: @susu.hlaing and I disagree on the legacy-codebase question. She rates it a non-issue, I think it is a real ramp-up risk. Not blocking -- flagging so the next round probes it directly." },
+    { "candidate": "Ma Ei Phyu Sin", "by": "hrdir",
+      "body": "Read both scorecards. A split panel is fine; what matters is that the disagreement is written down and specific. Proceed to the next round. @susu.hlaing please schedule." },
+    { "candidate": "Ko Naing Lin Aung", "by": "rec1",
+      "body": "Strong design-systems background but no B2B dashboard work. Keeping at screening until we see whether Ma Ei Phyu Sin converts." },
+    { "candidate": "Ko Si Thu Aung", "by": "rec1",
+      "body": "Rejected at screening -- two years experience against a role that needs five. Sent a personal note rather than the template; he asked for feedback and deserves it. Worth revisiting for a junior opening." },
+    { "candidate": "Ko Wai Yan Htet", "by": "rec2",
+      "body": "Offer stage. Verified quota history with two references: 118% and 104% in the last two years. @nwenwe.win we should move quickly, he has another process running." },
+    { "candidate": "Ma Yamin Thu", "by": "rec2",
+      "body": "First round scheduled. Fluent in both languages -- confirmed on the call, not just claimed on the CV." },
+    { "candidate": "U Kyaw Swar Lin", "by": "rec2",
+      "body": "Ten years enterprise sales, explicitly wants a player-coach role. We are not hiring a lead here. Holding at screening rather than rejecting -- worth a conversation if the Sales Lead requisition is approved next quarter." }
+  ]
+}
