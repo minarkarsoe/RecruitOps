@@ -118,7 +118,14 @@ public static class RbacSeedData
             IsSuperAdmin = false,
             PermissionCodes = new[]
             {
-                "permission:requisitions:requisitions:read",
+                // Create and update are granted together on purpose. Under ADR-0022 the
+                // requisition flow is create -> edit the draft -> submit, and both the edit
+                // and the submit endpoints are gated on `update`. Granting `create` alone
+                // would let a recruiter raise a requisition they could then neither correct
+                // nor submit, which is worse than not being able to raise one at all.
+                // Approve is deliberately NOT granted: raising headcount and approving it
+                // are different authorities, and the chain decides the second one.
+                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:create", "permission:requisitions:requisitions:update",
                 "permission:postings:postings:read", "permission:postings:postings:create", "permission:postings:postings:update", "permission:postings:postings:delete", "permission:postings:postings:publish",
                 "permission:applications:applications:read", "permission:applications:applications:create", "permission:applications:applications:update", "permission:applications:applications:delete", "permission:applications:applications:move_stage",
                 "permission:interviews:interviews:read", "permission:interviews:interviews:create", "permission:interviews:interviews:update", "permission:interviews:interviews:cancel",

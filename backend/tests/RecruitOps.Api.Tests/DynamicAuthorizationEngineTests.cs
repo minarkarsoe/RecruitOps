@@ -67,8 +67,21 @@ public class DynamicAuthorizationEngineTests
     }
 
     [Fact]
-    public async Task Admin_Role_Claim_Evaluates_System_Role_Permissions_In_AuthorizationHandler()
+    public async Task A_Resolvable_Identity_Denied_By_The_Database_Is_Not_Rescued_By_Its_Role_Claim()
     {
+        // This test previously asserted the opposite — that a principal with a resolvable
+        // identity, DENIED by the evaluator, still succeeded because its role claim matched a
+        // seeded system role. That was the escalation path ADR-0022's security review found:
+        // AssignRoleToUserAsync stamps `user.Role = UserRole.Recruiter` on every custom role
+        // (UserService.cs:318-325), that literal becomes the JWT role claim, and the fallback
+        // then topped every custom-role user up to Recruiter's entire seeded permission set —
+        // so the Role Builder could grant permissions but never withhold them.
+        //
+        // It also meant a DEACTIVATED user kept working: PermissionEvaluator.cs:45 requires
+        // IsActive, so their database answer is "no permissions", and the claim fallback
+        // rescued them from the static seed.
+        //
+        // When the identity resolves, the database is authoritative and "denied" is final.
         var evaluator = new DummyPermissionEvaluator(hasPermission: false);
         var handler = new PermissionAuthorizationHandler(evaluator, NullLogger<PermissionAuthorizationHandler>.Instance);
 
@@ -78,8 +91,30 @@ public class DynamicAuthorizationEngineTests
             new Claim(AppClaims.TenantId, Guid.NewGuid().ToString()),
             new Claim(ClaimTypes.Role, "Admin")
         };
-        var identity = new ClaimsIdentity(claims, "Test");
-        var principal = new ClaimsPrincipal(identity);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"));
+
+        var requirement = new PermissionRequirement("permission:users:users:read");
+        var context = new AuthorizationHandlerContext(new[] { requirement }, principal, null);
+
+        await handler.HandleAsync(context);
+
+        Assert.False(context.HasSucceeded);
+    }
+
+    [Fact]
+    public async Task A_System_Role_Claim_Still_Grants_When_No_Identity_Can_Be_Resolved()
+    {
+        // The narrow case the fallback legitimately exists for: an authenticated principal
+        // carrying a system role claim but no parseable sub/tenant, so the evaluator was
+        // never consulted and there is no database answer to override. Mirrors the guard in
+        // PermissionEvaluator.cs:99, which applies the seed only when the resolved permission
+        // set is empty. Keeping this pinned stops the fix from being "fixed" into a blanket
+        // denial that breaks legacy tokens.
+        var evaluator = new DummyPermissionEvaluator(hasPermission: false);
+        var handler = new PermissionAuthorizationHandler(evaluator, NullLogger<PermissionAuthorizationHandler>.Instance);
+
+        var claims = new List<Claim> { new Claim(ClaimTypes.Role, "Admin") };
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"));
 
         var requirement = new PermissionRequirement("permission:users:users:read");
         var context = new AuthorizationHandlerContext(new[] { requirement }, principal, null);

@@ -98,7 +98,13 @@ public class EmpiricalAuthorizationEngineChallengeTests : IClassFixture<CustomWe
     public async Task Custom_Roles_Created_By_TenantA_Are_Isolated_From_TenantB()
     {
         var tenantAClient = CreateClientForTenant(_factory.TenantA, Roles.Admin, _factory.AdminUserId);
-        var tenantBClient = CreateClientForTenant(_factory.TenantB, Roles.Admin, Guid.NewGuid());
+        // No user id: TenantB has no seeded admin, and passing a random GUID would name a
+        // user that does not exist. That used to "work" only because a denied database
+        // lookup fell through to the role-claim fallback — removed in ADR-0022, since it let
+        // a custom role (and a deactivated user) inherit a seeded role's permissions. This
+        // test is about tenant isolation, not user resolution, so it takes the legitimate
+        // identity-less path and lets the seeded Admin role authorize the call.
+        var tenantBClient = CreateClientForTenant(_factory.TenantB, Roles.Admin);
 
         // Step 1: Tenant A creates a custom role
         var roleName = $"TenantA Custom Role {Guid.NewGuid():N}";

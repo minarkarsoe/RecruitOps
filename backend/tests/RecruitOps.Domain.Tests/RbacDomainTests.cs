@@ -277,8 +277,16 @@ public class RbacDomainTests
         // HrDirector: 31 permissions
         Assert.Equal(31, roleMap["HrDirector"].RolePermissions.Count);
 
-        // Recruiter: 23 permissions
-        Assert.Equal(23, roleMap["Recruiter"].RolePermissions.Count);
+        // Recruiter: 25 permissions — was 23 until ADR-0022 added
+        // requisitions:create and requisitions:update. Under the old role literal
+        // (Policies.InternalUser) recruiters could already raise requisitions, but the seed
+        // did not say so; making permissions authoritative forced that gap to be closed
+        // deliberately rather than silently removing the capability.
+        Assert.Equal(25, roleMap["Recruiter"].RolePermissions.Count);
+        Assert.Contains(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:requisitions:requisitions:create");
+        Assert.Contains(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:requisitions:requisitions:update");
+        // Approving is a different authority from raising — the chain decides it.
+        Assert.DoesNotContain(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:requisitions:requisitions:approve");
 
         // HiringManager: 11 permissions
         Assert.Equal(11, roleMap["HiringManager"].RolePermissions.Count);

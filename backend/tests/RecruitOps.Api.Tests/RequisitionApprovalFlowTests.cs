@@ -133,13 +133,19 @@ public class RequisitionApprovalFlowTests : IClassFixture<CustomWebAppFactory>
     {
         var draft = await NewDraftAsync("Sales Coordinator II");
 
-        // Department access alone is not enough here: CanAccessAsync returns true for every
-        // non-department-scoped role, Approver included. Without an ownership check an
-        // approver could push a Draft into the chain and then decide on it themselves.
+        // Pre-ADR-0022 this reached RequisitionService and was stopped by IsOwnerOrCompanyWide
+        // (404): department access alone was not enough, since CanAccessAsync returns true
+        // for every non-department-scoped role, Approver included, and without an ownership
+        // check an approver could push a Draft into the chain and then decide on it themselves.
+        // Post-ADR-0022 the Approver role (read, approve only) never reaches the service at
+        // all — /submit is gated on requisitions:update, which Approver does not hold — so the
+        // request is stopped at the policy layer instead. The underlying guarantee (an approver
+        // cannot submit someone else's draft) still holds; it is enforced earlier and for every
+        // requisition, not just this one.
         var res = await ClientFor(Roles.Approver, _factory.FinanceApproverUserId)
             .PostAsync($"/api/requisitions/{draft.Id}/submit", null);
 
-        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
     }
 
     [Fact]
@@ -151,14 +157,19 @@ public class RequisitionApprovalFlowTests : IClassFixture<CustomWebAppFactory>
         await ClientFor(Roles.Admin, _factory.AdminUserId)
             .PostAsJsonAsync($"/api/requisitions/{draft.Id}/decision", new ApprovalDecisionRequest { Approve = false });
 
-        // Now Rejected. A stranger probing it must get the same 404 as for a GUID that does
-        // not exist — a 409 naming the status would turn this endpoint into an oracle.
+        // Now Rejected. A stranger probing it must not be able to tell it apart from a GUID
+        // that does not exist — the no-oracle guarantee ADR-0003 exists for.
+        //
+        // Post-ADR-0022, Recruiter (read only, no approve) is stopped at the policy layer
+        // before either request reaches RequisitionService, so both come back 403 rather than
+        // the pre-ADR-0022 404 — the identical-response invariant this test asserts still
+        // holds, just at a different, and now blanket rather than per-resource, status code.
         var rejected = await ClientFor(Roles.Recruiter, Guid.NewGuid())
             .PostAsJsonAsync($"/api/requisitions/{draft.Id}/decision", new ApprovalDecisionRequest { Approve = true });
         var nonexistent = await ClientFor(Roles.Recruiter, Guid.NewGuid())
             .PostAsJsonAsync($"/api/requisitions/{Guid.NewGuid()}/decision", new ApprovalDecisionRequest { Approve = true });
 
-        Assert.Equal(HttpStatusCode.NotFound, rejected.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, rejected.StatusCode);
         Assert.Equal(nonexistent.StatusCode, rejected.StatusCode);
     }
 
@@ -230,6 +241,10 @@ public class RequisitionApprovalFlowTests : IClassFixture<CustomWebAppFactory>
     {
         var draft = await NewDraftAsync("Sales Clerk");
 
+        // Same shift as An_Approver_Cannot_Submit_Someone_Elses_Draft: PUT is gated on
+        // requisitions:update (ADR-0022), which Approver does not hold, so this is now
+        // stopped at the policy layer (403) rather than IsOwnerOrCompanyWide inside the
+        // service (404).
         var res = await ClientFor(Roles.Approver, _factory.FinanceApproverUserId)
             .PutAsJsonAsync($"/api/requisitions/{draft.Id}", new UpdateRequisitionRequest
             {
@@ -239,7 +254,7 @@ public class RequisitionApprovalFlowTests : IClassFixture<CustomWebAppFactory>
                 Headcount = 1,
             });
 
-        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
     }
 
     [Fact]
@@ -291,11 +306,15 @@ public class RequisitionApprovalFlowTests : IClassFixture<CustomWebAppFactory>
             .PostAsync($"/api/requisitions/{draft.Id}/submit", null);
 
         // Being asked to approve is not authority to withdraw — that belongs to the
-        // requester (or a company-wide role). 404, not 403, per ADR-0003.
+        // requester (or a company-wide role). Pre-ADR-0022 this was 404, not 403, because
+        // IsOwnerOrCompanyWide inside the service made the call. Post-ADR-0022, /cancel is
+        // gated on requisitions:update (rationale: cancel is a withdrawal by the requester,
+        // same authority as edit), which Approver does not hold, so the policy layer now
+        // stops it first — 403, before the service's ownership rule is ever reached.
         var res = await ClientFor(Roles.Approver, _factory.FinanceApproverUserId)
             .PostAsync($"/api/requisitions/{draft.Id}/cancel", null);
 
-        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
     }
 
     [Fact]

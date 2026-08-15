@@ -48,6 +48,7 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
     // Approvers for the seeded 2-step chain (HR then Finance), so sequencing is provable.
     public readonly Guid AdminUserId = Guid.NewGuid();
     public readonly Guid FinanceApproverUserId = Guid.NewGuid();
+    public readonly Guid RecruiterUserId = Guid.NewGuid();
 
     public readonly Guid TenantA = Guid.NewGuid();
     public readonly Guid TenantB = Guid.NewGuid();
@@ -208,6 +209,23 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 PasswordHash = "not-used-in-these-tests",
             };
             db.Users.Add(financeApprover);
+
+            // A recruiter who can raise requisitions in their own name (ADR-0022). Needed as a
+            // real user rather than a bare role header because the update and submit paths check
+            // that the caller is the requester — without a seeded identity those return 404 by
+            // ADR-0003's 404-not-403 rule, which reads as "the permission failed" and is not why.
+            // Deliberately not a department member: recruiters are cross-department staff.
+            var recruiter = new User
+            {
+                Id = RecruiterUserId,
+                TenantId = TenantA,
+                Email = "recruiter@alpha.test",
+                DisplayName = "Alpha Recruiter",
+                Role = UserRole.Recruiter,
+                IsActive = true,
+                PasswordHash = "not-used-in-these-tests",
+            };
+            db.Users.Add(recruiter);
 
             // Company-wide default chain (DepartmentId null): HR then Finance.
             var chain = new ApprovalChain

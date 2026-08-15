@@ -184,8 +184,18 @@ public class UserAccountManagementTests : IClassFixture<CustomWebAppFactory>
         // Deactivate secondary admin -> 2 active admins exist -> succeeds
         await primaryAdminClient.PutAsync($"/api/users/{secondaryAdmin.Id}/deactivate", null);
 
-        // Now primary admin is sole active admin in tenant. Attempting to deactivate primary admin using secondary admin client (or any caller):
-        var deactSoleAdmin = await secondaryAdminClient.PutAsync($"/api/users/{_factory.AdminUserId}/deactivate", null);
+        // Now primary admin is the sole active admin. The caller cannot be the secondary admin
+        // — it was just deactivated, and since ADR-0022 a deactivated user's token is genuinely
+        // denied (PermissionEvaluator.cs:45 requires IsActive; the role-claim fallback that
+        // used to rescue it is gone). Nor can it be the primary admin: the self-deactivation
+        // guard fires first and would assert the wrong rule. A SuperAdmin is active, is not the
+        // target, and must still be stopped by the business rule.
+        var superAdminClient = _factory.CreateClient();
+        superAdminClient.DefaultRequestHeaders.Add("X-Test-Tenant", _factory.TenantA.ToString());
+        superAdminClient.DefaultRequestHeaders.Add("X-Test-Roles", "SuperAdmin");
+        superAdminClient.DefaultRequestHeaders.Add("X-Test-IsSuperAdmin", "true");
+
+        var deactSoleAdmin = await superAdminClient.PutAsync($"/api/users/{_factory.AdminUserId}/deactivate", null);
         Assert.Equal(HttpStatusCode.Conflict, deactSoleAdmin.StatusCode);
     }
 }

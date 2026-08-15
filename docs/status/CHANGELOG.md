@@ -3,7 +3,67 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-08-13 (latest)
+## 2026-08-15 (latest)
+
+### 🔐 Approval authority is now permission-driven, not a hardcoded role literal (ADR-0022)
+**Why:** the user's actual request — *"We can config who can do the approval chain base on who
+request or which department."* Module 1.3 already says the chain is "configurable per company, not
+hard-coded," and `permission:requisitions:requisitions:*` / `permission:settings:settings:*` were
+already seeded and displayed in the Role Builder — but `RequisitionsController` and
+`ApprovalChainsController` gated on `RequireRole` role literals, so granting or revoking those
+permissions through the Role Builder changed nothing. See `.agents/tw2/explorer_ac_1/analysis.md`
+(Finding B) and `PROJECT.md` (teamwork run `tw2`, milestone M2).
+
+**Touched:**
+- `RequisitionsController.cs` — controller-level `[Authorize(Policy = Policies.InternalUser)]`
+  replaced with bare `[Authorize]` + a per-action `[HasPermission("permission:requisitions:
+  requisitions:*")]` (read / approve / create / update / approve / update on list / inbox / get /
+  create / update / submit / decision / cancel respectively — see ADR-0022 for the full table).
+- `ApprovalChainsController.cs` — controller-level `[Authorize(Policy = Policies.AdminOnly)]`
+  replaced with bare `[Authorize]` + `[HasPermission("permission:settings:settings:read")]` on the
+  reads and `...settings:update` on create.
+- `backend/tests/RecruitOps.Api.Tests/RequisitionPermissionAuthorityTests.cs` (new) — proves an
+  Approver can decide while a HiringManager 403s; a role without `approve` cannot reach `/inbox`
+  while one that holds it sees real work; HrDirector can now read chains but not create one; **a
+  brand-new custom role, created and granted only `requisitions:approve` through the Role Builder in
+  the test itself, can actually decide a requisition** — the point of the milestone; and the
+  permission gate does not bypass department scoping on create.
+- `RequisitionApprovalFlowTests.cs` — 4 tests updated from `404` to `403` for Approver hitting
+  `/submit`, `/decision` (via Recruiter), `PUT`, `/cancel`: those actions now require
+  `requisitions:update` (which `Approver` never held), so the policy layer stops the call before
+  `RequisitionService.IsOwnerOrCompanyWide` is reached. The guarantee itself — an Approver cannot
+  submit, edit, or cancel someone else's requisition — is unchanged; it is enforced earlier.
+- `docs/decisions/ADR-0022-permission-driven-requisition-authority.md` (new).
+- `docs/status/FEATURE-STATUS.md` — Module 1 section updated with the permission-driven note and the
+  corrected `approvalchains` access description.
+
+**Behaviour changes (intended, all recorded in ADR-0022):** Recruiter **keeps** create and update on
+requisitions — the first cut of this change would have removed them, because `Policies.InternalUser`
+let recruiters raise requisitions while the seed granted them `requisitions:read` only. Making
+permissions authoritative surfaced that contradiction, and it was resolved by correcting the seed
+(`RbacSeedData.cs` now grants Recruiter `requisitions:create` and `requisitions:update`) rather than
+by letting a capability quietly disappear. The two codes are granted as a **pair** on purpose: the
+flow is create → edit the draft → submit, and both the edit and submit endpoints are gated on
+`update`, so `create` alone would produce requisitions their author could neither fix nor submit.
+`requisitions:approve` is still withheld — raising headcount is not authority to approve it.
+Pinned by `Recruiter_Can_Raise_And_Submit_A_Requisition_But_Cannot_Approve_It`, and the Domain
+seed test moved from 23 to 25 permissions for Recruiter with the two new codes asserted by name.
+`GET /inbox` narrows to roles holding `requisitions:approve` (Recruiter/HiringManager's
+inbox already returned `[]`, so nothing visible today disappears); `GET /approvalchains` widens to
+`HrDirector` (fixes a real defect — `Sidebar.tsx` already showed the nav item to `settings:read`
+holders while the API demanded `Admin`); creating a chain still effectively requires `Admin` (only
+role seeded with `settings:update`) but is now expressed as a grantable permission.
+
+**Verified:** `dotnet build backend/src/Api` clean; `dotnet test backend/RecruitOps.sln` — 51 Domain
++ 464 Api = 515/515 passing (up from the 507 recorded 2026-08-13; +8 net from the new file and the
+updated assertions). Mutation-checked: removing `[HasPermission]` from `POST /{id}/decision` turns
+`HiringManager_Without_Approve_Permission_Gets_403_On_Decision_While_Approver_Succeeds` red (expected
+`Forbidden`, got `NotFound`), confirming the new test exercises the attribute rather than passing
+regardless of it.
+
+---
+
+## 2026-08-13
 
 ### ✅ Delivery & Deployment Prerequisites Complete (ADR-0004 & ADR-0007)
 **Why:** Provide the operational, versioning, feature-flag add-on gating, container security packaging, and documentation prerequisites required for per-company single-tenant installations.

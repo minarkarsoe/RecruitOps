@@ -83,8 +83,16 @@ Per-company install, subdomain routing. **None of the operational prerequisites 
   already recorded — the audit trail stays truthful
 - `GET/POST /api/requisitions`, `GET /inbox`, `GET /{id}`, `PUT /{id}`,
   `POST /{id}/submit`, `POST /{id}/decision`, `POST /{id}/cancel`
-- `GET/POST /api/approvalchains` (**Admin only** — editing a chain is equivalent to being
-  able to approve), `GET /{id}`
+- **Authority is permission-driven, not a role literal (ADR-0022, 2026-08-15).** Every action
+  above carries a `[HasPermission("permission:requisitions:requisitions:*")]` attribute
+  resolved against the caller's actual role (system or custom) via the Role Builder — not
+  `RequireRole` against the fixed five-value enum. See the mapping and behaviour changes in
+  ADR-0022. Department scoping (ADR-0003) remains the security-critical, per-resource filter;
+  the permission is a coarse gate in front of it.
+- `GET/POST /api/approvalchains` (**`settings:read`/`settings:update`, ADR-0022** — was
+  Admin-only by role literal; HrDirector now reads chains too, matching the nav item it was
+  already shown, and any role can be granted chain-authoring through the Role Builder),
+  `GET /{id}`
 - `GET/POST /api/jdtemplates` (read: any internal user; create: recruitment staff)
 - `GET /api/users` (**Admin only**) — populates the approver picker in the chain builder
 - Approvers are validated on chain creation, so a requisition can never be submitted into

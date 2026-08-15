@@ -18,12 +18,21 @@ public class EmpiricalUserManagementChallengeTests : IClassFixture<CustomWebAppF
         _scenario = new Module3Scenario(factory);
     }
 
-    private HttpClient AdminClient(Guid? userId = null, Guid? tenantId = null)
+    /// <summary>
+    /// Set <paramref name="withUserId"/> false for a tenant that has no seeded user. The
+    /// default sends TenantA's admin id, which names nobody in another tenant — since
+    /// ADR-0022 a database lookup that resolves no user is final, so such a client is denied
+    /// rather than being rescued by its role claim.
+    /// </summary>
+    private HttpClient AdminClient(Guid? userId = null, Guid? tenantId = null, bool withUserId = true)
     {
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-Tenant", (tenantId ?? _factory.TenantA).ToString());
         client.DefaultRequestHeaders.Add("X-Test-Roles", Roles.Admin);
-        client.DefaultRequestHeaders.Add("X-Test-UserId", (userId ?? _factory.AdminUserId).ToString());
+        if (withUserId)
+        {
+            client.DefaultRequestHeaders.Add("X-Test-UserId", (userId ?? _factory.AdminUserId).ToString());
+        }
         return client;
     }
 
@@ -76,8 +85,19 @@ public class EmpiricalUserManagementChallengeTests : IClassFixture<CustomWebAppF
         var deactSecRes = await primaryAdminClient.PutAsync($"/api/users/{secAdmin.Id}/deactivate", null);
         Assert.Equal(HttpStatusCode.OK, deactSecRes.StatusCode);
 
-        // Now Primary Admin is sole active admin. Attempting to deactivate Primary Admin via secAdmin client:
-        var deactSoleAdminRes = await secAdminClient.PutAsync($"/api/users/{_factory.AdminUserId}/deactivate", null);
+        // Now Primary Admin is the sole active admin. The caller cannot be secAdmin — it was
+        // just deactivated, and since ADR-0022 a deactivated user's token is genuinely denied
+        // (PermissionEvaluator.cs:45 requires IsActive; the role-claim fallback that used to
+        // rescue it is gone). It cannot be Primary Admin either: the self-deactivation guard
+        // at UserService.cs:265 fires before the last-admin guard at :286, so that would
+        // assert the wrong rule. A SuperAdmin is the one caller that is both active and not
+        // the target — and the business rule must still stop them.
+        var superAdminClient = _factory.CreateClient();
+        superAdminClient.DefaultRequestHeaders.Add("X-Test-Tenant", _factory.TenantA.ToString());
+        superAdminClient.DefaultRequestHeaders.Add("X-Test-Roles", "SuperAdmin");
+        superAdminClient.DefaultRequestHeaders.Add("X-Test-IsSuperAdmin", "true");
+
+        var deactSoleAdminRes = await superAdminClient.PutAsync($"/api/users/{_factory.AdminUserId}/deactivate", null);
         Assert.Equal(HttpStatusCode.Conflict, deactSoleAdminRes.StatusCode);
         var problem = await deactSoleAdminRes.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.NotNull(problem);
@@ -167,7 +187,8 @@ public class EmpiricalUserManagementChallengeTests : IClassFixture<CustomWebAppF
         Assert.Equal(HttpStatusCode.Created, createTenantARes.StatusCode);
 
         // Attempt to create user in Tenant B with the same email
-        var tenantBClient = AdminClient(tenantId: _factory.TenantB);
+        // TenantB has no seeded admin, so this client carries no user id — see AdminClient.
+        var tenantBClient = AdminClient(tenantId: _factory.TenantB, withUserId: false);
         var createTenantBRes = await tenantBClient.PostAsJsonAsync("/api/users", new CreateUserRequest(
             Email: uniqueEmail,
             DisplayName: "Tenant B Duplicate User",
