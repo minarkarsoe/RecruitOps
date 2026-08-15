@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, Card } from '@recruitops/ui';
 import type {
   ApprovalChain, CreateApprovalChainRequest,
-  DepartmentListItem, UserListItem,
+  DepartmentListItem, SelectableUser,
 } from '@recruitops/types';
 import { api } from '../lib/api';
 
@@ -14,19 +14,59 @@ const EMPTY_FORM: CreateApprovalChainRequest = {
   steps: [{ label: '', approverUserId: '' }],
 };
 
+/** `e.message` is trusted only when it is a non-blank string — an `ApiError` can carry `''`. */
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof Error && e.message.trim() ? e.message : fallback;
+}
+
+/**
+ * Label for a chain step's approver. `/users/selectable` filters `IsActive`, so a step can
+ * reference a user who has since left the company — that must read as a readable gap, not a
+ * raw GUID. A blank/whitespace-only `displayName` must not win over the id fallback either:
+ * `??` alone is nullish-only, so `'   '` would beat the fallback and the row would render
+ * nothing at all (worse than the GUID it was meant to avoid).
+ */
+function approverLabel(users: SelectableUser[], approverUserId: string): string {
+  const approver = users.find((u) => u.id === approverUserId);
+  if (!approver) return 'Unknown approver (no longer active)';
+  const name = approver.displayName.trim();
+  return name ? approver.displayName : approverUserId;
+}
+
 export function ApprovalChainsPage() {
   const [chains, setChains] = useState<ApprovalChain[] | null>(null);
   const [departments, setDepartments] = useState<DepartmentListItem[]>([]);
-  const [users, setUsers] = useState<UserListItem[]>([]);
+  const [users, setUsers] = useState<SelectableUser[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<CreateApprovalChainRequest>(EMPTY_FORM);
-  const [error, setError] = useState<string | null>(null);
+  // The chain list is the page's primary resource, so its load error is kept apart from the
+  // (less critical) department/approver load errors and from form-submit errors — each has a
+  // different owner and must not be clobbered or wiped by an unrelated action (see `submit`
+  // and the Cancel handler below, and D1/D2 in the M1 remediation).
+  const [chainsError, setChainsError] = useState<string | null>(null);
+  const [auxError, setAuxError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  // Separate from `auxError` (the page-level banner) so the create form can explain, right
+  // next to the now-unfillable approver dropdown, *why* it only offers the placeholder —
+  // the same silent-failure gap D1/D2 were rejected over, applied here to `users`.
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const error = chainsError ?? formError ?? auxError;
+
   useEffect(() => {
-    api<ApprovalChain[]>('/approvalchains').then(setChains).catch(() => setChains([]));
-    api<DepartmentListItem[]>('/departments').then(setDepartments).catch(() => {});
-    api<UserListItem[]>('/users').then(setUsers).catch(() => {});
+    // Mirrors InboxPage.tsx: leave `chains` null on failure instead of `[]`, so "the server
+    // said none" (a real empty list) can never be confused with "we could not find out".
+    api<ApprovalChain[]>('/approvalchains').then((data) => setChains(data ?? []))
+      .catch((e) => setChainsError(errorMessage(e, 'Could not load approval chains.')));
+    api<DepartmentListItem[]>('/departments').then(setDepartments)
+      .catch((e) => setAuxError(errorMessage(e, 'Could not load departments.')));
+    api<SelectableUser[]>('/users/selectable').then(setUsers)
+      .catch((e) => {
+        const message = errorMessage(e, 'Could not load approvers.');
+        setAuxError(message);
+        setUsersError(message);
+      });
   }, []);
 
   function setStep(i: number, patch: Partial<StepDraft>) {
@@ -48,7 +88,7 @@ export function ApprovalChainsPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setError(null);
+    setFormError(null);
     try {
       const created = await api<ApprovalChain>('/approvalchains', {
         method: 'POST',
@@ -58,7 +98,7 @@ export function ApprovalChainsPage() {
       setForm(EMPTY_FORM);
       setShowForm(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create chain.');
+      setFormError(errorMessage(err, 'Could not create chain.'));
     } finally {
       setBusy(false);
     }
@@ -80,13 +120,14 @@ export function ApprovalChainsPage() {
         )}
       </header>
 
+      {error && <p role="alert" className="mb-4 text-[13px] text-danger-600">{error}</p>}
+
       {/* ── Create form ── */}
       {showForm && (
         <Card>
           <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
             New approval chain
           </h2>
-          {error && <p role="alert" className="mb-3 text-[13px] text-danger-600">{error}</p>}
           <form onSubmit={submit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -135,6 +176,9 @@ export function ApprovalChainsPage() {
                       onChange={(e) => setStep(i, { approverUserId: e.target.value })}
                     >
                       <option value="">Select approver…</option>
+                      {usersError && (
+                        <option value="" disabled>Could not load approvers</option>
+                      )}
                       {users.map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.displayName} ({u.role})
@@ -156,7 +200,7 @@ export function ApprovalChainsPage() {
               <Button type="submit" disabled={busy}>
                 {busy ? 'Creating…' : 'Create chain'}
               </Button>
-              <Button variant="ghost" type="button" onClick={() => { setShowForm(false); setError(null); }}>
+              <Button variant="ghost" type="button" onClick={() => { setShowForm(false); setFormError(null); }}>
                 Cancel
               </Button>
             </div>
@@ -165,7 +209,7 @@ export function ApprovalChainsPage() {
       )}
 
       {/* ── Chain list ── */}
-      {chains === null && <p className="text-ink-600">Loading…</p>}
+      {chains === null && !chainsError && <p className="text-ink-600">Loading…</p>}
       {chains?.length === 0 && !showForm && (
         <Card>
           <div className="py-6 text-center">
@@ -208,7 +252,7 @@ export function ApprovalChainsPage() {
                       <span className="font-semibold">{s.label}</span>
                       <span className="text-ink-400">·</span>
                       <span className="text-ink-600">
-                        {users.find((u) => u.id === s.approverUserId)?.displayName ?? s.approverUserId}
+                        {approverLabel(users, s.approverUserId)}
                       </span>
                     </li>
                   ))}

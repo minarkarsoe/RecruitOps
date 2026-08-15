@@ -156,7 +156,15 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
 async function readError(res: Response): Promise<string> {
   try {
     const problem = await res.json();
-    return problem?.detail ?? problem?.title ?? `Request failed (${res.status})`;
+    // `??` alone only falls through on null/undefined, so `{"detail":""}` would win over the
+    // `title` fallback and leave the caller with an empty (falsy) message — which every page
+    // that renders `{error && <p role="alert">}` then silently drops. Treat blank/whitespace
+    // the same as absent.
+    const detail = typeof problem?.detail === 'string' ? problem.detail.trim() : '';
+    if (detail) return detail;
+    const title = typeof problem?.title === 'string' ? problem.title.trim() : '';
+    if (title) return title;
+    return `Request failed (${res.status})`;
   } catch {
     return `Request failed (${res.status})`;
   }
