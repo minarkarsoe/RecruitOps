@@ -119,9 +119,10 @@ text search for anything that has a definition.
 - **Python:** use the Pyright LSP to check type hints and module definitions. (No Python in
   this repo today — this applies to scripts or tooling added later.)
 - Reserve `grep` and `glob` strictly for text searches or non-code files (`.json`, `.csproj`,
-  `.env`, `.md`, migrations SQL). Symbol lookups go through the LSP — with one exception:
-  `grep` is the right way to build the candidate file list that feeds `lsp_index_files` on
-  the TypeScript side (see the warm-up note below).
+  `.env`, `.md`, migrations SQL). Symbol lookups go through the LSP, on both sides, with no
+  warm-up step — `lsp_find_references` is complete from a cold call (measured 2026-08-15; see
+  below). `grep` remains the right tool for finding *strings* that are not symbols: permission
+  codes, route templates, config keys.
 
 ### Setup
 
@@ -142,29 +143,48 @@ TypeScript side still works and C# requests fail with a "server not found" error
 Workspace roots resolve automatically: `frontend/internal` (and the other npm workspaces)
 via `tsconfig.json`/`package.json`, and `backend/` via `RecruitOps.sln`.
 
-### ⚠️ TypeScript references need a warm-up first
+### TypeScript references are complete cold — no warm-up needed
 
-`tsserver` only searches files it has already opened, so a cold `lsp_find_references` on a
-TS symbol **silently under-reports** — it returns the declaration and nothing else. Measured
-on `hasPermission` in `frontend/internal/src/lib/auth.ts`:
+> **This section previously said the opposite.** It documented a `grep` → `lsp_index_files` →
+> `lsp_find_references` warm-up as mandatory, on a measurement of "cold → 1 reference, 1 file".
+> Re-measured **2026-08-15**, that is no longer true, and following it wasted work *and* inverted
+> a diagnostic. Left here as a record: an undated measurement in this file outlived its truth,
+> and nothing would have caught it if it had not been tested directly.
 
-- cold → **1 reference, 1 file**
-- after `lsp_index_files` on the consuming files → **16 references, 7 files**
+Measured **2026-08-15** on `hasPermission` in `frontend/internal/src/lib/auth.ts:169`, with **no**
+preceding `lsp_index_files` and `lsp_server_status` returning `[]` beforehand:
 
-So for TypeScript: `grep` first to get the candidate file list, feed it to `lsp_index_files`,
-*then* call `lsp_find_references`. A one-file answer on a symbol you expect to be shared is
-the tell that you skipped the warm-up — treat it as "not indexed yet", not as "unused".
+- cold → **50 references across 15 files**, including `auth.test.ts`
 
-**C# does not have this problem** — `csharp-ls` loads the whole solution at startup, so
-`lsp_find_references` is complete from the first call (verified: `HasPermissionAttribute`
-returns 18 references across 6 files, tests included). The trade-off is a slow first
-request while Roslyn loads the solution; `requestTimeout` in `.lsp-mcp.json` is raised to
-120 s for that reason.
+So call `lsp_find_references` directly. **A one-file answer now means the symbol really is
+unused** — treat it as a finding, not as a tooling artifact. (That distinction matters here: the
+orphaned `frontend/internal/src/features/requisitions/*` tree has zero importers repo-wide while
+carrying six test files, and the old heuristic would have told you to dismiss that as "not
+indexed yet".)
 
-### ⚠️ One tsserver per workspace — query shared types from the *consumer* side
+`lsp_index_files` is still needed, for a different job: it is the prerequisite for
+`lsp_workspace_diagnostics` (which only sees opened files) and for `lsp_related_files imported_by`.
+It is not a prerequisite for reference search.
 
-Each npm workspace gets its **own** `tsserver` process (verified: five servers run at once —
-one `csharp-ls` on `backend/`, plus one each for `frontend/internal`, `frontend/public`,
+**C# is complete from the first call too** — `csharp-ls` loads the whole solution at startup.
+Verified **2026-08-15**: `HasPermissionAttribute` returns **23 references across 7 files**, tests
+included. The trade-off is a slow first request while Roslyn loads the solution; `requestTimeout`
+in `.lsp-mcp.json` is raised to 120 s for that reason.
+
+That same query is the clearest illustration of why symbol lookup beats text search here: it
+resolved `[HasPermission("permission:users:users:read")]` attribute shorthand **and**
+`new HasPermissionAttribute(...)` in the tests as one symbol. `grep` needs two patterns for that
+and still cannot tell you they are the same thing.
+
+### ⚠️ The one real LSP trap: query shared types from the *consumer* side
+
+**This is now the only LSP caveat in this repo** — the TypeScript warm-up above was retired on
+2026-08-15, so do not read this as one caution among several. It is the single case where the LSP
+will hand you a confident wrong answer, and it was **re-verified on 2026-08-15**: `LoginResponse`
+queried from `packages/types/src/index.ts:33` still returns **exactly 1**.
+
+Each npm workspace gets its **own** `tsserver` process (servers start lazily, one per workspace
+root touched — `csharp-ls` on `backend/`, plus one each for `frontend/internal`, `frontend/public`,
 `packages/ui`, `packages/types`). A server only sees files under its own root, and that has
 one sharp consequence for `packages/types`:
 
