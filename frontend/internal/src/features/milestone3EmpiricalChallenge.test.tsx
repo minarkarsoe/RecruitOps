@@ -401,6 +401,8 @@ describe('Milestone 3 Empirical Challenge Suite', () => {
           status: 'PendingApproval',
           submittedAt: '2026-08-01T00:00:00Z',
           awaitingApprovalFrom: 'CTO',
+
+          yourStepLabel: 'CTO',
         },
       ];
 
@@ -411,12 +413,14 @@ describe('Milestone 3 Empirical Challenge Suite', () => {
         requestedByUserId: 'user-other',
         approvals: [
           {
+            round: 1,
             sequence: 1,
             label: 'CTO Approval',
             approverUserId: 'user-me',
             decision: 'Waiting',
             decidedAt: null,
             comment: null,
+            decidedByUserId: null,
           },
         ],
       };

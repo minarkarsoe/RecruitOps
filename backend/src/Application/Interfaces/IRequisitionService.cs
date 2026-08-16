@@ -11,8 +11,10 @@ public interface IRequisitionService
     /// their own departments; Admin/HrDirector/Recruiter see all.</summary>
     Task<IReadOnlyList<RequisitionListItemDto>> GetRequisitionsAsync(CancellationToken ct = default);
 
-    /// <summary>Requisitions where the current user is the next-in-line approver
-    /// (i.e. the lowest-sequence Waiting step belongs to them). Used for the approval inbox.</summary>
+    /// <summary>Requisitions with a Waiting step in the current round assigned to the current
+    /// user. Since ADR-0024 this includes steps it is not yet their turn to decide — a later
+    /// approver may close an earlier step — so <c>AwaitingApprovalFrom</c> on each row is what
+    /// tells the caller whose turn it actually is. Used for the approval inbox.</summary>
     Task<IReadOnlyList<RequisitionListItemDto>> GetInboxAsync(CancellationToken ct = default);
 
     /// <summary>Full detail including job description and approval timeline.
@@ -34,9 +36,21 @@ public interface IRequisitionService
     /// not permitted; throws InvalidOperationException if it is not a Draft or no chain exists.</summary>
     Task<RequisitionDetailDto?> SubmitAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>Records the current user's decision on the step awaiting them.
-    /// Approving the last step approves the requisition; any rejection rejects it.</summary>
+    /// <summary>Records the current user's decision on their own Waiting step in the current
+    /// round. Approving closes every Waiting step at or below theirs — a later step outranks
+    /// an earlier one (ADR-0024) — and stamps <c>DecidedByUserId</c> on the ones that were not
+    /// theirs. Approving the last outstanding step approves the requisition; any rejection
+    /// rejects it. Rejecting is permitted only at the lowest Waiting step: a senior may not
+    /// reject on a junior's behalf. Throws InvalidOperationException on a reject-forward
+    /// attempt, and returns null (404) when the caller holds no Waiting step here.</summary>
     Task<RequisitionDetailDto?> DecideAsync(Guid id, ApprovalDecisionRequest request, CancellationToken ct = default);
+
+    /// <summary>Rejected → Draft so the requester can correct and resubmit (ADR-0023); the
+    /// next submit opens a new round beside the rejected one rather than over it. Permitted to
+    /// the requester or a company-wide role (Admin/HrDirector); returns null for anyone else,
+    /// same as "not found". Throws InvalidOperationException on any status but Rejected —
+    /// Approved and Cancelled stay terminal.</summary>
+    Task<RequisitionDetailDto?> ReviseAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Withdraws a Draft or PendingApproval requisition. Permitted to the requester
     /// or a company-wide role (Admin/HrDirector); returns null for anyone else, same as

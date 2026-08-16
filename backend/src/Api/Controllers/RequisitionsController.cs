@@ -99,6 +99,25 @@ public class RequisitionsController : ControllerBase
         }
     }
 
+    /// <summary>Returns a rejected requisition to Draft so the requester can correct and
+    /// resubmit it (ADR-0023). Gated on <c>update</c> rather than <c>approve</c>: revising is
+    /// the requester's authority, not the approver's — same reasoning as cancel (ADR-0022).
+    /// Anyone but the requester or a company-wide role gets 404 (ADR-0003).</summary>
+    [HttpPost("{id:guid}/revise")]
+    [HasPermission("permission:requisitions:requisitions:update")]
+    public async Task<ActionResult<RequisitionDetailDto>> Revise(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _requisitions.ReviseAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails { Title = "Cannot revise", Detail = ex.Message });
+        }
+    }
+
     /// <summary>Withdraws a requisition before it is decided. The requester or a
     /// company-wide role may do this; anyone else gets 404 (ADR-0003).</summary>
     [HttpPost("{id:guid}/cancel")]

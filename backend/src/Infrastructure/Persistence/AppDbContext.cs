@@ -292,7 +292,17 @@ public class AppDbContext : DbContext
             e.Property(x => x.Label).IsRequired().HasMaxLength(100);
             e.Property(x => x.Comment).HasMaxLength(1000);
             e.Property(x => x.Decision).HasConversion<string>().HasMaxLength(20);
-            e.HasIndex(x => new { x.RequisitionId, x.Sequence }).IsUnique();
+            // HasDefaultValue backfills existing rows when the column is added. ValueGeneratedNever
+            // is the important half: without it EF infers ValueGeneratedOnAdd from the default and
+            // omits Round from the INSERT whenever the in-memory value is 0, letting Postgres
+            // substitute 1. A future code path that forgot to set Round would then not throw — it
+            // would silently file the step under round 1, which is a wrong answer rather than a
+            // loud one. Always send the value we actually mean.
+            e.Property(x => x.Round).HasDefaultValue(1).ValueGeneratedNever();
+            // Round is part of the key, not decoration: a resubmission reuses sequences 1..n
+            // (ADR-0023), so without it the second round violates this constraint on real
+            // Postgres — and would NOT fail the suite, which runs on the in-memory provider.
+            e.HasIndex(x => new { x.RequisitionId, x.Round, x.Sequence }).IsUnique();
             e.HasIndex(x => new { x.ApproverUserId, x.Decision }); // "awaiting my approval"
             e.HasOne<Requisition>().WithMany().HasForeignKey(x => x.RequisitionId)
                 .OnDelete(DeleteBehavior.Cascade);

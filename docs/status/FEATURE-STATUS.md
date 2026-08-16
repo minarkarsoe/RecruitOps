@@ -411,9 +411,17 @@ What the suite proves:
 - Login works — valid credentials return a token; wrong password and unknown email both → 401 (no user enumeration)
 - JWT carries `tenant_id`, role and `sub`, and refuses to sign without a key (ADR-0002)
 - .NET 10 (ADR-0010) and the container build (ADR-0015) both work
-- The approval chain runs in sequence, a later approver cannot jump the queue, a rejection
-  at step 1 leaves step 2 `Waiting` rather than auto-deciding it, and cancelling clears the
-  requisition out of the approver's inbox
+- The approval chain runs in sequence, a rejection at step 1 leaves step 2 `Waiting` rather
+  than auto-deciding it, and cancelling clears the requisition out of the approver's inbox
+- A **later approver outranks an earlier one** (ADR-0024): they can approve every waiting step
+  at or below their own in one action, and the closed steps record who really decided them.
+  They cannot reject on a junior's behalf, and an earlier approver still cannot reach a later
+  step — the rule reaches down the chain only
+- A **rejected requisition can be revised and resubmitted** (ADR-0023): it returns to `Draft`
+  for its requester, and resubmitting opens a new round beside the rejected one rather than
+  over it, so the rejection and its comment stay readable. `Approved` and `Cancelled` remain
+  terminal. An approver dropped from the chain between rounds loses the inbox item; a
+  superseded round's leftover `Waiting` rows never resurface as work
 - A Draft is editable by its requester but frozen after submit, and cannot be moved into a
   department the caller can't reach; an Approver can neither submit nor edit nor cancel
   someone else's requisition, and cannot learn its status by probing `/decision`

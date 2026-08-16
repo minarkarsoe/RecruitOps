@@ -393,6 +393,8 @@ describe('Challenger Empirical Stress Suite — Milestone 3 Modules', () => {
         status: 'PendingApproval',
         submittedAt: '2026-07-20T00:00:00Z',
         awaitingApprovalFrom: 'VP Engineering',
+
+        yourStepLabel: 'VP Engineering',
       },
       {
         id: 'req-2',
@@ -404,6 +406,8 @@ describe('Challenger Empirical Stress Suite — Milestone 3 Modules', () => {
         status: 'Draft',
         submittedAt: null,
         awaitingApprovalFrom: null,
+
+        yourStepLabel: null,
       },
     ];
 
@@ -415,20 +419,24 @@ describe('Challenger Empirical Stress Suite — Milestone 3 Modules', () => {
       decidedAt: null,
       approvals: [
         {
+          round: 1,
           sequence: 1,
           label: 'Engineering Manager Approval',
           decision: 'Approved',
           approverUserId: 'usr-9',
           decidedAt: '2026-07-22T08:00:00Z',
           comment: 'Approved for Q3 hiring plan.',
+          decidedByUserId: null,
         },
         {
+          round: 1,
           sequence: 2,
           label: 'VP Engineering Approval',
           decision: 'Waiting',
           approverUserId: 'usr-1', // current user is active approver
           decidedAt: null,
           comment: null,
+          decidedByUserId: null,
         },
       ],
     };

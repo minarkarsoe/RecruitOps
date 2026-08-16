@@ -56,6 +56,7 @@ describe('Empirical Stress Testing Suite (Milestone 3 Retry 2)', () => {
         salaryBudget: null, // Omitted budget
         status: 'Draft',
         awaitingApprovalFrom: null, // Omitted approver
+        yourStepLabel: null,
         submittedAt: null,
       };
 
@@ -86,6 +87,8 @@ describe('Empirical Stress Testing Suite (Milestone 3 Retry 2)', () => {
         salaryBudget: null,
         status: 'Draft',
         awaitingApprovalFrom: null,
+
+        yourStepLabel: null,
         submittedAt: null,
         decidedAt: null,
         jobDescription: '',
@@ -117,6 +120,8 @@ describe('Empirical Stress Testing Suite (Milestone 3 Retry 2)', () => {
         salaryBudget: 250000,
         status: 'PendingApproval',
         awaitingApprovalFrom: 'CTO Alice',
+
+        yourStepLabel: 'CTO Alice',
         submittedAt: '2026-08-01T00:00:00Z',
       };
 
@@ -127,12 +132,14 @@ describe('Empirical Stress Testing Suite (Milestone 3 Retry 2)', () => {
         requestedByUserId: 'user-me',
         approvals: [
           {
+            round: 1,
             sequence: 1,
             label: 'Tech Lead Approval',
             approverUserId: 'user-me',
             decision: 'Waiting',
             decidedAt: null,
             comment: null,
+            decidedByUserId: null,
           },
         ],
       };

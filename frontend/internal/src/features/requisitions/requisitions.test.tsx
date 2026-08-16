@@ -25,6 +25,8 @@ const mockRequisitionItems: RequisitionListItem[] = [
     status: 'PendingApproval',
     submittedAt: '2026-08-01T10:00:00Z',
     awaitingApprovalFrom: 'VP of Engineering',
+
+    yourStepLabel: 'VP of Engineering',
   },
   {
     id: 'req-2',
@@ -36,6 +38,8 @@ const mockRequisitionItems: RequisitionListItem[] = [
     status: 'Approved',
     submittedAt: '2026-07-20T10:00:00Z',
     awaitingApprovalFrom: null,
+
+    yourStepLabel: null,
   },
 ];
 
@@ -46,20 +50,24 @@ const mockRequisitionDetail: RequisitionDetail = {
   requestedByUserId: 'user-1',
   approvals: [
     {
+      round: 1,
       sequence: 1,
       label: 'Engineering Director',
       approverUserId: 'user-2',
       decision: 'Approved',
       decidedAt: '2026-08-01T12:00:00Z',
       comment: 'Looks good!',
+      decidedByUserId: null,
     },
     {
+      round: 1,
       sequence: 2,
       label: 'VP of Engineering',
       approverUserId: 'user-3',
       decision: 'Waiting',
       decidedAt: null,
       comment: null,
+      decidedByUserId: null,
     },
   ],
 };

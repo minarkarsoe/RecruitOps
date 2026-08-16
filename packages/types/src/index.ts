@@ -233,17 +233,37 @@ export interface RequisitionListItem {
   status: RequisitionStatus;
   submittedAt: string | null;
   /** Label of the approval step currently waiting, if any. */
+  /** Label of the step the chain is currently waiting on — i.e. whose turn it is. */
   awaitingApprovalFrom: string | null;
+  /**
+   * Label of the caller's *own* waiting step in the current round, if they have one. Differs
+   * from `awaitingApprovalFrom` exactly when it is not yet the caller's turn but they are
+   * senior enough to approve ahead anyway (ADR-0024). Null when they hold no step here.
+   */
+  yourStepLabel: string | null;
 }
 
 /** One step in the snapshotted approval chain. */
 export interface ApprovalStep {
+  /**
+   * Which submission attempt this step belongs to, 1-based. A rejected requisition can be
+   * revised and resubmitted, which opens a new round beside the old one rather than over it
+   * (ADR-0023) — so `sequence` is unique only *within* a round. Anything keyed on sequence
+   * alone (React keys included) will collide across rounds.
+   */
+  round: number;
   sequence: number;
   label: string;
+  /** Who the step was assigned to. */
   approverUserId: string;
   decision: ApprovalDecision;
   decidedAt: string | null;
   comment: string | null;
+  /**
+   * Who actually decided it, when a more senior approver closed this step on the assignee's
+   * behalf (ADR-0024). Null means the assigned approver decided it themselves.
+   */
+  decidedByUserId: string | null;
 }
 
 /** Full detail — returned by GET /api/requisitions/:id. */

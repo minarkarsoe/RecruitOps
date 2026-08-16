@@ -94,11 +94,13 @@ public class FullUserJourneyIntegrationTests : IClassFixture<CustomWebAppFactory
         // =========================================================================
         var financeApproverClient = ClientFor(Roles.Approver, _factory.FinanceApproverUserId);
 
-        // Step 3a: Verify queue jumping is refused (Step 2 approver cannot approve while waiting on Step 1)
+        // Step 3a: Verify the remaining queue rule. Since ADR-0024, step 2 approving early is
+        // legitimate (it would close step 1 too), so the probe here is a forward *reject* —
+        // still refused, and it leaves the chain untouched so the journey continues in order.
         var jumpQueueRes = await financeApproverClient.PostAsJsonAsync(
             $"/api/requisitions/{requisitionDraft.Id}/decision",
-            new ApprovalDecisionRequest { Approve = true, Comment = "Trying to jump the queue." });
-        Assert.Equal(HttpStatusCode.NotFound, jumpQueueRes.StatusCode);
+            new ApprovalDecisionRequest { Approve = false, Comment = "Trying to reject on HR's behalf." });
+        Assert.Equal(HttpStatusCode.Conflict, jumpQueueRes.StatusCode);
 
         // Step 3b: Step 1 (HR / Admin) approves
         var step1ApproveRes = await adminClient.PostAsJsonAsync(
@@ -442,10 +444,13 @@ public class FullUserJourneyIntegrationTests : IClassFixture<CustomWebAppFactory
         var financeClient = ClientFor(Roles.Approver, _factory.FinanceApproverUserId);
         var hrClient = ClientFor(Roles.Admin, _factory.AdminUserId);
 
-        // Attempt out of order (Finance is step 2, HR is step 1)
+        // Reject out of order (Finance is step 2, HR is step 1). Approving out of order is
+        // now permitted — a later step outranks an earlier one — but rejecting is not, since
+        // that would end the requisition before HR ever saw it (ADR-0024). The refusal must
+        // also leave the chain intact, which the in-order run below then depends on.
         var outOfOrder = await financeClient.PostAsJsonAsync(
-            $"/api/requisitions/{draft.Id}/decision", new ApprovalDecisionRequest { Approve = true });
-        Assert.Equal(HttpStatusCode.NotFound, outOfOrder.StatusCode);
+            $"/api/requisitions/{draft.Id}/decision", new ApprovalDecisionRequest { Approve = false });
+        Assert.Equal(HttpStatusCode.Conflict, outOfOrder.StatusCode);
 
         // Step 1 approves
         var step1 = await hrClient.PostAsJsonAsync(

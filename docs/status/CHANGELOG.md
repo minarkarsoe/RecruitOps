@@ -3,7 +3,100 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-08-15 (latest)
+## 2026-08-16 (latest)
+
+### ♻️ A rejected requisition can be revised and resubmitted, in rounds (ADR-0023)
+**Why:** the product owner's request — *"if it gets rejected, let it be corrected and
+resubmitted."* `Rejected` was terminal: edits and submits were both `Draft`-only, so the only way
+forward was to raise a brand-new requisition, stranding the rejection comment — the one sentence
+that says what to fix — on a dead record. Notably that rule was enforced by two `if` statements
+and covered by **no test**, so nothing had to be inverted to change it, and nothing was guarding
+it either way.
+
+**Shape:** `Rejected → Draft` for the requester (`POST /api/requisitions/{id}/revise`), then edit,
+then resubmit. Each submission is a **round**; resubmitting stamps out fresh steps at round *n+1*
+and leaves round *n* verbatim. Each round is decided afresh from step 1 — carrying an earlier
+`Approved` forward would credit an approval to a document nobody approved. `Approved` and
+`Cancelled` stay terminal.
+
+**The part that was easy to get wrong:** five sites read `RequisitionApprovals` and all five
+assumed one round. Unscoped, a second round does not throw — the completion check
+(`approvals.All(a => a.Decision == Approved)`) can *never* be true once a rejected round is
+preserved, so a fully-approved round 2 would sit in `PendingApproval` with no `Waiting` step,
+invisible in every inbox, silently. All five are now round-scoped.
+
+**Touched:**
+- `RequisitionApproval.cs` — new `Round` (int, default 1); `AppDbContext.cs` unique index widened
+  `(RequisitionId, Sequence)` → `(RequisitionId, Round, Sequence)`. Without that widening a second
+  round violates the constraint on real Postgres and **would not fail the suite**, which runs on
+  the in-memory provider.
+- `RequisitionService.cs` — new `ReviseAsync`; `SubmitAsync` opens round *n+1*; `DecideAsync`,
+  `GetInboxAsync`, `FetchListAsync` and `BuildDetailAsync` all round-scoped.
+- `RequisitionsController.cs` — `POST /{id}/revise`, gated on `requisitions:update` (revising is
+  the requester's authority, not the approver's — same reasoning as cancel, ADR-0022).
+- `RequisitionDetailPage.tsx` — timeline grouped by round, "Attempt 1 — superseded" / "Attempt 2 —
+  current"; React keys moved from `sequence` to `round-sequence`, which would otherwise collide.
+- `RequisitionReviseAndResubmitTests.cs` (new, 6 tests).
+
+### 🔐 A later approver may approve forward, but never reject forward (ADR-0024)
+**Why:** the product owner's request — *"I'm number 2 and you're number 1: I can skip over you and
+approve both 1 and 2. But it has to show the record of what I did."* The chain models an org
+hierarchy, and a senior willing to sign off should not be blocked by a junior on leave.
+
+**This reverses a deliberate decision.** `GetInboxAsync`'s comment said the lowest-sequence
+`Waiting` step must be the caller's *"or a later approver could act early"*, and three tests
+asserted it. Those tests were **re-scoped, not deleted** — deleting them would have removed the
+only proof that the limits still hold.
+
+**The limits, and why they are not symmetric:** approving forward removes a junior's step but not
+their say — the requisition proceeds, which their approval would have caused anyway. Rejecting
+forward would *end* it before the junior ever saw it, substituting the senior's opinion for a
+review that never happened. So reject stays bound to the caller's own step. Skipping *forward*
+(an earlier approver reaching a later step) also stays blocked — the rule reaches down only.
+
+**Seniority is chain position and nothing else.** No rank attribute was added to users or roles;
+`auth-and-tenancy.md:46` deliberately removed seniority from the role model, and reintroducing it
+to serve one feature would contradict that.
+
+**Touched:**
+- `RequisitionApproval.cs` — new nullable `DecidedByUserId`; null means the assignee decided it
+  themselves, so every pre-existing row stays correct with no backfill. `ApproverUserId` is
+  deliberately *not* overwritten: that would make the row claim the senior was always the
+  assignee, which is false and unfalsifiable afterwards.
+- `RequisitionService.DecideAsync` — selects the caller's *own* waiting step, closes everything at
+  or below it, stamps the real decider on steps that were not theirs.
+- `GetInboxAsync` — second filtering pass dropped; not-yet-your-turn work is now surfaced and
+  *marked* rather than hidden, or the feature would be undiscoverable.
+- `RequisitionListItemDto` / `packages/types` — new `yourStepLabel` alongside `awaitingApprovalFrom`.
+  The Inbox's "Your step" column previously showed `awaitingApprovalFrom`, which for a senior
+  names *someone else entirely*.
+- `RequisitionDetailPage.tsx` — names the steps being closed on others' behalf before the click,
+  hides Reject when it would be forward, renders "Approved by Finance on behalf of HR".
+- 3 tests re-scoped (`A_Later_Approver_Cannot_Jump_The_Queue` → an approve/reject pair,
+  `Inbox_Only_Shows_Requisitions_Waiting_On_You`, `Sequential_Approval_Logic_Enforces_Step_Order`).
+
+**Migration:** `20260815183136_AddApprovalRoundAndActualDecider` — one migration for both features,
+additive, `Round` defaulting to 1 so existing rows backfill. **Proposed, not applied**, per
+CLAUDE.md. Reworked after `db-schema-reviewer`: the generated version dropped the old index first
+inside EF's single transaction, and because Postgres holds DDL locks until commit, that exclusive
+lock covered the whole `CREATE INDEX` build — blocking reads as well as writes on
+`RequisitionApprovals` for its duration. Now: add columns → `CREATE UNIQUE INDEX CONCURRENTLY`
+outside a transaction → drop the old index. `Down()` was reordered so it fails *before* destroying
+the audit columns on any database that has seen a second round, and carries a warning saying so.
+
+**Reviews:** `security-reviewer` (mandatory for authorization changes per CLAUDE.md) found no
+exploitable bypass, no oracle regression, and no way for a client to set `DecidedByUserId`. It
+raised one real test gap — the existing no-oracle test probes with a caller who lacks `approve` and
+is stopped at the policy layer, so it never reaches the guard ordering it claims to protect. Closed
+by `An_Approver_Who_Holds_The_Permission_Still_Learns_Nothing_From_A_Requisition_Not_Theirs`.
+
+**Mutation-checked, and it found a real hole.** Removing the skip-reject guard turned 3 tests red;
+removing `DecideAsync`'s round scoping turned 1 red. But removing `GetInboxAsync`'s round scoping
+left the **entire suite green** — every existing test uses a chain identical across rounds, so
+nothing constructed the case the guard exists for. `An_Approver_Dropped_From_The_Chain_Between_Rounds_Loses_The_Inbox_Item`
+was written to close that, and the mutation now fails as it should.
+
+## 2026-08-15
 
 ### 🔐 Approval authority is now permission-driven, not a hardcoded role literal (ADR-0022)
 **Why:** the user's actual request — *"We can config who can do the approval chain base on who

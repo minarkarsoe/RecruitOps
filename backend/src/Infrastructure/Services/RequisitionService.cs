@@ -64,19 +64,30 @@ public class RequisitionService : IRequisitionService
 
         if (candidateIds.Count == 0) return Array.Empty<RequisitionListItemDto>();
 
-        // Step 2: of those, keep only the ones where it is actually the caller's TURN — the
-        // lowest-sequence Waiting step must be theirs, or a later approver could act early.
-        var waitingSteps = await _db.RequisitionApprovals
+        // Step 2 used to keep only the ones where it was the caller's TURN. Under ADR-0024 a
+        // later approver outranks an earlier one and may close their step, so "not yet your
+        // turn" no longer means "not yours to see" — hiding these would make skip-ahead
+        // undiscoverable. The DTO carries AwaitingApprovalFrom so the UI can mark them.
+        //
+        // What still has to be filtered is the ROUND. A rejected round leaves its later steps
+        // Waiting forever — that is the honest record (ADR-0023) — and those dead rows must
+        // never put a stale requisition back into anyone's inbox. So every row is loaded, not
+        // just the Waiting ones, because the current round can only be identified from all of them.
+        var allSteps = await _db.RequisitionApprovals
             .AsNoTracking()
-            .Where(a => a.Decision == ApprovalDecision.Waiting && candidateIds.Contains(a.RequisitionId))
-            .Select(a => new { a.RequisitionId, a.ApproverUserId, a.Sequence })
+            .Where(a => candidateIds.Contains(a.RequisitionId))
+            .Select(a => new { a.RequisitionId, a.ApproverUserId, a.Sequence, a.Round, a.Decision })
             .ToListAsync(ct);
 
-        var myIds = waitingSteps
+        var myIds = allSteps
             .GroupBy(a => a.RequisitionId)
-            // MinBy rather than First(): First() would silently depend on the query's ordering
-            // surviving every future edit to the statement above.
-            .Where(g => g.MinBy(a => a.Sequence)!.ApproverUserId == userId.Value)
+            .Where(g =>
+            {
+                var currentRound = g.Max(a => a.Round);
+                return g.Any(a => a.Round == currentRound
+                                  && a.Decision == ApprovalDecision.Waiting
+                                  && a.ApproverUserId == userId.Value);
+            })
             .Select(g => g.Key)
             .ToHashSet();
 
@@ -165,12 +176,24 @@ public class RequisitionService : IRequisitionService
         if (steps.Count == 0)
             throw new InvalidOperationException("The approval chain has no steps configured.");
 
+        // A resubmission after a rejection opens the NEXT round and leaves the previous one
+        // exactly as it was (ADR-0023). The chain is re-resolved above on every submit, so a
+        // chain edited between rounds applies to the new round only — the old round keeps the
+        // steps that were actually decided.
+        var previousRound = await _db.RequisitionApprovals
+            .Where(a => a.RequisitionId == requisition.Id)
+            .Select(a => (int?)a.Round)
+            .MaxAsync(ct) ?? 0;
+
+        var round = previousRound + 1;
+
         foreach (var step in steps)
         {
             _db.RequisitionApprovals.Add(new RequisitionApproval
             {
                 TenantId = requisition.TenantId,
                 RequisitionId = requisition.Id,
+                Round = round,
                 Sequence = step.Sequence,
                 ApproverUserId = step.ApproverUserId,
                 Label = step.Label,
@@ -182,6 +205,12 @@ public class RequisitionService : IRequisitionService
         requisition.SubmittedAt = _clock.GetUtcNow();
         requisition.UpdatedAt = _clock.GetUtcNow();
 
+        // Cleared, not just left: on a resubmission this still holds the moment the PREVIOUS
+        // round was rejected, and a PendingApproval requisition showing a decision date is a
+        // false statement on every screen that renders it. The round's own DecidedAt on the
+        // approval rows is where that history lives now.
+        requisition.DecidedAt = null;
+
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(requisition.Id, ct);
     }
@@ -191,36 +220,87 @@ public class RequisitionService : IRequisitionService
         var requisition = await _db.Requisitions.FirstOrDefaultAsync(r => r.Id == id, ct);
         if (requisition is null) return null;
 
-        var approvals = await _db.RequisitionApprovals
+        var allRows = await _db.RequisitionApprovals
             .Where(a => a.RequisitionId == id)
             .OrderBy(a => a.Sequence)
             .ToListAsync(ct);
+
+        if (allRows.Count == 0) return null;
+
+        // Only the current round is live. Earlier rounds are history and must never be
+        // decided on, or re-approved (ADR-0023) — their Waiting rows are the honest record
+        // of a chain that was cut short, not work anybody still owes.
+        var currentRound = allRows.Max(a => a.Round);
+        var approvals = allRows.Where(a => a.Round == currentRound).ToList();
 
         // Identify the caller BEFORE reporting anything about the requisition's state.
         // The status guard below throws a 409 that names the status; running it first let
         // any authenticated user probe an arbitrary GUID and tell "doesn't exist" (404) from
         // "exists, and is Approved" (409) — the leak ADR-0003's 404-not-403 rule prevents.
-        var current = approvals.FirstOrDefault(a => a.Decision == ApprovalDecision.Waiting);
-        if (current is null) return null;
-        if (_user.UserId is null || current.ApproverUserId != _user.UserId.Value) return null;
+        // Skip-ahead must not reopen that: an unauthorised caller still gets a bare 404.
+        if (_user.UserId is null) return null;
+
+        // The caller's OWN waiting step, not merely the lowest one. Under ADR-0024 a later
+        // step outranks an earlier one, so being further down the chain is now sufficient
+        // authority to act — but only from a step the caller was actually named on.
+        var mine = approvals.FirstOrDefault(
+            a => a.Decision == ApprovalDecision.Waiting && a.ApproverUserId == _user.UserId.Value);
+        if (mine is null) return null;
+
+        // Whose turn it genuinely is: the lowest undecided step in this round.
+        var lowestWaiting = approvals
+            .Where(a => a.Decision == ApprovalDecision.Waiting)
+            .MinBy(a => a.Sequence)!;
 
         if (requisition.Status != RequisitionStatus.PendingApproval)
             throw new InvalidOperationException($"This requisition is {requisition.Status}, not awaiting approval.");
 
+        // Rejecting forward is refused, and it is not the mirror image of approving forward
+        // (ADR-0024). Approving forward removes a junior's step but not their say — the
+        // requisition proceeds, which their approval would have caused anyway. Rejecting
+        // forward would END it before the junior ever saw it, substituting the senior's
+        // opinion for a review that never happened. A senior may still reject their own step.
+        if (!request.Approve && mine.Sequence != lowestWaiting.Sequence)
+            throw new InvalidOperationException(
+                $"This requisition is waiting on {lowestWaiting.Label}. You can approve on their behalf, " +
+                "but only they can reject at their step.");
+
         var now = _clock.GetUtcNow();
-        current.Decision = request.Approve ? ApprovalDecision.Approved : ApprovalDecision.Rejected;
-        current.DecidedAt = now;
-        current.Comment = request.Comment;
 
         if (!request.Approve)
         {
+            mine.Decision = ApprovalDecision.Rejected;
+            mine.DecidedAt = now;
+            mine.Comment = request.Comment;
+
             requisition.Status = RequisitionStatus.Rejected;
             requisition.DecidedAt = now;
         }
-        else if (approvals.All(a => a.Decision == ApprovalDecision.Approved))
+        else
         {
-            requisition.Status = RequisitionStatus.Approved;
-            requisition.DecidedAt = now;
+            // Everything at or below the caller's own position closes in one action. When it
+            // was not their step, DecidedByUserId records who really pressed the button —
+            // the chain is a record of what happened, not of what the template expected.
+            var closing = approvals.Where(a =>
+                a.Decision == ApprovalDecision.Waiting && a.Sequence <= mine.Sequence);
+
+            foreach (var step in closing)
+            {
+                step.Decision = ApprovalDecision.Approved;
+                step.DecidedAt = now;
+                step.Comment = request.Comment;
+                if (step.ApproverUserId != _user.UserId.Value)
+                    step.DecidedByUserId = _user.UserId.Value;
+            }
+
+            // Scoped to this round. Across all rounds this could never be true once a
+            // rejected round is preserved, and a fully-approved requisition would silently
+            // sit in PendingApproval with no Waiting step — invisible in every inbox.
+            if (approvals.All(a => a.Decision == ApprovalDecision.Approved))
+            {
+                requisition.Status = RequisitionStatus.Approved;
+                requisition.DecidedAt = now;
+            }
         }
 
         requisition.UpdatedAt = now;
@@ -258,6 +338,37 @@ public class RequisitionService : IRequisitionService
         requisition.SalaryBudget = request.SalaryBudget;
         requisition.UpdatedAt = _clock.GetUtcNow();
 
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<RequisitionDetailDto?> ReviseAsync(Guid id, CancellationToken ct = default)
+    {
+        var requisition = await _db.Requisitions.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (requisition is null) return null;
+        if (!await _access.CanAccessAsync(requisition.DepartmentId, ct)) return null;
+
+        // Same ownership rule as edit, submit and cancel. An approver's tool is Reject, which
+        // records a decision; being asked to approve something is not authority to rewrite it
+        // and put it back in the queue (ADR-0023, mirroring the module doc's cancellation rule).
+        if (!IsOwnerOrCompanyWide(requisition)) return null;
+
+        // Only Rejected reopens. Approved and Cancelled stay terminal — approved work must not
+        // be reopened silently, and a withdrawn request stays withdrawn.
+        if (requisition.Status != RequisitionStatus.Rejected)
+            throw new InvalidOperationException(
+                $"Only a Rejected requisition can be revised; this one is {requisition.Status}.");
+
+        var now = _clock.GetUtcNow();
+        requisition.Status = RequisitionStatus.Draft;
+        requisition.UpdatedAt = now;
+
+        // SubmittedAt and DecidedAt are deliberately left alone here: while this sits in
+        // Draft they still describe the round that was actually decided, which is true and
+        // useful. SubmitAsync overwrites the first and clears the second when round n+1
+        // opens. The approval rows are untouched for the same reason — the rejection and its
+        // comment are the whole point of revising, and the next submit opens round n+1
+        // beside them rather than over them.
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
@@ -321,16 +432,35 @@ public class RequisitionService : IRequisitionService
         if (rows.Count == 0) return Array.Empty<RequisitionListItemDto>();
 
         var ids = rows.Select(x => x.r.Id).ToList();
-        var waitingRows = await _db.RequisitionApprovals
+        // Every row, not just the Waiting ones: the current round can only be identified by
+        // comparing rounds, and a rejected round's leftover Waiting steps would otherwise
+        // label the requisition with a step nobody is waiting on (ADR-0023).
+        var approvalRows = await _db.RequisitionApprovals
             .AsNoTracking()
-            .Where(a => ids.Contains(a.RequisitionId) && a.Decision == ApprovalDecision.Waiting)
-            .OrderBy(a => a.Sequence)
-            .Select(a => new { a.RequisitionId, a.Label })
+            .Where(a => ids.Contains(a.RequisitionId))
+            .Select(a => new { a.RequisitionId, a.Label, a.Sequence, a.Round, a.Decision, a.ApproverUserId })
             .ToListAsync(ct);
 
-        var awaiting = waitingRows
+        var callerId = _user.UserId;
+
+        var labels = approvalRows
             .GroupBy(a => a.RequisitionId)
-            .ToDictionary(g => g.Key, g => (string?)g.First().Label);
+            .ToDictionary(g => g.Key, g =>
+            {
+                var currentRound = g.Max(a => a.Round);
+                var waiting = g
+                    .Where(a => a.Round == currentRound && a.Decision == ApprovalDecision.Waiting)
+                    .ToList();
+
+                // MinBy rather than First(): First() would silently depend on a query
+                // ordering surviving every future edit to the statement above.
+                var awaitingFrom = waiting.MinBy(a => a.Sequence)?.Label;
+                var yours = callerId is null
+                    ? null
+                    : waiting.FirstOrDefault(a => a.ApproverUserId == callerId.Value)?.Label;
+
+                return (AwaitingFrom: awaitingFrom, Yours: yours);
+            });
 
         return rows.Select(x => new RequisitionListItemDto(
             x.r.Id,
@@ -341,7 +471,8 @@ public class RequisitionService : IRequisitionService
             x.r.SalaryBudget,
             x.r.Status.ToString(),
             x.r.SubmittedAt,
-            awaiting.GetValueOrDefault(x.r.Id)
+            labels.GetValueOrDefault(x.r.Id).AwaitingFrom,
+            labels.GetValueOrDefault(x.r.Id).Yours
         )).ToList();
     }
 
@@ -353,23 +484,32 @@ public class RequisitionService : IRequisitionService
         var dept = await _db.Departments.AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == r.DepartmentId, ct);
 
+        // All rounds are returned, ordered oldest first, so an earlier rejection stays
+        // readable above the attempt it produced (ADR-0023). Ordering by round first matters:
+        // sequence alone would interleave the rounds into one nonsensical chain.
         var approvalRows = await _db.RequisitionApprovals
             .AsNoTracking()
             .Where(a => a.RequisitionId == r.Id)
-            .OrderBy(a => a.Sequence)
+            .OrderBy(a => a.Round).ThenBy(a => a.Sequence)
             .ToListAsync(ct);
 
         var steps = approvalRows.Select(a => new ApprovalStepDto(
+            a.Round,
             a.Sequence,
             a.Label,
             a.ApproverUserId,
             a.Decision.ToString(),
             a.DecidedAt,
-            a.Comment
+            a.Comment,
+            a.DecidedByUserId
         )).ToList();
 
+        // Scoped to the current round: a superseded round's leftover Waiting steps describe a
+        // chain that was cut short, not somebody the requisition is waiting on.
+        var currentRound = approvalRows.Count == 0 ? 0 : approvalRows.Max(a => a.Round);
         var awaiting = approvalRows
-            .FirstOrDefault(a => a.Decision == ApprovalDecision.Waiting)?.Label;
+            .Where(a => a.Round == currentRound && a.Decision == ApprovalDecision.Waiting)
+            .MinBy(a => a.Sequence)?.Label;
 
         return new RequisitionDetailDto(
             r.Id,

@@ -19,7 +19,8 @@ export function InboxPage() {
       <header className="mb-6">
         <h1 className="font-display text-2xl font-bold">Approval inbox</h1>
         <p className="mt-1 text-[13px] text-ink-400">
-          Requisitions waiting for your decision, in submission order.
+          Requisitions with a step assigned to you, in submission order. Some may still be
+          waiting on someone below you in the chain — you can approve those ahead of them.
         </p>
       </header>
 
@@ -47,6 +48,7 @@ export function InboxPage() {
                 <th className="px-4 py-3 font-semibold">Heads</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
                 <th className="px-4 py-3 font-semibold">Your step</th>
+                <th className="px-4 py-3 font-semibold">Waiting on</th>
                 <th className="px-4 py-3 font-semibold">Submitted</th>
               </tr>
             </thead>
@@ -62,8 +64,26 @@ export function InboxPage() {
                   <td className="px-4 py-3 text-ink-600">{r.departmentName}</td>
                   <td className="px-4 py-3 font-mono text-[13px]">{r.headcount}</td>
                   <td className="px-4 py-3"><StatusPill status={r.status} /></td>
-                  <td className="px-4 py-3 text-[13px] font-semibold text-warning-600">
-                    {r.awaitingApprovalFrom ?? '—'}
+                  {/* Two columns, because since ADR-0024 they can differ: a senior sees their
+                      own step here while the chain still waits on a junior below them. The old
+                      single column showed awaitingApprovalFrom under a "Your step" heading,
+                      which would name someone else entirely. */}
+                  <td className="px-4 py-3 text-[13px] font-semibold text-ink-900">
+                    {r.yourStepLabel ?? '—'}
+                  </td>
+                  <td className="px-4 py-3 text-[13px]">
+                    {r.awaitingApprovalFrom === null ? (
+                      <span className="text-ink-400">—</span>
+                    ) : r.yourStepLabel === r.awaitingApprovalFrom ? (
+                      <span className="font-semibold text-warning-600">Your turn</span>
+                    ) : (
+                      <span className="text-ink-600">
+                        {r.awaitingApprovalFrom}
+                        <span className="ml-2 rounded-full bg-surface-50 px-2 py-0.5 text-[11px] font-semibold text-ink-400">
+                          not your turn yet
+                        </span>
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-[13px] text-ink-400">
                     {r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : '—'}
