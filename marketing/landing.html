@@ -1,0 +1,1175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Recruitment governance for in-house talent teams</title>
+<meta name="description" content="RecruitOps connects in-house recruiters and department hiring managers across requisition, approval, sourcing, blind interview assessment and offer — on a database your company owns." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Noto+Sans+Myanmar:wght@400;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        ink:     { 900:'#16232B', 800:'#1F2B32', 700:'#2F3D46', 600:'#4A5B66', 400:'#8A99A3' },
+        line:    { 200:'#E3E9EC', 300:'#C2D0D6' },
+        surface: { 0:'#FFFFFF', 50:'#F6F9F9' },
+        primary: { 900:'#052A29', 800:'#08403E', 700:'#0B5654', 600:'#0E6E6B', 500:'#149B97', 200:'#B8E0DE', 100:'#DCEFEE', 50:'#F0F9F9' },
+        accent:  { 700:'#8A5A08', 600:'#C97A0A', 500:'#F2A33C', 100:'#FCF0DC' },
+        /* The -700 steps exist because the -600/-100 tint pairs inherited from the design
+           system do not actually reach 4.5:1 at pill sizes. Text on a tint uses -700. */
+        success: { 700:'#146B43', 600:'#1E8E5A', 100:'#E2F4EA' },
+        warning: { 700:'#8A5A08', 600:'#C97A0A', 100:'#FCF0DC' },
+        danger:  { 700:'#A63423', 600:'#C94430', 100:'#FBE8E4' },
+        info:    { 700:'#22528F', 600:'#2E6ECF', 100:'#E6EEFB' }
+      },
+      fontFamily: {
+        sans:    ['Inter','"Noto Sans Myanmar"','system-ui','sans-serif'],
+        display: ['"Bricolage Grotesque"','Inter','"Noto Sans Myanmar"','sans-serif'],
+        mono:    ['"IBM Plex Mono"','ui-monospace','SFMono-Regular','monospace']
+      },
+      borderRadius: { sm:'8px', DEFAULT:'8px', md:'12px', lg:'16px', xl:'20px', '2xl':'24px', full:'999px' },
+      boxShadow: {
+        card: '0 1px 2px rgba(22,35,43,0.06)',
+        pop:  '0 8px 24px rgba(22,35,43,0.12)',
+        lift: '0 24px 60px -18px rgba(22,35,43,0.28)'
+      },
+      letterSpacing: { tightest:'-0.04em', tighter:'-0.03em', tight:'-0.02em' }
+    }
+  }
+};
+</script>
+<style>
+  :root { color-scheme: light; }
+
+  html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+
+  body {
+    background: #F6F9F9;
+    color: #16232B;
+    font-family: Inter, "Noto Sans Myanmar", system-ui, sans-serif;
+    line-height: 1.7;            /* Burmese-safe, per the design system */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* --- Browser surfaces: these ship with defaults that belong to no design system --- */
+  ::selection { background: #DCEFEE; color: #052A29; }
+  body { caret-color: #0E6E6B; }
+  :focus-visible {
+    outline: 2px solid #0E6E6B;
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+  * { scrollbar-width: thin; scrollbar-color: #C2D0D6 transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: #C2D0D6; border-radius: 999px; border: 3px solid #F6F9F9; }
+  *::-webkit-scrollbar-thumb:hover { background: #8A99A3; }
+  a { text-underline-offset: 3px; }
+
+  .tnum { font-variant-numeric: tabular-nums; }
+  .mm   { font-family: "Noto Sans Myanmar", Inter, sans-serif; line-height: 1.75; }
+  .measure { max-width: 68ch; }
+
+  h1,h2,h3 { text-wrap: balance; }
+
+  /* Hairline governance rail: the connector between sequential approval nodes. */
+  .rail-node { position: relative; }
+  .rail-node::before {
+    content: "";
+    position: absolute;
+    left: 15px; top: 32px; bottom: -14px;
+    width: 1px;
+    background: #E3E9EC;
+  }
+  .rail-node:last-child::before { display: none; }
+  .rail-node.is-done::before { background: #B8E0DE; }
+
+  /* --- The one authored moment: the spreadsheet dissolving into a live requisition. --- */
+  /* The mask is the dissolve. It starts parked so the sheet reads whole, then sweeps
+     diagonally toward the card, so the artifact is legible before it gives way. */
+  .sheet-mask {
+    -webkit-mask-image: linear-gradient(125deg, #000 0%, #000 30%, rgba(0,0,0,.30) 56%, transparent 74%);
+            mask-image: linear-gradient(125deg, #000 0%, #000 30%, rgba(0,0,0,.30) 56%, transparent 74%);
+    -webkit-mask-size: 260% 260%;
+            mask-size: 260% 260%;
+    -webkit-mask-position: 100% 100%;
+            mask-position: 100% 100%;
+  }
+  @keyframes sheet-dissolve {
+    from { -webkit-mask-position: 100% 100%; mask-position: 100% 100%; }
+    to   { -webkit-mask-position: 0% 0%;     mask-position: 0% 0%; }
+  }
+
+  /* Below the two-column breakpoint the sheet stacks directly above the record, so the
+     dissolve runs downward into it rather than diagonally across it. The artifact and the
+     authored moment both have to survive at narrow widths — without them the page loses
+     the "before" its whole structure is built on. */
+  @media (max-width: 767px) {
+    .sheet-mask {
+      -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 52%, rgba(0,0,0,.32) 78%, transparent 100%);
+              mask-image: linear-gradient(180deg, #000 0%, #000 52%, rgba(0,0,0,.32) 78%, transparent 100%);
+      -webkit-mask-size: 100% 260%;
+              mask-size: 100% 260%;
+      -webkit-mask-position: 0% 100%;
+              mask-position: 0% 100%;
+    }
+    @keyframes sheet-dissolve-down {
+      from { -webkit-mask-position: 0% 100%; mask-position: 0% 100%; }
+      to   { -webkit-mask-position: 0% 0%;   mask-position: 0% 0%; }
+    }
+    .anim-sheet { animation-name: sheet-dissolve-down; }
+  }
+
+  /* Dark rail, for the sovereignty section. Same device as the approval chain. */
+  .rail-dark .rail-node::before { background: #0B5654; }
+  @keyframes stamp-in {
+    from { opacity: 0; transform: translateY(6px) scale(.985); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes rail-draw {
+    from { transform: scaleY(0); }
+    to   { transform: scaleY(1); }
+  }
+
+  .anim-sheet   { animation: sheet-dissolve 1500ms cubic-bezier(.16,1,.3,1) 750ms both; }
+  .anim-stamp   { animation: stamp-in 620ms cubic-bezier(.16,1,.3,1) both; }
+  .anim-rail    { transform-origin: top; animation: rail-draw 700ms cubic-bezier(.16,1,.3,1) both; }
+
+  .d1 { animation-delay: 1150ms; }
+  .d2 { animation-delay: 1400ms; }
+  .d3 { animation-delay: 1650ms; }
+  .d4 { animation-delay: 1900ms; }
+  .d5 { animation-delay: 2150ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: .01ms !important;
+    }
+    html { scroll-behavior: auto; }
+  }
+
+  /* Frosted navigation — a specific effect over scrolling content, not decoration. */
+  .nav-frost {
+    background: rgba(246,249,249,.78);
+    backdrop-filter: saturate(1.6) blur(14px);
+    -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  }
+
+  /* Spreadsheet grid, drawn rather than screenshotted. */
+  .sheet-grid {
+    background-image:
+      linear-gradient(to right, #E3E9EC 1px, transparent 1px),
+      linear-gradient(to bottom, #E3E9EC 1px, transparent 1px);
+    background-size: 84px 30px;
+  }
+
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  details[open] .faq-chev { transform: rotate(180deg); }
+  .faq-chev { transition: transform .2s ease-out; }
+
+  .tour-step[aria-selected="true"] {
+    background: #FFFFFF;
+    border-color: #B8E0DE;
+    box-shadow: 0 1px 2px rgba(22,35,43,.06);
+  }
+  .tour-step[aria-selected="true"] .tour-index {
+    background: #0E6E6B; color: #fff; border-color: #0E6E6B;
+  }
+
+  [data-locked="true"] .score-value { filter: blur(7px); user-select: none; }
+</style>
+</head>
+<body class="antialiased">
+<!--
+  DIRECTION CONTRACT — RecruitOps landing page
+  THESIS: Hiring runs on artifacts nobody can audit — a Viber thread, an approval email, an
+  Excel headcount tracker. This page replaces one artifact per section with the record that
+  killed it. It refuses the centred-headline-over-four-identical-tiles arrangement.
+  OWN-WORLD: "Clear Pipeline", marketing register. Ink #16232B on #F6F9F9, teal #0E6E6B
+  carrying authority, amber #F2A33C reserved for attention and threshold breach. Bricolage
+  Grotesque display, Inter body, IBM Plex Mono for every figure. Border-first cards, hairline
+  governance rails, one shadow tier.
+  STORY: A CHRO sees their own desk, then sees each artifact replaced by something with an
+  audit trail, then books a pilot.
+  FIRST VIEWPORT: Left, headline + two actions at 5/12. Right, at 7/12 and poster scale, a
+  headcount spreadsheet dissolving into a live requisition whose approval chain stamps in
+  node by node, amber threshold badge on Finance.
+  FORM: Before/After Desk — index 4 of 7 on my ordered list; seed key 9f7c3a44, surface scope.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+-->
+
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-4 focus:left-4 focus:bg-white focus:text-ink-900 focus:px-4 focus:py-2 focus:rounded-md focus:shadow-pop">Skip to content</a>
+
+<!-- ============================== NAV ============================== -->
+<header class="sticky top-0 z-40 nav-frost border-b border-line-200">
+  <div class="max-w-7xl mx-auto px-6">
+    <div class="flex items-center justify-between h-16">
+
+      <a href="#main" class="flex items-center gap-2.5 shrink-0" aria-label="RecruitOps home">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+          <rect x="1" y="1" width="24" height="24" rx="7" fill="#0E6E6B"/>
+          <circle cx="9" cy="7.5" r="2.1" fill="#FFFFFF"/>
+          <circle cx="9" cy="13" r="2.1" fill="#FFFFFF"/>
+          <circle cx="9" cy="18.5" r="2.1" fill="#F2A33C"/>
+          <path d="M9 9.6v1.3M9 15.1v1.3" stroke="#B8E0DE" stroke-width="1.2" stroke-linecap="round"/>
+          <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#B8E0DE" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        <span class="font-display text-[19px] font-bold tracking-tighter text-ink-900">RecruitOps</span>
+      </a>
+
+      <nav class="hidden lg:flex items-center gap-8" aria-label="Main">
+        <a class="text-[15px] text-ink-600 hover:text-primary-700 transition-colors" href="#governance" data-en="Governance" data-mm="အုပ်ချုပ်မှု">Governance</a>
+        <a class="text-[15px] text-ink-600 hover:text-primary-700 transition-colors" href="#workflow"   data-en="Workflow"   data-mm="လုပ်ငန်းစဉ်">Workflow</a>
+        <a class="text-[15px] text-ink-600 hover:text-primary-700 transition-colors" href="#security"   data-en="Security"   data-mm="လုံခြုံရေး">Security</a>
+        <a class="text-[15px] text-ink-600 hover:text-primary-700 transition-colors" href="#tiering"    data-en="Tiering"    data-mm="အစီအစဉ်များ">Tiering</a>
+        <a class="text-[15px] text-ink-600 hover:text-primary-700 transition-colors" href="#faq"        data-en="FAQ"        data-mm="မေးခွန်းများ">FAQ</a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center rounded-full border border-line-200 bg-white p-0.5" role="group" aria-label="Interface language">
+          <button type="button" data-lang="en" aria-pressed="true"
+            class="lang-btn px-2.5 py-1 text-[12px] font-semibold rounded-full transition-colors bg-primary-600 text-white">EN</button>
+          <button type="button" data-lang="mm" aria-pressed="false"
+            class="lang-btn px-2.5 py-1 text-[12px] font-semibold rounded-full transition-colors text-ink-600 hover:text-ink-900">MM</button>
+        </div>
+        <a href="#demo" class="hidden sm:inline-flex items-center h-10 px-4 rounded-md bg-primary-600 hover:bg-primary-700 text-white text-[15px] font-semibold transition-colors" data-en="Book demo" data-mm="သရုပ်ပြပွဲ">Book demo</a>
+        <button id="navToggle" type="button" class="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-md border border-line-200 bg-white" aria-expanded="false" aria-controls="mobileNav" aria-label="Open menu">
+          <i data-lucide="menu" class="w-5 h-5 text-ink-700"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mobileNav" class="lg:hidden hidden border-t border-line-200 bg-white">
+    <nav class="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-1" aria-label="Mobile">
+      <a class="py-2.5 text-[15px] text-ink-700" href="#governance" data-en="Governance" data-mm="အုပ်ချုပ်မှု">Governance</a>
+      <a class="py-2.5 text-[15px] text-ink-700" href="#workflow"   data-en="Workflow"   data-mm="လုပ်ငန်းစဉ်">Workflow</a>
+      <a class="py-2.5 text-[15px] text-ink-700" href="#security"   data-en="Security"   data-mm="လုံခြုံရေး">Security</a>
+      <a class="py-2.5 text-[15px] text-ink-700" href="#tiering"    data-en="Tiering"    data-mm="အစီအစဉ်များ">Tiering</a>
+      <a class="py-2.5 text-[15px] text-ink-700" href="#faq"        data-en="FAQ"        data-mm="မေးခွန်းများ">FAQ</a>
+
+      <div class="mt-3 pt-3 border-t border-line-200 flex items-center justify-between gap-4">
+        <span class="text-[13px] text-ink-600">Interface language</span>
+        <div class="flex items-center rounded-full border border-line-200 bg-white p-0.5" role="group" aria-label="Interface language">
+          <button type="button" data-lang="en" aria-pressed="true"
+            class="lang-btn px-3 py-1.5 text-[13px] font-semibold rounded-full transition-colors bg-primary-600 text-white">EN</button>
+          <button type="button" data-lang="mm" aria-pressed="false"
+            class="lang-btn px-3 py-1.5 text-[13px] font-semibold rounded-full transition-colors text-ink-600">MM</button>
+        </div>
+      </div>
+
+      <a href="#demo" class="mt-3 inline-flex items-center justify-center h-11 rounded-md bg-primary-600 text-white text-[15px] font-semibold" data-en="Book demo" data-mm="သရုပ်ပြပွဲ">Book demo</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============================== HERO ============================== -->
+<section class="relative overflow-hidden border-b border-line-200 bg-surface-50">
+  <div class="max-w-7xl mx-auto px-6 pt-16 pb-20 lg:pt-24 lg:pb-28">
+    <div class="grid lg:grid-cols-12 gap-12 lg:gap-10 items-center">
+
+      <div class="lg:col-span-5">
+        <h1 class="font-display font-bold text-ink-900 tracking-tightest text-[40px] leading-[1.05] sm:text-[52px] lg:text-[56px]">
+          Your hiring process lives in an inbox. Move it somewhere you can audit.
+        </h1>
+        <p class="mt-6 text-[17px] leading-[1.65] text-ink-600 measure">
+          RecruitOps connects in-house recruiters and department hiring managers across requisition,
+          approval, sourcing, interview and offer. The approval chain, the panel scores and the
+          decision history are held as a record nobody can quietly rewrite.
+        </p>
+
+        <div class="mt-8 flex flex-col sm:flex-row gap-3">
+          <a href="#demo" class="inline-flex items-center justify-center h-12 px-6 rounded-md bg-primary-600 hover:bg-primary-700 text-white text-[15px] font-semibold transition-colors shadow-card">
+            Request an enterprise pilot
+          </a>
+          <a href="#workflow" class="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-md bg-white border border-line-200 hover:border-primary-200 text-ink-900 text-[15px] font-semibold transition-colors">
+            Explore the workflow tour
+            <i data-lucide="arrow-down-right" class="w-4 h-4 text-primary-600"></i>
+          </a>
+        </div>
+
+        <p class="mt-6 text-[13px] text-ink-600">
+          One instance and one database per company, on our infrastructure or yours.
+        </p>
+      </div>
+
+      <!-- The transformation: a headcount spreadsheet dissolving into a live requisition. -->
+      <div class="lg:col-span-7 relative lg:-mr-8 xl:-mr-16">
+
+        <!-- BEFORE: the artifact this replaces. At two columns it sits up and to the left of
+             the record, read first and still legible where the dissolve begins. Below that it
+             stacks directly above the record and dissolves downward into it. -->
+        <div class="anim-sheet sheet-mask relative md:absolute z-0 mb-5 md:mb-0 md:-top-14 md:left-0 w-full md:w-[74%] rounded-lg border border-line-200 bg-white overflow-hidden" aria-hidden="true">
+          <div class="flex items-center gap-2 px-3.5 h-9 border-b border-line-200 bg-surface-50">
+            <i data-lucide="table-2" class="w-4 h-4 text-success-600"></i>
+            <span class="font-mono text-[12px] text-ink-600">Headcount_Tracker_2026_FINAL_v7.xlsx</span>
+          </div>
+          <div class="relative">
+            <div class="sheet-grid absolute inset-0 opacity-70"></div>
+            <table class="relative w-full font-mono text-[12px] text-ink-600 border-collapse">
+              <tbody>
+                <tr class="h-[30px]"><td class="pl-3.5 w-[34%]">Credit Risk</td><td class="w-[12%] tnum">3</td><td class="text-ink-600">? approved</td></tr>
+                <tr class="h-[30px]"><td class="pl-3.5">Retail Ops</td><td class="tnum">2</td><td class="text-ink-600">ask U Kyaw</td></tr>
+                <tr class="h-[30px]"><td class="pl-3.5">Treasury</td><td class="tnum">1</td><td class="text-ink-600">see email 14/8</td></tr>
+                <tr class="h-[30px]"><td class="pl-3.5">Branch Ops</td><td class="tnum">4</td><td class="text-danger-600">duplicate?</td></tr>
+                <tr class="h-[30px] hidden md:table-row"><td class="pl-3.5">Treasury</td><td class="tnum">1</td><td class="text-ink-600">superseded</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- AFTER: the live record -->
+        <div class="anim-stamp relative z-10 md:mt-28 md:ml-[19%] rounded-xl border border-line-200 bg-white shadow-lift overflow-hidden">
+
+          <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-line-200">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="font-mono text-[12px] text-ink-600 tnum">REQ-2026-0418</span>
+              <span class="hidden sm:block w-px h-4 bg-line-200"></span>
+              <span class="font-display text-[16px] font-semibold text-ink-900 truncate">Senior Credit Analyst</span>
+            </div>
+            <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warning-100 text-warning-700 text-[12px] font-semibold shrink-0">
+              <span class="w-1.5 h-1.5 rounded-full bg-warning-600"></span>
+              Pending approval · round 2
+            </span>
+          </div>
+
+          <!-- Round 1, preserved rather than overwritten -->
+          <div class="anim-stamp d1 mx-5 mt-4 rounded-md border border-line-200 bg-surface-50 px-3.5 py-3">
+            <div class="flex items-start gap-2.5">
+              <i data-lucide="rotate-ccw" class="w-4 h-4 text-ink-600 mt-0.5 shrink-0"></i>
+              <p class="text-[13px] leading-[1.6] text-ink-600">
+                <span class="font-semibold text-ink-700">Round 1 — rejected by Finance, 12 Aug.</span>
+                “Headcount of 3 is not justified against the Q3 plan.” Kept in full beside the revision.
+              </p>
+            </div>
+          </div>
+
+          <div class="px-5 py-5 space-y-0">
+            <!-- node 1 -->
+            <div class="rail-node is-done anim-stamp d2 flex gap-3.5 pb-5">
+              <span class="relative z-10 shrink-0 w-[31px] h-[31px] rounded-full bg-primary-100 border border-primary-200 grid place-items-center">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-primary-700"></i>
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span class="text-[14px] font-semibold text-ink-900">Daw Hnin Ei Khaing</span>
+                  <span class="text-[13px] text-ink-600">Department Head, Credit Risk</span>
+                </div>
+                <p class="text-[13px] text-ink-600">Approved <span class="font-mono tnum text-ink-600">14 Aug · 09:22</span></p>
+              </div>
+            </div>
+
+            <!-- node 2, threshold breach -->
+            <div class="rail-node is-done anim-stamp d3 flex gap-3.5 pb-5">
+              <span class="relative z-10 shrink-0 w-[31px] h-[31px] rounded-full bg-primary-100 border border-primary-200 grid place-items-center">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-primary-700"></i>
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span class="text-[14px] font-semibold text-ink-900">U Kyaw Zin Latt</span>
+                  <span class="text-[13px] text-ink-600">Finance Controller</span>
+                </div>
+                <p class="text-[13px] text-ink-600">Approved <span class="font-mono tnum text-ink-600">15 Aug · 16:40</span></p>
+                <div class="mt-2 inline-flex items-start gap-2 rounded-md bg-accent-100 border border-accent-500/25 px-2.5 py-1.5">
+                  <i data-lucide="trending-up" class="w-3.5 h-3.5 text-accent-700 mt-0.5 shrink-0"></i>
+                  <p class="text-[12px] leading-[1.5] text-accent-700">
+                    Salary band exceeded by <span class="font-mono font-semibold tnum">18%</span>. Chain extended to CHRO automatically.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- node 3, waiting -->
+            <div class="rail-node anim-stamp d4 flex gap-3.5">
+              <span class="relative z-10 shrink-0 w-[31px] h-[31px] rounded-full bg-white border border-line-300 grid place-items-center">
+                <span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span class="text-[14px] font-semibold text-ink-900">Daw Moe Moe Aung</span>
+                  <span class="text-[13px] text-ink-600">Chief HR Officer</span>
+                </div>
+                <p class="text-[13px] text-ink-600">Waiting · added by threshold rule</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="anim-stamp d5 flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3.5 border-t border-line-200 bg-surface-50">
+            <div class="text-[12px] text-ink-600">Headcount <span class="font-mono font-semibold text-ink-900 tnum">3</span></div>
+            <div class="text-[12px] text-ink-600">Department <span class="font-semibold text-ink-900">Credit Risk</span></div>
+            <div class="text-[12px] text-ink-600">Raised by <span class="font-semibold text-ink-900">Hiring Manager</span></div>
+          </div>
+        </div>
+
+        <p class="mt-3 text-[12px] text-ink-600 text-right">Illustrative data.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== TRUST STRIP ============================== -->
+<section class="border-b border-line-200 bg-white">
+  <div class="max-w-7xl mx-auto px-6 py-10">
+    <div class="grid lg:grid-cols-12 gap-8 items-center">
+      <div class="lg:col-span-5">
+        <p class="text-[13px] font-semibold text-ink-900">Built for regulated, department-heavy organisations</p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <span class="inline-flex items-center h-7 px-3 rounded-full border border-line-200 bg-surface-50 text-[13px] text-ink-600">Banking &amp; finance</span>
+          <span class="inline-flex items-center h-7 px-3 rounded-full border border-line-200 bg-surface-50 text-[13px] text-ink-600">Retail &amp; FMCG</span>
+          <span class="inline-flex items-center h-7 px-3 rounded-full border border-line-200 bg-surface-50 text-[13px] text-ink-600">Telecoms</span>
+          <span class="inline-flex items-center h-7 px-3 rounded-full border border-line-200 bg-surface-50 text-[13px] text-ink-600">Conglomerates</span>
+          <span class="inline-flex items-center h-7 px-3 rounded-full border border-line-200 bg-surface-50 text-[13px] text-ink-600">Microfinance</span>
+        </div>
+      </div>
+      <dl class="lg:col-span-7 grid sm:grid-cols-3 gap-px bg-line-200 rounded-lg overflow-hidden border border-line-200">
+        <div class="bg-white px-5 py-4">
+          <dt class="text-[13px] text-ink-600">Database isolation</dt>
+          <dd class="mt-1 font-display text-[19px] font-semibold text-ink-900 tracking-tight">One per company</dd>
+        </div>
+        <div class="bg-white px-5 py-4">
+          <dt class="text-[13px] text-ink-600">Enterprise uptime SLA</dt>
+          <dd class="mt-1 font-display text-[19px] font-semibold text-ink-900 tracking-tight tnum">99.9%</dd>
+        </div>
+        <div class="bg-white px-5 py-4">
+          <dt class="text-[13px] text-ink-600">Permission controls</dt>
+          <dd class="mt-1 font-display text-[19px] font-semibold text-ink-900 tracking-tight"><span class="tnum">37</span> across 10 modules</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== GOVERNANCE / MODULES ============================== -->
+<section id="governance" class="border-b border-line-200">
+  <div class="max-w-7xl mx-auto px-6 py-20 lg:py-28">
+
+    <div class="max-w-3xl">
+      <h2 class="font-display font-bold text-ink-900 tracking-tightest text-[32px] sm:text-[40px] leading-[1.1]">
+        Four artifacts your hiring process is currently made of
+      </h2>
+      <p class="mt-4 text-[17px] leading-[1.65] text-ink-600 measure">
+        None of them can tell you who decided what, or when. Each one has a replacement that can.
+      </p>
+    </div>
+
+    <!-- Row 1 — requisition governance (large) + the email it replaces -->
+    <div class="mt-12 grid lg:grid-cols-12 gap-6">
+
+      <article class="lg:col-span-7 rounded-xl border border-line-200 bg-white overflow-hidden">
+        <div class="p-6 sm:p-8">
+          <h3 class="font-display text-[22px] font-semibold text-ink-900 tracking-tight">Requisition &amp; headcount governance</h3>
+          <p class="mt-3 text-[15px] leading-[1.65] text-ink-600">
+            The chain is copied onto the requisition the moment it is submitted, so editing the template
+            later cannot rewrite a decision already made. Budget and headcount thresholds extend the chain
+            on their own. A rejection opens a new round <em class="not-italic font-semibold text-ink-900">beside</em>
+            the old one, never over it.
+          </p>
+        </div>
+        <div class="border-t border-line-200 bg-surface-50 p-6 sm:p-8">
+          <div class="flex flex-wrap items-center gap-2 font-mono text-[12px]">
+            <span class="inline-flex items-center h-7 px-3 rounded-full bg-white border border-line-200 text-ink-600">Draft</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-ink-600"></i>
+            <span class="inline-flex items-center h-7 px-3 rounded-full bg-warning-100 text-warning-700 font-semibold">PendingApproval</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-ink-600"></i>
+            <span class="inline-flex items-center h-7 px-3 rounded-full bg-success-100 text-success-700 font-semibold">Approved</span>
+            <span class="text-ink-600 px-1">/</span>
+            <span class="inline-flex items-center h-7 px-3 rounded-full bg-danger-100 text-danger-700 font-semibold">Rejected</span>
+          </div>
+          <p class="mt-4 text-[13px] leading-[1.6] text-ink-600">
+            A senior approver can close every step at or below their own position in one action, but may
+            only reject their own. The record names who actually acted, not who the template expected.
+          </p>
+        </div>
+      </article>
+
+      <aside class="lg:col-span-5 rounded-xl border border-line-200 bg-white p-6 sm:p-8 flex flex-col">
+        <p class="text-[13px] font-semibold text-ink-600">What it replaces</p>
+        <div class="mt-4 rounded-lg border border-line-200 bg-surface-50 p-4 space-y-3">
+          <div class="flex items-start gap-2.5">
+            <i data-lucide="corner-up-left" class="w-3.5 h-3.5 text-ink-600 mt-1 shrink-0"></i>
+            <div class="min-w-0">
+              <p class="font-mono text-[12px] text-ink-600 truncate">RE: RE: FW: Headcount approval — Credit Risk</p>
+              <p class="text-[12px] text-ink-600">14 replies · 6 recipients · 2 attachments</p>
+            </div>
+          </div>
+          <div class="h-px bg-line-200"></div>
+          <p class="text-[13px] leading-[1.6] text-ink-600 italic">
+            “Sorry, which version are we approving? I think Finance replied on the older thread.”
+          </p>
+        </div>
+        <p class="mt-5 text-[15px] leading-[1.65] text-ink-600">
+          An email chain has no state. Nobody can answer whose desk the request is on right now, and a
+          forwarded copy is indistinguishable from the original.
+        </p>
+      </aside>
+    </div>
+
+    <!-- Row 2 — blind scorecard + bilingual profiler -->
+    <div class="mt-6 grid lg:grid-cols-12 gap-6">
+
+      <!-- Blind panel -->
+      <article class="lg:col-span-6 rounded-xl border border-line-200 bg-white overflow-hidden flex flex-col">
+        <div class="p-6 sm:p-8">
+          <h3 class="font-display text-[22px] font-semibold text-ink-900 tracking-tight">Blind panel assessment</h3>
+          <p class="mt-3 text-[15px] leading-[1.65] text-ink-600">
+            A panel member sees only their own scorecard until theirs is submitted. Enforced on the server,
+            not hidden in the interface. Submitting is final.
+          </p>
+        </div>
+
+        <div id="panelWidget" data-locked="true" class="mt-auto border-t border-line-200 bg-surface-50 p-6 sm:p-8">
+          <div class="flex items-center justify-between gap-4 mb-4">
+            <p class="font-mono text-[12px] text-ink-600">Panel · Senior Credit Analyst</p>
+            <span id="panelState" class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warning-100 text-warning-700 text-[12px] font-semibold">
+              <i data-lucide="lock" class="w-3 h-3"></i> 2 evaluations hidden
+            </span>
+          </div>
+
+          <ul class="space-y-2">
+            <li class="flex items-center justify-between gap-4 rounded-md border border-line-200 bg-white px-3.5 py-2.5">
+              <span class="text-[14px] text-ink-900 truncate">Daw Hnin Ei Khaing</span>
+              <span class="font-mono text-[14px] font-semibold text-ink-900 tnum score-value">4.2</span>
+            </li>
+            <li class="flex items-center justify-between gap-4 rounded-md border border-line-200 bg-white px-3.5 py-2.5">
+              <span class="text-[14px] text-ink-900 truncate">U Thura Win</span>
+              <span class="font-mono text-[14px] font-semibold text-ink-900 tnum score-value">3.6</span>
+            </li>
+            <li class="flex items-center justify-between gap-4 rounded-md border border-primary-200 bg-primary-50 px-3.5 py-2.5">
+              <span class="text-[14px] font-semibold text-primary-800 truncate">You</span>
+              <span id="yourScore" class="font-mono text-[14px] font-semibold text-primary-800 tnum">not submitted</span>
+            </li>
+          </ul>
+
+          <button id="panelBtn" type="button"
+            class="mt-4 w-full inline-flex items-center justify-center gap-2 h-11 rounded-md bg-primary-600 hover:bg-primary-700 text-white text-[14px] font-semibold transition-colors">
+            <i data-lucide="pen-line" class="w-4 h-4"></i>
+            Submit my evaluation
+          </button>
+          <p id="panelHint" class="mt-3 text-[12px] leading-[1.5] text-ink-600">
+            Try it. The other scores stay sealed until yours is in.
+          </p>
+        </div>
+      </article>
+
+      <!-- Bilingual profiler -->
+      <article class="lg:col-span-6 rounded-xl border border-line-200 bg-white overflow-hidden flex flex-col">
+        <div class="p-6 sm:p-8">
+          <h3 class="font-display text-[22px] font-semibold text-ink-900 tracking-tight">Bilingual CV profiling</h3>
+          <p class="mt-3 text-[15px] leading-[1.65] text-ink-600">
+            Myanmar text arrives in two incompatible encodings that look identical to software. Every CV is
+            normalised to Unicode at the point of ingest, with the original kept alongside it, so a bad
+            conversion stays diagnosable.
+          </p>
+        </div>
+
+        <div class="mt-auto border-t border-line-200 bg-surface-50 p-6 sm:p-8">
+          <div class="flex flex-wrap items-center gap-2 mb-4">
+            <span class="font-mono text-[12px] text-ink-600 truncate">Thiri_Aung_CV.pdf</span>
+            <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-info-100 text-info-700 text-[12px] font-semibold">
+              Zawgyi detected → Unicode
+            </span>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-px bg-line-200 rounded-md overflow-hidden border border-line-200">
+            <div class="bg-white p-3.5">
+              <p class="text-[11px] font-semibold text-ink-600 mb-1.5">English</p>
+              <p class="text-[13px] leading-[1.6] text-ink-700">
+                Credit analyst, 8 years. Led a team of 5 at a commercial bank; prepared IFRS 9 impairment reporting.
+              </p>
+            </div>
+            <div class="bg-white p-3.5">
+              <p class="text-[11px] font-semibold text-ink-600 mb-1.5">မြန်မာ</p>
+              <p class="mm text-[13px] text-ink-700">
+                ချေးငွေဆိုင်ရာ ခွဲခြမ်းစိတ်ဖြာသူ၊ အတွေ့အကြုံ ၈ နှစ်။ ကူးသန်းရောင်းဝယ်ရေးဘဏ်တွင် ဝန်ထမ်း ၅ ဦးကို ဦးဆောင်ခဲ့သည်။
+              </p>
+            </div>
+          </div>
+          <p class="mt-3 text-[12px] text-ink-600">Illustrative data. Burmese copy pending native review.</p>
+        </div>
+      </article>
+    </div>
+
+    <!-- Row 3 — search, full width, different shape -->
+    <article class="mt-6 rounded-xl border border-line-200 bg-white overflow-hidden">
+      <div class="grid lg:grid-cols-12">
+        <div class="lg:col-span-5 p-6 sm:p-8 border-b lg:border-b-0 lg:border-r border-line-200">
+          <h3 class="font-display text-[22px] font-semibold text-ink-900 tracking-tight">Search that works in Burmese</h3>
+          <p class="mt-3 text-[15px] leading-[1.65] text-ink-600">
+            Burmese does not put spaces between words, so ordinary full-text search silently returns nothing.
+            CV search is built on trigram indexing instead, which does not need word boundaries to exist.
+          </p>
+        </div>
+        <div class="lg:col-span-7 p-6 sm:p-8 bg-surface-50">
+          <div class="flex items-center gap-2.5 h-11 px-3.5 rounded-md border border-line-200 bg-white">
+            <i data-lucide="search" class="w-4 h-4 text-ink-600 shrink-0"></i>
+            <span class="mm text-[14px] text-ink-900 truncate">ငွေကြေးစီမံခန့်ခွဲမှု</span>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2 font-mono text-[12px]">
+            <span class="inline-flex items-center h-7 px-3 rounded-full bg-white border border-line-200 text-ink-600">pg_trgm</span>
+            <span class="inline-flex items-center h-7 px-3 rounded-full bg-white border border-line-200 text-ink-600 tnum">142 CVs matched</span>
+          </div>
+          <p class="mt-3 text-[12px] text-ink-600">Illustrative figures.</p>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ============================== WORKFLOW TOUR ============================== -->
+<section id="workflow" class="border-b border-line-200 bg-white">
+  <div class="max-w-7xl mx-auto px-6 py-20 lg:py-28">
+    <div class="max-w-3xl">
+      <h2 class="font-display font-bold text-ink-900 tracking-tightest text-[32px] sm:text-[40px] leading-[1.1]">
+        One vacancy, end to end
+      </h2>
+      <p class="mt-4 text-[17px] leading-[1.65] text-ink-600 measure">
+        Five stages, in the order they actually happen. Each one writes to the same record.
+      </p>
+    </div>
+
+    <div class="mt-12 grid lg:grid-cols-12 gap-6">
+      <div class="lg:col-span-5">
+        <div class="flex flex-col gap-2" role="tablist" aria-label="Hiring workflow stages">
+          <button class="tour-step text-left rounded-lg border border-line-200 bg-surface-50 px-4 py-3.5 flex items-center gap-3.5 transition-all" role="tab" aria-selected="true" aria-controls="tourPanel" id="tour-0" data-step="0">
+            <span class="tour-index shrink-0 w-7 h-7 rounded-full border border-line-300 grid place-items-center font-mono text-[12px] font-semibold text-ink-600 tnum transition-colors">1</span>
+            <span class="text-[15px] font-semibold text-ink-900">Requisition raised</span>
+          </button>
+          <button class="tour-step text-left rounded-lg border border-line-200 bg-surface-50 px-4 py-3.5 flex items-center gap-3.5 transition-all" role="tab" aria-selected="false" aria-controls="tourPanel" id="tour-1" data-step="1">
+            <span class="tour-index shrink-0 w-7 h-7 rounded-full border border-line-300 grid place-items-center font-mono text-[12px] font-semibold text-ink-600 tnum transition-colors">2</span>
+            <span class="text-[15px] font-semibold text-ink-900">Approved and advertised</span>
+          </button>
+          <button class="tour-step text-left rounded-lg border border-line-200 bg-surface-50 px-4 py-3.5 flex items-center gap-3.5 transition-all" role="tab" aria-selected="false" aria-controls="tourPanel" id="tour-2" data-step="2">
+            <span class="tour-index shrink-0 w-7 h-7 rounded-full border border-line-300 grid place-items-center font-mono text-[12px] font-semibold text-ink-600 tnum transition-colors">3</span>
+            <span class="text-[15px] font-semibold text-ink-900">Candidates arrive</span>
+          </button>
+          <button class="tour-step text-left rounded-lg border border-line-200 bg-surface-50 px-4 py-3.5 flex items-center gap-3.5 transition-all" role="tab" aria-selected="false" aria-controls="tourPanel" id="tour-3" data-step="3">
+            <span class="tour-index shrink-0 w-7 h-7 rounded-full border border-line-300 grid place-items-center font-mono text-[12px] font-semibold text-ink-600 tnum transition-colors">4</span>
+            <span class="text-[15px] font-semibold text-ink-900">Panel scores blind</span>
+          </button>
+          <button class="tour-step text-left rounded-lg border border-line-200 bg-surface-50 px-4 py-3.5 flex items-center gap-3.5 transition-all" role="tab" aria-selected="false" aria-controls="tourPanel" id="tour-4" data-step="4">
+            <span class="tour-index shrink-0 w-7 h-7 rounded-full border border-line-300 grid place-items-center font-mono text-[12px] font-semibold text-ink-600 tnum transition-colors">5</span>
+            <span class="text-[15px] font-semibold text-ink-900">Offer and hire</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="lg:col-span-7">
+        <div id="tourPanel" role="tabpanel" aria-labelledby="tour-0" class="h-full rounded-xl border border-line-200 bg-surface-50 p-6 sm:p-8">
+          <h3 id="tourTitle" class="font-display text-[22px] font-semibold text-ink-900 tracking-tight"></h3>
+          <p id="tourBody" class="mt-3 text-[15px] leading-[1.65] text-ink-600 measure"></p>
+          <dl class="mt-6 grid sm:grid-cols-2 gap-px bg-line-200 rounded-lg overflow-hidden border border-line-200">
+            <div class="bg-white px-4 py-3">
+              <dt class="text-[12px] text-ink-600">Who acts</dt>
+              <dd id="tourWho" class="mt-0.5 text-[14px] font-semibold text-ink-900"></dd>
+            </div>
+            <div class="bg-white px-4 py-3">
+              <dt class="text-[12px] text-ink-600">What gets written</dt>
+              <dd id="tourRecord" class="mt-0.5 text-[14px] font-semibold text-ink-900"></dd>
+            </div>
+          </dl>
+          <p class="mt-5 font-mono text-[12px] text-ink-600" id="tourPerm"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== SECURITY / SOVEREIGNTY ============================== -->
+<section id="security" class="bg-primary-900 text-white">
+  <div class="max-w-7xl mx-auto px-6 py-20 lg:py-28">
+    <div class="grid lg:grid-cols-12 gap-12">
+      <div class="lg:col-span-5">
+        <h2 class="font-display font-bold tracking-tightest text-[32px] sm:text-[40px] leading-[1.1] text-white">
+          Your candidate data never shares a database with anyone
+        </h2>
+        <p class="mt-5 text-[17px] leading-[1.65] text-primary-200 measure">
+          Not a row-level filter in a shared system. A separate application instance and a separate
+          database per company, running on our infrastructure or inside yours. Every tier, not just
+          Enterprise.
+        </p>
+        <a href="#demo" class="mt-8 inline-flex items-center justify-center h-12 px-6 rounded-md bg-white hover:bg-primary-50 text-primary-900 text-[15px] font-semibold transition-colors">
+          Talk to us about deployment
+        </a>
+      </div>
+
+      <!-- The same hairline rail the approval chain uses, because these are sequential
+           guarantees about one record's life, not four interchangeable features. -->
+      <div class="lg:col-span-7">
+        <div class="rounded-xl border border-primary-800 overflow-hidden">
+
+          <div class="p-6 sm:p-8 border-b border-primary-800">
+            <h3 class="font-display text-[24px] sm:text-[26px] font-semibold text-white tracking-tight">
+              Physical isolation
+            </h3>
+            <p class="mt-3 text-[16px] leading-[1.65] text-primary-200 max-w-[54ch]">
+              One instance, one database, reached on your own subdomain. Isolation is a boundary, not a
+              column in a table you share with strangers.
+            </p>
+          </div>
+
+          <div class="rail-dark p-6 sm:p-8">
+            <div class="rail-node flex gap-3.5 pb-6">
+              <span class="relative z-10 shrink-0 w-[31px] h-[31px] rounded-full bg-primary-800 border border-primary-700 grid place-items-center">
+                <i data-lucide="scroll-text" class="w-3.5 h-3.5 text-primary-200"></i>
+              </span>
+              <div class="min-w-0 flex-1">
+                <h3 class="font-display text-[16px] font-semibold text-white tracking-tight">Decisions are append-only</h3>
+                <p class="mt-1.5 text-[14px] leading-[1.6] text-primary-200 max-w-[62ch]">
+                  A cancelled requisition keeps its half-decided chain. Rewriting steps would fabricate
+                  decisions nobody made.
+                </p>
+              </div>
+            </div>
+
+            <div class="rail-node flex gap-3.5 pb-6">
+              <span class="relative z-10 shrink-0 w-[31px] h-[31px] rounded-full bg-primary-800 border border-primary-700 grid place-items-center">
+                <i data-lucide="user-x" class="w-3.5 h-3.5 text-primary-200"></i>
+              </span>
+              <div class="min-w-0 flex-1">
+                <h3 class="font-display text-[16px] font-semibold text-white tracking-tight">Candidate erasure</h3>
+                <p class="mt-1.5 text-[14px] leading-[1.6] text-primary-200 max-w-[62ch]">
+                  Right-to-be-forgotten workflows and a two-year retention policy, supporting your PDPA and
+                  GDPR obligations. <span class="text-white font-semibold">Capabilities, not a certification.</span>
+                </p>
+              </div>
+            </div>
+
+            <div class="rail-node flex gap-3.5">
+              <span class="relative z-10 shrink-0 w-[31px] h-[31px] rounded-full bg-primary-800 border border-primary-700 grid place-items-center">
+                <i data-lucide="key-round" class="w-3.5 h-3.5 text-primary-200"></i>
+              </span>
+              <div class="min-w-0 flex-1">
+                <h3 class="font-display text-[16px] font-semibold text-white tracking-tight">Permissions you compose</h3>
+                <p class="mt-1.5 text-[14px] leading-[1.6] text-primary-200 max-w-[62ch]">
+                  37 permission controls across 10 modules, assembled into your own roles. Department
+                  scoping returns <span class="font-mono">404</span>, never
+                  <span class="font-mono">403</span>, so a record's existence is never leaked.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== TIERING ============================== -->
+<section id="tiering" class="border-b border-line-200 bg-white">
+  <div class="max-w-7xl mx-auto px-6 py-20 lg:py-28">
+    <div class="max-w-3xl">
+      <h2 class="font-display font-bold text-ink-900 tracking-tightest text-[32px] sm:text-[40px] leading-[1.1]">
+        One product, priced by what you switch on
+      </h2>
+      <p class="mt-4 text-[17px] leading-[1.65] text-ink-600 measure">
+        An annual licence, quoted through your implementation partner. No per-seat metering, and no
+        per-customer code forks. Every install runs the same product.
+      </p>
+    </div>
+
+    <p class="mt-10 mb-3 lg:hidden inline-flex items-center gap-2 text-[13px] text-ink-600">
+      <i data-lucide="move-horizontal" class="w-4 h-4 text-primary-600"></i>
+      Scroll the table sideways to compare all three tiers.
+    </p>
+
+    <div class="relative lg:mt-12">
+      <!-- The table is wider than a phone and scrolls inside its own box. The fade marks the
+           cut edge so Enterprise does not simply vanish with nothing to say it is there. -->
+      <div class="overflow-x-auto rounded-xl border border-line-200">
+      <table class="w-full min-w-[720px] border-collapse bg-white">
+        <caption class="sr-only">Feature comparison across Core, Professional add-ons and Enterprise</caption>
+        <thead>
+          <tr class="bg-surface-50">
+            <th scope="col" class="text-left px-5 py-4 border-b border-line-200 w-[40%]">
+              <span class="text-[13px] font-semibold text-ink-600">Capability</span>
+            </th>
+            <th scope="col" class="text-left px-5 py-4 border-b border-line-200">
+              <span class="font-display text-[17px] font-semibold text-ink-900 tracking-tight">Core</span>
+              <span class="block text-[12px] font-normal text-ink-600 mt-0.5">1,000–3,000 staff</span>
+            </th>
+            <th scope="col" class="text-left px-5 py-4 border-b border-line-200">
+              <span class="font-display text-[17px] font-semibold text-ink-900 tracking-tight">Professional</span>
+              <span class="block text-[12px] font-normal text-ink-600 mt-0.5">Core + add-ons</span>
+            </th>
+            <th scope="col" class="text-left px-5 py-4 border-b border-line-200 bg-primary-50">
+              <span class="font-display text-[17px] font-semibold text-primary-800 tracking-tight">Enterprise</span>
+              <span class="block text-[12px] font-normal text-primary-700 mt-0.5">5,000+ staff, regulated</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="text-[14px]">
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">Requisitions, approval chains, revise-and-resubmit</th><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">Applicant tracking, pipeline and public job pages</th><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">Blind panel scorecards and threaded debriefs</th><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">Dynamic RBAC: 37 permissions, custom roles</th><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">Dedicated database</th><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">Zawgyi → Unicode normalisation at ingest</th><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">Trigram CV search across Burmese and English</th><td class="px-5 py-3.5 border-b border-line-200" data-no></td><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">AI CV profiling and bilingual summarisation</th><td class="px-5 py-3.5 border-b border-line-200" data-no></td><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">Bulk CV ingestion with OCR</th><td class="px-5 py-3.5 border-b border-line-200" data-no></td><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">Analytics funnels and custom report builder</th><td class="px-5 py-3.5 border-b border-line-200" data-no></td><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">Viber, Telegram and Facebook sourcing</th><td class="px-5 py-3.5 border-b border-line-200" data-no></td><td class="px-5 py-3.5 border-b border-line-200" data-yes></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">On-premise or your own cloud account</th><td class="px-5 py-3.5 border-b border-line-200" data-no></td><td class="px-5 py-3.5 border-b border-line-200" data-no></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">Multi-AZ deployment with 99.9% uptime SLA</th><td class="px-5 py-3.5 border-b border-line-200" data-no></td><td class="px-5 py-3.5 border-b border-line-200" data-no></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5 border-b border-line-200">HRMS and payroll API integration</th><td class="px-5 py-3.5 border-b border-line-200" data-no></td><td class="px-5 py-3.5 border-b border-line-200" data-no></td><td class="px-5 py-3.5 border-b border-line-200 bg-primary-50" data-yes></td></tr>
+          <tr><th scope="row" class="text-left font-normal text-ink-700 px-5 py-3.5">Single sign-on: AD and Entra ID</th><td class="px-5 py-3.5" data-no></td><td class="px-5 py-3.5" data-no></td><td class="px-5 py-3.5 bg-primary-50" data-yes></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="pointer-events-none absolute inset-y-0 right-0 w-14 rounded-r-xl bg-gradient-to-l from-surface-50 to-transparent lg:hidden" aria-hidden="true"></div>
+    </div>
+    <p class="mt-4 text-[13px] text-ink-600">
+      Add-ons are configuration and feature flags, never a private branch of the product.
+    </p>
+  </div>
+</section>
+
+<!-- ============================== FAQ ============================== -->
+<section id="faq" class="border-b border-line-200">
+  <div class="max-w-7xl mx-auto px-6 py-20 lg:py-28">
+    <div class="grid lg:grid-cols-12 gap-12">
+      <div class="lg:col-span-4">
+        <h2 class="font-display font-bold text-ink-900 tracking-tightest text-[32px] sm:text-[40px] leading-[1.1]">
+          Questions procurement always asks
+        </h2>
+        <p class="mt-4 text-[17px] leading-[1.65] text-ink-600">
+          If yours isn't here, ask it in the pilot conversation.
+        </p>
+      </div>
+
+      <div class="lg:col-span-8 divide-y divide-line-200 border-y border-line-200">
+        <details class="group" name="faq">
+          <summary class="flex items-start justify-between gap-6 py-5">
+            <span class="text-[17px] font-semibold text-ink-900">Where does our data physically live?</span>
+            <i data-lucide="chevron-down" class="faq-chev w-5 h-5 text-ink-600 mt-1 shrink-0"></i>
+          </summary>
+          <p class="pb-5 -mt-1 text-[15px] leading-[1.7] text-ink-600 measure">
+            In a database that belongs to your deployment alone. We install one application instance and one
+            database per company: either in a cloud account we operate for you, or inside your own
+            infrastructure on Enterprise. Nothing is pooled with another customer at any tier.
+          </p>
+        </details>
+
+        <details class="group" name="faq">
+          <summary class="flex items-start justify-between gap-6 py-5">
+            <span class="text-[17px] font-semibold text-ink-900">Can we change the approval chain ourselves?</span>
+            <i data-lucide="chevron-down" class="faq-chev w-5 h-5 text-ink-600 mt-1 shrink-0"></i>
+          </summary>
+          <p class="pb-5 -mt-1 text-[15px] leading-[1.7] text-ink-600 measure">
+            Yes. Chains are configuration, built in the interface, per department. Editing one never
+            disturbs a requisition already in flight: the chain is copied onto the requisition at submission,
+            so decisions already recorded cannot be altered by a later template change.
+          </p>
+        </details>
+
+        <details class="group" name="faq">
+          <summary class="flex items-start justify-between gap-6 py-5">
+            <span class="text-[17px] font-semibold text-ink-900">How does search handle Burmese?</span>
+            <i data-lucide="chevron-down" class="faq-chev w-5 h-5 text-ink-600 mt-1 shrink-0"></i>
+          </summary>
+          <p class="pb-5 -mt-1 text-[15px] leading-[1.7] text-ink-600 measure">
+            Two problems, handled separately. Encoding: Zawgyi and Unicode occupy the same code block, so
+            Zawgyi text looks valid and never matches. Every entry point converts to Unicode before storage
+            and keeps the original for diagnosis. Tokenisation: Burmese has no reliable word spacing, so
+            search uses trigram indexing rather than word-boundary full-text search.
+          </p>
+        </details>
+
+        <details class="group" name="faq">
+          <summary class="flex items-start justify-between gap-6 py-5">
+            <span class="text-[17px] font-semibold text-ink-900">Can a hiring manager see another department's candidates?</span>
+            <i data-lucide="chevron-down" class="faq-chev w-5 h-5 text-ink-600 mt-1 shrink-0"></i>
+          </summary>
+          <p class="pb-5 -mt-1 text-[15px] leading-[1.7] text-ink-600 measure">
+            No. Access is scoped to the departments they own, and an out-of-scope record returns
+            <span class="font-mono text-[13px]">404</span> rather than <span class="font-mono text-[13px]">403</span>,
+            so they cannot even confirm it exists. The one deliberate exception is panel membership, which
+            grants read access to exactly one application, which is what makes cross-department interview
+            panels possible.
+          </p>
+        </details>
+
+        <details class="group" name="faq">
+          <summary class="flex items-start justify-between gap-6 py-5">
+            <span class="text-[17px] font-semibold text-ink-900">What happens when a candidate asks to be deleted?</span>
+            <i data-lucide="chevron-down" class="faq-chev w-5 h-5 text-ink-600 mt-1 shrink-0"></i>
+          </summary>
+          <p class="pb-5 -mt-1 text-[15px] leading-[1.7] text-ink-600 measure">
+            An erasure workflow removes their personal data and attached documents while preserving the
+            anonymised hiring statistics your reporting depends on. Candidate records also age out under a
+            two-year retention policy. These are capabilities to support your PDPA and GDPR obligations.
+            We do not hold a compliance certification, and we will not claim one.
+          </p>
+        </details>
+
+        <details class="group" name="faq">
+          <summary class="flex items-start justify-between gap-6 py-5">
+            <span class="text-[17px] font-semibold text-ink-900">Do we get a customised version?</span>
+            <i data-lucide="chevron-down" class="faq-chev w-5 h-5 text-ink-600 mt-1 shrink-0"></i>
+          </summary>
+          <p class="pb-5 -mt-1 text-[15px] leading-[1.7] text-ink-600 measure">
+            You get a configured one, which is better. Approval chains, scorecard criteria, application form
+            fields, JD templates and roles are all data in your own database. We deliberately never fork the
+            codebase per customer. A private branch is what stops you receiving the fixes and upgrades
+            everyone else gets.
+          </p>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== CTA ============================== -->
+<section id="demo" class="bg-ink-900">
+  <div class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
+    <div class="grid lg:grid-cols-12 gap-10 items-center">
+      <div class="lg:col-span-7">
+        <h2 class="font-display font-bold tracking-tightest text-[32px] sm:text-[42px] leading-[1.08] text-white">
+          Run one real requisition through it
+        </h2>
+        <p class="mt-4 text-[17px] leading-[1.65] text-ink-400 measure">
+          The pilot uses your own org structure, your approval chain and your departments, so the
+          evaluation answers the question procurement will actually ask.
+        </p>
+      </div>
+      <div class="lg:col-span-5 flex flex-col sm:flex-row lg:justify-end gap-3">
+        <a href="mailto:hello@recruitops.example?subject=Enterprise%20pilot%20request" class="inline-flex items-center justify-center h-12 px-6 rounded-md bg-primary-600 hover:bg-primary-500 text-white text-[15px] font-semibold transition-colors">
+          Request an enterprise pilot
+        </a>
+        <a href="#governance" class="inline-flex items-center justify-center h-12 px-6 rounded-md border border-ink-700 hover:border-ink-600 text-white text-[15px] font-semibold transition-colors">
+          Review the platform
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============================== FOOTER ============================== -->
+<footer class="bg-ink-900 border-t border-ink-800 text-ink-400">
+  <div class="max-w-7xl mx-auto px-6 py-14">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
+      <div>
+        <div class="flex items-center gap-2.5">
+          <svg width="24" height="24" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+            <rect x="1" y="1" width="24" height="24" rx="7" fill="#0E6E6B"/>
+            <circle cx="9" cy="7.5" r="2.1" fill="#FFFFFF"/>
+            <circle cx="9" cy="13" r="2.1" fill="#FFFFFF"/>
+            <circle cx="9" cy="18.5" r="2.1" fill="#F2A33C"/>
+            <path d="M9 9.6v1.3M9 15.1v1.3" stroke="#B8E0DE" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#B8E0DE" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <span class="font-display text-[17px] font-bold tracking-tighter text-white">RecruitOps</span>
+        </div>
+        <p class="mt-4 text-[14px] leading-[1.6] max-w-[30ch]">
+          Recruitment operations for companies that hire their own people.
+        </p>
+      </div>
+
+      <div>
+        <h3 class="text-[13px] font-semibold text-white">Platform</h3>
+        <ul class="mt-4 space-y-2.5 text-[14px]">
+          <li><a class="hover:text-white transition-colors" href="#governance">Requisition governance</a></li>
+          <li><a class="hover:text-white transition-colors" href="#governance">Applicant tracking</a></li>
+          <li><a class="hover:text-white transition-colors" href="#governance">Blind assessment</a></li>
+          <li><a class="hover:text-white transition-colors" href="#workflow">Workflow tour</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="text-[13px] font-semibold text-white">Deployment</h3>
+        <ul class="mt-4 space-y-2.5 text-[14px]">
+          <li><a class="hover:text-white transition-colors" href="#security">Data isolation</a></li>
+          <li><a class="hover:text-white transition-colors" href="#security">Access control</a></li>
+          <li><a class="hover:text-white transition-colors" href="#tiering">Tiers and add-ons</a></li>
+          <li><a class="hover:text-white transition-colors" href="#faq">Procurement FAQ</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="text-[13px] font-semibold text-white">Data practices</h3>
+        <ul class="mt-4 space-y-2.5 text-[14px]">
+          <li>Dedicated database per company</li>
+          <li>Right-to-be-forgotten workflows</li>
+          <li>Two-year candidate retention</li>
+          <li>Append-only decision history</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-12 pt-6 border-t border-ink-800 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+      <p class="text-[13px]">© 2026 RecruitOps. Sold and implemented through local partners.</p>
+      <p class="text-[13px]">Product screens on this page use illustrative data.</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- Tier table marks: drawn icons, not unicode glyphs ---------- */
+  var YES = '<span class="inline-flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-primary-600"></i><span class="sr-only">Included</span></span>';
+  var NO  = '<span class="inline-flex items-center gap-2"><i data-lucide="minus" class="w-4 h-4 text-ink-600"></i><span class="sr-only">Not included</span></span>';
+  document.querySelectorAll('td[data-yes]').forEach(function (td) { td.innerHTML = YES; });
+  document.querySelectorAll('td[data-no]').forEach(function (td) { td.innerHTML = NO; });
+
+  /* ---------- Mobile navigation ---------- */
+  var navToggle = document.getElementById('navToggle');
+  var mobileNav = document.getElementById('mobileNav');
+  navToggle.addEventListener('click', function () {
+    var open = mobileNav.classList.toggle('hidden') === false;
+    navToggle.setAttribute('aria-expanded', String(open));
+    navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    navToggle.innerHTML = '<i data-lucide="' + (open ? 'x' : 'menu') + '" class="w-5 h-5 text-ink-700"></i>';
+    lucide.createIcons();
+  });
+  mobileNav.querySelectorAll('a').forEach(function (a) {
+    a.addEventListener('click', function () {
+      mobileNav.classList.add('hidden');
+      navToggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  /* ---------- Interface language, demonstrating the bilingual chrome ---------- */
+  var langButtons = document.querySelectorAll('.lang-btn');
+  langButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var lang = btn.dataset.lang;
+      // Toggle only the colour classes. The header and mobile-nav toggles are sized
+      // differently, so replacing className wholesale would flatten one of them.
+      langButtons.forEach(function (b) {
+        var on = b.dataset.lang === lang;
+        b.setAttribute('aria-pressed', String(on));
+        b.classList.toggle('bg-primary-600', on);
+        b.classList.toggle('text-white', on);
+        b.classList.toggle('text-ink-600', !on);
+      });
+      document.querySelectorAll('[data-en]').forEach(function (el) {
+        el.textContent = lang === 'mm' ? el.dataset.mm : el.dataset.en;
+        el.classList.toggle('mm', lang === 'mm');
+      });
+    });
+  });
+
+  /* ---------- Blind panel: scores stay sealed until yours is in ---------- */
+  var widget = document.getElementById('panelWidget');
+  var panelBtn = document.getElementById('panelBtn');
+  var panelState = document.getElementById('panelState');
+  var yourScore = document.getElementById('yourScore');
+  var panelHint = document.getElementById('panelHint');
+
+  panelBtn.addEventListener('click', function () {
+    var locked = widget.dataset.locked === 'true';
+    if (locked) {
+      widget.dataset.locked = 'false';
+      yourScore.textContent = '4.0';
+      panelState.className = 'inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-success-100 text-success-700 text-[12px] font-semibold';
+      panelState.innerHTML = '<i data-lucide="lock-open" class="w-3 h-3"></i> Panel revealed';
+      panelBtn.innerHTML = '<i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset the demonstration';
+      panelHint.textContent = 'Submitting is irreversible in the product. This demonstration resets.';
+    } else {
+      widget.dataset.locked = 'true';
+      yourScore.textContent = 'not submitted';
+      panelState.className = 'inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warning-100 text-warning-700 text-[12px] font-semibold';
+      panelState.innerHTML = '<i data-lucide="lock" class="w-3 h-3"></i> 2 evaluations hidden';
+      panelBtn.innerHTML = '<i data-lucide="pen-line" class="w-4 h-4"></i> Submit my evaluation';
+      panelHint.textContent = 'Try it. The other scores stay sealed until yours is in.';
+    }
+    lucide.createIcons();
+  });
+
+  /* ---------- Workflow tour ---------- */
+  var STEPS = [
+    {
+      title: 'A hiring manager raises the requisition',
+      body: 'Position, headcount, salary budget and the role requirements, submitted from inside the system, with a job description pulled from your template library rather than rewritten from scratch.',
+      who: 'Department hiring manager',
+      record: 'Requisition, status Draft',
+      perm: 'permission:requisitions:requisitions:create'
+    },
+    {
+      title: 'The chain decides, then the role is advertised',
+      body: 'Each approver acts in sequence, and a budget breach extends the chain automatically. Nothing can be advertised without an approval behind it: one posting per approved requisition, enforced in the database, not just the code.',
+      who: 'Approvers, then a recruiter',
+      record: 'Approval steps, then JobPosting',
+      perm: 'permission:postings:postings:publish'
+    },
+    {
+      title: 'Candidates apply, or CVs arrive in bulk',
+      body: 'A public job page carries your own application questions. Someone applying twice with a differently formatted phone number is recognised as the same person rather than duplicated.',
+      who: 'Candidates and recruiters',
+      record: 'Candidate, JobApplication, stage history',
+      perm: 'permission:applications:applications:create'
+    },
+    {
+      title: 'The panel scores without seeing each other',
+      body: 'Each interviewer completes a scorecard drawn from the department template. Nobody sees another evaluation until their own is submitted, and the criteria are frozen onto each response so a later template edit cannot change what someone was asked.',
+      who: 'Interview panel, including cross-department members',
+      record: 'Scorecard, snapshotted criteria, debrief notes',
+      perm: 'permission:scorecards:scorecards:submit'
+    },
+    {
+      title: 'Offer, hire, and the numbers that follow',
+      body: 'The stage history written from the very first application, including anonymous arrivals, is what makes time-to-hire and source-of-hire answerable later. Hired and Rejected are terminal, so reopening cannot quietly corrupt the figures.',
+      who: 'Recruiter and HR director',
+      record: 'Terminal stage, analytics feed',
+      perm: 'permission:applications:applications:update'
+    }
+  ];
+
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tour-step'));
+  var tourTitle = document.getElementById('tourTitle');
+  var tourBody = document.getElementById('tourBody');
+  var tourWho = document.getElementById('tourWho');
+  var tourRecord = document.getElementById('tourRecord');
+  var tourPerm = document.getElementById('tourPerm');
+  var tourPanel = document.getElementById('tourPanel');
+
+  function selectStep(index) {
+    tabs.forEach(function (tab, i) {
+      tab.setAttribute('aria-selected', String(i === index));
+      tab.setAttribute('tabindex', i === index ? '0' : '-1');
+    });
+    var step = STEPS[index];
+    tourTitle.textContent = step.title;
+    tourBody.textContent = step.body;
+    tourWho.textContent = step.who;
+    tourRecord.textContent = step.record;
+    tourPerm.textContent = step.perm;
+    tourPanel.setAttribute('aria-labelledby', 'tour-' + index);
+  }
+
+  tabs.forEach(function (tab, i) {
+    tab.addEventListener('click', function () { selectStep(i); });
+    tab.addEventListener('keydown', function (event) {
+      var next = null;
+      if (event.key === 'ArrowDown' || event.key === 'ArrowRight') next = (i + 1) % tabs.length;
+      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') next = (i - 1 + tabs.length) % tabs.length;
+      if (event.key === 'Home') next = 0;
+      if (event.key === 'End') next = tabs.length - 1;
+      if (next === null) return;
+      event.preventDefault();
+      selectStep(next);
+      tabs[next].focus();
+    });
+  });
+
+  selectStep(0);
+  lucide.createIcons();
+})();
+</script>
+</body>
+</html>
