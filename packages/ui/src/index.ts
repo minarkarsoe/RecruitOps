@@ -1,7 +1,6 @@
 export {
   StatusPill,
   type StatusPillVocabulary,
-  type ExtendedStatusVocabulary,
 } from './StatusPill';
 export { Button, type ButtonProps } from './Button';
 export { Card } from './Card';
@@ -68,17 +67,4 @@ export {
   type PipelineStageRailProps,
   type PipelineStageItem,
 } from './PipelineStageRail';
-export {
-  ExpiryAttentionCard,
-  type ExpiryAttentionCardProps,
-  type ExpiryItem,
-} from './ExpiryAttentionCard';
-export {
-  ClientPortalCard,
-  ClientFeedbackBar,
-  type ClientPortalCardProps,
-  type ClientPortalCandidate,
-  type ClientFeedbackBarProps,
-  type ClientFeedbackStatus,
-} from './ClientPortalCard';
 

@@ -12,18 +12,25 @@ export interface PipelineStageRailProps {
   className?: string;
 }
 
+// The in-house funnel, in `PipelineStatus` order. `Rejected` is deliberately absent: it is a
+// terminal exit from the funnel, not a stage along it, and putting it in the rail would imply
+// candidates flow into it from `Hired`. These defaults previously read
+// `Sourced → Shortlisted → Sent to Client → Interview → Placed`, two of which are agency-era
+// labels ADR-0001 deleted.
 const DEFAULT_STAGES: PipelineStageItem[] = [
   { label: 'Sourced', count: 24, status: 'Sourced' },
+  { label: 'Applied', count: 18, status: 'Applied' },
+  { label: 'Screening', count: 12, status: 'Screening' },
   { label: 'Shortlisted', count: 8, status: 'Shortlisted' },
-  { label: 'Sent to Client', count: 5, status: 'Sent to Client' },
-  { label: 'Interview', count: 2, status: 'Interview' },
-  { label: 'Placed', count: 1, status: 'Placed' },
+  { label: 'Interview', count: 4, status: 'Interview' },
+  { label: 'Offer', count: 2, status: 'Offer' },
+  { label: 'Hired', count: 1, status: 'Hired' },
 ];
 
 /**
  * Signature Component: Pipeline Stage Rail (Design System §6.1).
- * Horizontal row of stage counts at top of job order or pipeline views:
- * Sourced 24 → Shortlisted 8 → Sent to Client 5 → Interview 2 → Placed 1
+ * Horizontal row of stage counts at the top of a job posting or pipeline view:
+ * Sourced 24 → Applied 18 → Screening 12 → Shortlisted 8 → Interview 4 → Offer 2 → Hired 1
  */
 export function PipelineStageRail({
   stages = DEFAULT_STAGES,

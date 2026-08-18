@@ -9,11 +9,15 @@ export default {
         line: { 200: '#E3E9EC' },
         surface: { 0: '#FFFFFF', 50: '#F6F9F9' },
         primary: { 700: '#0B5654', 600: '#0E6E6B', 100: '#DCEFEE' },
-        accent: { 500: '#F2A33C', 100: '#FCF0DC' },
-        success: { 600: '#1E8E5A', 100: '#E2F4EA' },
-        warning: { 600: '#C97A0A', 100: '#FCF0DC' },
-        danger: { 600: '#C94430', 100: '#FBE8E4' },
-        info: { 600: '#2E6ECF', 100: '#E6EEFB' },
+        // The -700 steps are the text colour on a matching -100 tint. The -600 steps stay for
+        // solid fills, icons and borders. Measured 2026-08-17: -600 on -100 does NOT reach
+        // 4.5:1 at pill size (warning 2.97, success 3.62, danger 4.08, info 4.23), so the
+        // design system's old "-600 on tint is AA guaranteed" rule was simply untrue.
+        accent: { 700: '#8A5A08', 500: '#F2A33C', 100: '#FCF0DC' },
+        success: { 700: '#146B43', 600: '#1E8E5A', 100: '#E2F4EA' },
+        warning: { 700: '#8A5A08', 600: '#C97A0A', 100: '#FCF0DC' },
+        danger: { 700: '#A63423', 600: '#C94430', 100: '#FBE8E4' },
+        info: { 700: '#22528F', 600: '#2E6ECF', 100: '#E6EEFB' },
         zinc: {
           50: '#F6F9F9',
           100: '#E3E9EC',
