@@ -31,3 +31,7 @@ Thumbs.db
 # Office lock/owner files — created while a .docx/.xlsx is open, and they carry
 # the editing user's name. Never useful in history.
 ~$*
+
+# Impeccable review captures — regenerated screenshots, not source (11 MB of PNGs).
+# The design record itself (.impeccable/design.json, config.json, questions/) IS tracked.
+.impeccable/review/
