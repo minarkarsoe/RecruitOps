@@ -3,7 +3,260 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-08-16 (latest)
+## 2026-08-18 (latest)
+
+### 🎨 The remaining thirteen screens — every module now has a drawn UI
+**Why:** the design kit stopped at Modules 1–5, so the whole administration surface, both
+sourcing modules, planning and the entire public app existed only as prose. The customer has
+no designer, and a spec that has never been drawn hides its own gaps.
+
+**Thirteen screens, taking the kit from 12 to 25.** Same V1.0 tokens from `ds.js`, so Tailwind
+classes transfer straight into React. A link check across all 26 files found and closed the one
+dangling reference — `offer-dashboard.html` had pointed at a `preboarding-review.html` that was
+never drawn.
+
+- **Module 7 · access & administration** — `login.html` (six states), `users-roles.html`
+  (role builder + department scope), `settings-org.html` (departments + approval-chain
+  builder), `settings-integrations.html` (HRMS, mail/calendar, retention purge).
+- **Modules 2 & 8 · sourcing** — `postings.html` (public link + application-form builder),
+  `talent-pool.html` (search, bulk CV upload, merge), `channels.html` (Viber/Telegram/Facebook).
+- **Module 3 · configuration** — `scorecard-builder.html`.
+- **Module 4.3 · pre-boarding** — `preboarding-review.html`, the recruiter's side of the
+  document check. It holds the most sensitive data in the product (NRC scans, bank accounts),
+  so: no thumbnail grid, account numbers masked until a recorded reveal, no Hiring Manager
+  variant at all, and a department handoff that carries a name, a role and a date to IT and
+  nothing else.
+- **Module 6 · planning** — `planning-budget.html`.
+- **Public app** — `design/public/jobs.html`, `job.html`, `apply.html`, joining the existing
+  offer portal.
+
+**Drawn against the code, not against intentions.** The role builder uses the real permission
+codes from `RbacSeedData.cs` — including the two whose action segment is not a bare verb
+(`applications:move_stage`, `scorecards:manage_templates`) — and renders the real service
+rules: system roles immutable, a role with active users undeletable, `Admin` holding 32 of 33
+permissions and bypassing the matrix entirely. The scorecard builder renders
+`ScorecardTemplate`'s three-level resolution as a resolved path, and the three `CriterionType`
+values, no more.
+
+**One correction to a mid-build assumption, recorded because it nearly shipped.** The login
+screen was first drawn with lockout as an open question, an "attempts remaining" hint, and an
+"ask your administrator to unlock" line. All three are wrong:
+[ADR-0016](../decisions/ADR-0016-login-brute-force-protection.md) is accepted and implemented,
+failures are counted for **every** email real or not (so the lockout is not an existence
+oracle), admin unlock was considered and **rejected** as a griefing weapon, and the 401 carries
+no body so the page has nothing to count with. The screen now renders that decision and cites
+it.
+
+**Five findings the drawing produced**, each recorded on the screen where it bites and
+summarised on `design/internal/index.html`:
+
+1. **The threshold rule has nowhere to live.** Three existing screens show an approver "added
+   by threshold rule"; `ApprovalChain` stores a name, an optional department and an active flag
+   — no condition, no amount, no operator. Either the entity gains fields or those screens are
+   wrong.
+2. **`ApprovalChainStep.ApproverUserId` is a person, not a role.** Disabling a user on the
+   Users screen can silently stall every requisition waiting at their step. The link is
+   invisible in the data, so the disable flow has to name the chains it breaks.
+3. **Module 8 may be unbuildable on-premise.** Viber/Telegram/Facebook deliver by webhook and
+   an on-prem install behind a firewall has no reachable endpoint. Three exits (publish an
+   endpoint, hosted-tier only, outbound polling) and none chosen — for the module positioned as
+   the primary differentiator. The screen is drawn blocked-first rather than happy-path.
+4. **Module 6 depends on `Requisition → HeadcountPlan`.** Every "raised" and "remaining" figure
+   needs it; the module doc lists it as an open question. Without it the headcount table is
+   hand-typed and wrong within a week.
+5. **Age/gender filters are unconfirmed for this market.** Module 2 flags data-protection
+   implications; the screen holds them behind a click with the question attached rather than
+   sitting them in the filter row where they get used by reflex.
+
+**Touched:** `design/internal/*.html` (9 new + index rewritten), `design/public/*.html`
+(3 new), `.impeccable/review/`, `docs/status/FEATURE-STATUS.md`.
+
+### 📋 Module 4 and Module 5 scope rewritten from a sales requirement
+**Why:** the product owner received new requirement documents from sales
+(`Module 4_Offer Management & Pre-boarding.pdf`, `Module 5_Reporting & Analytics.pdf`).
+Neither module is built, so this is a **spec change only** — no code was touched, per
+CLAUDE.md's rule that the module doc moves before the code.
+
+**Reading the PDFs was itself a finding.** Their text layer is unusable for Myanmar: both
+`pypdf` and `pdf.js` return mis-mapped codepoints (`ြ ာျူး` where `များ` belongs) because the
+embedded `MyanmarText` subset ships a broken `ToUnicode` CMap. The English text extracts
+correctly; the Burmese does not. The content was recovered by **rasterising the pages with
+pdf.js and reading the glyphs**, not by trusting any extractor. This is
+[ADR-0009](../decisions/ADR-0009-myanmar-script-handling.md)'s problem arriving from the
+outside: a document that *looks* like valid Myanmar text to software and is not.
+
+**Module 4 — restructured, not just extended:**
+- Three sub-modules (Offer Dashboard / Offer Generation & Approval / Pre-boarding &
+  E-Signature) replace the old 4.1–4.4 feature list.
+- **Status vocabulary changed:** `Pending Approval` added; `Signed`→`Accepted`,
+  `Declined`→`Rejected`. ⚠️ `Rejected` now collides with `PipelineStatus.Rejected` — same
+  label, different enum. `StatusPill` is deliberately strict about vocabulary, so
+  `OfferStatus` joins as a fifth enum and the two must not be conflated.
+- **Answers a standing open question:** offers *do* get their own approval chain — over
+  budget or policy-driven, routed to HR Director / Finance.
+- **New scope: HRMS sync via API on day one** (QHRM, BetterHR, GlobalTA, CityHR named).
+  Flagged against ADR-0007: build one export contract as an extension point, not four
+  vendor integrations in core.
+
+**Module 5 — metric definitions changed:**
+- Three sub-modules (Executive Dashboard / Pipeline & Source Analytics / Custom Report
+  Builder).
+- **Both clocks re-defined:** Time-to-Fill now runs from *requisition approved*, and both
+  metrics end at *offer accepted*. Two consequences recorded: the approval wait is excluded
+  by definition, so a requisition stuck twelve days in a chain reports a **shorter**
+  Time-to-Fill; and neither metric is computable until Module 4 exists.
+- **Answers "who may see whose numbers"** with a full per-sub-module permission matrix.
+  Hiring Managers get **no access** to Pipeline & Source Analytics at all.
+- **New: Recruiter Leaderboard** — staff performance ranking. Flagged as an
+  employment-relations and personal-data question, not a neutral chart.
+- **New: Schedule Email**, which forces server-side report generation since no browser is
+  present when it runs.
+
+**One blocker is now shared by three modules:** there is still no email sender and no job
+scheduler in the codebase. That already blocked Module 3's interview invitations; it now
+also blocks Module 4's `Remind Candidate`, `Send to Candidate` and IT/Admin handoff, and
+Module 5's scheduled reports. Recorded as a gap in FEATURE-STATUS rather than four separate
+per-module notes.
+
+**Touched:** `docs/product/modules/04-offer-and-preboarding.md`,
+`docs/product/modules/05-reporting-and-analytics.md`, `docs/status/FEATURE-STATUS.md`.
+
+### 🎨 Screens drawn for Modules 4 and 5
+**Why:** the revised specs needed to be seen, not just read, and the customer has no designer.
+Static HTML in `design/internal/` (and `design/public/` for the one external surface), same
+V1.0 tokens from `ds.js`, so Tailwind classes transfer straight into React.
+
+**Six screens:** offer dashboard, offer generation & approval, candidate offer portal,
+executive dashboard, pipeline & source analytics, custom report builder.
+
+**The designs resolve things the specs only flagged:**
+- The **`Rejected` collision** — the offer pill never appears in a pipeline list, and the row
+  spells out *"Declined by candidate"* beneath it.
+- **Hiring Manager salary hiding** renders as an **absent column**, not a blurred one. A
+  column that is present but obscured advertises that a number exists.
+- The **offer approval reuses Module 1's rail**, visually and structurally, rather than
+  introducing a second approval mechanism.
+- The **funnel band mapping** (4 bands ↔ 8 enum values) is drawn on the screen, including why
+  `Rejected` gets no band.
+- The **recruiter leaderboard is deliberately unsorted**, with the observation that the
+  recruiter with the fewest CVs has the best conversion — any single-column sort would invert
+  the truth.
+- A **proposed fourth KPI tile, "time in approval"**, marked as *not in the requirement*:
+  both required clocks start after approval, so the delay this product exists to remove is
+  invisible on its own dashboard.
+
+**Chart colour was computed, not chosen.** The categorical palette
+`#0D9488 #7C3AED #D97706 #0369A1` was run through the dataviz validator and passes all six
+checks (worst adjacent CVD ΔE 21.0 deutan / 13.6 tritan; normal-vision 30.2). The first
+candidate used the brand teal `#0F766E` and **failed the chroma floor** — it reads as grey in
+a chart — so it was re-stepped to `#0D9488`. Source share and source conversion are two
+separate charts, never one dual-axis chart.
+
+**Touched:** `design/internal/{offer-dashboard,offer-create,analytics-dashboard,analytics-pipeline,report-builder,index}.html`,
+`design/public/offer-portal.html`.
+
+## 2026-08-17
+
+### 🧹 The design system finally went through the pivot, three weeks late
+**Why:** `RecruitOps_Design_System.md` still opened with *"Design system for a B2B Recruitment
+Agency Platform (RAaaS)"* and *"Your agency, running on rails."* — a product
+[ADR-0001](../decisions/ADR-0001-pivot-to-inhouse.md) deleted on 2026-07-27. It specified a
+client portal, Gold/Silver/Bronze client tiers, a client feedback bar, contract-expiry cards,
+and a `Sent to Client` / `Placed` status vocabulary. **The doc and the token file had already
+disagreed** — the preset carried no tier colours — and nothing caught it, because docs have no
+compiler.
+
+**The mechanism that kept the dead code alive.** `packages/ui` still *exported*
+`ClientPortalCard`, `ClientFeedbackBar` and `ExpiryAttentionCard`. Nothing in either app
+imported them; the only importers were **two test files**, `signatureComponents.test.tsx` and
+`challenger_signature_edgecases.test.tsx`. So the suite was green *because* it exercised code
+the product had removed — the tests were the last thing holding the agency model in the build.
+`signatureComponents.test.tsx` opened with a suite literally named "StatusPill Extended
+Vocabulary" asserting `Sent to Client`, `Placed`, `Accepted`, `Need More Info`, `Active`,
+`Expiring Soon` and `Expired`.
+
+**Shape:**
+- `RecruitOps_Design_System.md` rewritten: thesis is now *"every decision has a record"*; three
+  surfaces (internal app, public **applicant** job page, marketing) replace the agency's
+  internal/client-portal split; status vocabulary is exactly the four backend enums; two new
+  signature patterns replace the client ones — **Approval Chain Rail** (rounds stack rather than
+  replace, senior skip-ahead names both parties, threshold breach renders amber) and **Blind
+  Panel Scorecard** (withheld scores are *absent*, never blurred placeholders).
+- `StatusPill`: `ExtendedStatusVocabulary` deleted — all ten labels were agency-era. The
+  vocabulary is now the union of the four enums with **no free-form extension point**, on
+  purpose: a label with no enum behind it is a status the product cannot be in.
+- `PipelineStageRail`: defaults were `Sourced → Shortlisted → Sent to Client → Interview →
+  Placed`, two of them deleted labels. Now the real funnel, `Sourced → Applied → Screening →
+  Shortlisted → Interview → Offer → Hired`. `Rejected` is deliberately excluded — it is an exit
+  from the funnel, and listing it implies candidates flow into it from `Hired`.
+- `ClientPortalCard.tsx` and `ExpiryAttentionCard.tsx` deleted, with their exports.
+
+**Contrast, fixed properly this time.** The doc claimed `-600` on `-100` was "WCAG AA
+guaranteed" and that `ink-400` meta text was pre-checked. Measured at pill size, **five of those
+claims were false**: warning 2.97:1, success 3.62, danger 4.08, info 4.23, `ink-400` on
+`surface-50` 2.77 — against a 4.5:1 floor. Added `-700` text-on-tint steps to the preset
+(success `#146B43`, warning/accent `#8A5A08`, danger `#A63423`, info `#22528F`) and moved
+`StatusPill` onto them. The doc now says *verify, do not assert*.
+
+**Proved to fail first.** The new contrast cases were mutated before being trusted — reverting
+`Hired` to `text-success-600` and `Sourced` to `text-ink-400` produced exactly 2 failures, then
+was restored. A guarantee nobody has seen fail is not a guarantee.
+
+**Touched:** `RecruitOps_Design_System.md`, `packages/ui/tailwind-preset.js`,
+`packages/ui/src/StatusPill.tsx`, `packages/ui/src/PipelineStageRail.tsx`,
+`packages/ui/src/index.ts`, `packages/ui/src/ClientPortalCard.tsx` (deleted),
+`packages/ui/src/ExpiryAttentionCard.tsx` (deleted),
+`frontend/internal/src/components/ui/signatureComponents.test.tsx` (rewritten, 16 cases),
+`frontend/internal/src/components/ui/challenger_signature_edgecases.test.tsx` (trimmed to 9).
+
+**Verified:** `npm run typecheck` clean across both apps; `npm run test` in `frontend/internal`
+**342/342 green across 43 files**.
+
+### 🎨 Marketing landing page, and two contrast bugs it found in the design system
+**Why:** the product needed a public sales surface. Built through the `impeccable` skill
+(installed into this repo at `.claude/skills/impeccable/`), which routes a new surface through
+`PRODUCT.md` → visual direction → build → review.
+
+**Shape:** `marketing/landing.html` — a single self-contained file using the Tailwind CDN and
+Lucide icons, opening in a browser with no build step. It is deliberately **not** a route in
+`frontend/public`; promoting it into the Next.js app is a separate decision. The chosen structure
+is "Before/After Desk": the page opens on the artifacts hiring actually runs on today (an Excel
+headcount tracker, a `RE: RE: FW:` approval thread) and replaces each with the record that
+supersedes it. It inherits the shipped "Clear Pipeline" tokens rather than forking them.
+
+**What it is careful not to claim.** Confirmed with the product owner before writing: no named
+customers or logos, no MMK pricing, and **no PDPA/GDPR/SOC badges** — none of those are real, and
+a compliance badge implying certification would have been the worst thing on the page. Target
+industries read as "built for". The one authorised claim is the **99.9% Enterprise uptime SLA**,
+which is *not yet recorded in any ADR* — see the follow-up below.
+
+**Two real contrast failures found, both inherited, both affecting the product:**
+- `RecruitOps_Design_System.md` §9 states all token pairs are "pre-checked" at ≥4.5:1. They are
+  not. `ink-400` (`#8A99A3`) on `surface-50` measures **2.77:1**, and it is used for meta text.
+- §2 states "text on tint backgrounds always uses the matching `-600` color (WCAG AA
+  guaranteed)". False for **all four** semantic pairs at pill sizes: warning **2.97**, success
+  **3.62**, danger **4.08**, info **4.23**. `StatusPill` is the design system's signature
+  component, so this ships in both frontends today.
+  The landing page fixed both locally (meta text at `ink-600`; new `-700` tint-text steps).
+  **The shared preset and `StatusPill` were fixed the same day** — see the design-system entry
+  above, which adopted the same `-700` steps so the two surfaces agree.
+
+**Also found:** `RecruitOps_Design_System.md` never went through the 2026-07-27 pivot — it still
+describes "a B2B Recruitment Agency Platform (RAaaS)", client tiers, a client feedback bar and the
+deleted `Sent to Client` / `Placed` vocabulary. `packages/ui` still exports `ClientPortalCard`,
+`ClientFeedbackBar` and `ExpiryAttentionCard`, kept alive only by
+`challenger_signature_edgecases.test.tsx` (and `signatureComponents.test.tsx`, which the first
+sweep missed). **Fixed the same day** — see the design-system entry above.
+
+**Touched:**
+- `marketing/landing.html` (new)
+- `PRODUCT.md`, `DESIGN.md` (new, repo root) — product truth and the built visual system
+- `.claude/skills/impeccable/`, `.claude/agents/impeccable-*.md`, `.impeccable/config.json` (new)
+
+**Follow-ups:** write the 99.9% SLA into an ADR and the commercial terms before the page goes
+live; fix the tint-pill contrast in `packages/ui`; pivot the design-system doc.
+
+## 2026-08-16
 
 ### ♻️ A rejected requisition can be revised and resubmitted, in rounds (ADR-0023)
 **Why:** the product owner's request — *"if it gets rejected, let it be corrected and
