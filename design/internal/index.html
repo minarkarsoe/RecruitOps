@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — UI/UX designs</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900">
+<div class="max-w-[900px] mx-auto px-8 py-12">
+
+  <p class="spec-label">design/</p>
+  <h1 class="mt-2 text-3xl font-bold tracking-tight">RecruitOps — UI/UX designs</h1>
+  <p class="mt-3 text-md text-ink-600 max-w-[68ch]">
+    Static HTML instead of Figma, so the Tailwind classes transfer straight into
+    <code class="font-mono text-sm bg-white border border-line rounded px-1.5 py-0.5">frontend/internal</code> and
+    <code class="font-mono text-sm bg-white border border-line rounded px-1.5 py-0.5">frontend/public</code>
+    rather than being re-drawn. Tokens are V1.0 (ADR-0025) and live in one place:
+    <code class="font-mono text-sm bg-white border border-line rounded px-1.5 py-0.5">ds.js</code>.
+    <strong class="font-medium text-ink-900">25 screens</strong> covering all seven modules.
+  </p>
+
+  <div class="mt-6 rounded-lg border border-line bg-white p-5">
+    <p class="text-base font-semibold">Shell: Board / Workspace</p>
+    <p class="mt-1.5 text-sm text-ink-600 max-w-[68ch]">
+      The pipeline board is the app's home surface; records open from it rather than sitting
+      beside it in a menu. Chosen from a three-way roll on 2026-08-17. Its known risk, recorded
+      at the time: requisition governance is this product's real differentiator, so the board
+      must not bury Module 1. The board's top bar answers that — it always names the requisition
+      it exists because of, shows its status, and keeps the chain one click away.
+    </p>
+  </div>
+
+  <!-- ===================================================== ACCESS -->
+  <h2 class="mt-10 text-xl font-semibold tracking-tight">Access &amp; administration <span class="font-normal text-ink-500">· Module 7</span></h2>
+  <ul class="mt-4 space-y-2.5">
+    <li>
+      <a href="login.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Sign in</span>
+          <span class="block text-sm text-ink-600">All six states. No workspace field, no self-signup, and the lockout copy ADR-0016 already decided</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="users-roles.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Users &amp; role builder</span>
+          <span class="block text-sm text-ink-600">Real permission codes, the Admin bypass, and why department scope is a separate control</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="settings-org.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Departments &amp; approval-chain builder</span>
+          <span class="block text-sm text-ink-600">Drag order = seniority; a chain broken by a disabled approver; the threshold rule that has nowhere to live</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="settings-integrations.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Integrations &amp; data policy</span>
+          <span class="block text-sm text-ink-600">HRMS, mail/calendar, and the retention purge — with the two questions Module 7 leaves open</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+  </ul>
+
+  <!-- ===================================================== M1 / M3 -->
+  <h2 class="mt-10 text-xl font-semibold tracking-tight">Requisitions, pipeline &amp; interviews <span class="font-normal text-ink-500">· Modules 1–3</span></h2>
+  <ul class="mt-4 space-y-2.5">
+    <li>
+      <a href="components.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Component kit</span>
+          <span class="block text-sm text-ink-600">Colour, type, buttons, forms, status pills, table, rail, empty and error states</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="board.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Pipeline board</span>
+          <span class="block text-sm text-ink-600">The shell's home surface — stage columns, detail drawer, density control</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="requisition-detail.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Requisition detail</span>
+          <span class="block text-sm text-ink-600">Stacked rounds, threshold badge, and who may approve or reject what</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="requisition-new.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Raise a requisition</span>
+          <span class="block text-sm text-ink-600">The hiring manager's entry point — a short rail, and the chain shown before submit</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="inbox.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Approver inbox</span>
+          <span class="block text-sm text-ink-600">Only what is genuinely yours to decide, oldest first, plus the cleared state</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="interview.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Interview &amp; blind scorecard</span>
+          <span class="block text-sm text-ink-600">All three renderings of the blind rule, plus the debrief thread</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="scorecard-builder.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Scorecard template builder</span>
+          <span class="block text-sm text-ink-600">Three-level scope drawn as a resolved path; guidance as a first-class field; three criterion types, deliberately</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+  </ul>
+
+  <!-- ===================================================== M2 / M8 -->
+  <h2 class="mt-10 text-xl font-semibold tracking-tight">Sourcing &amp; candidates <span class="font-normal text-ink-500">· Modules 2 and 8</span></h2>
+  <ul class="mt-4 space-y-2.5">
+    <li>
+      <a href="postings.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Postings, the public link &amp; the form builder</span>
+          <span class="block text-sm text-ink-600">No blank “new posting” form; the approved JD beside the advert; the token minted once and kept</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="talent-pool.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Talent pool — search, bulk upload, merge</span>
+          <span class="block text-sm text-ink-600">Trigram search stated as fuzzy; “41 drafts”, not “41 candidates”; the same screen with no AI key</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="channels.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Viber / Telegram / Facebook channels</span>
+          <span class="block text-sm text-ink-600">Drawn in its blocked state first — an on-prem install cannot receive webhooks, and that is on screen</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+  </ul>
+
+  <!-- ===================================================== M4 -->
+  <h2 class="mt-10 text-xl font-semibold tracking-tight">Offer &amp; pre-boarding <span class="font-normal text-ink-500">· Module 4</span></h2>
+  <p class="mt-1.5 text-sm text-ink-600 max-w-[68ch]">
+    From the 2026-08-18 sales requirement
+    (<code class="font-mono text-xs">docs/product/modules/04-offer-and-preboarding.md</code>).
+  </p>
+  <ul class="mt-4 space-y-2.5">
+    <li>
+      <a href="offer-dashboard.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Offer dashboard</span>
+          <span class="block text-sm text-ink-600">All seven offer states, and what a Hiring Manager sees instead</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="offer-create.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Offer generation &amp; approval</span>
+          <span class="block text-sm text-ink-600">Live budget check; the approval chain reuses Module 1's device, not a second one</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="preboarding-review.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Pre-boarding review</span>
+          <span class="block text-sm text-ink-600">The product's most sensitive data — no thumbnail wall, masked bank details, and a handoff that carries only what each department needs</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+  </ul>
+
+  <!-- ===================================================== M5 -->
+  <h2 class="mt-10 text-xl font-semibold tracking-tight">Reporting &amp; analytics <span class="font-normal text-ink-500">· Module 5</span></h2>
+  <p class="mt-1.5 text-sm text-ink-600 max-w-[68ch]">
+    Categorical palette validated before use: <code class="font-mono text-xs">#0D9488 #7C3AED #D97706 #0369A1</code>
+    passes lightness band, chroma floor, colour-blind separation, normal-vision floor and contrast.
+  </p>
+  <ul class="mt-4 space-y-2.5">
+    <li>
+      <a href="analytics-dashboard.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Executive dashboard</span>
+          <span class="block text-sm text-ink-600">Stat tiles, vacancies by department, and the metric the requirement is missing</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="analytics-pipeline.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Pipeline &amp; source analytics</span>
+          <span class="block text-sm text-ink-600">Source share and conversion as two charts; the funnel's band mapping drawn out</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="report-builder.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Custom report builder</span>
+          <span class="block text-sm text-ink-600">Permission-aware field picker, export, and the scheduled send</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+  </ul>
+
+  <!-- ===================================================== M6 -->
+  <h2 class="mt-10 text-xl font-semibold tracking-tight">Planning &amp; budgeting <span class="font-normal text-ink-500">· Module 6</span></h2>
+  <ul class="mt-4 space-y-2.5">
+    <li>
+      <a href="planning-budget.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Headcount plan &amp; budget tracking</span>
+          <span class="block text-sm text-ink-600">“−2 over plan” is the whole module; the plan approval reuses Module 1's chain; four open questions marked where they bite</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+  </ul>
+
+  <!-- ===================================================== PUBLIC -->
+  <h2 class="mt-10 text-xl font-semibold tracking-tight">Public app <span class="font-normal text-ink-500">· frontend/public, Next.js SSR</span></h2>
+  <p class="mt-1.5 text-sm text-ink-600 max-w-[68ch]">
+    A different audience with different rules: phone first, Burmese first-class, anonymous, and
+    server-rendered so a shared link produces a real Open Graph card. Same tokens, so the company
+    reads as one product.
+  </p>
+  <ul class="mt-4 space-y-2.5">
+    <li>
+      <a href="../public/jobs.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Career page</span>
+          <span class="block text-sm text-ink-600">Mixed-language listings as the normal case; one card shows a salary and four do not</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="../public/job.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Job page (the shareable link)</span>
+          <span class="block text-sm text-ink-600">The closed state is a designed page, never a 404; the Open Graph card this whole app exists for</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="../public/apply.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Application form</span>
+          <span class="block text-sm text-ink-600">Phone required, email optional; the one duplicate a candidate is told about, and the ones they are not</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+    <li>
+      <a href="../public/offer-portal.html" class="flex items-center justify-between gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <span>
+          <span class="block text-base font-medium">Candidate offer portal</span>
+          <span class="block text-sm text-ink-600">Phone-first, no navigation, no internal vocabulary. E-signature then documents</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Ready</span>
+      </a>
+    </li>
+  </ul>
+
+  <!-- ===================================================== TRY -->
+  <h2 class="mt-10 text-xl font-semibold tracking-tight">Try these</h2>
+  <ul class="mt-3 space-y-2 text-base text-ink-700">
+    <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2.5 shrink-0"></span><span>On the board, switch <span class="font-medium text-ink-900">Density</span> to Compact — one control, both audiences.</span></li>
+    <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2.5 shrink-0"></span><span>On the interview screen, press <span class="font-medium text-ink-900">Submit evaluation</span> — the panel's scores are absent until then, not blurred.</span></li>
+    <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2.5 shrink-0"></span><span>On the requisition, expand <span class="font-medium text-ink-900">Round 1 · Rejected</span> — the reason survives the revision.</span></li>
+    <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2.5 shrink-0"></span><span>On <span class="font-medium text-ink-900">Users &amp; roles</span>, select the Admin role — the matrix is read-only, because the role bypasses it.</span></li>
+    <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2.5 shrink-0"></span><span>On <span class="font-medium text-ink-900">Channels</span>, read the red panel first — the feature is off for a deployment reason, not a build one.</span></li>
+  </ul>
+
+  <!-- ===================================================== NOTES -->
+  <div class="mt-10 rounded-lg border border-line bg-white p-5">
+    <p class="text-base font-semibold">How these differ from the landing page</p>
+    <p class="mt-1.5 text-sm text-ink-600 max-w-[68ch]">
+      That page is <strong class="font-medium text-ink-900">Persuade</strong> — it exists to make
+      someone decide. These are <strong class="font-medium text-ink-900">Operate</strong>: someone
+      is mid-task. So there is no page-load choreography, one type family instead of a display
+      pairing, no themed scrollbars, motion only where it reports state, and every control ships
+      its full set of states. Familiarity is the goal, not surprise.
+    </p>
+  </div>
+
+  <div class="mt-4 rounded-lg border border-warn-100 bg-warn-50 p-5">
+    <p class="text-base font-semibold text-warn-700">What these screens found in the specs</p>
+    <p class="mt-1.5 text-sm text-warn-700 max-w-[70ch]">
+      Drawing a screen forces a question a document can leave open. Five that need a human answer:
+    </p>
+    <ul class="mt-2.5 space-y-2 text-sm text-warn-700 max-w-[70ch]">
+      <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-current mt-2 shrink-0"></span><span><strong class="font-semibold">The threshold rule has nowhere to live.</strong> Three screens show an approver “added by threshold rule”; <code class="font-mono text-xs">ApprovalChain</code> has no condition field. Either it gains one, or those three screens are wrong.</span></li>
+      <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-current mt-2 shrink-0"></span><span><strong class="font-semibold">An approval step names a person, not a role.</strong> Disabling a user can silently stall every requisition behind them, and nothing in the data links the two.</span></li>
+      <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-current mt-2 shrink-0"></span><span><strong class="font-semibold">Module 8 may be impossible on-premise.</strong> Webhooks need a public endpoint. Publish one, sell it hosted-only, or poll — undecided, and it is the headline differentiator.</span></li>
+      <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-current mt-2 shrink-0"></span><span><strong class="font-semibold">Module 6 needs <code class="font-mono text-xs">Requisition → HeadcountPlan</code>.</strong> Without it, “are we over headcount?” can only be answered by hand.</span></li>
+      <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-current mt-2 shrink-0"></span><span><strong class="font-semibold">Age and gender filters are unconfirmed.</strong> Held behind a click with the open question attached, rather than shipped as ordinary filters.</span></li>
+    </ul>
+  </div>
+
+  <div class="mt-4 rounded-lg border border-line bg-white p-5">
+    <p class="text-base font-semibold">Still not drawn</p>
+    <p class="mt-1.5 text-sm text-ink-600 max-w-[68ch]">
+      JD templates (Module 1), the audit-log viewer, and notification preferences. Nothing below
+      505px has been rendered at any point in this build, so true phone widths need checking on a
+      real device — the public screens are designed phone-first but verified only from 505px up.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Scorecard templates</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 3.3 — SCORECARD TEMPLATES. Built, and drawn against the real entities:
+
+    ScorecardTemplate  { Name, Description, DepartmentId?, JobPostingId?, IsActive }
+      · AT MOST ONE of DepartmentId / JobPostingId. Neither = company-wide default.
+      · Resolution is most-specific-wins: posting → posting's department → company.
+    ScorecardCriterion { Sequence, Label, Guidance, Type, IsRequired }
+      · Type is exactly three: Rating (1–5), YesNo, Text. Rating is the ONLY type
+        that contributes to a numeric comparison.
+      · Sequence is derived from list position on save, so gaps and duplicates
+        cannot happen — the same trick as ApprovalChainStep.
+
+  The screen's real job is to make the scope rule visible. A three-level resolution
+  is invisible in a flat list of templates, and the failure it produces — an
+  interviewer scoring against criteria nobody expected — surfaces days later on a
+  debrief. So the builder always states which level it is editing and what that
+  level shadows.
+
+  Guidance ("what does 5 mean") is a first-class field, not a note, because it is
+  the cheapest thing that makes two managers' scores comparable. The builder warns
+  on a Rating criterion with no guidance rather than accepting it silently.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="interview.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Interviews</a>
+      <a href="postings.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Postings</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Administer</p>
+      <a href="users-roles.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Users &amp; roles</a>
+      <a href="settings-org.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Departments &amp; approvals</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Scorecard templates</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">KM</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">Daw Khin Mya</span>
+          <span class="block text-2xs text-white/50 truncate">HR Director</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Scorecard templates</h1>
+      <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium font-mono">scorecards:manage_templates</span>
+    </header>
+
+    <div class="flex-1 min-h-0 overflow-auto">
+
+      <div class="grid xl:grid-cols-[300px_1fr] items-start">
+
+        <!-- ================================================ SCOPE LIST -->
+        <div class="border-r border-line bg-white min-h-full">
+          <div class="px-5 py-3 border-b border-line">
+            <p class="text-sm font-medium text-ink-600">Most specific wins</p>
+          </div>
+
+          <div class="px-5 py-3 border-b border-line">
+            <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">Company-wide</p>
+            <div class="mt-2 rounded-md border border-line px-3 py-2.5 hover:border-line-strong transition-colors cursor-pointer">
+              <p class="text-base font-medium">General interview</p>
+              <p class="mt-0.5 text-sm text-ink-600">5 criteria · the fallback</p>
+            </div>
+          </div>
+
+          <div class="px-5 py-3 border-b border-line">
+            <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">Department</p>
+            <div class="mt-2 space-y-2">
+              <div class="rounded-md border-2 border-brand-700 bg-brand-50 px-3 py-2.5 cursor-pointer">
+                <p class="text-base font-medium text-brand-900">Technology</p>
+                <p class="mt-0.5 text-sm text-brand-800">6 criteria · editing</p>
+              </div>
+              <div class="rounded-md border border-line px-3 py-2.5 hover:border-line-strong transition-colors cursor-pointer">
+                <p class="text-base font-medium">Credit Risk</p>
+                <p class="mt-0.5 text-sm text-ink-600">5 criteria</p>
+              </div>
+              <div class="rounded-md border border-dashed border-line-strong px-3 py-2.5 hover:border-ink-400 transition-colors cursor-pointer">
+                <p class="text-base text-ink-600">Retail Operations</p>
+                <p class="mt-0.5 text-sm text-ink-500">None — uses company-wide</p>
+              </div>
+              <div class="rounded-md border border-dashed border-line-strong px-3 py-2.5 hover:border-ink-400 transition-colors cursor-pointer">
+                <p class="text-base text-ink-600">Collections</p>
+                <p class="mt-0.5 text-sm text-ink-500">None — uses company-wide</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-5 py-3 border-b border-line">
+            <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">Posting override</p>
+            <div class="mt-2 rounded-md border border-line px-3 py-2.5 hover:border-line-strong transition-colors cursor-pointer">
+              <p class="text-base font-medium">Backend Engineer (.NET)</p>
+              <p class="mt-0.5 text-sm text-ink-600">7 criteria · shadows Technology</p>
+            </div>
+            <p class="mt-2.5 text-sm text-ink-600">
+              Rare on purpose. One posting that genuinely needs its own list, not a habit.
+            </p>
+          </div>
+
+          <div class="px-5 py-3">
+            <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">Inactive</p>
+            <div class="mt-2 rounded-md border border-line px-3 py-2.5 opacity-60">
+              <p class="text-base">Technology (2025)</p>
+              <p class="mt-0.5 text-sm text-ink-600">Kept — 34 interviews were scored on it</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================== BUILDER -->
+        <div class="p-6 max-w-[860px]">
+
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <h2 class="text-2xl font-semibold tracking-tight">Technology</h2>
+                <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">Department template</span>
+              </div>
+              <p class="mt-1.5 text-base text-ink-600 max-w-[62ch]">
+                Used by every Technology posting that has no override of its own. Shadows the
+                company-wide default; shadowed by the Backend Engineer posting.
+              </p>
+            </div>
+            <button class="h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors shrink-0">Save template</button>
+          </div>
+
+          <!-- Resolution -->
+          <div class="mt-5 rounded-lg border border-line bg-white p-5">
+            <p class="text-sm font-medium text-ink-700">How an interviewer ends up with this list</p>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center h-8 px-3 rounded-md border border-line bg-canvas text-sm text-ink-500 line-through decoration-ink-400">Posting override</span>
+              <svg class="w-4 h-4 text-ink-400" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9.5 4.5 13 8l-3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="inline-flex items-center h-8 px-3 rounded-md border-2 border-brand-700 bg-brand-50 text-sm font-medium text-brand-900">Technology</span>
+              <svg class="w-4 h-4 text-ink-400" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9.5 4.5 13 8l-3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="inline-flex items-center h-8 px-3 rounded-md border border-line bg-canvas text-sm text-ink-500">Company-wide</span>
+            </div>
+            <p class="mt-3 text-sm text-ink-600 max-w-[70ch]">
+              Drawn as a resolved path rather than described in a sentence. Three levels are easy to
+              write down and hard to hold in your head, and getting it wrong means an interviewer is
+              scored against criteria nobody expected — which nobody notices until the debrief.
+            </p>
+          </div>
+
+          <!-- Criteria -->
+          <div class="mt-6 rounded-lg border border-line bg-white overflow-hidden">
+            <div class="px-5 py-3 border-b border-line bg-canvas flex items-center gap-3 flex-wrap">
+              <p class="text-sm font-medium text-ink-600">Criteria</p>
+              <p class="ml-auto text-sm text-ink-600">Order is list position — saved without gaps</p>
+            </div>
+
+            <ul class="p-4 space-y-2.5">
+
+              <li class="rounded-md border border-line px-3.5 py-3 card-draggable">
+                <div class="flex items-start gap-3">
+                  <svg class="w-4 h-4 text-ink-400 shrink-0 mt-2.5" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6" cy="4" r="1.1" fill="currentColor"/><circle cx="10" cy="4" r="1.1" fill="currentColor"/><circle cx="6" cy="8" r="1.1" fill="currentColor"/><circle cx="10" cy="8" r="1.1" fill="currentColor"/><circle cx="6" cy="12" r="1.1" fill="currentColor"/><circle cx="10" cy="12" r="1.1" fill="currentColor"/></svg>
+                  <div class="min-w-0 flex-1 space-y-2.5">
+                    <div class="flex gap-2.5 flex-wrap">
+                      <input value="System design" class="flex-1 min-w-[200px] h-9 px-2.5 rounded-md border border-line bg-white text-base font-medium outline-none focus:border-brand-700 transition-colors" />
+                      <select class="h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none shrink-0"><option>Rating 1–5</option><option>Yes / no</option><option>Text</option></select>
+                      <label class="inline-flex items-center gap-2 h-9 px-2.5 rounded-md border border-line bg-white text-sm shrink-0 cursor-pointer">
+                        <input type="checkbox" checked class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" /> Required
+                      </label>
+                    </div>
+                    <div>
+                      <input value="5 = designed a system this size before and can defend the trade-offs. 3 = follows a known pattern well. 1 = cannot describe the trade-offs." class="w-full h-9 px-2.5 rounded-md border border-line bg-canvas text-sm text-ink-700 outline-none focus:border-brand-700 focus:bg-white transition-colors" />
+                      <p class="mt-1 text-xs text-ink-500">Guidance — what the numbers mean</p>
+                    </div>
+                  </div>
+                  <button class="w-8 h-8 rounded-md grid place-items-center text-ink-500 hover:text-critical-700 hover:bg-critical-50 transition-colors shrink-0" aria-label="Remove criterion"><svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+                </div>
+              </li>
+
+              <li class="rounded-md border border-line px-3.5 py-3 card-draggable">
+                <div class="flex items-start gap-3">
+                  <svg class="w-4 h-4 text-ink-400 shrink-0 mt-2.5" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6" cy="4" r="1.1" fill="currentColor"/><circle cx="10" cy="4" r="1.1" fill="currentColor"/><circle cx="6" cy="8" r="1.1" fill="currentColor"/><circle cx="10" cy="8" r="1.1" fill="currentColor"/><circle cx="6" cy="12" r="1.1" fill="currentColor"/><circle cx="10" cy="12" r="1.1" fill="currentColor"/></svg>
+                  <div class="min-w-0 flex-1 space-y-2.5">
+                    <div class="flex gap-2.5 flex-wrap">
+                      <input value="Code quality" class="flex-1 min-w-[200px] h-9 px-2.5 rounded-md border border-line bg-white text-base font-medium outline-none focus:border-brand-700 transition-colors" />
+                      <select class="h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none shrink-0"><option>Rating 1–5</option><option>Yes / no</option><option>Text</option></select>
+                      <label class="inline-flex items-center gap-2 h-9 px-2.5 rounded-md border border-line bg-white text-sm shrink-0 cursor-pointer">
+                        <input type="checkbox" checked class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" /> Required
+                      </label>
+                    </div>
+                    <div>
+                      <input placeholder="What does 5 mean?" class="w-full h-9 px-2.5 rounded-md border-2 border-warn-500 bg-warn-50 text-sm placeholder:text-warn-700 outline-none transition-colors" />
+                      <p class="mt-1 text-xs text-warn-700">A rating with no guidance is two managers scoring different things and calling it one number.</p>
+                    </div>
+                  </div>
+                  <button class="w-8 h-8 rounded-md grid place-items-center text-ink-500 hover:text-critical-700 hover:bg-critical-50 transition-colors shrink-0" aria-label="Remove criterion"><svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+                </div>
+              </li>
+
+              <li class="rounded-md border border-line px-3.5 py-3 card-draggable">
+                <div class="flex items-start gap-3">
+                  <svg class="w-4 h-4 text-ink-400 shrink-0 mt-2.5" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6" cy="4" r="1.1" fill="currentColor"/><circle cx="10" cy="4" r="1.1" fill="currentColor"/><circle cx="6" cy="8" r="1.1" fill="currentColor"/><circle cx="10" cy="8" r="1.1" fill="currentColor"/><circle cx="6" cy="12" r="1.1" fill="currentColor"/><circle cx="10" cy="12" r="1.1" fill="currentColor"/></svg>
+                  <div class="min-w-0 flex-1 space-y-2.5">
+                    <div class="flex gap-2.5 flex-wrap">
+                      <input value="Holds a valid work permit" class="flex-1 min-w-[200px] h-9 px-2.5 rounded-md border border-line bg-white text-base font-medium outline-none focus:border-brand-700 transition-colors" />
+                      <select class="h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none shrink-0"><option>Yes / no</option><option>Rating 1–5</option><option>Text</option></select>
+                      <label class="inline-flex items-center gap-2 h-9 px-2.5 rounded-md border border-line bg-white text-sm shrink-0 cursor-pointer">
+                        <input type="checkbox" checked class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" /> Required
+                      </label>
+                    </div>
+                    <p class="text-sm text-ink-600">Yes / no does not enter the average — it is a gate, not a grade.</p>
+                  </div>
+                  <button class="w-8 h-8 rounded-md grid place-items-center text-ink-500 hover:text-critical-700 hover:bg-critical-50 transition-colors shrink-0" aria-label="Remove criterion"><svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+                </div>
+              </li>
+
+              <li class="rounded-md border border-line px-3.5 py-3 card-draggable">
+                <div class="flex items-start gap-3">
+                  <svg class="w-4 h-4 text-ink-400 shrink-0 mt-2.5" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6" cy="4" r="1.1" fill="currentColor"/><circle cx="10" cy="4" r="1.1" fill="currentColor"/><circle cx="6" cy="8" r="1.1" fill="currentColor"/><circle cx="10" cy="8" r="1.1" fill="currentColor"/><circle cx="6" cy="12" r="1.1" fill="currentColor"/><circle cx="10" cy="12" r="1.1" fill="currentColor"/></svg>
+                  <div class="min-w-0 flex-1 space-y-2.5">
+                    <div class="flex gap-2.5 flex-wrap">
+                      <input value="Evidence for your scores" class="flex-1 min-w-[200px] h-9 px-2.5 rounded-md border border-line bg-white text-base font-medium outline-none focus:border-brand-700 transition-colors" />
+                      <select class="h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none shrink-0"><option>Text</option><option>Rating 1–5</option><option>Yes / no</option></select>
+                      <label class="inline-flex items-center gap-2 h-9 px-2.5 rounded-md border border-line bg-white text-sm shrink-0 cursor-pointer">
+                        <input type="checkbox" checked class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" /> Required
+                      </label>
+                    </div>
+                    <p class="text-sm text-ink-600">Required text is the field that makes a 2 defensible when the candidate asks why.</p>
+                  </div>
+                  <button class="w-8 h-8 rounded-md grid place-items-center text-ink-500 hover:text-critical-700 hover:bg-critical-50 transition-colors shrink-0" aria-label="Remove criterion"><svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+                </div>
+              </li>
+
+              <li class="flex flex-wrap gap-2 pt-1">
+                <button class="h-9 px-3 rounded-md border border-dashed border-line-strong text-sm font-medium text-ink-600 hover:text-ink-900 hover:border-ink-400 transition-colors">+ Rating 1–5</button>
+                <button class="h-9 px-3 rounded-md border border-dashed border-line-strong text-sm font-medium text-ink-600 hover:text-ink-900 hover:border-ink-400 transition-colors">+ Yes / no</button>
+                <button class="h-9 px-3 rounded-md border border-dashed border-line-strong text-sm font-medium text-ink-600 hover:text-ink-900 hover:border-ink-400 transition-colors">+ Text</button>
+                <span class="inline-flex items-center h-9 px-2 text-sm text-ink-500">Three types, deliberately.</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Preview -->
+          <div class="mt-6 rounded-lg border border-line bg-white overflow-hidden">
+            <div class="px-5 py-3 border-b border-line bg-canvas">
+              <p class="text-sm font-medium text-ink-600">What the interviewer will see</p>
+            </div>
+            <div class="px-5 py-4 space-y-5">
+              <div>
+                <div class="flex items-baseline justify-between gap-3 flex-wrap">
+                  <p class="text-base font-medium">System design</p>
+                  <span class="text-sm text-ink-500">Required</span>
+                </div>
+                <p class="mt-1 text-sm text-ink-600 max-w-[70ch]">5 = designed a system this size before and can defend the trade-offs. 3 = follows a known pattern well. 1 = cannot describe the trade-offs.</p>
+                <div class="mt-2.5 flex items-center gap-1.5">
+                  <button class="w-10 h-10 rounded-md border border-line bg-white text-base font-medium tnum hover:border-line-strong transition-colors">1</button>
+                  <button class="w-10 h-10 rounded-md border border-line bg-white text-base font-medium tnum hover:border-line-strong transition-colors">2</button>
+                  <button class="w-10 h-10 rounded-md border border-line bg-white text-base font-medium tnum hover:border-line-strong transition-colors">3</button>
+                  <button class="w-10 h-10 rounded-md border-2 border-brand-700 bg-brand-50 text-brand-900 text-base font-semibold tnum">4</button>
+                  <button class="w-10 h-10 rounded-md border border-line bg-white text-base font-medium tnum hover:border-line-strong transition-colors">5</button>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex items-baseline justify-between gap-3 flex-wrap">
+                  <p class="text-base font-medium">Holds a valid work permit</p>
+                  <span class="text-sm text-ink-500">Required</span>
+                </div>
+                <div class="mt-2.5 flex items-center rounded-md border border-line p-0.5 w-fit">
+                  <button class="h-9 px-4 rounded text-base font-medium bg-ink-900 text-white">Yes</button>
+                  <button class="h-9 px-4 rounded text-base text-ink-600 hover:text-ink-900 transition-colors">No</button>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex items-baseline justify-between gap-3 flex-wrap">
+                  <p class="text-base font-medium">Evidence for your scores</p>
+                  <span class="text-sm text-ink-500">Required</span>
+                </div>
+                <textarea rows="3" placeholder="What did they actually say or do?" class="mt-2.5 w-full px-3 py-2.5 rounded-md border border-line bg-white text-base placeholder:text-ink-400 outline-none focus:border-brand-700 transition-colors resize-y"></textarea>
+              </div>
+            </div>
+            <div class="px-5 py-3.5 border-t border-line bg-canvas">
+              <p class="text-sm text-ink-700 max-w-[76ch]">
+                Detented rating buttons, not a slider. A 1–5 judgement has five legal answers and a
+                slider invites a 3.5 that the schema will reject — the control should not be able to
+                express a value the system cannot store.
+              </p>
+            </div>
+          </div>
+
+          <!-- Blind + editing rules -->
+          <div class="mt-6 grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-line bg-white p-5">
+              <p class="text-base font-semibold">This screen does not control blindness</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                Whether a panellist sees other people's scores before submitting is a rule about the
+                interview, not about the template — so there is no “blind” switch here. Putting one
+                on a per-template basis would let a department turn the product's own guarantee off
+                by editing a form.
+              </p>
+              <a href="interview.html" class="mt-3 inline-flex items-center text-sm font-medium text-brand-700 hover:text-brand-800">See how the blind rule renders →</a>
+            </div>
+            <div class="rounded-lg border border-line bg-white p-5">
+              <p class="text-base font-semibold">Editing a live template does not rewrite history</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                Submitted responses keep the criterion they were answered against, so removing
+                “Code quality” today does not blank it on 34 interviews from last quarter. The
+                template deactivates rather than deletes for the same reason — the sidebar keeps the
+                2025 version because interviews still point at it.
+              </p>
+            </div>
+          </div>
+
+          <!-- Empty state -->
+          <p class="spec-label mt-8">A department with no template</p>
+          <div class="mt-2 rounded-lg border border-line bg-white px-5 py-10 text-center">
+            <div class="w-11 h-11 rounded-full bg-canvas border border-line grid place-items-center mx-auto">
+              <svg class="w-5 h-5 text-ink-400" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="3.5" y="2.5" width="13" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 7h6M7 10.5h6M7 14h3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <p class="mt-3.5 text-base font-medium">Collections uses the company-wide default</p>
+            <p class="mt-1.5 text-sm text-ink-600 max-w-[56ch] mx-auto">
+              That is a working state, not a gap — five general criteria are already being used on
+              every Collections interview. Give it its own list only when the general ones stop
+              making two candidates comparable.
+            </p>
+            <div class="mt-4 flex items-center justify-center gap-2.5 flex-wrap">
+              <button class="h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Start from the company default</button>
+              <button class="h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Start empty</button>
+            </div>
+            <p class="mt-3 text-sm text-ink-600 max-w-[56ch] mx-auto">
+              “Start from the default” is the primary action. An empty list is how a department ends
+              up with three criteria that overlap the general five and comparison quietly dies.
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

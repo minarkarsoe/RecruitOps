@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Departments &amp; approvals</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 1.3 + MODULE 7 — DEPARTMENTS AND APPROVAL CHAINS.
+
+  Drawn against the real entities, which are smaller than the screens that consume them:
+
+    Department       { Name, Code, IsActive }
+    ApprovalChain    { Name, DepartmentId (null = company default), IsActive }
+    ApprovalChainStep{ Sequence (1-based), ApproverUserId, Label }
+
+  Three consequences the builder has to make visible rather than hide:
+
+  1. A STEP NAMES A PERSON, NOT A ROLE. ApproverUserId is a user id. So a chain
+     is only as available as the individuals in it, and a step pointing at a
+     disabled account is a stalled requisition waiting to happen. The builder
+     shows the human, and flags the broken ones.
+
+  2. SENIORITY IS CHAIN POSITION AND NOTHING ELSE (ADR-0024). Dragging a step
+     changes who may approve forward over whom. That is the only ordering the
+     system has — there is no rank on users or roles, deliberately.
+
+  3. THERE IS NO THRESHOLD FIELD. Earlier screens in this kit show an approver
+     "added by threshold rule". That rule is a proposal: nothing in the data
+     model stores it. It is drawn here, marked, so the gap is visible at the
+     place it would be configured instead of only at the place it appears.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="postings.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Postings</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Insight</p>
+      <a href="analytics-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Analytics</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Administer</p>
+      <a href="users-roles.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Users &amp; roles</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Departments &amp; approvals</a>
+      <a href="settings-integrations.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Integrations</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">KM</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">Daw Khin Mya</span>
+          <span class="block text-2xs text-white/50 truncate">Admin</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Departments &amp; approvals</h1>
+    </header>
+
+    <div class="h-11 shrink-0 bg-white border-b border-line flex items-end gap-1 px-6">
+      <button class="h-11 px-3 text-base border-b-2 border-transparent text-ink-600 hover:text-ink-900 transition-colors">Departments <span class="text-ink-400 tnum">6</span></button>
+      <button class="h-11 px-3 text-base font-medium border-b-2 border-brand-700 text-ink-900">Approval chains <span class="text-ink-500 tnum">4</span></button>
+      <button class="h-11 px-3 text-base border-b-2 border-transparent text-ink-600 hover:text-ink-900 transition-colors">JD templates</button>
+    </div>
+
+    <div class="flex-1 min-h-0 overflow-auto">
+
+      <!-- ================================================ CHAIN BUILDER -->
+      <div class="grid xl:grid-cols-[300px_1fr] items-start">
+
+        <div class="border-r border-line bg-white min-h-full">
+          <div class="px-5 py-3 border-b border-line">
+            <p class="text-sm font-medium text-ink-600">Chains</p>
+          </div>
+          <ul>
+            <li class="border-b border-line border-l-2 border-l-brand-700 bg-brand-50 px-5 py-3">
+              <p class="text-base font-medium text-brand-900">Company default</p>
+              <p class="mt-0.5 text-sm text-brand-800">3 steps · used by 4 departments</p>
+            </li>
+            <li class="border-b border-line px-5 py-3 hover:bg-canvas transition-colors cursor-pointer">
+              <p class="text-base font-medium">Technology</p>
+              <p class="mt-0.5 text-sm text-ink-600">4 steps · department override</p>
+            </li>
+            <li class="border-b border-line px-5 py-3 hover:bg-canvas transition-colors cursor-pointer">
+              <div class="flex items-center gap-2">
+                <p class="text-base font-medium">Credit Risk</p>
+                <span class="inline-flex items-center h-5 px-2 rounded-full bg-critical-50 text-critical-700 text-2xs font-medium">Broken</span>
+              </div>
+              <p class="mt-0.5 text-sm text-ink-600">3 steps · one approver disabled</p>
+            </li>
+            <li class="border-b border-line px-5 py-3 hover:bg-canvas transition-colors cursor-pointer opacity-60">
+              <p class="text-base font-medium">Retail Operations (2025)</p>
+              <p class="mt-0.5 text-sm text-ink-600">Inactive · kept for its history</p>
+            </li>
+          </ul>
+          <div class="p-4">
+            <button class="w-full h-9 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">New chain</button>
+          </div>
+
+          <div class="mx-4 mb-4 rounded-md border border-line bg-canvas p-3.5">
+            <p class="text-sm font-medium">Why an old chain is kept</p>
+            <p class="mt-1 text-sm text-ink-600">
+              Requisitions approved last year point at its steps. Deleting it would leave those
+              approvals attributed to nothing, so chains deactivate rather than disappear —
+              the same rule as leavers on the Users screen.
+            </p>
+          </div>
+        </div>
+
+        <!-- Builder -->
+        <div class="p-6 max-w-[820px]">
+
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h2 class="text-2xl font-semibold tracking-tight">Company default</h2>
+              <p class="mt-1.5 text-base text-ink-600 max-w-[62ch]">
+                Applies to every department without an override. Steps run in order: step 1 must
+                decide before step 2 is asked.
+              </p>
+            </div>
+            <button class="h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors shrink-0">Save chain</button>
+          </div>
+
+          <div class="mt-6 rounded-lg border border-line bg-white overflow-hidden">
+            <div class="px-5 py-3 border-b border-line bg-canvas flex items-center gap-3">
+              <p class="text-sm font-medium text-ink-600">Order</p>
+              <p class="ml-auto text-sm text-ink-600">Drag to reorder — position is seniority</p>
+            </div>
+
+            <ul class="p-4 space-y-2">
+
+              <li class="flex items-center gap-3 rounded-md border border-line bg-white px-3.5 py-3 card-draggable">
+                <svg class="w-4 h-4 text-ink-400 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="6" cy="4" r="1.1" fill="currentColor"/><circle cx="10" cy="4" r="1.1" fill="currentColor"/>
+                  <circle cx="6" cy="8" r="1.1" fill="currentColor"/><circle cx="10" cy="8" r="1.1" fill="currentColor"/>
+                  <circle cx="6" cy="12" r="1.1" fill="currentColor"/><circle cx="10" cy="12" r="1.1" fill="currentColor"/>
+                </svg>
+                <span class="w-7 h-7 rounded-full bg-ink-900 text-white grid place-items-center text-sm font-semibold tnum shrink-0">1</span>
+                <div class="min-w-0 flex-1 grid sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label class="block text-2xs font-medium uppercase tracking-wider text-ink-500">Label</label>
+                    <input value="Department Head" class="mt-1 w-full h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none focus:border-brand-700 transition-colors" />
+                  </div>
+                  <div>
+                    <label class="block text-2xs font-medium uppercase tracking-wider text-ink-500">Approver</label>
+                    <select class="mt-1 w-full h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none">
+                      <option>U Aung Myat</option><option>Daw Nilar Htun</option>
+                    </select>
+                  </div>
+                </div>
+                <button class="w-8 h-8 rounded-md grid place-items-center text-ink-500 hover:text-critical-700 hover:bg-critical-50 transition-colors shrink-0" aria-label="Remove step 1">
+                  <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
+              </li>
+
+              <li class="flex items-center gap-3 rounded-md border border-line bg-white px-3.5 py-3 card-draggable">
+                <svg class="w-4 h-4 text-ink-400 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="6" cy="4" r="1.1" fill="currentColor"/><circle cx="10" cy="4" r="1.1" fill="currentColor"/>
+                  <circle cx="6" cy="8" r="1.1" fill="currentColor"/><circle cx="10" cy="8" r="1.1" fill="currentColor"/>
+                  <circle cx="6" cy="12" r="1.1" fill="currentColor"/><circle cx="10" cy="12" r="1.1" fill="currentColor"/>
+                </svg>
+                <span class="w-7 h-7 rounded-full bg-ink-900 text-white grid place-items-center text-sm font-semibold tnum shrink-0">2</span>
+                <div class="min-w-0 flex-1 grid sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label class="block text-2xs font-medium uppercase tracking-wider text-ink-500">Label</label>
+                    <input value="Finance" class="mt-1 w-full h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none focus:border-brand-700 transition-colors" />
+                  </div>
+                  <div>
+                    <label class="block text-2xs font-medium uppercase tracking-wider text-ink-500">Approver</label>
+                    <select class="mt-1 w-full h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none">
+                      <option>Daw Nilar Htun</option><option>U Kyaw Zin</option>
+                    </select>
+                  </div>
+                </div>
+                <button class="w-8 h-8 rounded-md grid place-items-center text-ink-500 hover:text-critical-700 hover:bg-critical-50 transition-colors shrink-0" aria-label="Remove step 2">
+                  <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
+              </li>
+
+              <li class="flex items-center gap-3 rounded-md border border-line bg-white px-3.5 py-3 card-draggable">
+                <svg class="w-4 h-4 text-ink-400 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="6" cy="4" r="1.1" fill="currentColor"/><circle cx="10" cy="4" r="1.1" fill="currentColor"/>
+                  <circle cx="6" cy="8" r="1.1" fill="currentColor"/><circle cx="10" cy="8" r="1.1" fill="currentColor"/>
+                  <circle cx="6" cy="12" r="1.1" fill="currentColor"/><circle cx="10" cy="12" r="1.1" fill="currentColor"/>
+                </svg>
+                <span class="w-7 h-7 rounded-full bg-ink-900 text-white grid place-items-center text-sm font-semibold tnum shrink-0">3</span>
+                <div class="min-w-0 flex-1 grid sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label class="block text-2xs font-medium uppercase tracking-wider text-ink-500">Label</label>
+                    <input value="HR Director" class="mt-1 w-full h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none focus:border-brand-700 transition-colors" />
+                  </div>
+                  <div>
+                    <label class="block text-2xs font-medium uppercase tracking-wider text-ink-500">Approver</label>
+                    <select class="mt-1 w-full h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none">
+                      <option>Daw Khin Mya</option><option>U Zaw Latt</option>
+                    </select>
+                  </div>
+                </div>
+                <button class="w-8 h-8 rounded-md grid place-items-center text-ink-500 hover:text-critical-700 hover:bg-critical-50 transition-colors shrink-0" aria-label="Remove step 3">
+                  <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
+              </li>
+
+              <li>
+                <button class="w-full h-10 rounded-md border border-dashed border-line-strong text-base font-medium text-ink-600 hover:text-ink-900 hover:border-ink-400 transition-colors">
+                  + Add step
+                </button>
+              </li>
+            </ul>
+
+            <div class="px-5 py-4 border-t border-line bg-canvas">
+              <p class="text-sm text-ink-700">
+                <span class="font-medium text-ink-900">Step 3 outranks step 2 outranks step 1.</span>
+                Daw Khin Mya can approve all three in one action if the earlier approvers are away.
+                She cannot reject on their behalf — see below.
+              </p>
+            </div>
+          </div>
+
+          <!-- Proposed threshold rule -->
+          <div class="mt-6 rounded-lg border-2 border-dashed border-line-strong bg-white overflow-hidden">
+            <div class="px-5 py-3 border-b border-line flex items-center gap-2.5 flex-wrap">
+              <p class="text-base font-semibold">Conditional step</p>
+              <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium">Proposed — not in the data model</span>
+            </div>
+            <div class="px-5 py-4">
+              <div class="flex flex-wrap items-center gap-2 text-base">
+                <span class="text-ink-600">If budgeted salary is over</span>
+                <div class="inline-flex items-center h-9 rounded-md border border-line bg-white overflow-hidden">
+                  <span class="px-2.5 text-sm text-ink-500 border-r border-line">MMK</span>
+                  <input value="1,500,000" class="w-28 h-9 px-2.5 text-base font-mono tnum outline-none" />
+                </div>
+                <span class="text-ink-600">insert</span>
+                <select class="h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none"><option>Chief HR Officer</option><option>CFO</option></select>
+                <span class="text-ink-600">as a final step.</span>
+              </div>
+
+              <div class="mt-4 rounded-md border border-warn-100 bg-warn-50 px-3.5 py-3">
+                <p class="text-sm font-medium text-warn-700">This rule has nowhere to live yet</p>
+                <p class="mt-1 text-sm text-warn-700">
+                  <code class="font-mono text-xs">ApprovalChain</code> stores a name, an optional
+                  department and an active flag. There is no condition, no amount and no operator.
+                  Three screens in this kit already show an approver
+                  <em>“added by threshold rule”</em> — the requisition detail, the raise form and the
+                  offer approval — so the feature is drawn as if it exists in three places and is
+                  stored in none.
+                </p>
+                <p class="mt-2 text-sm text-warn-700">
+                  Either the entity gains condition fields, or those three screens are wrong.
+                  <strong class="font-semibold">Backend decision, not a design one</strong> — it is
+                  surfaced here because this is where an admin would look for the switch.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rules -->
+          <div class="mt-6 grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-line bg-white p-5">
+              <p class="text-base font-semibold">Approve forward, never reject forward</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                A senior approving on a junior's behalf still lets the requisition proceed — the same
+                outcome the junior's approval would have produced. Rejecting on their behalf ends it
+                before the junior ever sees it. The record names who actually acted whenever it is not
+                the assigned approver (ADR-0024).
+              </p>
+            </div>
+            <div class="rounded-lg border border-line bg-white p-5">
+              <p class="text-base font-semibold">A rejection sends it back, it does not kill it</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                Rejecting ends the round, not the requisition. The raiser revises and resubmits, and a
+                new round starts at step 1 with the previous round's reason still readable
+                (ADR-0023). Chains therefore need no “send back to” target — there is only backwards.
+              </p>
+            </div>
+          </div>
+
+          <!-- Broken chain -->
+          <p class="spec-label mt-8">Chain with a disabled approver</p>
+          <div class="mt-2 rounded-lg border border-critical-100 bg-white overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-critical-100 bg-critical-50">
+              <p class="text-base font-medium text-critical-700">Credit Risk — step 2 cannot be asked</p>
+              <p class="mt-1 text-sm text-critical-700">Daw Su Su was disabled on 14 Jul. Two requisitions are waiting at this step and will wait indefinitely.</p>
+            </div>
+            <ul class="p-4 space-y-2">
+              <li class="flex items-center gap-3 rounded-md border border-line px-3.5 py-2.5">
+                <span class="w-7 h-7 rounded-full bg-positive-100 text-positive-700 grid place-items-center shrink-0">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none"><path d="m3 7.4 2.6 2.6L11 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+                <span class="flex-1 min-w-0"><span class="font-medium">Department Head</span> <span class="text-ink-600">· U Aung Myat</span></span>
+              </li>
+              <li class="flex items-center gap-3 rounded-md border-2 border-critical-500 bg-critical-50 px-3.5 py-2.5">
+                <span class="w-7 h-7 rounded-full bg-critical-100 text-critical-700 grid place-items-center shrink-0">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none"><path d="M7 2.5 13 12H1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M7 6v2.4M7 10.2v.01" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                </span>
+                <span class="flex-1 min-w-0">
+                  <span class="font-medium text-critical-700">Finance</span>
+                  <span class="text-critical-700">· Daw Su Su — account disabled</span>
+                </span>
+                <button class="h-8 px-3 rounded-md bg-white border border-critical-500 text-critical-700 text-sm font-medium hover:bg-critical-50 transition-colors shrink-0">Reassign</button>
+              </li>
+              <li class="flex items-center gap-3 rounded-md border border-line px-3.5 py-2.5">
+                <span class="w-7 h-7 rounded-full bg-canvas border border-line text-ink-500 grid place-items-center text-sm font-semibold tnum shrink-0">3</span>
+                <span class="flex-1 min-w-0"><span class="font-medium">HR Director</span> <span class="text-ink-600">· Daw Khin Mya</span></span>
+              </li>
+            </ul>
+            <div class="px-5 py-3.5 border-t border-line bg-canvas">
+              <p class="text-sm text-ink-700">
+                Because <code class="font-mono text-xs">ApprovalChainStep.ApproverUserId</code> is a
+                person and not a role, disabling a user on the Users screen can silently stall
+                approvals here. That link is invisible in the data, so the UI has to make it: the
+                disable flow should name the chains it breaks <em>before</em> the admin confirms.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================== DEPARTMENTS -->
+      <div class="border-t border-line bg-white px-6 py-8">
+        <p class="spec-label">Departments tab</p>
+        <h2 class="mt-1.5 text-2xl font-semibold tracking-tight">Departments</h2>
+        <p class="mt-2 text-base text-ink-600 max-w-[74ch]">
+          The unit that owns requisitions, and the unit user scope is granted in. Two screens
+          depend on this list being right: nobody can be scoped to a department that does not
+          exist, and no requisition can be raised without one.
+        </p>
+
+        <div class="mt-5 overflow-x-auto rounded-lg border border-line">
+          <table class="w-full min-w-[860px] text-base">
+            <thead>
+              <tr class="bg-canvas border-b border-line text-left text-sm">
+                <th class="px-5 py-2.5 font-medium text-ink-600">Department</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Code</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Approval chain</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600 text-right">People scoped</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600 text-right">Open reqs</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-line hover:bg-canvas transition-colors">
+                <td class="px-5 py-3 font-medium">Credit Risk</td>
+                <td class="px-5 py-3 font-mono text-sm text-ink-600">CR</td>
+                <td class="px-5 py-3"><span class="inline-flex items-center h-6 px-2.5 rounded-full bg-critical-50 text-critical-700 text-xs font-medium">Credit Risk · broken</span></td>
+                <td class="px-5 py-3 text-right tnum text-ink-600">3</td>
+                <td class="px-5 py-3 text-right tnum text-ink-600">4</td>
+                <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Edit</button></td>
+              </tr>
+              <tr class="border-b border-line hover:bg-canvas transition-colors">
+                <td class="px-5 py-3 font-medium">Retail Operations</td>
+                <td class="px-5 py-3 font-mono text-sm text-ink-600">RTL</td>
+                <td class="px-5 py-3 text-ink-600">Company default</td>
+                <td class="px-5 py-3 text-right tnum text-ink-600">5</td>
+                <td class="px-5 py-3 text-right tnum text-ink-600">7</td>
+                <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Edit</button></td>
+              </tr>
+              <tr class="border-b border-line hover:bg-canvas transition-colors">
+                <td class="px-5 py-3 font-medium">Technology</td>
+                <td class="px-5 py-3 font-mono text-sm text-ink-600">TECH</td>
+                <td class="px-5 py-3"><span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">Technology · override</span></td>
+                <td class="px-5 py-3 text-right tnum text-ink-600">4</td>
+                <td class="px-5 py-3 text-right tnum text-ink-600">3</td>
+                <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Edit</button></td>
+              </tr>
+              <tr class="border-b border-line hover:bg-canvas transition-colors">
+                <td class="px-5 py-3 font-medium">Collections</td>
+                <td class="px-5 py-3 font-mono text-sm text-ink-600">COL</td>
+                <td class="px-5 py-3 text-ink-600">Company default</td>
+                <td class="px-5 py-3 text-right tnum text-ink-600">2</td>
+                <td class="px-5 py-3 text-right tnum text-ink-600">1</td>
+                <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Edit</button></td>
+              </tr>
+              <tr class="border-b border-line hover:bg-canvas transition-colors">
+                <td class="px-5 py-3 font-medium">Finance</td>
+                <td class="px-5 py-3 font-mono text-sm text-ink-600">FIN</td>
+                <td class="px-5 py-3 text-ink-600">Company default</td>
+                <td class="px-5 py-3 text-right tnum text-ink-600">2</td>
+                <td class="px-5 py-3 text-right tnum text-ink-600">0</td>
+                <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Edit</button></td>
+              </tr>
+              <tr class="opacity-60 hover:bg-canvas transition-colors">
+                <td class="px-5 py-3 font-medium">Corporate Banking</td>
+                <td class="px-5 py-3 font-mono text-sm text-ink-600">CIB</td>
+                <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Inactive</span></td>
+                <td class="px-5 py-3 text-right tnum text-ink-500">0</td>
+                <td class="px-5 py-3 text-right tnum text-ink-500">0</td>
+                <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Reactivate</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-5 grid md:grid-cols-2 gap-4 max-w-[900px]">
+          <div class="rounded-lg border border-line bg-canvas p-5">
+            <p class="text-base font-semibold">“People scoped” is here on purpose</p>
+            <p class="mt-1.5 text-sm text-ink-600">
+              It is the only place an admin sees department scope as a whole rather than one user at
+              a time. A department with 0 people scoped and 4 open requisitions is a configuration
+              error nobody would otherwise notice.
+            </p>
+          </div>
+          <div class="rounded-lg border border-line bg-canvas p-5">
+            <p class="text-base font-semibold">Renaming is safe, deleting is not offered</p>
+            <p class="mt-1.5 text-sm text-ink-600">
+              <code class="font-mono text-xs">Department</code> carries an
+              <code class="font-mono text-xs">IsActive</code> flag and no delete path in this design.
+              An inactive department accepts no new requisitions, keeps every old one readable, and
+              stops appearing in the scope picker.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

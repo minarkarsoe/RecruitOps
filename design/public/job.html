@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Public job page</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../internal/ds.js"></script>
+<link rel="stylesheet" href="../internal/ds.css" />
+</head>
+<body class="bg-canvas text-ink-900">
+
+<!--
+  MODULE 2.1 — THE STANDALONE JOB PAGE (the shareable link).
+
+  URL: /jobs/<sqid>. The token is minted once and kept forever, so this page has to
+  keep answering long after the role is filled — which is why the closed state below
+  is a designed page rather than a 404.
+
+  ⚠️ NOT the agency-era "client portal" link. This is public, for applicants.
+
+  The anonymous path has no tenant claim: the token identifies the company. So this
+  page renders from PublicJobDto, which cannot carry a requisition id, a budget, a
+  headcount or an internal title even by accident.
+-->
+
+<div class="min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-line">
+    <div class="max-w-[720px] mx-auto px-5 h-14 flex items-center gap-3">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true" class="shrink-0">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <a href="jobs.html" class="text-base font-semibold tracking-tight truncate">Yoma Commercial Bank</a>
+      <div class="ml-auto flex items-center rounded-md border border-line p-0.5 shrink-0">
+        <button class="h-8 px-3 rounded text-sm font-medium bg-ink-900 text-white">EN</button>
+        <button class="h-8 px-3 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors mm">မြန်မာ</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+    <div class="max-w-[720px] mx-auto px-5 py-8">
+
+      <a href="jobs.html" class="inline-flex items-center gap-1.5 text-sm font-medium text-ink-600 hover:text-ink-900 transition-colors">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none"><path d="M8.5 3 4.5 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        All positions
+      </a>
+
+      <h1 class="mt-3 text-3xl font-bold tracking-tight">Collections Officer (Field) — Yangon</h1>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <span class="inline-flex items-center h-7 px-3 rounded-full bg-white border border-line text-sm">Collections</span>
+        <span class="inline-flex items-center h-7 px-3 rounded-full bg-white border border-line text-sm">Yangon</span>
+        <span class="inline-flex items-center h-7 px-3 rounded-full bg-white border border-line text-sm">Full time</span>
+      </div>
+
+      <!-- The apply action, high and repeated at the end. -->
+      <div class="mt-6 rounded-lg border border-line bg-white p-5">
+        <div class="flex flex-wrap items-center gap-3">
+          <a href="apply.html" class="h-12 px-5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-md font-medium transition-colors inline-flex items-center">Apply for this position</a>
+          <div class="min-w-0">
+            <p class="text-sm text-ink-700">Takes about 3 minutes. You will need your CV.</p>
+            <p class="text-sm text-ink-600">No account needed.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-8 space-y-7">
+        <section>
+          <h2 class="text-xl font-semibold tracking-tight">About the role</h2>
+          <p class="mt-2.5 text-md text-ink-700 leading-relaxed">
+            You will visit customers across Yangon to agree repayment plans, working alongside branch
+            teams and the credit risk unit. Most of your week is spent out of the office, and you will
+            plan your own route.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold tracking-tight">What you will do</h2>
+          <ul class="mt-2.5 space-y-2 text-md text-ink-700">
+            <li class="flex gap-3"><span class="w-1.5 h-1.5 rounded-full bg-brand-600 mt-2.5 shrink-0"></span><span>Visit 8–12 customers a day across your assigned townships</span></li>
+            <li class="flex gap-3"><span class="w-1.5 h-1.5 rounded-full bg-brand-600 mt-2.5 shrink-0"></span><span>Agree repayment plans and record them the same day</span></li>
+            <li class="flex gap-3"><span class="w-1.5 h-1.5 rounded-full bg-brand-600 mt-2.5 shrink-0"></span><span>Escalate cases that need restructuring to the credit risk unit</span></li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold tracking-tight">What we need from you</h2>
+          <ul class="mt-2.5 space-y-2 text-md text-ink-700">
+            <li class="flex gap-3"><span class="w-1.5 h-1.5 rounded-full bg-brand-600 mt-2.5 shrink-0"></span><span>Two years in collections, field sales or a similar visiting role</span></li>
+            <li class="flex gap-3"><span class="w-1.5 h-1.5 rounded-full bg-brand-600 mt-2.5 shrink-0"></span><span>A valid motorbike licence</span></li>
+            <li class="flex gap-3"><span class="w-1.5 h-1.5 rounded-full bg-brand-600 mt-2.5 shrink-0"></span><span>Comfortable writing short notes in Burmese and reading English forms</span></li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold tracking-tight">Practical details</h2>
+          <dl class="mt-2.5 rounded-lg border border-line bg-white divide-y divide-line">
+            <div class="flex items-baseline justify-between gap-4 px-5 py-3.5">
+              <dt class="text-base text-ink-600">Location</dt>
+              <dd class="text-base font-medium text-right">Yangon · townships assigned on joining</dd>
+            </div>
+            <div class="flex items-baseline justify-between gap-4 px-5 py-3.5">
+              <dt class="text-base text-ink-600">Hours</dt>
+              <dd class="text-base font-medium text-right">Mon–Fri, 9:00–17:30</dd>
+            </div>
+            <div class="flex items-baseline justify-between gap-4 px-5 py-3.5">
+              <dt class="text-base text-ink-600">Applications close</dt>
+              <dd class="text-base font-medium text-right tnum">30 September 2026</dd>
+            </div>
+          </dl>
+          <p class="mt-2.5 text-sm text-ink-600">
+            No salary is shown for this position. Ask us during the first call — we will tell you the
+            band before you spend time on an interview.
+          </p>
+        </section>
+      </div>
+
+      <div class="mt-8 rounded-lg border border-line bg-white p-5">
+        <a href="apply.html" class="h-12 w-full px-5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-md font-medium transition-colors inline-flex items-center justify-center">Apply for this position</a>
+        <div class="mt-4 pt-4 border-t border-line flex flex-wrap items-center gap-2">
+          <p class="text-sm text-ink-600 mr-1">Share:</p>
+          <button class="h-9 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Copy link</button>
+          <button class="h-9 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Facebook</button>
+          <button class="h-9 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Viber</button>
+          <button class="h-9 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Telegram</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="border-t border-line bg-white">
+    <div class="max-w-[720px] mx-auto px-5 py-6">
+      <p class="text-sm text-ink-600">
+        Yoma Commercial Bank · Recruitment. Applications are read by our own recruitment team.
+      </p>
+    </div>
+  </footer>
+</div>
+
+<!-- ==================== DESIGN NOTES (kit chrome, never ships) ==================== -->
+<div class="border-t-2 border-line bg-canvas">
+  <div class="max-w-[880px] mx-auto px-5 py-8">
+    <p class="spec-label">design/public/job.html</p>
+    <h2 class="mt-1.5 text-2xl font-semibold tracking-tight">The two states this URL must also serve</h2>
+
+    <div class="mt-5 grid lg:grid-cols-2 gap-6 items-start">
+
+      <div>
+        <p class="spec-label">Closed — the link still works</p>
+        <div class="mt-2 rounded-lg border border-line bg-white overflow-hidden">
+          <div class="px-5 py-10 text-center">
+            <div class="w-11 h-11 rounded-full bg-canvas border border-line grid place-items-center mx-auto">
+              <svg class="w-5 h-5 text-ink-400" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M7 10h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </div>
+            <h3 class="mt-3.5 text-xl font-semibold tracking-tight">This position has closed</h3>
+            <p class="mt-2 text-base text-ink-600 max-w-[44ch] mx-auto">
+              We are no longer accepting applications for Treasury Dealer. Thank you for your interest.
+            </p>
+            <a href="jobs.html" class="mt-4 inline-flex items-center h-11 px-4 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">See our open positions</a>
+          </div>
+        </div>
+        <p class="mt-2.5 text-sm text-ink-600 max-w-[54ch]">
+          Never a 404. The link was minted once and kept, and by the time a role closes it is sitting
+          in Facebook groups and in people's saved messages. A dead end tells a candidate the company
+          is careless; this tells them what happened and offers the next thing.
+        </p>
+      </div>
+
+      <div>
+        <p class="spec-label">Shared to Facebook — the Open Graph card</p>
+        <div class="mt-2 rounded-lg border border-line bg-white p-5">
+          <div class="rounded-md border border-line overflow-hidden max-w-[420px]">
+            <div class="h-32 bg-ink-900 relative">
+              <div class="absolute inset-0 grid place-items-center px-5 text-center">
+                <div>
+                  <p class="text-white text-lg font-semibold tracking-tight">Collections Officer (Field)</p>
+                  <p class="mt-1 text-white/70 text-sm">Yoma Commercial Bank · Yangon</p>
+                </div>
+              </div>
+            </div>
+            <div class="px-4 py-3 bg-white">
+              <p class="text-2xs uppercase tracking-wider text-ink-500">careers.yomabank.com</p>
+              <p class="mt-1 text-base font-medium leading-snug">Collections Officer (Field) — Yangon</p>
+              <p class="mt-1 text-sm text-ink-600">Visit customers across Yangon to agree repayment plans. Motorbike licence required.</p>
+            </div>
+          </div>
+          <p class="mt-3.5 text-sm text-ink-600 max-w-[54ch]">
+            This card is the reason <code class="font-mono text-xs">frontend/public</code> is a
+            separate Next.js app (ADR-0012). Facebook's scraper does not run JavaScript, so a React
+            SPA shares as a blank rectangle with the app's title — and in this market a job link is
+            shared to Facebook before it is shared anywhere else.
+          </p>
+          <p class="mt-2.5 text-sm text-ink-600 max-w-[54ch]">
+            The image is generated from the posting's own fields, so no recruiter has to make one, and
+            it cannot leak a salary the posting did not opt into publishing.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-lg border border-line bg-white p-5">
+      <p class="text-base font-semibold">Why the salary line says something rather than nothing</p>
+      <p class="mt-1.5 text-sm text-ink-600 max-w-[80ch]">
+        This posting did not opt in, so there is no number. The page could simply omit the row — but a
+        candidate deciding whether to spend an evening on an application reads the silence as bad news.
+        Naming the absence and saying when they will find out costs one sentence and is honest about a
+        default the company chose.
+      </p>
+    </div>
+
+    <p class="mt-6"><a href="../internal/index.html" class="text-base font-medium text-brand-700 hover:text-brand-800">← All screens</a></p>
+  </div>
+</div>
+
+</body>
+</html>

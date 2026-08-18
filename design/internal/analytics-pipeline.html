@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Pipeline &amp; source analytics</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+<style>
+  /* Categorical palette — validated with the dataviz validator (light, all six checks
+     pass; worst adjacent CVD ΔE 21.0 deutan / 13.6 tritan, normal-vision 30.2).
+     Assigned in FIXED ORDER by channel identity, never by rank: filtering a channel out
+     must not repaint the survivors. */
+  .cat-1 { background:#0D9488; } .cat-1-stroke { stroke:#0D9488; }
+  .cat-2 { background:#7C3AED; } .cat-2-stroke { stroke:#7C3AED; }
+  .cat-3 { background:#D97706; } .cat-3-stroke { stroke:#D97706; }
+  .cat-4 { background:#0369A1; } .cat-4-stroke { stroke:#0369A1; }
+
+  .funnel-track { background:#F1F5F9; border-radius:4px; }
+  .funnel-fill  { background:#0D9488; border-radius:0 4px 4px 0; height:100%; }
+</style>
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 5.2 — PIPELINE & SOURCE ANALYTICS.
+  Two decisions worth stating:
+  1. Source of Hire carries TWO measures — share of candidates, and the rate at which
+     each channel converts. They are different scales, so they are two charts, never one
+     chart with two y-axes. Volume ≠ quality, and a dual axis would imply it does.
+  2. The requirement's funnel labels (Sourcing / Screened / Interview / Offered) are NOT
+     the PipelineStatus enum, which has eight values. The mapping is drawn on the screen
+     rather than left implicit — an unmapped funnel is how two different answers to
+     "how many reached interview" start circulating.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Insight</p>
+      <a href="analytics-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Executive dashboard</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Pipeline &amp; source</a>
+      <a href="report-builder.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Reports</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">MM</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">Daw Moe Moe Aung</span>
+          <span class="block text-2xs text-white/50 truncate">Chief HR Officer</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Pipeline &amp; source analytics</h1>
+      <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-critical-50 text-critical-700 text-xs font-medium">Not visible to Hiring Managers</span>
+    </header>
+
+    <div class="h-12 shrink-0 bg-white border-b border-line flex items-center gap-3 px-6 overflow-x-auto">
+      <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm shrink-0"><option>Last 90 days</option><option>This year</option></select>
+      <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm shrink-0"><option>All positions</option><option>Credit Analyst</option></select>
+      <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm shrink-0"><option>All sources</option></select>
+      <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm shrink-0"><option>All recruiters</option></select>
+    </div>
+
+    <div class="flex-1 min-h-0 overflow-y-auto">
+      <div class="max-w-[1200px] mx-auto px-6 py-6 space-y-5">
+
+        <div class="grid lg:grid-cols-2 gap-5">
+
+          <!-- ===== SOURCE OF HIRE — share ===== -->
+          <section class="rounded-lg border border-line bg-white">
+            <header class="px-5 h-12 flex items-center gap-3 border-b border-line">
+              <h2 class="text-base font-semibold">Where candidates come from</h2>
+              <span class="ml-auto text-sm text-ink-600 tnum">420 candidates</span>
+            </header>
+            <div class="p-5 flex items-center gap-6">
+              <svg width="168" height="168" viewBox="0 0 168 168" class="shrink-0" role="img" aria-label="Share of candidates by source: Facebook 38%, LinkedIn 27%, Career Page 22%, Manual upload 13%">
+                <g transform="rotate(-90 84 84)" fill="none" stroke-width="22">
+                  <!-- 2px surface gap between segments: each arc is shortened by 2 -->
+                  <circle class="cat-1-stroke" cx="84" cy="84" r="70" stroke-dasharray="165.1 274.7" stroke-dashoffset="0"/>
+                  <circle class="cat-2-stroke" cx="84" cy="84" r="70" stroke-dasharray="116.7 323.1" stroke-dashoffset="-167.1"/>
+                  <circle class="cat-3-stroke" cx="84" cy="84" r="70" stroke-dasharray="94.8 345.0" stroke-dashoffset="-285.8"/>
+                  <circle class="cat-4-stroke" cx="84" cy="84" r="70" stroke-dasharray="55.2 384.6" stroke-dashoffset="-382.6"/>
+                </g>
+              </svg>
+
+              <!-- Legend present because there are ≥2 series; ≤4 so each is also
+                   direct-labelled with its value. Identity is never colour alone. -->
+              <ul class="min-w-0 flex-1 space-y-2.5">
+                <li class="flex items-center gap-2.5">
+                  <span class="cat-1 w-3 h-3 rounded-sm shrink-0"></span>
+                  <span class="text-base text-ink-700 min-w-0 flex-1 truncate">Facebook</span>
+                  <span class="text-base font-medium font-mono tnum">38%</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <span class="cat-2 w-3 h-3 rounded-sm shrink-0"></span>
+                  <span class="text-base text-ink-700 min-w-0 flex-1 truncate">LinkedIn</span>
+                  <span class="text-base font-medium font-mono tnum">27%</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <span class="cat-3 w-3 h-3 rounded-sm shrink-0"></span>
+                  <span class="text-base text-ink-700 min-w-0 flex-1 truncate">Career page</span>
+                  <span class="text-base font-medium font-mono tnum">22%</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <span class="cat-4 w-3 h-3 rounded-sm shrink-0"></span>
+                  <span class="text-base text-ink-700 min-w-0 flex-1 truncate">Manual upload</span>
+                  <span class="text-base font-medium font-mono tnum">13%</span>
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <!-- ===== SOURCE OF HIRE — conversion. Separate chart, separate scale. ===== -->
+          <section class="rounded-lg border border-line bg-white">
+            <header class="px-5 h-12 flex items-center gap-3 border-b border-line">
+              <h2 class="text-base font-semibold">Which of them get hired</h2>
+              <span class="ml-auto text-sm text-ink-600">% of that channel's candidates</span>
+            </header>
+            <div class="p-5 space-y-2.5">
+              <div class="grid grid-cols-[120px_1fr_52px] items-center gap-3">
+                <span class="flex items-center gap-2 min-w-0"><span class="cat-3 w-3 h-3 rounded-sm shrink-0"></span><span class="text-base text-ink-700 truncate">Career page</span></span>
+                <span class="funnel-track h-6"><span class="funnel-fill block" style="width:100%;background:#D97706"></span></span>
+                <span class="text-base font-medium font-mono tnum text-right">11%</span>
+              </div>
+              <div class="grid grid-cols-[120px_1fr_52px] items-center gap-3">
+                <span class="flex items-center gap-2 min-w-0"><span class="cat-2 w-3 h-3 rounded-sm shrink-0"></span><span class="text-base text-ink-700 truncate">LinkedIn</span></span>
+                <span class="funnel-track h-6"><span class="funnel-fill block" style="width:81.8%;background:#7C3AED"></span></span>
+                <span class="text-base font-medium font-mono tnum text-right">9%</span>
+              </div>
+              <div class="grid grid-cols-[120px_1fr_52px] items-center gap-3">
+                <span class="flex items-center gap-2 min-w-0"><span class="cat-4 w-3 h-3 rounded-sm shrink-0"></span><span class="text-base text-ink-700 truncate">Manual upload</span></span>
+                <span class="funnel-track h-6"><span class="funnel-fill block" style="width:63.6%;background:#0369A1"></span></span>
+                <span class="text-base font-medium font-mono tnum text-right">7%</span>
+              </div>
+              <div class="grid grid-cols-[120px_1fr_52px] items-center gap-3">
+                <span class="flex items-center gap-2 min-w-0"><span class="cat-1 w-3 h-3 rounded-sm shrink-0"></span><span class="text-base text-ink-700 truncate">Facebook</span></span>
+                <span class="funnel-track h-6"><span class="funnel-fill block" style="width:27.3%;background:#0D9488"></span></span>
+                <span class="text-base font-medium font-mono tnum text-right">3%</span>
+              </div>
+            </div>
+            <footer class="px-5 py-3 border-t border-line bg-canvas">
+              <p class="text-sm text-ink-600">
+                Facebook brings the most people and converts the worst. That is the pair of numbers
+                worth acting on, and it is why these are two charts rather than one with two axes.
+              </p>
+            </footer>
+          </section>
+        </div>
+
+        <!-- ===== FUNNEL ===== -->
+        <section class="rounded-lg border border-line bg-white">
+          <header class="px-5 h-12 flex items-center gap-3 border-b border-line">
+            <h2 class="text-base font-semibold">Where candidates drop off</h2>
+            <span class="ml-auto text-sm text-ink-600">Last 90 days</span>
+          </header>
+          <div class="p-5 space-y-3">
+            <div class="grid grid-cols-[120px_1fr_130px] items-center gap-3">
+              <span class="text-base text-ink-700">Sourcing</span>
+              <span class="funnel-track h-8"><span class="funnel-fill block" style="width:100%"></span></span>
+              <span class="text-base font-medium font-mono tnum">420</span>
+            </div>
+            <div class="grid grid-cols-[120px_1fr_130px] items-center gap-3">
+              <span class="text-base text-ink-700">Screened</span>
+              <span class="funnel-track h-8"><span class="funnel-fill block" style="width:44.3%"></span></span>
+              <span class="text-base font-medium font-mono tnum">186 <span class="text-sm font-normal text-critical-700">−56%</span></span>
+            </div>
+            <div class="grid grid-cols-[120px_1fr_130px] items-center gap-3">
+              <span class="text-base text-ink-700">Interview</span>
+              <span class="funnel-track h-8"><span class="funnel-fill block" style="width:15.2%"></span></span>
+              <span class="text-base font-medium font-mono tnum">64 <span class="text-sm font-normal text-critical-700">−66%</span></span>
+            </div>
+            <div class="grid grid-cols-[120px_1fr_130px] items-center gap-3">
+              <span class="text-base text-ink-700">Offered</span>
+              <span class="funnel-track h-8"><span class="funnel-fill block" style="width:9.8%"></span></span>
+              <span class="text-base font-medium font-mono tnum">41 <span class="text-sm font-normal text-ink-600">−36%</span></span>
+            </div>
+          </div>
+
+          <!-- The mapping, drawn. Four bands, eight enum values. -->
+          <footer class="px-5 py-4 border-t border-line bg-canvas">
+            <p class="text-sm font-medium">How these four bands map to the eight pipeline statuses</p>
+            <div class="mt-2.5 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+              <span class="text-ink-600"><span class="font-medium text-ink-900">Sourcing</span> = Sourced + Applied</span>
+              <span class="text-ink-600"><span class="font-medium text-ink-900">Screened</span> = Screening + Shortlisted</span>
+              <span class="text-ink-600"><span class="font-medium text-ink-900">Interview</span> = Interview</span>
+              <span class="text-ink-600"><span class="font-medium text-ink-900">Offered</span> = Offer + Hired</span>
+            </div>
+            <p class="mt-2.5 text-sm text-ink-600 max-w-[80ch]">
+              <span class="font-medium text-ink-900">Rejected has no band</span> — it is an exit from every
+              stage, not a stage of its own. Counting it anywhere would make the bands stop summing to the
+              total. This mapping is a decision, not a default; it belongs in the module doc before it is built.
+            </p>
+          </footer>
+        </section>
+
+        <!-- ===== LEADERBOARD ===== -->
+        <section class="rounded-lg border border-line bg-white">
+          <header class="px-5 h-12 flex items-center gap-3 border-b border-line">
+            <h2 class="text-base font-semibold">Recruiter leaderboard</h2>
+            <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium">Staff performance data</span>
+          </header>
+          <table class="w-full text-base">
+            <thead>
+              <tr class="bg-canvas border-b border-line text-left text-sm">
+                <th class="px-5 py-2.5 font-medium text-ink-600">Recruiter</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600 text-right">CVs in</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600 text-right">Interviews</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600 text-right">Hires</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-line"><td class="px-5 py-3">U Thura Win</td><td class="px-5 py-3 text-right font-mono tnum">168</td><td class="px-5 py-3 text-right font-mono tnum">31</td><td class="px-5 py-3 text-right font-mono tnum font-medium">9</td></tr>
+              <tr class="border-b border-line"><td class="px-5 py-3">Daw Sandar Myint</td><td class="px-5 py-3 text-right font-mono tnum">142</td><td class="px-5 py-3 text-right font-mono tnum">28</td><td class="px-5 py-3 text-right font-mono tnum font-medium">8</td></tr>
+              <tr class="border-b border-line"><td class="px-5 py-3">U Zaw Lin Htet</td><td class="px-5 py-3 text-right font-mono tnum">74</td><td class="px-5 py-3 text-right font-mono tnum">19</td><td class="px-5 py-3 text-right font-mono tnum font-medium">7</td></tr>
+              <tr><td class="px-5 py-3">Ma Thiri Aung</td><td class="px-5 py-3 text-right font-mono tnum">36</td><td class="px-5 py-3 text-right font-mono tnum">11</td><td class="px-5 py-3 text-right font-mono tnum font-medium">5</td></tr>
+            </tbody>
+          </table>
+          <footer class="px-5 py-4 border-t border-line bg-warn-50">
+            <p class="text-sm text-warn-700 max-w-[84ch]">
+              <strong class="font-semibold">Deliberately not ranked, and deliberately not sorted by hires.</strong>
+              This is personal data about employees, not about candidates. Note that the recruiter with the
+              fewest CVs has the best conversion — a leaderboard sorted by any single column would say the
+              opposite of the truth. Who may open this needs confirming with the customer before it is built.
+            </p>
+          </footer>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

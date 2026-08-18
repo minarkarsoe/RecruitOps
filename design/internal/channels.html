@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Channels</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 8 — MULTI-CHANNEL SOURCING (Viber / Telegram / Facebook).
+
+  Positioned as the product's primary competitive differentiator, and it opens with
+  a constraint most feature pages would bury: WEBHOOKS NEED A PUBLICLY REACHABLE
+  ENDPOINT. An on-premise install behind a corporate firewall cannot receive them.
+  The module doc says this may make the feature hosted-tier only, or require
+  outbound polling. Neither is decided.
+
+  So this screen is drawn in its blocked state first. A design that shows only the
+  happy path would let an on-prem customer be sold a bot that can never receive a
+  message — and they would not find out until a candidate's CV vanished.
+
+  The other rule the screen has to carry: NO PARALLEL INTAKE PATH. A CV arriving by
+  Viber is a Candidate and a JobApplication, deduplicated by the same phone/email
+  check as the web form. The bot is a doorway, not a second system.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="postings.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Postings</a>
+      <a href="talent-pool.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Talent pool</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Channels</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Insight</p>
+      <a href="analytics-pipeline.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Analytics</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">TW</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">U Thura Win</span>
+          <span class="block text-2xs text-white/50 truncate">Recruiter</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Channels</h1>
+      <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium">
+        <span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Not started
+      </span>
+    </header>
+
+    <div class="flex-1 min-h-0 overflow-auto">
+      <div class="max-w-[1040px] px-6 py-8">
+
+        <!-- ================================================ THE BLOCKER -->
+        <div class="rounded-lg border-2 border-critical-500 bg-white overflow-hidden">
+          <div class="px-5 py-4 bg-critical-50 border-b border-critical-100">
+            <div class="flex items-start gap-3">
+              <svg class="w-5 h-5 text-critical-700 mt-0.5 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M10 3 18.5 17h-17z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 8v3.4M10 14.2v.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+              <div>
+                <p class="text-lg font-semibold tracking-tight text-critical-700">This deployment cannot receive messages</p>
+                <p class="mt-1.5 text-base text-critical-700 max-w-[72ch]">
+                  Viber, Telegram and Facebook deliver by calling a webhook. This install sits behind
+                  the corporate firewall and has no publicly reachable endpoint, so nothing can call in.
+                  Connecting a bot here would appear to work and would silently receive nothing.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="px-5 py-4">
+            <p class="text-sm font-medium">Three ways out, none of them decided</p>
+            <div class="mt-3 grid sm:grid-cols-3 gap-3">
+              <div class="rounded-md border border-line bg-canvas px-3.5 py-3">
+                <p class="text-base font-medium">Publish an endpoint</p>
+                <p class="mt-1 text-sm text-ink-600">A single inbound path through the DMZ. The customer's security team owns that decision, not us.</p>
+              </div>
+              <div class="rounded-md border border-line bg-canvas px-3.5 py-3">
+                <p class="text-base font-medium">Hosted tier only</p>
+                <p class="mt-1 text-sm text-ink-600">Sourcing channels become a reason to choose hosted. Clean, but it makes the headline differentiator unavailable to the on-prem buyers who want it most.</p>
+              </div>
+              <div class="rounded-md border border-line bg-canvas px-3.5 py-3">
+                <p class="text-base font-medium">Outbound polling</p>
+                <p class="mt-1 text-sm text-ink-600">We call out instead of being called. Works behind a firewall; Telegram supports it, Facebook does not.</p>
+              </div>
+            </div>
+            <p class="mt-3.5 text-sm text-ink-600 max-w-[76ch]">
+              Everything below is drawn as it would look once one of these is chosen. It is shown
+              greyed rather than hidden so a sales conversation can point at the real screen and at
+              the real reason it is off.
+            </p>
+          </div>
+        </div>
+
+        <!-- ================================================== CHANNELS -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">Channels</h2>
+        <div class="mt-4 space-y-3 opacity-60">
+
+          <div class="rounded-lg border border-line bg-white p-5">
+            <div class="flex items-start gap-4 flex-wrap">
+              <div class="w-10 h-10 rounded-md bg-info-50 grid place-items-center shrink-0">
+                <svg class="w-5 h-5 text-info-700" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17 4 2.8 9.6l4.4 1.6L15 6l-6 6.4v4.2l2.6-3 3.4 2.6z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2.5 flex-wrap">
+                  <p class="text-lg font-semibold tracking-tight">Telegram</p>
+                  <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Blocked by deployment</span>
+                </div>
+                <p class="mt-1.5 text-base text-ink-600 max-w-[62ch]">Bot receives CVs and answers short screening questions. Also the one channel that can work by polling instead of webhooks.</p>
+              </div>
+              <button disabled class="h-9 px-3.5 rounded-md border border-line bg-canvas text-ink-400 text-base font-medium cursor-not-allowed shrink-0">Connect</button>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-line bg-white p-5">
+            <div class="flex items-start gap-4 flex-wrap">
+              <div class="w-10 h-10 rounded-md bg-canvas border border-line grid place-items-center shrink-0">
+                <svg class="w-5 h-5 text-ink-500" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3c3.9 0 7 2.6 7 5.9 0 3.2-3.1 5.8-7 5.8-.8 0-1.6-.1-2.3-.3L4 16l.8-2.6C3.7 12.2 3 10.6 3 8.9 3 5.6 6.1 3 10 3Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2.5 flex-wrap">
+                  <p class="text-lg font-semibold tracking-tight">Viber</p>
+                  <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Blocked by deployment</span>
+                </div>
+                <p class="mt-1.5 text-base text-ink-600 max-w-[62ch]">The highest-reach channel in this market. Webhook-only.</p>
+              </div>
+              <button disabled class="h-9 px-3.5 rounded-md border border-line bg-canvas text-ink-400 text-base font-medium cursor-not-allowed shrink-0">Connect</button>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-line bg-white p-5">
+            <div class="flex items-start gap-4 flex-wrap">
+              <div class="w-10 h-10 rounded-md bg-canvas border border-line grid place-items-center shrink-0">
+                <svg class="w-5 h-5 text-ink-500" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M11.5 17V10h2.3l.4-2.6h-2.7V5.7c0-.8.2-1.3 1.3-1.3h1.5V2.1C14 2.1 13.1 2 12.1 2 10 2 8.6 3.3 8.6 5.5v1.9H6.3V10h2.3v7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2.5 flex-wrap">
+                  <p class="text-lg font-semibold tracking-tight">Facebook</p>
+                  <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Blocked by deployment</span>
+                </div>
+                <p class="mt-1.5 text-base text-ink-600 max-w-[62ch]">Auto-replies via Messenger to comments on a job post, and takes the application in that thread. Webhook-only — polling is not an option here.</p>
+              </div>
+              <button disabled class="h-9 px-3.5 rounded-md border border-line bg-canvas text-ink-400 text-base font-medium cursor-not-allowed shrink-0">Connect</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================================================== ROUTING -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">Which job is this person applying for?</h2>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[74ch]">
+          A web form knows, because the form belongs to a posting. A chat message does not. Three
+          answers, in the order the system should try them.
+        </p>
+
+        <div class="mt-4 space-y-3">
+          <div class="rounded-lg border border-line bg-white p-5">
+            <div class="flex items-start gap-3.5">
+              <span class="w-7 h-7 rounded-full bg-ink-900 text-white grid place-items-center text-sm font-semibold tnum shrink-0">1</span>
+              <div class="min-w-0">
+                <p class="text-base font-semibold">The link carried it</p>
+                <p class="mt-1 text-sm text-ink-600 max-w-[70ch]">A deep link or QR code from the posting: <code class="font-mono text-xs bg-canvas border border-line rounded px-1.5 py-0.5">t.me/yomabank_jobs?start=U9kL3mQx</code>. The token is the posting's own public token, so a QR on a branch poster and the link in a Telegram post resolve to the same job with no extra mapping.</p>
+              </div>
+            </div>
+          </div>
+          <div class="rounded-lg border border-line bg-white p-5">
+            <div class="flex items-start gap-3.5">
+              <span class="w-7 h-7 rounded-full bg-ink-900 text-white grid place-items-center text-sm font-semibold tnum shrink-0">2</span>
+              <div class="min-w-0">
+                <p class="text-base font-semibold">The post it came from</p>
+                <p class="mt-1 text-sm text-ink-600 max-w-[70ch]">A Messenger reply inherits the Facebook post id, and that post was published by a posting. Inferred, never asked.</p>
+              </div>
+            </div>
+          </div>
+          <div class="rounded-lg border border-line bg-white p-5">
+            <div class="flex items-start gap-3.5">
+              <span class="w-7 h-7 rounded-full bg-ink-900 text-white grid place-items-center text-sm font-semibold tnum shrink-0">3</span>
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-semibold">Ask, with buttons</p>
+                <p class="mt-1 text-sm text-ink-600 max-w-[70ch]">Only when 1 and 2 both fail. Live positions as inline buttons, never a free-text question — a typed answer in Burmese would have to be matched back to a posting, and that is a worse problem than the one being solved.</p>
+                <div class="mt-3 max-w-[360px] rounded-lg border border-line bg-canvas p-3.5">
+                  <p class="text-sm text-ink-700 mm">မင်္ဂလာပါ။ ဘယ်ရာထူးအတွက် လျှောက်ထားလိုပါသလဲ။</p>
+                  <div class="mt-2.5 space-y-1.5">
+                    <button class="w-full h-9 rounded-md bg-white border border-line text-sm font-medium text-left px-3 hover:border-line-strong transition-colors">Collections Officer (Field) — Yangon</button>
+                    <button class="w-full h-9 rounded-md bg-white border border-line text-sm font-medium text-left px-3 hover:border-line-strong transition-colors">Branch Teller — Insein</button>
+                    <button class="w-full h-9 rounded-md bg-white border border-line text-sm font-medium text-left px-3 hover:border-line-strong transition-colors">Backend Engineer (.NET)</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================ CONVERSATION -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">A conversation, landing in the pipeline</h2>
+
+        <div class="mt-4 grid lg:grid-cols-[1fr_360px] gap-5 items-start">
+          <div class="rounded-lg border border-line bg-white overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-line flex items-center gap-2.5 flex-wrap">
+              <span class="w-8 h-8 rounded-full bg-canvas border border-line grid place-items-center text-2xs font-semibold text-ink-600 shrink-0">ZM</span>
+              <div class="min-w-0">
+                <p class="text-base font-medium mm">မောင်ဇော်မင်း</p>
+                <p class="text-sm text-ink-600">Viber · 09-95xxxxxx</p>
+              </div>
+              <span class="ml-auto inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium shrink-0">Collections Officer</span>
+            </div>
+
+            <div class="px-5 py-4 space-y-3">
+              <div class="flex justify-start">
+                <div class="max-w-[78%] rounded-lg rounded-tl-sm border border-line bg-canvas px-3.5 py-2.5">
+                  <p class="text-base mm">ဒီ position အတွက် လျှောက်ချင်ပါတယ်</p>
+                  <p class="mt-1 text-2xs text-ink-500 tnum">14:02</p>
+                </div>
+              </div>
+              <div class="flex justify-end">
+                <div class="max-w-[78%] rounded-lg rounded-tr-sm bg-brand-700 text-white px-3.5 py-2.5">
+                  <p class="text-base mm">ကျေးဇူးတင်ပါတယ်။ CV ကို ပို့ပေးပါ။ PDF (သို့) ဓာတ်ပုံ ဖြစ်နိုင်ပါတယ်။</p>
+                  <p class="mt-1 text-2xs text-white/60 tnum">14:02 · automated</p>
+                </div>
+              </div>
+              <div class="flex justify-start">
+                <div class="max-w-[78%] rounded-lg rounded-tl-sm border border-line bg-canvas px-3.5 py-2.5">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-ink-500 shrink-0" viewBox="0 0 16 16" fill="none"><path d="M9 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V6z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9 2v4h4" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                    <p class="text-base font-medium">CV_ZawMin.pdf</p>
+                  </div>
+                  <p class="mt-1 text-2xs text-ink-500 tnum">14:05</p>
+                </div>
+              </div>
+              <div class="flex justify-end">
+                <div class="max-w-[78%] rounded-lg rounded-tr-sm bg-brand-700 text-white px-3.5 py-2.5">
+                  <p class="text-base mm">လက်ခံရရှိပါပြီ။ အတွေ့အကြုံ ဘယ်နှစ်နှစ် ရှိပါသလဲ။</p>
+                  <p class="mt-1 text-2xs text-white/60 tnum">14:05 · screening question 1 of 2</p>
+                </div>
+              </div>
+              <div class="flex justify-start">
+                <div class="max-w-[78%] rounded-lg rounded-tl-sm border border-line bg-canvas px-3.5 py-2.5">
+                  <p class="text-base">4</p>
+                  <p class="mt-1 text-2xs text-ink-500 tnum">14:06</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="px-5 py-3.5 border-t border-line bg-canvas">
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Applied</span>
+                <p class="text-sm text-ink-700">Candidate created, CV attached, application in the pipeline at Applied.</p>
+                <a href="board.html" class="ml-auto text-sm font-medium text-brand-700 hover:text-brand-800 shrink-0">Open on board</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="rounded-lg border border-line bg-white p-5">
+              <p class="text-base font-semibold">Two questions, then stop</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                The module doc asks whether the bot is a form or a conversation. Drawn as: the bot
+                collects what routing and dedup need, then hands over. A ten-question chat form has
+                the drop-off of a long form and none of its clarity — and every question asked in
+                chat is another Burmese free-text answer somebody has to parse.
+              </p>
+            </div>
+            <div class="rounded-lg border border-line bg-white p-5">
+              <p class="text-base font-semibold">Same dedup as the web form</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                <span class="font-mono text-xs">09-95xxxxxx</span> is checked against existing
+                candidates exactly as an application from the career page would be. Filtering
+                duplicate CVs out of social traffic is a headline benefit of this module, and it only
+                works because there is no second intake path.
+              </p>
+            </div>
+            <div class="rounded-lg border border-line bg-white p-5">
+              <p class="text-base font-semibold">The recruiter can type</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                Automated replies are labelled <em>automated</em> so a human reply is visibly
+                different. A candidate who asks something the bot cannot answer must reach a person
+                without leaving the thread.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================== OUTBOUND -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">Status notifications going out</h2>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[74ch]">
+          The half of this module candidates actually feel: being told what happened. It is also
+          the half that becomes spam if it is switched on without care.
+        </p>
+
+        <div class="mt-4 rounded-lg border border-line bg-white overflow-hidden">
+          <div class="px-5 py-4 border-b border-line">
+            <p class="text-base font-semibold">Notify on stage change</p>
+          </div>
+          <ul class="p-4 space-y-2">
+            <li class="flex items-center gap-3 rounded-md border border-brand-200 bg-brand-50 px-3.5 py-3">
+              <input type="checkbox" checked class="w-4 h-4 rounded border-line-strong accent-[#0F766E] shrink-0" />
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium text-brand-900">Application received</p>
+                <p class="text-sm text-brand-800">Sent once, immediately. The message that stops the “did you get it?” follow-ups.</p>
+              </div>
+            </li>
+            <li class="flex items-center gap-3 rounded-md border border-brand-200 bg-brand-50 px-3.5 py-3">
+              <input type="checkbox" checked class="w-4 h-4 rounded border-line-strong accent-[#0F766E] shrink-0" />
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium text-brand-900">Interview scheduled</p>
+                <p class="text-sm text-brand-800">Date, time and place, in the language they wrote in.</p>
+              </div>
+            </li>
+            <li class="flex items-center gap-3 rounded-md border border-line px-3.5 py-3">
+              <input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E] shrink-0" />
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Moved to Screening / Shortlisted</p>
+                <p class="text-sm text-ink-600">Off by default. Internal stage names are not news to a candidate, and “Shortlisted” raises an expectation the pipeline has not earned yet.</p>
+              </div>
+            </li>
+            <li class="flex items-center gap-3 rounded-md border border-line px-3.5 py-3">
+              <input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E] shrink-0" />
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Not proceeding</p>
+                <p class="text-sm text-ink-600">Off by default and deliberately not automatic. An automated rejection over Viber, in a market this small, is the message that gets screenshotted.</p>
+              </div>
+            </li>
+          </ul>
+          <div class="px-5 py-4 border-t border-line bg-canvas">
+            <div class="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p class="text-sm font-medium">Opt-out is on every outbound message</p>
+                <p class="mt-1 text-sm text-ink-600 max-w-[70ch]">
+                  Consent and opt-out are hard requirements of this module. Once someone opts out the
+                  flag lives on the candidate, so it survives them applying again through a different
+                  channel — otherwise the opt-out is per-conversation and means nothing.
+                </p>
+              </div>
+              <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium shrink-0 tnum">14 opted out</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================ DELIVERY LOG -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">Delivery log</h2>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[74ch]">
+          Platform APIs change and rate-limit without warning, which is why adapters sit behind an
+          interface. When one breaks, the recruiter needs to know a candidate was not told —
+          silence is the failure mode that costs a hire.
+        </p>
+
+        <div class="mt-4 overflow-x-auto rounded-lg border border-line">
+          <table class="w-full min-w-[760px] bg-white text-base">
+            <thead>
+              <tr class="bg-canvas border-b border-line text-left text-sm">
+                <th class="px-5 py-2.5 font-medium text-ink-600">When</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Candidate</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Message</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Channel</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-line">
+                <td class="px-5 py-3 text-ink-600 tnum">14:06</td>
+                <td class="px-5 py-3 mm">မောင်ဇော်မင်း</td>
+                <td class="px-5 py-3 text-ink-700">Application received</td>
+                <td class="px-5 py-3 text-ink-600">Viber</td>
+                <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Delivered</span></td>
+              </tr>
+              <tr class="border-b border-line">
+                <td class="px-5 py-3 text-ink-600 tnum">11:20</td>
+                <td class="px-5 py-3">Ko Zeyar Lin</td>
+                <td class="px-5 py-3 text-ink-700">Interview scheduled</td>
+                <td class="px-5 py-3 text-ink-600">Telegram</td>
+                <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Delivered</span></td>
+              </tr>
+              <tr class="border-b border-line">
+                <td class="px-5 py-3 text-ink-600 tnum">09:48</td>
+                <td class="px-5 py-3">Ma Thiri Aung</td>
+                <td class="px-5 py-3 text-ink-700">Interview scheduled</td>
+                <td class="px-5 py-3 text-ink-600">Facebook</td>
+                <td class="px-5 py-3">
+                  <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-critical-50 text-critical-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Failed</span>
+                  <span class="block mt-1 text-xs text-critical-700">Outside the 24-hour messaging window — she was not told. Send by email instead.</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="px-5 py-3 text-ink-600 tnum">09:31</td>
+                <td class="px-5 py-3">U Kyaw Swar</td>
+                <td class="px-5 py-3 text-ink-700">Application received</td>
+                <td class="px-5 py-3 text-ink-600">Telegram</td>
+                <td class="px-5 py-3">
+                  <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Not sent</span>
+                  <span class="block mt-1 text-xs text-ink-600">Opted out</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-4 rounded-lg border border-line bg-white p-5">
+          <p class="text-base font-semibold">A failure row says what to do next</p>
+          <p class="mt-1.5 text-sm text-ink-600 max-w-[80ch]">
+            “Failed” alone makes a recruiter open a support ticket. Facebook's 24-hour rule is a
+            policy, not an outage, and it will recur every week — so the row names the rule, states
+            the consequence in the candidate's terms, and suggests the fallback. The same applies to
+            an opt-out: <em>Not sent</em> is a correct outcome, and it is styled as neutral rather
+            than as an error.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

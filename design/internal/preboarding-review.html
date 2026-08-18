@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Pre-boarding review</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 4.3 — PRE-BOARDING REVIEW (the recruiter's side).
+  The candidate's side is design/public/offer-portal.html; this is where what they
+  uploaded gets checked.
+
+  This screen handles the most sensitive data in the entire product. An NRC scan and
+  a bank account number are not a CV — a leak here is identity theft, not an
+  embarrassment. Three consequences, all visible in the layout:
+
+  1. DOCUMENTS ARE NOT SHOWN AS THUMBNAILS. A grid of NRC images turns every
+     recruiter's screen into a wall of national ID cards visible to anyone walking
+     past. Each document opens deliberately, one at a time, and the fact that it was
+     opened is recorded.
+
+  2. HIRING MANAGERS ARE NOT ON THIS SCREEN AT ALL. Module 4's permission table gives
+     them view-only offer status for their own department. Nothing about documents.
+     There is no restricted variant of this page, because the correct variant is
+     absence.
+
+  3. BANK DETAILS ARE MASKED UNTIL REVEALED. The recruiter needs to check them once,
+     against a document; they do not need them sitting on screen for the rest of the
+     day.
+
+  ⚠️ "Request re-submission" and the IT/Admin handoff both need an email sender and a
+  job runner, neither of which exists in the codebase. That is logged as a High gap
+  blocking three modules; it is marked on the buttons here rather than drawn as if
+  it works.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="postings.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Postings</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Insight</p>
+      <a href="analytics-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Analytics</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">TW</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">U Thura Win</span>
+          <span class="block text-2xs text-white/50 truncate">Recruiter</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-3 px-6">
+      <a href="offer-dashboard.html" class="inline-flex items-center gap-1.5 text-sm font-medium text-ink-600 hover:text-ink-900 transition-colors">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none"><path d="M8.5 3 4.5 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Offers
+      </a>
+      <span class="w-px h-5 bg-line"></span>
+      <h1 class="text-xl font-semibold tracking-tight">Pre-boarding</h1>
+      <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>2 of 5 approved</span>
+    </header>
+
+    <div class="flex-1 min-h-0 overflow-auto">
+      <div class="max-w-[1000px] px-6 py-8">
+
+        <!-- Candidate -->
+        <div class="rounded-lg border border-line bg-white p-5">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div class="flex items-center gap-3">
+              <span class="w-11 h-11 rounded-full bg-positive-100 text-positive-700 grid place-items-center text-base font-semibold shrink-0">NN</span>
+              <div>
+                <p class="text-xl font-semibold tracking-tight">Daw Nway Nway Oo</p>
+                <p class="mt-0.5 text-base text-ink-600">Treasury Dealer · Finance · joining <span class="tnum">1 October 2026</span></p>
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Offer accepted</span>
+              <p class="mt-1 text-sm text-ink-600 tnum">Signed 13 Aug · 6 weeks to start</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="mt-4 rounded-lg border border-line bg-white overflow-hidden">
+          <div class="px-5 py-4 border-b border-line flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p class="text-base font-semibold">Joining documents</p>
+              <p class="mt-1 text-sm text-ink-600">
+                Which of these are required is set in
+                <a href="settings-integrations.html" class="font-medium text-brand-700 hover:text-brand-800">System Settings</a>,
+                per company — not per candidate.
+              </p>
+            </div>
+            <p class="text-sm text-ink-600 tnum shrink-0">Uploaded 15 Aug</p>
+          </div>
+
+          <ul class="divide-y divide-line">
+
+            <!-- Approved -->
+            <li class="px-5 py-4">
+              <div class="flex items-start gap-3.5 flex-wrap">
+                <span class="w-8 h-8 rounded-full bg-positive-100 text-positive-700 grid place-items-center shrink-0">
+                  <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="m3.5 8.4 3 3L12.5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <p class="text-base font-medium">NRC — front</p>
+                    <span class="inline-flex items-center h-5 px-2 rounded-full bg-critical-50 text-critical-700 text-2xs font-medium">Sensitive</span>
+                  </div>
+                  <p class="mt-0.5 text-sm text-ink-600">Approved by you, 15 Aug 16:22 · JPG, 1.8 MB</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button class="h-9 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Open document</button>
+                </div>
+              </div>
+            </li>
+
+            <li class="px-5 py-4">
+              <div class="flex items-start gap-3.5 flex-wrap">
+                <span class="w-8 h-8 rounded-full bg-positive-100 text-positive-700 grid place-items-center shrink-0">
+                  <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="m3.5 8.4 3 3L12.5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <p class="text-base font-medium">NRC — back</p>
+                    <span class="inline-flex items-center h-5 px-2 rounded-full bg-critical-50 text-critical-700 text-2xs font-medium">Sensitive</span>
+                  </div>
+                  <p class="mt-0.5 text-sm text-ink-600">Approved by you, 15 Aug 16:23 · JPG, 1.6 MB</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button class="h-9 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Open document</button>
+                </div>
+              </div>
+            </li>
+
+            <!-- Awaiting review — bank details -->
+            <li class="px-5 py-4 bg-warn-50/40">
+              <div class="flex items-start gap-3.5 flex-wrap">
+                <span class="w-8 h-8 rounded-full bg-warn-100 text-warn-700 grid place-items-center shrink-0">
+                  <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.8V8l2.2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <p class="text-base font-medium">Bank account details</p>
+                    <span class="inline-flex items-center h-5 px-2 rounded-full bg-critical-50 text-critical-700 text-2xs font-medium">Sensitive</span>
+                    <span class="inline-flex items-center h-5 px-2 rounded-full bg-warn-100 text-warn-700 text-2xs font-medium">Awaiting your review</span>
+                  </div>
+                  <dl class="mt-2.5 rounded-md border border-line bg-white divide-y divide-line max-w-[420px]">
+                    <div class="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
+                      <dt class="text-sm text-ink-600">Bank</dt>
+                      <dd class="text-base">KBZ Bank</dd>
+                    </div>
+                    <div class="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
+                      <dt class="text-sm text-ink-600">Account name</dt>
+                      <dd class="text-base">NWAY NWAY OO</dd>
+                    </div>
+                    <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                      <dt class="text-sm text-ink-600">Account number</dt>
+                      <dd class="flex items-center gap-2.5">
+                        <span class="text-base font-mono tnum">•••• •••• •••• 4471</span>
+                        <button class="text-sm font-medium text-brand-700 hover:text-brand-800">Reveal</button>
+                      </dd>
+                    </div>
+                  </dl>
+                  <p class="mt-2 text-sm text-ink-600">Revealing is recorded in the audit log with your name and the time.</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button class="h-9 px-3 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium transition-colors">Approve</button>
+                  <button class="h-9 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Reject</button>
+                </div>
+              </div>
+            </li>
+
+            <!-- Rejected -->
+            <li class="px-5 py-4">
+              <div class="flex items-start gap-3.5 flex-wrap">
+                <span class="w-8 h-8 rounded-full bg-critical-100 text-critical-700 grid place-items-center shrink-0">
+                  <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <p class="text-base font-medium">Education certificate</p>
+                    <span class="inline-flex items-center h-5 px-2 rounded-full bg-critical-50 text-critical-700 text-2xs font-medium">Re-submission needed</span>
+                  </div>
+                  <div class="mt-2 rounded-md border border-critical-100 bg-critical-50 px-3.5 py-3 max-w-[540px]">
+                    <p class="text-sm font-medium text-critical-700">What she will be told, in her own words</p>
+                    <p class="mt-1.5 text-base text-critical-700 mm">
+                      ဘွဲ့လက်မှတ် ဓာတ်ပုံသည် မှုန်ဝါးနေပါသည်။ စာသားများ ဖတ်ရှုနိုင်စေရန် ပြန်လည် ရိုက်ကူးပေးပါ။
+                    </p>
+                    <p class="mt-2 text-sm text-critical-700">The photo is blurred — please retake it so the text is readable.</p>
+                  </div>
+                </div>
+                <div class="flex flex-col items-end gap-1.5 shrink-0">
+                  <button class="h-9 px-3 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium transition-colors">Send request</button>
+                  <span class="text-xs text-warn-700">Needs an email sender</span>
+                </div>
+              </div>
+            </li>
+
+            <!-- Not uploaded -->
+            <li class="px-5 py-4">
+              <div class="flex items-start gap-3.5 flex-wrap">
+                <span class="w-8 h-8 rounded-full bg-canvas border border-line text-ink-500 grid place-items-center shrink-0">
+                  <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M5 8h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <p class="text-base font-medium text-ink-600">Profile photo</p>
+                    <span class="inline-flex items-center h-5 px-2 rounded-full bg-canvas border border-line text-ink-600 text-2xs font-medium">Not uploaded</span>
+                  </div>
+                  <p class="mt-0.5 text-sm text-ink-600">For the employee card. Required by this company's settings.</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button class="h-9 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Remind</button>
+                </div>
+              </div>
+            </li>
+          </ul>
+
+          <div class="px-5 py-4 border-t border-line bg-canvas">
+            <p class="text-sm text-ink-700 max-w-[80ch]">
+              <span class="font-medium text-ink-900">Rejections are written to the candidate, not to the file.</span>
+              “Illegible” is a note to yourself; “retake it so the text is readable” is an instruction
+              someone can act on. It is drafted in the language she applied in, with the English kept
+              beside it so the recruiter can check what they are sending.
+            </p>
+          </div>
+        </div>
+
+        <!-- Handoff -->
+        <h2 class="mt-8 text-2xl font-semibold tracking-tight">Department handoff</h2>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[74ch]">
+          The requirement says this fires automatically once pre-boarding is complete. Automatic is
+          right — and invisible is not, so the screen shows what will be sent, to whom, and when.
+        </p>
+
+        <div class="mt-4 rounded-lg border border-line bg-white overflow-hidden">
+          <ul class="divide-y divide-line">
+            <li class="px-5 py-4 flex items-start gap-3.5 flex-wrap">
+              <span class="w-8 h-8 rounded-md bg-info-50 text-info-700 grid place-items-center shrink-0">
+                <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><rect x="2" y="3.5" width="12" height="8" rx="1.4" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 13.5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">IT</p>
+                <p class="mt-0.5 text-base text-ink-700">Create the email account and prepare a laptop for Daw Nway Nway Oo, Treasury Dealer, starting 1 October.</p>
+                <p class="mt-1 text-sm text-ink-600">No salary, no NRC, no bank details. IT needs a name, a role and a date.</p>
+              </div>
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Queued</span>
+            </li>
+            <li class="px-5 py-4 flex items-start gap-3.5 flex-wrap">
+              <span class="w-8 h-8 rounded-md bg-info-50 text-info-700 grid place-items-center shrink-0">
+                <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="2.5" width="11" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 6h5M5.5 9h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Admin</p>
+                <p class="mt-0.5 text-base text-ink-700">Prepare a desk and an employee card for Daw Nway Nway Oo, Finance, starting 1 October.</p>
+                <p class="mt-1 text-sm text-ink-600">The profile photo travels with this one, because the card needs it. Nothing else does.</p>
+              </div>
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Queued</span>
+            </li>
+          </ul>
+          <div class="px-5 py-4 border-t border-line bg-warn-50">
+            <p class="text-sm font-medium text-warn-700">Both are held until every required document is approved</p>
+            <p class="mt-1 text-sm text-warn-700 max-w-[80ch]">
+              Two are still outstanding, so nothing has been sent. Firing early would have IT setting
+              up an account for someone whose certificate turns out to be for a different person —
+              rare, and exactly the case a joining check exists to catch.
+            </p>
+            <p class="mt-2 text-sm text-warn-700">
+              <span class="font-semibold">Needs a job runner and an email sender.</span> Neither
+              exists in the codebase; the same gap blocks Module 3 invitations and Module 5 scheduled
+              reports. One shared capability, decided once.
+            </p>
+          </div>
+        </div>
+
+        <!-- HRMS -->
+        <h2 class="mt-8 text-2xl font-semibold tracking-tight">HRMS handoff, on day one</h2>
+        <div class="mt-4 rounded-lg border border-line bg-white p-5">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div class="min-w-0">
+              <p class="text-base font-semibold">Sync to QHRM as a new Employee Profile</p>
+              <p class="mt-1.5 text-base text-ink-600 max-w-[62ch]">
+                Scheduled for <span class="font-medium text-ink-900 tnum">1 October</span>, not today.
+                Personal details, salary, documents and department go across so nothing is typed twice.
+              </p>
+            </div>
+            <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Not connected</span>
+          </div>
+          <div class="mt-4 rounded-md border border-line bg-canvas px-3.5 py-3">
+            <p class="text-sm font-medium">Why this is scheduled rather than immediate</p>
+            <p class="mt-1 text-sm text-ink-600 max-w-[80ch]">
+              A candidate who accepts in August and never arrives in October is a real outcome. Writing
+              them into payroll six weeks early means someone has to delete an employee record from the
+              company's system of record — a worse job than creating one late.
+            </p>
+          </div>
+          <div class="mt-3 rounded-md border border-warn-100 bg-warn-50 px-3.5 py-3">
+            <p class="text-sm font-medium text-warn-700">One export contract, not four integrations</p>
+            <p class="mt-1 text-sm text-warn-700 max-w-[80ch]">
+              Sales named QHRM, BetterHR, GlobalTA and CityHR. Building four vendor connectors into
+              core would make every one of them a permanent maintenance cost. ADR-0007's extension
+              point is the shape: one documented payload, adapters outside the core.
+            </p>
+          </div>
+        </div>
+
+        <!-- Retention -->
+        <div class="mt-8 rounded-lg border border-line bg-white p-5">
+          <p class="text-base font-semibold">These files are the reason the retention screen exists</p>
+          <p class="mt-1.5 text-sm text-ink-600 max-w-[80ch]">
+            An NRC scan and a bank account number have no reason to sit in a recruitment database once
+            they have reached the HRMS. The retention policy in
+            <a href="settings-integrations.html" class="font-medium text-brand-700 hover:text-brand-800">Integrations &amp; data policy</a>
+            governs them, and this is the screen that should link to it — a company that never opens
+            that page will keep every NRC it has ever collected, indefinitely, without deciding to.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

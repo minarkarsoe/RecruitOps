@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Raise a requisition</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  RAISE A REQUISITION — the hiring manager's entry point, and the one screen designed
+  for someone who visits twice a month rather than daily.
+  Two things it must do that a plain form does not:
+    1. Show the chain the request will enter, BEFORE submitting. Nobody should have to
+       submit to find out who has to approve it.
+    2. React to a threshold breach live, naming who gets added and why — so the extra
+       approver is never a surprise that arrives after the fact.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+
+    <!-- A hiring manager's rail is short on purpose. Same app, fewer doors: they do not
+         need postings, templates or role administration and should not have to scan past them. -->
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Your work</p>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">My requisitions</a>
+      <a href="interview.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">
+        My interviews <span class="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-warn-500 text-ink-900 text-2xs font-semibold tnum">2</span>
+      </a>
+    </nav>
+
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">HE</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">Daw Hnin Ei Khaing</span>
+          <span class="block text-2xs text-white/50 truncate">Hiring Manager · Credit Risk</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="shrink-0 bg-white border-b border-line px-6 py-4">
+      <h1 class="text-2xl font-semibold tracking-tight">Raise a requisition</h1>
+      <p class="mt-1 text-base text-ink-600">
+        Saved as a draft as you type. Nothing routes anywhere until you submit.
+      </p>
+    </header>
+
+    <div class="flex-1 min-h-0 overflow-y-auto">
+      <div class="max-w-[1000px] mx-auto px-6 py-6 grid lg:grid-cols-12 gap-6 items-start">
+
+        <form class="lg:col-span-7 space-y-4">
+          <section class="rounded-lg border border-line bg-white p-5 space-y-4">
+            <div>
+              <label class="block text-sm font-medium mb-1.5" for="title">Position title</label>
+              <input id="title" value="Senior Credit Analyst" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition" />
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1.5" for="dept">Department</label>
+                <select id="dept" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition">
+                  <option>Credit Risk</option>
+                </select>
+                <p class="mt-1.5 text-sm text-ink-600">You can raise only in departments you own.</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5" for="hc">Headcount</label>
+                <input id="hc" type="number" value="3" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base font-mono tnum focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-1.5" for="salary">Salary budget (MMK / month)</label>
+              <input id="salary" type="number" value="480000" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base font-mono tnum focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition" />
+              <p id="salaryHint" class="mt-1.5 text-sm text-warn-700">
+                18% above the band for this grade. This adds an approver — see the chain on the right.
+              </p>
+            </div>
+          </section>
+
+          <section class="rounded-lg border border-line bg-white">
+            <header class="px-5 h-12 flex items-center gap-2 border-b border-line">
+              <h2 class="text-base font-semibold">Job description</h2>
+              <button type="button" class="ml-auto inline-flex items-center h-8 px-3 rounded-md bg-white border border-line hover:border-line-strong text-sm font-medium transition-colors">
+                Use a template
+              </button>
+            </header>
+            <div class="p-5">
+              <textarea rows="7" class="w-full px-3 py-2.5 rounded-md border border-line bg-white text-base leading-6 focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition">Own the credit assessment process for corporate lending clients, from initial financial analysis through to committee submission.
+
+Requirements
+· 6+ years in credit analysis at a commercial bank or MFI
+· IFRS 9 impairment reporting experience
+· Working English and Myanmar</textarea>
+              <p class="mt-2 text-sm text-ink-600">
+                Pulled from <span class="text-ink-900">Credit Risk — Analyst (v3)</span>. Edits here
+                do not change the template.
+              </p>
+            </div>
+          </section>
+
+          <div class="flex items-center gap-2">
+            <button type="button" class="inline-flex items-center h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Submit for approval</button>
+            <button type="button" class="inline-flex items-center h-9 px-3.5 rounded-md bg-white border border-line hover:border-line-strong text-ink-900 text-base font-medium transition-colors">Save draft</button>
+            <p class="ml-auto text-sm text-ink-600">After submit the request is frozen.</p>
+          </div>
+        </form>
+
+        <!-- The chain, shown before submitting. This is the answer to Module 1.4's question
+             asked one step earlier: not just "whose desk is it on" but "whose desk will it
+             land on, and why". -->
+        <aside class="lg:col-span-5 space-y-4">
+          <section class="rounded-lg border border-line bg-white">
+            <header class="px-5 h-12 flex items-center border-b border-line">
+              <h2 class="text-base font-semibold">Where this will go</h2>
+              <span class="ml-auto spec-label">live</span>
+            </header>
+            <div class="p-5">
+              <div class="rail-step flex gap-3 pb-5">
+                <span class="relative z-10 shrink-0 w-[27px] h-[27px] rounded-full bg-white border border-line-strong grid place-items-center">
+                  <span class="font-mono text-2xs text-ink-600 tnum">1</span>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-base font-medium">U Kyaw Zin Latt</p>
+                  <p class="text-sm text-ink-600">Finance Controller</p>
+                </div>
+              </div>
+
+              <!-- The step the threshold added. It is marked as added, and says by which rule. -->
+              <div class="rail-step flex gap-3">
+                <span class="relative z-10 shrink-0 w-[27px] h-[27px] rounded-full bg-warn-50 border border-warn-500/40 grid place-items-center">
+                  <span class="font-mono text-2xs text-warn-700 tnum">2</span>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-base font-medium">Daw Moe Moe Aung</p>
+                  <p class="text-sm text-ink-600">Chief HR Officer</p>
+                  <div class="mt-2 rounded-md bg-warn-50 border border-warn-500/25 px-2.5 py-2">
+                    <p class="text-sm text-warn-700">
+                      Added because the salary is over band. Bring it within
+                      <span class="font-mono font-medium tnum">MMK 406,000</span> and this step drops away.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-lg border border-line bg-white p-5">
+            <h2 class="text-base font-semibold">If it comes back rejected</h2>
+            <p class="mt-2 text-sm text-ink-700 leading-5">
+              You can correct it and resubmit — it is not a dead end. The rejection and its reason
+              stay on the record beside your revision, and the new round is decided from step 1,
+              because an earlier approval was given to a different document.
+            </p>
+          </section>
+        </aside>
+
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

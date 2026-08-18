@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Postings</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 2.1 / 2.2 — POSTINGS, THE PUBLIC LINK AND THE APPLICATION FORM.
+
+  Five rules from the module doc that this screen exists to make visible, because
+  each of them is enforced in code and invisible in a normal "create job" form:
+
+  1. A posting REQUIRES AN APPROVED REQUISITION, and there is ONE POSTING PER
+     REQUISITION — service check plus a unique index. So the create button is not
+     "New posting", it is a picker over approved requisitions, and a requisition
+     that already has one cannot be picked twice.
+
+  2. TITLE AND DESCRIPTION ARE COPIED, NOT REFERENCED. The recruiter rewrites an
+     internal JD into candidate-facing copy, and that must not alter what the
+     approvers signed. The editor therefore shows both, side by side, and says
+     which one the approvers saw.
+
+  3. THE PUBLIC LINK IS MINTED ONCE AND KEPT. Re-publishing does not re-issue it,
+     because a link already shared to Facebook has to keep working. Unpublish is
+     therefore not "delete the link" — it is "the link now shows a closed page".
+
+  4. SALARY IS PRIVATE UNLESS THE POSTING OPTS IN. Default off, one deliberate
+     switch, and the switch says what it exposes.
+
+  5. FIELD KEYS ARE GENERATED AND NEVER EDITABLE — the key is the JSONB key the
+     answers live under, so renaming it orphans everything already collected.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Postings</a>
+      <a href="talent-pool.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Talent pool</a>
+      <a href="channels.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Channels</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Insight</p>
+      <a href="analytics-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Analytics</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">TW</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">U Thura Win</span>
+          <span class="block text-2xs text-white/50 truncate">Recruiter</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Postings</h1>
+      <div class="ml-auto flex items-center gap-2">
+        <button class="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          Post an approved requisition
+        </button>
+      </div>
+    </header>
+
+    <div class="h-12 shrink-0 bg-white border-b border-line flex items-center gap-3 px-6 overflow-x-auto">
+      <div class="flex items-center rounded-md border border-line p-0.5 shrink-0">
+        <button class="h-7 px-2.5 rounded text-sm font-medium bg-ink-900 text-white">Live</button>
+        <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">Draft</button>
+        <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">Closed</button>
+      </div>
+      <span class="w-px h-5 bg-line shrink-0"></span>
+      <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm shrink-0"><option>All departments</option><option>Credit Risk</option><option>Technology</option></select>
+      <span class="ml-auto text-sm text-ink-600 shrink-0 tnum">5 postings</span>
+    </div>
+
+    <div class="flex-1 min-h-0 overflow-auto">
+
+      <table class="w-full min-w-[1040px] bg-white text-base">
+        <thead class="sticky top-0 z-10">
+          <tr class="bg-canvas border-b border-line text-left text-sm">
+            <th class="px-5 py-2.5 font-medium text-ink-600">Posting</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Department</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Channels</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600 text-right">Applications</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Status</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600"></th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">Senior Credit Analyst</span>
+              <span class="block text-sm text-ink-600">from <span class="font-mono text-xs">REQ-2026-0117</span> · published 4 Aug</span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Credit Risk</td>
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-1.5">
+                <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">Career page</span>
+                <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">Facebook</span>
+                <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">Telegram</span>
+              </div>
+            </td>
+            <td class="px-5 py-3 text-right"><span class="font-mono tnum font-medium">47</span><span class="block text-xs text-ink-600">9 new</span></td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Live</span></td>
+            <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Edit</button></td>
+          </tr>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">Backend Engineer (.NET)</span>
+              <span class="block text-sm text-ink-600">from <span class="font-mono text-xs">REQ-2026-0121</span> · published 11 Aug</span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Technology</td>
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-1.5">
+                <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">Shareable link</span>
+                <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">Telegram</span>
+              </div>
+            </td>
+            <td class="px-5 py-3 text-right"><span class="font-mono tnum font-medium">23</span><span class="block text-xs text-ink-600">2 new</span></td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Live</span></td>
+            <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Edit</button></td>
+          </tr>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">Branch Teller — Insein</span>
+              <span class="block text-sm text-ink-600">from <span class="font-mono text-xs">REQ-2026-0124</span> · never published</span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Retail Operations</td>
+            <td class="px-5 py-3 text-ink-500">—</td>
+            <td class="px-5 py-3 text-right text-ink-500 tnum">0</td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Draft</span></td>
+            <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Edit</button></td>
+          </tr>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">Treasury Dealer</span>
+              <span class="block text-sm text-ink-600">from <span class="font-mono text-xs">REQ-2026-0098</span> · closed 2 Aug</span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Finance</td>
+            <td class="px-5 py-3 text-ink-500">Link still resolves</td>
+            <td class="px-5 py-3 text-right"><span class="font-mono tnum text-ink-600">61</span></td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Closed</span></td>
+            <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">View</button></td>
+          </tr>
+
+        </tbody>
+      </table>
+
+      <!-- ============================================== THE PICKER GATE -->
+      <div class="px-6 py-8 border-b border-line">
+        <p class="spec-label">“Post an approved requisition” → the picker</p>
+        <h2 class="mt-1.5 text-2xl font-semibold tracking-tight">There is no blank “new posting” form</h2>
+        <p class="mt-2 text-base text-ink-600 max-w-[74ch]">
+          Nothing can be advertised that the business has not approved, and one requisition
+          produces exactly one posting. Both are enforced in the service <em>and</em> by a unique
+          index, so the UI does not need to be the guard — but if it offers a blank form, every
+          recruiter will meet the guard as an error message instead of as a rule.
+        </p>
+
+        <div class="mt-5 grid lg:grid-cols-2 gap-6 items-start max-w-[980px]">
+          <div class="rounded-lg border border-line bg-white overflow-hidden">
+            <div class="px-5 py-4 border-b border-line">
+              <p class="text-lg font-semibold tracking-tight">Which requisition?</p>
+              <p class="mt-1 text-sm text-ink-600">Approved requisitions that do not yet have a posting.</p>
+            </div>
+            <ul class="p-3 space-y-2">
+              <li>
+                <button class="w-full text-left rounded-md border border-line hover:border-brand-700 px-3.5 py-3 transition-colors">
+                  <span class="flex items-center gap-2">
+                    <span class="font-medium">Branch Teller — Insein</span>
+                    <span class="font-mono text-xs text-ink-600">REQ-2026-0124</span>
+                  </span>
+                  <span class="block mt-0.5 text-sm text-ink-600">Retail Operations · 3 headcount · approved 12 Aug by Daw Khin Mya</span>
+                </button>
+              </li>
+              <li>
+                <button class="w-full text-left rounded-md border border-line hover:border-brand-700 px-3.5 py-3 transition-colors">
+                  <span class="flex items-center gap-2">
+                    <span class="font-medium">Collections Officer</span>
+                    <span class="font-mono text-xs text-ink-600">REQ-2026-0126</span>
+                  </span>
+                  <span class="block mt-0.5 text-sm text-ink-600">Collections · 1 headcount · approved 15 Aug by Daw Khin Mya</span>
+                </button>
+              </li>
+              <li class="rounded-md border border-line bg-canvas px-3.5 py-3 opacity-70">
+                <span class="flex items-center gap-2">
+                  <span class="font-medium">Senior Credit Analyst</span>
+                  <span class="font-mono text-xs text-ink-600">REQ-2026-0117</span>
+                </span>
+                <span class="block mt-0.5 text-sm text-ink-600">Already posted — a requisition gets one posting.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="rounded-lg border border-line bg-white overflow-hidden">
+            <div class="px-5 py-4 border-b border-line">
+              <p class="text-lg font-semibold tracking-tight">Empty state</p>
+            </div>
+            <div class="px-5 py-10 text-center">
+              <div class="w-11 h-11 rounded-full bg-canvas border border-line grid place-items-center mx-auto">
+                <svg class="w-5 h-5 text-ink-400" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="3.5" y="3.5" width="13" height="13" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M7 10h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </div>
+              <p class="mt-3.5 text-base font-medium">Nothing is approved and waiting</p>
+              <p class="mt-1.5 text-sm text-ink-600 max-w-[42ch] mx-auto">
+                Two requisitions are still in their approval chain. Postings start there, not here.
+              </p>
+              <a href="requisition-detail.html" class="mt-4 inline-flex items-center h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">See what is waiting</a>
+            </div>
+            <div class="px-5 py-3.5 border-t border-line bg-canvas">
+              <p class="text-sm text-ink-600">
+                The empty state names the reason and points at the blocking screen. “No postings yet”
+                with a plus button would send the recruiter looking for a form that will refuse them.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================ POSTING EDITOR -->
+      <div class="px-6 py-8 border-b border-line bg-white">
+        <p class="spec-label">Posting editor</p>
+        <h2 class="mt-1.5 text-2xl font-semibold tracking-tight">Two documents, one screen</h2>
+        <p class="mt-2 text-base text-ink-600 max-w-[74ch]">
+          The left column is what the approvers signed and cannot be edited here. The right is
+          what a candidate reads. They are copies, not the same record — rewriting the advert must
+          never silently rewrite the thing that was approved.
+        </p>
+
+        <div class="mt-5 grid lg:grid-cols-2 gap-5 items-start max-w-[1080px]">
+
+          <div class="rounded-lg border border-line overflow-hidden">
+            <div class="px-5 py-3 border-b border-line bg-canvas flex items-center gap-2">
+              <svg class="w-4 h-4 text-ink-500" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="6.8" width="10" height="6.2" rx="1.4" stroke="currentColor" stroke-width="1.4"/><path d="M5.4 6.8V4.9a2.6 2.6 0 0 1 5.2 0v1.9" stroke="currentColor" stroke-width="1.4"/></svg>
+              <p class="text-sm font-medium text-ink-600">Approved requisition · read-only</p>
+              <a href="requisition-detail.html" class="ml-auto text-sm font-medium text-brand-700 hover:text-brand-800">Open</a>
+            </div>
+            <div class="px-5 py-4 space-y-3.5">
+              <div>
+                <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">Internal title</p>
+                <p class="mt-1 text-base">Officer II — Collections (Field)</p>
+              </div>
+              <div>
+                <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">Budgeted salary</p>
+                <p class="mt-1 text-base font-mono tnum">320,000 – 380,000 MMK</p>
+              </div>
+              <div>
+                <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">Justification (internal)</p>
+                <p class="mt-1 text-base text-ink-700">Backfill for two resignations in Q2; portfolio has grown 34% since the branch merger.</p>
+              </div>
+              <div class="rounded-md border border-line bg-canvas px-3.5 py-3">
+                <p class="text-sm text-ink-600">
+                  Approved 15 Aug by Daw Khin Mya, after Finance and the Department Head. Editing the
+                  advert on the right changes nothing here.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-line overflow-hidden">
+            <div class="px-5 py-3 border-b border-line bg-canvas flex items-center gap-2">
+              <svg class="w-4 h-4 text-brand-700" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 8h11M8 2.5c1.6 1.7 1.6 9.3 0 11M8 2.5C6.4 4.2 6.4 11.8 8 13.5" stroke="currentColor" stroke-width="1.2"/></svg>
+              <p class="text-sm font-medium text-ink-700">Public posting</p>
+            </div>
+            <div class="px-5 py-4 space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-ink-700">Job title</label>
+                <input value="Collections Officer (Field) — Yangon" class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-white text-base outline-none focus:border-brand-700 transition-colors" />
+                <p class="mt-1.5 text-sm text-ink-600">Copied from the requisition on create. Yours to rewrite.</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-ink-700">Description</label>
+                <textarea rows="4" class="mt-1.5 w-full px-3 py-2.5 rounded-md border border-line bg-white text-base outline-none focus:border-brand-700 transition-colors resize-y">You will visit customers across Yangon to agree repayment plans, working with branch teams and the credit risk unit. Motorbike licence required.</textarea>
+              </div>
+
+              <div class="rounded-md border border-line px-3.5 py-3">
+                <label class="flex items-start gap-2.5 cursor-pointer">
+                  <input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E] mt-0.5" />
+                  <span>
+                    <span class="block text-base font-medium">Show the salary range publicly</span>
+                    <span class="block text-sm text-ink-600">
+                      Off by default. Ticking it publishes
+                      <span class="font-mono tnum">320,000 – 380,000 MMK</span> on the job page and in
+                      every social preview, where it is out of your control once shared.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-ink-700">Language</label>
+                <div class="mt-1.5 flex items-center rounded-md border border-line p-0.5 w-fit">
+                  <button class="h-8 px-3 rounded text-sm font-medium bg-ink-900 text-white">English</button>
+                  <button class="h-8 px-3 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors mm">မြန်မာ</button>
+                  <button class="h-8 px-3 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">Both</button>
+                </div>
+                <p class="mt-1.5 text-sm text-ink-600">A field job in Yangon is read in Burmese. “Both” shows a language switch on the public page.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- The link -->
+        <div class="mt-6 rounded-lg border border-line overflow-hidden max-w-[1080px]">
+          <div class="px-5 py-4 border-b border-line">
+            <p class="text-lg font-semibold tracking-tight">Public link</p>
+          </div>
+          <div class="px-5 py-4">
+            <div class="flex gap-2 flex-wrap">
+              <div class="flex-1 min-w-[280px] h-10 px-3 rounded-md border border-line bg-canvas flex items-center font-mono text-sm text-ink-700 overflow-x-auto whitespace-nowrap">
+                https://careers.yomabank.com/jobs/<span class="text-brand-800">U9kL3mQx</span>
+              </div>
+              <button class="h-10 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Copy</button>
+              <button class="h-10 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">QR code</button>
+            </div>
+            <div class="mt-3.5 rounded-md border border-line bg-canvas px-3.5 py-3">
+              <p class="text-sm font-medium">Minted once, kept forever</p>
+              <p class="mt-1 text-sm text-ink-600 max-w-[74ch]">
+                Unpublishing and republishing returns the same token. Someone has already pasted this
+                into a Facebook group; a re-issued link would turn that post into a dead end and the
+                recruiter would never find out. The token is a Sqid (ADR-0020), so it is short enough
+                to read aloud and does not expose a sequential id.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Application form -->
+        <div class="mt-6 rounded-lg border border-line overflow-hidden max-w-[1080px]">
+          <div class="px-5 py-4 border-b border-line flex items-center gap-3 flex-wrap">
+            <div>
+              <p class="text-lg font-semibold tracking-tight">Application form</p>
+              <p class="mt-1 text-sm text-ink-600">Name, phone, email and CV are always collected. Add up to 20 custom fields.</p>
+            </div>
+            <span class="ml-auto text-sm text-ink-600 tnum shrink-0">3 of 20 used</span>
+          </div>
+
+          <ul class="p-4 space-y-2">
+            <li class="flex items-center gap-3 rounded-md border border-line px-3.5 py-3 card-draggable">
+              <svg class="w-4 h-4 text-ink-400 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6" cy="4" r="1.1" fill="currentColor"/><circle cx="10" cy="4" r="1.1" fill="currentColor"/><circle cx="6" cy="8" r="1.1" fill="currentColor"/><circle cx="10" cy="8" r="1.1" fill="currentColor"/><circle cx="6" cy="12" r="1.1" fill="currentColor"/><circle cx="10" cy="12" r="1.1" fill="currentColor"/></svg>
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Expected salary (MMK)</p>
+                <p class="text-sm text-ink-600">Number · required · key <code class="font-mono text-xs">expected_salary_mmk</code></p>
+              </div>
+              <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium shrink-0">Number</span>
+              <button class="w-8 h-8 rounded-md grid place-items-center text-ink-500 hover:text-critical-700 hover:bg-critical-50 transition-colors shrink-0" aria-label="Remove field"><svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            </li>
+            <li class="flex items-center gap-3 rounded-md border border-line px-3.5 py-3 card-draggable">
+              <svg class="w-4 h-4 text-ink-400 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6" cy="4" r="1.1" fill="currentColor"/><circle cx="10" cy="4" r="1.1" fill="currentColor"/><circle cx="6" cy="8" r="1.1" fill="currentColor"/><circle cx="10" cy="8" r="1.1" fill="currentColor"/><circle cx="6" cy="12" r="1.1" fill="currentColor"/><circle cx="10" cy="12" r="1.1" fill="currentColor"/></svg>
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Earliest start date</p>
+                <p class="text-sm text-ink-600">Date · optional · key <code class="font-mono text-xs">earliest_start_date</code></p>
+              </div>
+              <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium shrink-0">Date</span>
+              <button class="w-8 h-8 rounded-md grid place-items-center text-ink-500 hover:text-critical-700 hover:bg-critical-50 transition-colors shrink-0" aria-label="Remove field"><svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            </li>
+            <li class="flex items-center gap-3 rounded-md border border-line px-3.5 py-3 card-draggable">
+              <svg class="w-4 h-4 text-ink-400 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6" cy="4" r="1.1" fill="currentColor"/><circle cx="10" cy="4" r="1.1" fill="currentColor"/><circle cx="6" cy="8" r="1.1" fill="currentColor"/><circle cx="10" cy="8" r="1.1" fill="currentColor"/><circle cx="6" cy="12" r="1.1" fill="currentColor"/><circle cx="10" cy="12" r="1.1" fill="currentColor"/></svg>
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Do you hold a motorbike licence?</p>
+                <p class="text-sm text-ink-600">Yes / no · required · key <code class="font-mono text-xs">motorbike_licence</code></p>
+              </div>
+              <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium shrink-0">Yes / no</span>
+              <button class="w-8 h-8 rounded-md grid place-items-center text-ink-500 hover:text-critical-700 hover:bg-critical-50 transition-colors shrink-0" aria-label="Remove field"><svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            </li>
+            <li class="flex flex-wrap gap-2 pt-1">
+              <button class="h-9 px-3 rounded-md border border-dashed border-line-strong text-sm font-medium text-ink-600 hover:text-ink-900 hover:border-ink-400 transition-colors">+ Text</button>
+              <button class="h-9 px-3 rounded-md border border-dashed border-line-strong text-sm font-medium text-ink-600 hover:text-ink-900 hover:border-ink-400 transition-colors">+ Long text</button>
+              <button class="h-9 px-3 rounded-md border border-dashed border-line-strong text-sm font-medium text-ink-600 hover:text-ink-900 hover:border-ink-400 transition-colors">+ Number</button>
+              <button class="h-9 px-3 rounded-md border border-dashed border-line-strong text-sm font-medium text-ink-600 hover:text-ink-900 hover:border-ink-400 transition-colors">+ Date</button>
+              <button class="h-9 px-3 rounded-md border border-dashed border-line-strong text-sm font-medium text-ink-600 hover:text-ink-900 hover:border-ink-400 transition-colors">+ Dropdown</button>
+              <button class="h-9 px-3 rounded-md border border-dashed border-line-strong text-sm font-medium text-ink-600 hover:text-ink-900 hover:border-ink-400 transition-colors">+ Yes / no</button>
+              <button disabled class="h-9 px-3 rounded-md border border-dashed border-line text-sm font-medium text-ink-400 cursor-not-allowed" title="Waits on the object-storage abstraction (ADR-0013)">+ File upload</button>
+            </li>
+          </ul>
+
+          <div class="px-5 py-4 border-t border-line bg-canvas space-y-2.5">
+            <p class="text-sm text-ink-700 max-w-[80ch]">
+              <span class="font-medium text-ink-900">The key is shown and cannot be edited.</span>
+              It is the JSONB key the answers live under, so renaming it would orphan every answer
+              already collected. Showing it read-only teaches that in one glance; hiding it means the
+              first person to ask for a rename gets a refusal with no explanation.
+            </p>
+            <p class="text-sm text-ink-700 max-w-[80ch]">
+              <span class="font-medium text-ink-900">File upload is present but disabled, with its
+              reason in the tooltip.</span> It is a real field type in the plan, blocked on
+              ADR-0013. Omitting it entirely would make it look unconsidered.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================== PUBLISH -->
+      <div class="px-6 py-8">
+        <p class="spec-label">Publish · Module 8.3 one-click social</p>
+        <h2 class="mt-1.5 text-2xl font-semibold tracking-tight">Where it goes</h2>
+
+        <div class="mt-5 grid lg:grid-cols-[1fr_380px] gap-6 items-start max-w-[1080px]">
+          <div class="rounded-lg border border-line bg-white overflow-hidden">
+            <ul class="p-4 space-y-2">
+              <li class="flex items-center gap-3 rounded-md border border-brand-200 bg-brand-50 px-3.5 py-3">
+                <input type="checkbox" checked class="w-4 h-4 rounded border-line-strong accent-[#0F766E] shrink-0" />
+                <div class="min-w-0 flex-1">
+                  <p class="text-base font-medium text-brand-900">Career page</p>
+                  <p class="text-sm text-brand-800">careers.yomabank.com — always on for live postings</p>
+                </div>
+              </li>
+              <li class="flex items-center gap-3 rounded-md border border-line px-3.5 py-3">
+                <input type="checkbox" checked class="w-4 h-4 rounded border-line-strong accent-[#0F766E] shrink-0" />
+                <div class="min-w-0 flex-1">
+                  <p class="text-base font-medium">Telegram channel</p>
+                  <p class="text-sm text-ink-600">@yomabank_careers · 4,180 members</p>
+                </div>
+                <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Connected</span>
+              </li>
+              <li class="flex items-center gap-3 rounded-md border border-line px-3.5 py-3">
+                <input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E] shrink-0" />
+                <div class="min-w-0 flex-1">
+                  <p class="text-base font-medium">Facebook page</p>
+                  <p class="text-sm text-ink-600">Yoma Bank Careers</p>
+                </div>
+                <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Connected</span>
+              </li>
+              <li class="flex items-center gap-3 rounded-md border border-line bg-canvas px-3.5 py-3 opacity-70">
+                <input type="checkbox" disabled class="w-4 h-4 rounded border-line-strong shrink-0" />
+                <div class="min-w-0 flex-1">
+                  <p class="text-base font-medium text-ink-600">Viber community</p>
+                  <p class="text-sm text-ink-600">Not connected — set it up in Channels</p>
+                </div>
+                <a href="channels.html" class="text-sm font-medium text-brand-700 hover:text-brand-800 shrink-0">Set up</a>
+              </li>
+            </ul>
+            <div class="px-5 py-4 border-t border-line flex items-center gap-3 flex-wrap">
+              <button class="h-10 px-4 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Publish to 2 channels</button>
+              <button class="h-10 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Save as draft</button>
+              <p class="text-sm text-ink-600">The button counts what is ticked, so nobody publishes to a channel they forgot was on.</p>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="rounded-lg border border-line bg-white overflow-hidden">
+              <div class="px-4 py-2.5 border-b border-line bg-canvas"><p class="text-sm font-medium text-ink-600">Social preview</p></div>
+              <div class="p-4">
+                <div class="rounded-md border border-line overflow-hidden">
+                  <div class="h-24 bg-ink-900 relative">
+                    <div class="absolute inset-0 grid place-items-center">
+                      <p class="text-white text-base font-semibold tracking-tight">Yoma Bank · Careers</p>
+                    </div>
+                  </div>
+                  <div class="px-3.5 py-3 bg-white">
+                    <p class="text-2xs uppercase tracking-wider text-ink-500">careers.yomabank.com</p>
+                    <p class="mt-1 text-base font-medium leading-snug">Collections Officer (Field) — Yangon</p>
+                    <p class="mt-1 text-sm text-ink-600">Visit customers across Yangon to agree repayment plans. Motorbike licence required.</p>
+                  </div>
+                </div>
+                <p class="mt-3 text-sm text-ink-600">
+                  Rendered by the Next.js app, which exists for exactly this: an Open Graph card a
+                  React SPA cannot produce. No salary appears because the toggle is off.
+                </p>
+              </div>
+            </div>
+
+            <div class="rounded-lg border border-line bg-canvas p-4">
+              <p class="text-sm font-medium">Closing is not deleting</p>
+              <p class="mt-1 text-sm text-ink-600">
+                Closing a posting stops new applications and leaves the link resolving to a
+                “this role has closed” page. The 61 people who applied to the Treasury Dealer role
+                still have their applications, and anyone reopening that link gets an answer rather
+                than a 404.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

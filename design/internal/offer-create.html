@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Offer generation &amp; approval</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 4.2 — OFFER GENERATION & APPROVAL.
+  The spec's open question, answered in the layout: this reuses Module 1's approval-chain
+  device rather than inventing a second, simpler one. Same rail, same "who actually acted"
+  record, same threshold-triggered extra approver. Two approval mechanisms that look
+  different is how they drift apart.
+  The budget warning fires at entry time, before submit — the point is to let the recruiter
+  reconsider, not to ambush them after sending.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="interview.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Interviews</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Offers</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">TW</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">U Thura Win</span>
+          <span class="block text-2xs text-white/50 truncate">Recruiter</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="shrink-0 bg-white border-b border-line">
+      <div class="flex items-center gap-3 px-6 h-12 text-sm text-ink-600 border-b border-line">
+        <a href="offer-dashboard.html" class="hover:text-ink-900 transition-colors">Offers</a>
+        <span class="text-ink-400">/</span>
+        <span class="font-mono text-xs tnum">OFR-2026-0042</span>
+      </div>
+      <div class="flex items-start gap-4 px-6 py-4">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <h1 class="text-2xl font-semibold tracking-tight">Ma Ei Thandar Kyaw</h1>
+            <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium">
+              <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Draft
+            </span>
+          </div>
+          <p class="mt-1 text-base text-ink-600">
+            Senior Credit Analyst · Credit Risk · from
+            <a href="requisition-detail.html" class="text-brand-700 hover:text-brand-800 font-mono text-sm tnum">REQ-2026-0418</a>
+          </p>
+        </div>
+        <div class="ml-auto flex items-center gap-2 shrink-0">
+          <button class="inline-flex items-center h-9 px-3.5 rounded-md bg-white border border-line hover:border-line-strong text-ink-900 text-base font-medium transition-colors">Save draft</button>
+          <button id="primaryAction" class="inline-flex items-center h-9 px-3.5 rounded-md bg-warn-500 hover:bg-warn-700 text-ink-900 hover:text-white text-base font-medium transition-colors">Send for internal approval</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex-1 min-h-0 overflow-y-auto">
+      <div class="max-w-[1100px] mx-auto px-6 py-6 grid lg:grid-cols-12 gap-6 items-start">
+
+        <div class="lg:col-span-7 space-y-4">
+
+          <section class="rounded-lg border border-line bg-white p-5">
+            <div class="flex items-center gap-3">
+              <div class="min-w-0 flex-1">
+                <label class="block text-sm font-medium mb-1.5" for="tpl">Offer letter template</label>
+                <select id="tpl" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition">
+                  <option>Permanent — Officer grade (v4)</option>
+                  <option>Permanent — Management grade (v2)</option>
+                  <option>Fixed term — 12 months (v1)</option>
+                </select>
+              </div>
+              <a href="#" class="mt-6 text-sm font-medium text-brand-700 hover:text-brand-800 shrink-0">Preview letter</a>
+            </div>
+            <p class="mt-2 text-sm text-ink-600">Templates are managed in System Settings. Editing here changes this offer only.</p>
+          </section>
+
+          <section class="rounded-lg border border-line bg-white">
+            <header class="px-5 h-12 flex items-center gap-2 border-b border-line">
+              <h2 class="text-base font-semibold">Terms</h2>
+              <span class="inline-flex items-center h-5 px-2 rounded-full bg-canvas border border-line text-2xs text-ink-600">Name, position and department auto-filled</span>
+            </header>
+
+            <div class="p-5 space-y-4">
+              <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1.5" for="base">Base salary (MMK / month)</label>
+                  <input id="base" type="number" value="480000"
+                    class="w-full h-9 px-3 rounded-md border border-critical-500 bg-white text-base font-mono tnum focus:ring-2 focus:ring-critical-500/20 outline-none transition"
+                    aria-describedby="baseHint" aria-invalid="true" />
+                  <p id="baseHint" class="mt-1.5 text-sm text-critical-700">
+                    Above the approved budget of <span class="font-mono tnum">406,000</span> by
+                    <span class="font-mono font-medium tnum">18%</span>.
+                  </p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1.5" for="allow">Allowances (MMK / month)</label>
+                  <input id="allow" type="number" value="45000" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base font-mono tnum focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition" />
+                </div>
+              </div>
+
+              <div class="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1.5" for="join">Joining date</label>
+                  <input id="join" type="date" value="2026-10-01" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base font-mono tnum focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1.5" for="prob">Probation</label>
+                  <select id="prob" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition">
+                    <option>3 months</option><option selected>6 months</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1.5" for="exp">Offer expires</label>
+                  <input id="exp" type="date" value="2026-08-25" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base font-mono tnum focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition" />
+                  <p class="mt-1.5 text-sm text-ink-600">The secure link stops working on this date.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- The consequence is stated where the decision is made, not after sending. -->
+            <footer class="px-5 py-4 border-t border-line bg-warn-50">
+              <div class="flex items-start gap-2.5">
+                <svg class="w-4 h-4 text-warn-700 mt-0.5 shrink-0" viewBox="0 0 16 16" fill="none"><path d="M8 5.5v3.5M8 11.2v.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.4"/></svg>
+                <div>
+                  <p class="text-base font-medium text-warn-700">This offer needs approval before it can be sent</p>
+                  <p class="mt-1 text-sm text-warn-700/90 max-w-[62ch]">
+                    Total package <span class="font-mono font-medium tnum">525,000</span> exceeds the budget
+                    approved on REQ-2026-0418. Bring the base to
+                    <span class="font-mono font-medium tnum">361,000</span> or below and this offer sends
+                    directly, with no approval step.
+                  </p>
+                </div>
+              </div>
+            </footer>
+          </section>
+        </div>
+
+        <aside class="lg:col-span-5 space-y-4">
+
+          <!-- Same rail device as Module 1. Deliberately not a second mechanism. -->
+          <section class="rounded-lg border border-line bg-white">
+            <header class="px-5 h-12 flex items-center border-b border-line">
+              <h2 class="text-base font-semibold">Approval this will need</h2>
+              <span class="ml-auto spec-label">live</span>
+            </header>
+            <div class="p-5">
+              <div class="rail-step flex gap-3 pb-5">
+                <span class="relative z-10 shrink-0 w-[27px] h-[27px] rounded-full bg-white border border-line-strong grid place-items-center">
+                  <span class="font-mono text-2xs text-ink-600 tnum">1</span>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-base font-medium">U Kyaw Zin Latt</p>
+                  <p class="text-sm text-ink-600">Finance Controller</p>
+                </div>
+              </div>
+              <div class="rail-step flex gap-3">
+                <span class="relative z-10 shrink-0 w-[27px] h-[27px] rounded-full bg-warn-50 border border-warn-500/40 grid place-items-center">
+                  <span class="font-mono text-2xs text-warn-700 tnum">2</span>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-base font-medium">Daw Moe Moe Aung</p>
+                  <p class="text-sm text-ink-600">Chief HR Officer</p>
+                  <div class="mt-2 rounded-md bg-warn-50 border border-warn-500/25 px-2.5 py-2">
+                    <p class="text-sm text-warn-700">Added because the package is over band.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <footer class="px-5 py-3 border-t border-line bg-canvas">
+              <p class="text-sm text-ink-600">
+                Rejection here works like a requisition: it comes back to you with a reason, you revise, and
+                the new round sits beside the old one rather than replacing it.
+              </p>
+            </footer>
+          </section>
+
+          <section class="rounded-lg border border-line bg-white p-5">
+            <h2 class="text-base font-semibold">What the candidate will receive</h2>
+            <ul class="mt-3 space-y-2 text-sm text-ink-700">
+              <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2 shrink-0"></span><span>An email with a <span class="font-medium text-ink-900">secure link</span>, not the letter as an attachment.</span></li>
+              <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2 shrink-0"></span><span>The full letter as a PDF, then <span class="font-medium text-ink-900">Accept &amp; Sign</span> or <span class="font-medium text-ink-900">Decline</span>.</span></li>
+              <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2 shrink-0"></span><span>After accepting, a document upload step.</span></li>
+            </ul>
+            <a href="../public/offer-portal.html" class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800">
+              Preview the candidate portal
+              <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none"><path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // The primary action changes with the numbers, so the button never lies about what it does.
+  (function () {
+    var base = document.getElementById('base');
+    var allow = document.getElementById('allow');
+    var btn = document.getElementById('primaryAction');
+    var BUDGET = 406000;
+
+    function update() {
+      var total = (parseInt(base.value, 10) || 0) + (parseInt(allow.value, 10) || 0);
+      var over = total > BUDGET;
+      btn.textContent = over ? 'Send for internal approval' : 'Send to candidate';
+      btn.className = over
+        ? 'inline-flex items-center h-9 px-3.5 rounded-md bg-warn-500 hover:bg-warn-700 text-ink-900 hover:text-white text-base font-medium transition-colors'
+        : 'inline-flex items-center h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors';
+    }
+    base.addEventListener('input', update);
+    allow.addEventListener('input', update);
+    update();
+  })();
+</script>
+</body>
+</html>

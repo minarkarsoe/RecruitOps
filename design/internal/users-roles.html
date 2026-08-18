@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Users &amp; roles</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 7.1 — USERS & ROLES (RBAC). This module is BUILT, so this screen is drawn
+  against the real backend rather than against a wish:
+
+    · System roles are immutable and undeletable (RoleService throws on both).
+    · A role assigned to active users cannot be deleted.
+    · Admin holds every permission except permission:system:system:manage.
+    · SuperAdmin and Admin bypass permission checks entirely.
+    · The permission codes below are copied from RbacSeedData.cs — including the
+      two whose action segment is not a bare verb: applications:move_stage and
+      scorecards:manage_templates.
+
+  The single most important thing this screen must teach: PERMISSIONS AND
+  DEPARTMENT SCOPE ARE TWO DIFFERENT CONTROLS. A permission says which verbs a
+  user may use; department scope (ADR-0003) says which rows those verbs reach.
+  Granting applications:read is not "can see applications" — it is "can see
+  applications, within scope". They are drawn as separate columns for that reason.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="postings.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Postings</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Insight</p>
+      <a href="analytics-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Analytics</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/40">Administer</p>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Users &amp; roles</a>
+      <a href="settings-org.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Departments &amp; approvals</a>
+      <a href="settings-integrations.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Integrations</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">KM</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">Daw Khin Mya</span>
+          <span class="block text-2xs text-white/50 truncate">Admin</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Users &amp; roles</h1>
+      <div class="ml-auto flex items-center gap-2">
+        <button class="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          Invite user
+        </button>
+      </div>
+    </header>
+
+    <div class="h-11 shrink-0 bg-white border-b border-line flex items-end gap-1 px-6">
+      <button class="h-11 px-3 text-base font-medium border-b-2 border-brand-700 text-ink-900">Users <span class="text-ink-500 tnum">24</span></button>
+      <button class="h-11 px-3 text-base border-b-2 border-transparent text-ink-600 hover:text-ink-900 transition-colors">Roles <span class="text-ink-400 tnum">9</span></button>
+      <button class="h-11 px-3 text-base border-b-2 border-transparent text-ink-600 hover:text-ink-900 transition-colors">Audit log</button>
+    </div>
+
+    <div class="flex-1 min-h-0 overflow-auto">
+
+      <!-- ===================================================== USERS LIST -->
+      <div class="bg-white border-b border-line px-6 py-3 flex items-center gap-3 flex-wrap">
+        <div class="relative">
+          <svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="m10.5 10.5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <input placeholder="Search name or email" class="h-8 w-56 pl-8 pr-3 rounded-md border border-line bg-white text-sm placeholder:text-ink-400 outline-none focus:border-brand-700 transition-colors" />
+        </div>
+        <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm"><option>All roles</option><option>Recruiter</option><option>Hiring Manager</option><option>Approver</option></select>
+        <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm"><option>All departments</option><option>Credit Risk</option><option>Retail Operations</option><option>Technology</option></select>
+        <div class="flex items-center rounded-md border border-line p-0.5">
+          <button class="h-7 px-2.5 rounded text-sm font-medium bg-ink-900 text-white">Active</button>
+          <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">Invited</button>
+          <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">Disabled</button>
+        </div>
+      </div>
+
+      <table class="w-full min-w-[1000px] bg-white text-base">
+        <thead class="sticky top-0 z-10">
+          <tr class="bg-canvas border-b border-line text-left text-sm">
+            <th class="px-5 py-2.5 font-medium text-ink-600">User</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Role</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Department scope</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Status</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Last active</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600"></th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-2.5">
+                <span class="w-7 h-7 rounded-full bg-brand-100 text-brand-800 grid place-items-center text-2xs font-semibold shrink-0">KM</span>
+                <span>
+                  <span class="block font-medium">Daw Khin Mya</span>
+                  <span class="block text-sm text-ink-600">khin.mya@yomabank.com</span>
+                </span>
+              </div>
+            </td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-ink-900 text-white text-xs font-medium">
+                <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" aria-hidden="true"><rect x="2.5" y="5.5" width="7" height="4.5" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M4.2 5.5V4a1.8 1.8 0 0 1 3.6 0v1.5" stroke="currentColor" stroke-width="1.2"/></svg>
+                Admin
+              </span>
+            </td>
+            <td class="px-5 py-3">
+              <span class="text-ink-600">All departments</span>
+              <span class="block text-xs text-ink-500">Unscoped — the role bypasses checks</span>
+            </td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Active</span></td>
+            <td class="px-5 py-3 text-ink-600 tnum">2 min ago</td>
+            <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Manage</button></td>
+          </tr>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-2.5">
+                <span class="w-7 h-7 rounded-full bg-brand-100 text-brand-800 grid place-items-center text-2xs font-semibold shrink-0">TW</span>
+                <span>
+                  <span class="block font-medium">U Thura Win</span>
+                  <span class="block text-sm text-ink-600">thura.win@yomabank.com</span>
+                </span>
+              </div>
+            </td>
+            <td class="px-5 py-3"><span class="inline-flex items-center h-6 px-2.5 rounded-full bg-info-50 text-info-700 text-xs font-medium">Recruiter</span></td>
+            <td class="px-5 py-3"><span class="text-ink-600">All departments</span></td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Active</span></td>
+            <td class="px-5 py-3 text-ink-600 tnum">Today, 09:14</td>
+            <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Manage</button></td>
+          </tr>
+
+          <!-- The row that carries the whole point: same permission set, narrower reach. -->
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-2.5">
+                <span class="w-7 h-7 rounded-full bg-warn-100 text-warn-700 grid place-items-center text-2xs font-semibold shrink-0">AM</span>
+                <span>
+                  <span class="block font-medium">U Aung Myat</span>
+                  <span class="block text-sm text-ink-600">aung.myat@yomabank.com</span>
+                </span>
+              </div>
+            </td>
+            <td class="px-5 py-3"><span class="inline-flex items-center h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-700 text-xs font-medium">Hiring Manager</span></td>
+            <td class="px-5 py-3">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">Credit Risk</span>
+                <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">Collections</span>
+              </div>
+            </td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Active</span></td>
+            <td class="px-5 py-3 text-ink-600 tnum">Yesterday</td>
+            <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Manage</button></td>
+          </tr>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-2.5">
+                <span class="w-7 h-7 rounded-full bg-canvas border border-line text-ink-500 grid place-items-center text-2xs font-semibold shrink-0">MZ</span>
+                <span>
+                  <span class="block font-medium">Ma Moe Zin</span>
+                  <span class="block text-sm text-ink-600">moe.zin@yomabank.com</span>
+                </span>
+              </div>
+            </td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">
+                <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M6 1.5 7.4 4.4l3.1.4-2.3 2.2.6 3.1L6 8.6 3.2 10.1l.6-3.1L1.5 4.8l3.1-.4z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+                Recruitment Coordinator
+              </span>
+            </td>
+            <td class="px-5 py-3"><span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">Technology</span></td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Invited</span></td>
+            <td class="px-5 py-3 text-ink-600">Never · invited 3 days ago</td>
+            <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Resend</button></td>
+          </tr>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-2.5 opacity-60">
+                <span class="w-7 h-7 rounded-full bg-canvas border border-line text-ink-500 grid place-items-center text-2xs font-semibold shrink-0">SS</span>
+                <span>
+                  <span class="block font-medium line-through decoration-ink-400">Daw Su Su</span>
+                  <span class="block text-sm text-ink-600">su.su@yomabank.com</span>
+                </span>
+              </div>
+            </td>
+            <td class="px-5 py-3 text-ink-500">Approver</td>
+            <td class="px-5 py-3 text-ink-500">Finance</td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Disabled</span></td>
+            <td class="px-5 py-3 text-ink-500">14 Jul 2026</td>
+            <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Restore</button></td>
+          </tr>
+
+        </tbody>
+      </table>
+
+      <div class="px-6 py-4 bg-white border-b border-line">
+        <div class="rounded-lg border border-line bg-canvas p-4 max-w-[74ch]">
+          <p class="text-base font-semibold">Disabled, never deleted</p>
+          <p class="mt-1.5 text-sm text-ink-600">
+            U Aung Myat approved 31 requisitions. Deleting the row would leave 31 approvals signed
+            by nobody, which is the one thing this product exists to prevent. Leavers are disabled:
+            they cannot sign in, and every decision they made keeps their name on it.
+          </p>
+        </div>
+      </div>
+
+      <!-- ================================================== ROLE BUILDER -->
+      <div class="px-6 py-8 border-b border-line">
+        <p class="spec-label">Roles tab → editing a custom role</p>
+        <h2 class="mt-1.5 text-2xl font-semibold tracking-tight">Role builder</h2>
+        <p class="mt-2 text-base text-ink-600 max-w-[74ch]">
+          Nine roles: seven shipped with the system and two the company wrote. The matrix is the
+          real permission list from <code class="font-mono text-sm">RbacSeedData.cs</code> — if a
+          code is not in that file it cannot be granted, so the builder shows a fixed grid rather
+          than a free-text field.
+        </p>
+
+        <div class="mt-5 grid lg:grid-cols-[280px_1fr] gap-5 items-start">
+
+          <!-- Role list -->
+          <div class="rounded-lg border border-line bg-white overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-line bg-canvas">
+              <p class="text-sm font-medium text-ink-600">System roles</p>
+            </div>
+            <ul class="text-base">
+              <li class="flex items-center gap-2 px-4 py-2.5 border-b border-line">
+                <span class="flex-1 min-w-0 truncate">SuperAdmin</span>
+                <svg class="w-3.5 h-3.5 text-ink-400 shrink-0" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="3" y="6.2" width="8" height="5.3" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.2V4.6a2 2 0 0 1 4 0v1.6" stroke="currentColor" stroke-width="1.3"/></svg>
+                <span class="text-sm text-ink-500 tnum shrink-0">1</span>
+              </li>
+              <li class="flex items-center gap-2 px-4 py-2.5 border-b border-line">
+                <span class="flex-1 min-w-0 truncate">Admin</span>
+                <svg class="w-3.5 h-3.5 text-ink-400 shrink-0" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="3" y="6.2" width="8" height="5.3" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.2V4.6a2 2 0 0 1 4 0v1.6" stroke="currentColor" stroke-width="1.3"/></svg>
+                <span class="text-sm text-ink-500 tnum shrink-0">2</span>
+              </li>
+              <li class="flex items-center gap-2 px-4 py-2.5 border-b border-line"><span class="flex-1 truncate">HR Director</span><svg class="w-3.5 h-3.5 text-ink-400 shrink-0" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="3" y="6.2" width="8" height="5.3" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.2V4.6a2 2 0 0 1 4 0v1.6" stroke="currentColor" stroke-width="1.3"/></svg><span class="text-sm text-ink-500 tnum">1</span></li>
+              <li class="flex items-center gap-2 px-4 py-2.5 border-b border-line"><span class="flex-1 truncate">Recruiter</span><svg class="w-3.5 h-3.5 text-ink-400 shrink-0" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="3" y="6.2" width="8" height="5.3" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.2V4.6a2 2 0 0 1 4 0v1.6" stroke="currentColor" stroke-width="1.3"/></svg><span class="text-sm text-ink-500 tnum">4</span></li>
+              <li class="flex items-center gap-2 px-4 py-2.5 border-b border-line"><span class="flex-1 truncate">Hiring Manager</span><svg class="w-3.5 h-3.5 text-ink-400 shrink-0" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="3" y="6.2" width="8" height="5.3" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.2V4.6a2 2 0 0 1 4 0v1.6" stroke="currentColor" stroke-width="1.3"/></svg><span class="text-sm text-ink-500 tnum">9</span></li>
+              <li class="flex items-center gap-2 px-4 py-2.5 border-b border-line"><span class="flex-1 truncate">Approver</span><svg class="w-3.5 h-3.5 text-ink-400 shrink-0" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="3" y="6.2" width="8" height="5.3" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.2V4.6a2 2 0 0 1 4 0v1.6" stroke="currentColor" stroke-width="1.3"/></svg><span class="text-sm text-ink-500 tnum">5</span></li>
+              <li class="flex items-center gap-2 px-4 py-2.5 border-b border-line"><span class="flex-1 truncate">Interviewer</span><svg class="w-3.5 h-3.5 text-ink-400 shrink-0" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="3" y="6.2" width="8" height="5.3" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.2V4.6a2 2 0 0 1 4 0v1.6" stroke="currentColor" stroke-width="1.3"/></svg><span class="text-sm text-ink-500 tnum">0</span></li>
+            </ul>
+            <div class="px-4 py-2.5 border-b border-line bg-canvas">
+              <p class="text-sm font-medium text-ink-600">Custom roles</p>
+            </div>
+            <ul class="text-base">
+              <li class="flex items-center gap-2 px-4 py-2.5 border-b border-line bg-brand-50 border-l-2 border-l-brand-700">
+                <span class="flex-1 truncate font-medium text-brand-900">Recruitment Coordinator</span>
+                <span class="text-sm text-brand-800 tnum">2</span>
+              </li>
+              <li class="flex items-center gap-2 px-4 py-2.5 border-b border-line"><span class="flex-1 truncate">Panel Observer</span><span class="text-sm text-ink-500 tnum">0</span></li>
+            </ul>
+            <div class="p-3">
+              <button class="w-full h-9 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">New role</button>
+            </div>
+          </div>
+
+          <!-- Matrix -->
+          <div class="rounded-lg border border-line bg-white overflow-hidden">
+            <div class="px-5 py-4 border-b border-line">
+              <div class="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <h3 class="text-lg font-semibold tracking-tight">Recruitment Coordinator</h3>
+                  <p class="mt-1 text-sm text-ink-600 max-w-[60ch]">Schedules interviews and moves candidates, but does not raise requisitions or publish postings.</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button class="h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Duplicate</button>
+                  <button class="h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Save changes</button>
+                </div>
+              </div>
+              <p class="mt-3 text-sm text-ink-600"><span class="font-mono text-xs bg-canvas border border-line rounded px-1.5 py-0.5">14 of 33</span> permissions granted · assigned to 2 users</p>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full min-w-[640px] text-base">
+                <thead>
+                  <tr class="bg-canvas border-b border-line text-sm">
+                    <th class="px-5 py-2.5 text-left font-medium text-ink-600 w-[38%]">Module</th>
+                    <th class="px-3 py-2.5 font-medium text-ink-600">Read</th>
+                    <th class="px-3 py-2.5 font-medium text-ink-600">Create</th>
+                    <th class="px-3 py-2.5 font-medium text-ink-600">Update</th>
+                    <th class="px-3 py-2.5 font-medium text-ink-600">Delete</th>
+                    <th class="px-3 py-2.5 font-medium text-ink-600">Special</th>
+                  </tr>
+                </thead>
+                <tbody class="[&_input]:w-4 [&_input]:h-4 [&_input]:rounded [&_input]:border-line-strong [&_input]:accent-[#0F766E]">
+
+                  <tr class="border-b border-line">
+                    <td class="px-5 py-2.5"><span class="font-medium">Requisitions</span><span class="block font-mono text-2xs text-ink-500">permission:requisitions:requisitions:*</span></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" checked /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><label class="inline-flex items-center gap-1.5 text-sm text-ink-600"><input type="checkbox" /> approve</label></td>
+                  </tr>
+
+                  <tr class="border-b border-line">
+                    <td class="px-5 py-2.5"><span class="font-medium">Postings</span><span class="block font-mono text-2xs text-ink-500">permission:postings:postings:*</span></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" checked /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><label class="inline-flex items-center gap-1.5 text-sm text-ink-600"><input type="checkbox" /> publish</label></td>
+                  </tr>
+
+                  <tr class="border-b border-line bg-brand-50/40">
+                    <td class="px-5 py-2.5"><span class="font-medium">Applications</span><span class="block font-mono text-2xs text-ink-500">permission:applications:applications:*</span></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" checked /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" checked /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" checked /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><label class="inline-flex items-center gap-1.5 text-sm text-ink-600"><input type="checkbox" checked /> move_stage</label></td>
+                  </tr>
+
+                  <tr class="border-b border-line bg-brand-50/40">
+                    <td class="px-5 py-2.5"><span class="font-medium">Interviews</span><span class="block font-mono text-2xs text-ink-500">permission:interviews:interviews:*</span></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" checked /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" checked /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" checked /></td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                    <td class="px-3 py-2.5 text-center"><label class="inline-flex items-center gap-1.5 text-sm text-ink-600"><input type="checkbox" checked /> cancel</label></td>
+                  </tr>
+
+                  <tr class="border-b border-line">
+                    <td class="px-5 py-2.5"><span class="font-medium">Scorecards</span><span class="block font-mono text-2xs text-ink-500">permission:scorecards:scorecards:*</span></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" checked /></td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                    <td class="px-3 py-2.5 text-center">
+                      <div class="flex flex-col items-center gap-1">
+                        <label class="inline-flex items-center gap-1.5 text-sm text-ink-600"><input type="checkbox" /> submit</label>
+                        <label class="inline-flex items-center gap-1.5 text-sm text-ink-600"><input type="checkbox" /> manage_templates</label>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr class="border-b border-line">
+                    <td class="px-5 py-2.5"><span class="font-medium">Users</span><span class="block font-mono text-2xs text-ink-500">permission:users:users:*</span></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" checked /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                  </tr>
+
+                  <tr class="border-b border-line">
+                    <td class="px-5 py-2.5"><span class="font-medium">Roles</span><span class="block font-mono text-2xs text-ink-500">permission:roles:roles:*</span></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                  </tr>
+
+                  <tr class="border-b border-line">
+                    <td class="px-5 py-2.5"><span class="font-medium">Settings</span><span class="block font-mono text-2xs text-ink-500">permission:settings:settings:*</span></td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                    <td class="px-3 py-2.5 text-center"><input type="checkbox" /></td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                  </tr>
+
+                  <tr class="border-b border-line">
+                    <td class="px-5 py-2.5"><span class="font-medium">System</span><span class="block font-mono text-2xs text-ink-500">permission:system:system:*</span></td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                    <td class="px-3 py-2.5 text-center text-ink-400">—</td>
+                    <td class="px-3 py-2.5 text-center">
+                      <div class="flex flex-col items-center gap-1">
+                        <label class="inline-flex items-center gap-1.5 text-sm text-ink-600"><input type="checkbox" /> audit</label>
+                        <label class="inline-flex items-center gap-1.5 text-sm text-ink-400" title="Reserved for SuperAdmin"><input type="checkbox" disabled /> manage</label>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td class="px-5 py-2.5 align-top">
+                      <span class="font-medium">AI assistance</span>
+                      <span class="block font-mono text-2xs text-ink-500">permission:ai:&lt;feature&gt;:&lt;action&gt;</span>
+                      <span class="block mt-1 text-xs text-ink-600">Five separate features, not one module — the grid above does not fit them.</span>
+                    </td>
+                    <td colspan="5" class="px-3 py-2.5">
+                      <div class="flex flex-wrap gap-x-5 gap-y-1.5">
+                        <label class="inline-flex items-center gap-1.5 text-sm text-ink-700"><input type="checkbox" checked /> resume:parse</label>
+                        <label class="inline-flex items-center gap-1.5 text-sm text-ink-700"><input type="checkbox" checked /> matching:analyze</label>
+                        <label class="inline-flex items-center gap-1.5 text-sm text-ink-700"><input type="checkbox" checked /> summary:generate</label>
+                        <label class="inline-flex items-center gap-1.5 text-sm text-ink-700"><input type="checkbox" /> document:prepare</label>
+                        <label class="inline-flex items-center gap-1.5 text-sm text-ink-700"><input type="checkbox" /> localization:translate</label>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="px-5 py-4 border-t border-line bg-canvas">
+              <div class="flex items-start gap-2.5">
+                <svg class="w-4 h-4 text-warn-700 mt-0.5 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M8 2.5 14.5 13.5h-13z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.6v3M8 11.6v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <p class="text-sm text-ink-700 max-w-[70ch]">
+                  <span class="font-medium text-ink-900">This matrix does not decide which rows the user sees.</span>
+                  Department scope does, and it is set per user, not per role — see the callout below.
+                  A coordinator with <code class="font-mono text-xs">applications:read</code> and no
+                  department assigned reads nothing.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================ SYSTEM ROLE VIEW -->
+      <div class="px-6 py-8 border-b border-line bg-white">
+        <div class="grid lg:grid-cols-2 gap-6">
+
+          <div>
+            <p class="spec-label">Roles tab → a system role selected</p>
+            <div class="mt-2 rounded-lg border border-line overflow-hidden">
+              <div class="px-5 py-4 border-b border-line">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-lg font-semibold tracking-tight">Admin</h3>
+                  <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium">
+                    <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none" aria-hidden="true"><rect x="2.5" y="5.5" width="7" height="4.5" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M4.2 5.5V4a1.8 1.8 0 0 1 3.6 0v1.5" stroke="currentColor" stroke-width="1.2"/></svg>
+                    System role
+                  </span>
+                </div>
+                <p class="mt-1.5 text-sm text-ink-600">Tenant Administrator with full access to tenant management, users, roles, and settings.</p>
+              </div>
+
+              <div class="px-5 py-4 border-b border-line bg-warn-50">
+                <p class="text-base font-medium text-warn-700">This role bypasses permission checks</p>
+                <p class="mt-1 text-sm text-warn-700">
+                  Admin and SuperAdmin are evaluated before the matrix is consulted. Unticking a box
+                  here would change nothing at the endpoint, so the matrix is shown read-only rather
+                  than as a control that silently does not work.
+                </p>
+              </div>
+
+              <div class="px-5 py-4 space-y-2.5">
+                <p class="text-sm text-ink-600">Holds <span class="font-medium text-ink-900 tnum">32 of 33</span> permissions.</p>
+                <div class="rounded-md border border-line bg-canvas px-3.5 py-3">
+                  <p class="text-sm font-medium">The one it does not hold</p>
+                  <p class="mt-1 font-mono text-xs text-ink-700">permission:system:system:manage</p>
+                  <p class="mt-1.5 text-sm text-ink-600">Reserved for SuperAdmin. A company admin runs their company; they do not run the instance.</p>
+                </div>
+              </div>
+
+              <div class="px-5 py-3.5 border-t border-line flex items-center gap-2.5 flex-wrap">
+                <button class="h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Duplicate to customise</button>
+                <button disabled class="h-9 px-3.5 rounded-md border border-line bg-canvas text-ink-400 text-base font-medium cursor-not-allowed">Edit</button>
+                <button disabled class="h-9 px-3.5 rounded-md border border-line bg-canvas text-ink-400 text-base font-medium cursor-not-allowed">Delete</button>
+                <span class="text-sm text-ink-600">System roles are immutable.</span>
+              </div>
+            </div>
+            <p class="mt-2 text-sm text-ink-600 max-w-[56ch]">
+              Both blocked buttons are <em>present and explained</em>. Hiding them would leave an
+              admin hunting for an edit control that does not exist in this build.
+            </p>
+          </div>
+
+          <div>
+            <p class="spec-label">Delete blocked by assignment</p>
+            <div class="mt-2 rounded-lg border border-line overflow-hidden">
+              <div class="px-5 py-4 border-b border-line">
+                <h3 class="text-lg font-semibold tracking-tight">Delete “Recruitment Coordinator”?</h3>
+              </div>
+              <div class="px-5 py-4">
+                <div class="rounded-md border border-critical-100 bg-critical-50 px-3.5 py-3">
+                  <p class="text-base font-medium text-critical-700">Cannot delete — 2 active users hold this role</p>
+                  <ul class="mt-2 space-y-1 text-sm text-critical-700">
+                    <li>Ma Moe Zin · invited, not yet signed in</li>
+                    <li>U Ye Naing · active</li>
+                  </ul>
+                  <p class="mt-2.5 text-sm text-critical-700">Move them to another role first. Deleting a role out from under a signed-in user would strip their access mid-task with no explanation on screen.</p>
+                </div>
+              </div>
+              <div class="px-5 py-3.5 border-t border-line flex items-center justify-end gap-2.5">
+                <button class="h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Cancel</button>
+                <button disabled class="h-9 px-3.5 rounded-md bg-critical-500/40 text-white text-base font-medium cursor-not-allowed">Delete role</button>
+              </div>
+            </div>
+            <p class="mt-2 text-sm text-ink-600 max-w-[56ch]">
+              The backend already refuses this. The dialog names the two people rather than
+              reporting a count, because the admin's next action is to go and change them.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================ DEPARTMENT SCOPE -->
+      <div class="px-6 py-8 bg-white">
+        <p class="spec-label">Manage user → the control that is not a permission</p>
+        <h2 class="mt-1.5 text-2xl font-semibold tracking-tight">Department scope</h2>
+        <p class="mt-2 text-base text-ink-600 max-w-[74ch]">
+          ADR-0003 makes department scoping the security-critical filter — the one applied
+          explicitly in each query, and therefore the one that can be forgotten. It is not a
+          permission and it is not stored on the role, so it gets its own panel with its own
+          language, never a row in the matrix above.
+        </p>
+
+        <div class="mt-5 grid lg:grid-cols-2 gap-6 items-start">
+          <div class="rounded-lg border border-line overflow-hidden">
+            <div class="px-5 py-4 border-b border-line">
+              <div class="flex items-center gap-2.5">
+                <span class="w-9 h-9 rounded-full bg-warn-100 text-warn-700 grid place-items-center text-sm font-semibold">AM</span>
+                <span>
+                  <span class="block text-lg font-semibold tracking-tight">U Aung Myat</span>
+                  <span class="block text-sm text-ink-600">Hiring Manager · aung.myat@yomabank.com</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="px-5 py-4 border-b border-line">
+              <p class="text-sm font-medium text-ink-700">Can act in</p>
+              <div class="mt-2.5 space-y-2">
+                <label class="flex items-center gap-2.5 rounded-md border border-brand-200 bg-brand-50 px-3 py-2.5 cursor-pointer">
+                  <input type="checkbox" checked class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" />
+                  <span class="flex-1 text-base font-medium text-brand-900">Credit Risk</span>
+                  <span class="text-sm text-brand-800 tnum">4 open</span>
+                </label>
+                <label class="flex items-center gap-2.5 rounded-md border border-brand-200 bg-brand-50 px-3 py-2.5 cursor-pointer">
+                  <input type="checkbox" checked class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" />
+                  <span class="flex-1 text-base font-medium text-brand-900">Collections</span>
+                  <span class="text-sm text-brand-800 tnum">1 open</span>
+                </label>
+                <label class="flex items-center gap-2.5 rounded-md border border-line px-3 py-2.5 cursor-pointer hover:border-line-strong transition-colors">
+                  <input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" />
+                  <span class="flex-1 text-base">Retail Operations</span>
+                  <span class="text-sm text-ink-500 tnum">7 open</span>
+                </label>
+                <label class="flex items-center gap-2.5 rounded-md border border-line px-3 py-2.5 cursor-pointer hover:border-line-strong transition-colors">
+                  <input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" />
+                  <span class="flex-1 text-base">Technology</span>
+                  <span class="text-sm text-ink-500 tnum">3 open</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="px-5 py-4 border-b border-line">
+              <label class="flex items-start gap-2.5 cursor-pointer">
+                <input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E] mt-0.5" />
+                <span>
+                  <span class="block text-base font-medium">All departments</span>
+                  <span class="block text-sm text-ink-600">Everything above, including departments created later. Recruiters normally have this; hiring managers normally do not.</span>
+                </span>
+              </label>
+            </div>
+
+            <div class="px-5 py-3.5 flex items-center justify-end gap-2.5">
+              <button class="h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Cancel</button>
+              <button class="h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Save scope</button>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="rounded-lg border border-line bg-canvas p-5">
+              <p class="text-base font-semibold">Why this reads “can act in”, not “can see”</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                The scope governs every verb the role grants, not just reading. A hiring manager
+                scoped to Credit Risk cannot move a Retail candidate either. Labelling it
+                “visibility” would teach admins the wrong model, and they would grant it too freely.
+              </p>
+            </div>
+            <div class="rounded-lg border border-line bg-canvas p-5">
+              <p class="text-base font-semibold">The empty-scope trap</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                Untick both and the account still holds eleven permissions and reads nothing —
+                a state that looks like a broken app rather than a configuration. Saving with an
+                empty scope should ask for confirmation and say so in those words.
+                <span class="block mt-2 text-ink-700"><strong class="font-medium">Not drawn as settled:</strong> whether empty scope is legal at all is a backend question this design cannot answer alone.</span>
+              </p>
+            </div>
+            <div class="rounded-lg border border-line bg-canvas p-5">
+              <p class="text-base font-semibold">Tenant is not on this screen</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                One instance per company (ADR-0004), so there is no tenant picker and no
+                cross-company assignment. The tenant filter exists in code as a dormant safety
+                net; putting it in the admin UI would imply a shared deployment that does not exist.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>
