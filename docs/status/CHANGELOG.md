@@ -5,6 +5,43 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-18 (latest)
 
+### ✅ ADR-0026 accepted — hand-rolled queue, and the tenant problem it exposed
+**Why:** the dependency question left open below was put to the product owner and answered:
+**hand-rolled, no new NuGet package.** Two product-specific grounds decided it, not general
+preference — `OutboundMessage` is needed either way (so Hangfire would add a second source of
+truth about the same send, and they would eventually disagree), and Hangfire's `Enqueue` writes
+in its own transaction, breaking the atomicity that is the entire point of an outbox.
+
+Recorded honestly in the ADR: retry correctness, backoff, poison-message handling and
+observability are now **ours to get right**, and the conditions that should reopen the question
+are named — many job types, a second replica, or an ops requirement that would make us build a
+dashboard anyway.
+
+**The ADR gained a section it was missing, and it is the one with teeth.** §4: *a job carries
+its own tenant, and the query filters stay on.* `CurrentTenant` reads `IHttpContextAccessor`, so
+a background job sees `TenantId == Guid.Empty` — every one of the twenty-odd global query
+filters matches nothing, and `AppDbContext` would stamp new rows with tenant `Guid.Empty`.
+
+The repo's existing answer is `IgnoreQueryFilters()` plus a hand-carried tenant, used by
+`PublicJobService` and `BulkResumeService`. **That pattern is deliberately not extended to job
+handlers.** It is exactly the shape ADR-0003 warns about — a filter applied explicitly and
+therefore possible to forget — and one forgetful handler reads another company's data. Instead
+the worker sets a scoped tenant from the message row before resolving anything, so handler code
+looks like request code and no handler calls `IgnoreQueryFilters()`.
+
+That makes `ICurrentTenant` **settable**, which is a change to a security-critical seam and is
+logged in FEATURE-STATUS as its own High row: it needs a dedicated review and a two-tenant
+isolation test, because the failure mode is a scope retaining a previous job's tenant, which
+reads as working until two companies' data cross.
+
+Identity gets a separate answer in the same section: `ICurrentUser` is also null in a job, so
+anything recording an actor must attribute it to an explicit **system actor**, and a job must
+never call a department-scoped path — `IDepartmentAccess` answers "may *this user* reach it" and
+there is no user. Treating absence-of-user as permission is how ADR-0018's hole was opened.
+
+**Touched:** `docs/decisions/ADR-0026-outbound-delivery-and-background-jobs.md`,
+`docs/status/FEATURE-STATUS.md`, `docs/status/NEXT-SESSION.md`.
+
 ### 📐 ADR-0026 — outbound delivery and background jobs, proposed as one capability
 **Why:** four modules had been blocked for three weeks on an absence recorded as four separate
 gaps. There is no email sender and no job runner anywhere in `backend/src`. Six features

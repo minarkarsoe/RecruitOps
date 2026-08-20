@@ -83,25 +83,35 @@ project.**
 
 Each of these is **one session**. Start a new one for each.
 
-### 1. Answer ADR-0026's one open question, then build it
-**The highest-leverage thing left**, and the ADR is now written:
-[ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md) — SMTP behind
-`IEmailSender` as the floor, a transactional `OutboundMessage` outbox, and one in-process
-`BackgroundService` claiming rows with `FOR UPDATE SKIP LOCKED`.
+### 1. Build ADR-0026 — outbound delivery and background jobs
+**The highest-leverage thing left**, and it is now decided and unblocked:
+[ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md) is **Accepted**.
+SMTP behind `IEmailSender` as the floor, a transactional `OutboundMessage` outbox, one
+in-process `BackgroundService` claiming rows with `FOR UPDATE SKIP LOCKED`, and **no new NuGet
+package** — hand-rolled was chosen by the product owner on 2026-08-18.
 
-**It is Proposed, not Accepted, and one question blocks the start: Hangfire or hand-rolled.**
-CLAUDE.md requires asking before adding a NuGet package, and this is that ask. The ADR
-recommends hand-rolled (no dependency, ~200 lines, no job dashboard to secure inside a bank
-install) and states the case for Hangfire honestly. **Settle that, mark the ADR Accepted, then
-build.**
+Why it is first — one absent capability blocks six things: Module 3.1/3.2 invitations ·
+Module 4 offer sends, reminders and the IT/Admin handoff · Module 5 scheduled reports ·
+Module 8 candidate notifications · and Module 2.3, whose `BulkResumeService` keeps batches
+**and the raw uploaded bytes** in a `static ConcurrentDictionary` that a restart erases
+outright. That service is **replaced** by this work, not extended; leaving it gives the product
+two job mechanisms.
 
-Why it is worth doing first — one absent capability blocks six things:
-Module 3.1/3.2 invitations · Module 4 offer sends, reminders and the IT/Admin handoff ·
-Module 5 scheduled reports · Module 8 candidate notifications · and Module 2.3, whose
-`BulkResumeService` keeps batches **and the raw uploaded bytes** in a `static
-ConcurrentDictionary` that a restart erases outright — the recruiter's 50 files 404 with no
-way to tell whether any candidate was created. That service is **replaced** by this work, not
-extended; leaving it gives the product two job mechanisms.
+**Read §4 of the ADR before writing any handler.** A background job has no `HttpContext`, so
+`CurrentTenant.TenantId` is `Guid.Empty` and every global query filter matches nothing — and
+`AppDbContext` would stamp new rows with tenant `Guid.Empty`. The decision is that the *worker*
+sets a scoped tenant from the message row before resolving anything, so handler code looks like
+request code and **no handler calls `IgnoreQueryFilters()`**. Do not copy the
+`PublicJobService` / `BulkResumeService` workaround into job handlers; that pattern stays where
+it is unavoidable.
+
+Suggested order, each a session:
+1. `OutboundMessage` + `ScheduledJob` entities, migration proposed for a human to apply.
+2. The settable `ICurrentTenant` seam + the worker loop, **with the two-tenant isolation test
+   named in the ADR's consequences** before any real handler exists.
+3. `IEmailSender` (SMTP) + the first handler — interview invitations (Module 3.2) is the
+   smallest real one.
+4. Rewrite `BulkResumeService` onto persisted batch rows with bytes in object storage.
 
 ### 2. Frontend tests for Modules 1–2's largest untested logic
 Still open. The harness is proven and the suite is at 342, but these two components have no
