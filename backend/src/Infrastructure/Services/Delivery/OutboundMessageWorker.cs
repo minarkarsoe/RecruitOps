@@ -124,7 +124,34 @@ public sealed class OutboundMessageWorker : BackgroundService
         return due;
     }
 
+    /// <summary>Handles one claimed message, and <b>guarantees the row is accounted for</b>.
+    ///
+    /// <para>Everything between claiming and recording is wrapped, because anything that escapes
+    /// here would skip <see cref="Record"/> — and a row that never reaches Record never has its
+    /// attempt cap checked, so it can never become <see cref="OutboundMessageStatus.Failed"/>. It
+    /// would be reclaimed every visibility window forever: precisely the poison message the cap
+    /// exists to stop, dodging the cap. Escaping would also abandon the rest of this pass's batch.</para>
+    /// </summary>
     private async Task HandleClaimedAsync(OutboundMessage claimed, CancellationToken ct)
+    {
+        try
+        {
+            await HandleInTenantScopeAsync(claimed, ct);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            // Uniformly retryable, so the cap applies and the row is bounded rather than
+            // special-cased. A malformed row burns its attempts and lands on Failed, which is
+            // visible in the delivery log — better than a bespoke terminal path per cause.
+            _logger.LogError(ex,
+                "Delivering message {MessageId} for tenant {TenantId} failed outside the handler.",
+                claimed.Id, claimed.TenantId);
+
+            await RecordOutsideTenantScopeAsync(claimed.Id, DeliveryOutcome.Retry(ex.Message), ct);
+        }
+    }
+
+    private async Task HandleInTenantScopeAsync(OutboundMessage claimed, CancellationToken ct)
     {
         // A scope per message. IAmbientTenantScope refuses a second EnterTenant, so reusing one
         // across messages would throw rather than silently run as the previous tenant.
@@ -139,17 +166,52 @@ public sealed class OutboundMessageWorker : BackgroundService
         var message = await db.OutboundMessages.FirstOrDefaultAsync(m => m.Id == claimed.Id, ct);
         if (message is null)
         {
-            _logger.LogError(
-                "Claimed message {MessageId} was not readable inside tenant {TenantId}. " +
-                "The tenant scope is not being established correctly.",
-                claimed.Id, claimed.TenantId);
-            return;
+            // Throw rather than return: returning would leave the row un-recorded and therefore
+            // un-capped. The catch above turns this into a counted attempt.
+            throw new InvalidOperationException(
+                $"Claimed message {claimed.Id} was not readable inside tenant {claimed.TenantId}. " +
+                "The tenant scope is not being established correctly.");
         }
 
         var outcome = await InvokeHandlerAsync(scope.ServiceProvider, message, ct);
         Record(message, outcome);
 
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Records an outcome for a message whose own tenant scope could not be used —
+    /// because entering it failed, or because the row was unreadable inside it.
+    ///
+    /// <para>This is the second and last <c>IgnoreQueryFilters()</c> in the worker, and it is the
+    /// worker's own bookkeeping on its own queue table: it touches only queue fields, never
+    /// business data, and it exists so that a message which cannot be delivered still gets counted
+    /// and can still reach <see cref="OutboundMessageStatus.Failed"/>.</para></summary>
+    private async Task RecordOutsideTenantScopeAsync(Guid messageId, DeliveryOutcome outcome, CancellationToken ct)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var message = await db.OutboundMessages
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(m => m.Id == messageId, ct);
+
+            if (message is null)
+            {
+                _logger.LogError("Message {MessageId} vanished before its outcome could be recorded.", messageId);
+                return;
+            }
+
+            Record(message, outcome);
+            await db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            // Last resort. If even this fails the row stays Pending and will be retried, which is
+            // the safe direction — but it must be loud, because it means the queue can spin.
+            _logger.LogError(ex, "Could not record an outcome for message {MessageId}.", messageId);
+        }
     }
 
     private async Task<DeliveryOutcome> InvokeHandlerAsync(

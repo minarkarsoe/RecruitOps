@@ -316,6 +316,63 @@ public class OutboundMessageWorkerTests
         Assert.Contains("No handler is registered", message.LastError);
     }
 
+    // -------------------------------------------------- security review follow-up
+    // Raised by the security-reviewer pass on a2de09c. A failure BETWEEN claiming and recording
+    // used to escape to the pass-level catch, which skipped Record() entirely — so the row's
+    // attempt cap was never checked and it could be reclaimed forever, dodging the very cap that
+    // exists to stop poison messages. It also abandoned the rest of the batch.
+
+    /// <summary>A row whose own tenant is unusable must still be counted, and must still reach the
+    /// cap. Before the fix this row was immortal.</summary>
+    [Fact]
+    public async Task A_Message_With_An_Unusable_Tenant_Still_Reaches_The_Attempt_Cap()
+    {
+        var (provider, _, clock) = BuildHost(Guid.NewGuid().ToString(), o =>
+        {
+            o.MaxAttempts = 2;
+            o.BaseBackoff = TimeSpan.FromMinutes(1);
+        });
+
+        // TenantId stays empty: the stamp only fills from the ambient tenant, which is also empty
+        // outside a request. EnterTenant rejects it, so the tenant scope can never be established.
+        Seed(provider, Message(Guid.Empty, "malformed@alpha.test", clock.GetUtcNow()));
+
+        var worker = provider.GetRequiredService<OutboundMessageWorker>();
+        for (var i = 0; i < 4; i++)
+        {
+            await worker.RunOnceAsync();
+            clock.Advance(TimeSpan.FromHours(2));
+        }
+
+        var message = AllMessages(provider).Single();
+        Assert.Equal(OutboundMessageStatus.Failed, message.Status);
+        Assert.Equal(2, message.Attempts);
+    }
+
+    /// <summary>One bad row must not abandon the rest of the batch. Before the fix the exception
+    /// escaped the foreach, so every message ordered after it was skipped for that pass.</summary>
+    [Fact]
+    public async Task One_Unusable_Message_Does_Not_Abandon_The_Rest_Of_The_Batch()
+    {
+        var (provider, recorder, clock) = BuildHost(Guid.NewGuid().ToString());
+        var healthyTenant = Guid.NewGuid();
+
+        // The malformed row is claimed first — same due time, but seeded first.
+        Seed(provider,
+            Message(Guid.Empty, "malformed@alpha.test", clock.GetUtcNow()),
+            Message(healthyTenant, "healthy@alpha.test", clock.GetUtcNow()));
+
+        await provider.GetRequiredService<OutboundMessageWorker>().RunOnceAsync();
+
+        // The healthy message was still delivered.
+        Assert.Single(recorder.Observations);
+        Assert.Equal(healthyTenant, recorder.Observations[0].MessageTenantId);
+
+        var all = AllMessages(provider);
+        Assert.Equal(OutboundMessageStatus.Sent, all.Single(m => m.TenantId == healthyTenant).Status);
+        Assert.Equal(OutboundMessageStatus.Pending, all.Single(m => m.TenantId == Guid.Empty).Status);
+    }
+
     /// <summary>A handler that throws must not take the worker down, and must not lose the
     /// message. Silence is this feature's worst failure mode.</summary>
     [Fact]

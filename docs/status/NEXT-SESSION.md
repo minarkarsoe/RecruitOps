@@ -1,7 +1,7 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-08-18 · **Backend 527/527 · Frontend 342/342 · typecheck clean**
-· All seven modules now have a drawn UI (25 screens)
+**Last updated:** 2026-08-20 · **Backend 555/555 · Frontend 342/342 · typecheck clean**
+· ADR-0026 steps 1–2 built and security-reviewed · All seven modules have a drawn UI (25 screens)
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
 > deliberately short-lived — one feature each — because conversation history is re-sent on
@@ -58,7 +58,8 @@ codebase. So the loop above is drivable in the browser and invisible outside it.
 | Auth | ✅ JWT, dynamic RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |
 | Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested |
 | Delivery (ADR-0004) | ✅ compose prod, `/api/version`, feature flags, sizing guide, runbook · ⬜ **job runner** |
-| Tests | ✅ backend **527/527** (51 domain + 476 api) · frontend **342/342** across 43 files |
+| Outbound delivery (ADR-0026) | 🚧 queue + worker + tenant seam ✅ built and security-reviewed · ⬜ no email sender, no handlers yet |
+| Tests | ✅ backend **555/555** (62 domain + 493 api) · frontend **342/342** across 43 files |
 | Design | ✅ 25 static screens, all seven modules — `design/internal/index.html` |
 
 ## ⚠️ "The stack came up" is not "the screens are correct"
@@ -87,8 +88,9 @@ Each of these is **one session**. Start a new one for each.
 **The highest-leverage thing left**, and it is now decided and unblocked:
 [ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md) is **Accepted**.
 SMTP behind `IEmailSender` as the floor, a transactional `OutboundMessage` outbox, one
-in-process `BackgroundService` claiming rows with `FOR UPDATE SKIP LOCKED`, and **no new NuGet
-package** — hand-rolled was chosen by the product owner on 2026-08-18.
+in-process `BackgroundService` claiming due rows with a visibility timeout, and **no new NuGet
+package** — hand-rolled was chosen by the product owner on 2026-08-18. (The ADR originally
+specified `FOR UPDATE SKIP LOCKED`; see its 2026-08-20 amendment for what that trade narrowed.)
 
 Why it is first — one absent capability blocks six things: Module 3.1/3.2 invitations ·
 Module 4 offer sends, reminders and the IT/Admin handoff · Module 5 scheduled reports ·
@@ -108,10 +110,10 @@ it is unavoidable.
 Suggested order, each a session:
 1. ✅ **Done 2026-08-20.** `OutboundMessage` + `ScheduledJob` entities, config, tenant filters and
    six tests, plus migration `20260820072400_AddOutboundDeliveryAndScheduledJobs`.
-2. ✅ **Done 2026-08-20.** `IAmbientTenantScope` + `OutboundMessageWorker` + `IOutboundMessageHandler`,
-   with 20 tests including the two-tenant isolation test the ADR asked for by name. **Still needs
-   a `security-reviewer` pass** — it changed tenant resolution, which is an authorization surface
-   (CLAUDE.md). Do that before step 3.
+2. ✅ **Done 2026-08-20, security-reviewed.** `IAmbientTenantScope` + `OutboundMessageWorker` +
+   `IOutboundMessageHandler`, with 22 tests including the two-tenant isolation test the ADR asked
+   for by name. The review found no tenant-isolation defect and one Low robustness bug, since
+   fixed: a failure between claiming and recording used to dodge the attempt cap.
 3. ← **you are here.** `IEmailSender` (SMTP) + the first real handler. Module 3.2 interview
    invitations is the smallest one. The worker already dispatches by
    `OutboundMessageKind`; a handler is one class plus one DI registration, and

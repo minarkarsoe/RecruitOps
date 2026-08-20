@@ -5,6 +5,45 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-20 (latest)
 
+### 🔐 Security review of the tenant seam — clean on isolation, one defect found and fixed
+**Why:** CLAUDE.md requires a `security-reviewer` pass on authorization changes, and step 2 made
+tenant resolution settable. Reviewed against `a2de09c`. Backend **555/555**, up from 553.
+
+**No tenant-isolation finding.** Each of the four claims was checked against the code rather than
+taken on trust:
+
+- An ambient tenant **cannot** redirect an authenticated request. Middleware order was walked
+  (`UseAuthentication` precedes everything that touches `AppDbContext`), and `EnterTenant` has
+  exactly one caller in `src/` — the worker.
+- A scope carries at most one tenant, and `CurrentTenant` resolves the **same** scoped instance
+  the worker set. Both are `AddScoped`, and the worker enters the tenant before resolving
+  `AppDbContext` from that scope.
+- The cross-tenant claim is contained: the claimed entity is never reattached to a later scope —
+  the message is re-queried by id through a fresh filtered context.
+- `PublicJobService` and the startup seed paths are unchanged.
+
+**One Low-severity defect, in code from step 2, now fixed.** Anything thrown *between* claiming a
+message and `Record()` — `EnterTenant` rejecting a malformed `TenantId`, or the row being
+unreadable inside its own tenant — escaped to the pass-level catch in `ExecuteAsync`. Two
+consequences, both real:
+
+1. The row never reached `Record()`, so **its attempt cap was never checked**. It would be
+   reclaimed every visibility window indefinitely — precisely the poison message `MaxAttempts`
+   exists to stop, dodging the cap.
+2. The rest of that pass's claimed batch was abandoned.
+
+Fixed by wrapping the per-message work: a failure outside the handler is now a counted, capped
+retry recorded through a contained `IgnoreQueryFilters()` path that touches only queue
+bookkeeping, and the batch continues. Two tests added, **proved to fail first** — removing the
+wrapper produced exactly those 2 failures.
+
+Not exploitable today (nothing yet inserts an `OutboundMessage` outside tests), but step 3 adds
+the first real producer, which is why it was fixed now rather than logged.
+
+**Also noted by the review, and worth stating precisely:** "`ICurrentTenant` is now settable" is
+loose — the interface is still get-only. What changed is that it gained a second, settable
+*input*. The earlier entry below keeps the loose phrasing; this is the accurate version.
+
 ### ⚙️ ADR-0026 step 2 — the tenant seam and the delivery worker
 **Why:** the second of four sessions. No email sender and no real handler yet — this is the
 machinery they will plug into. Backend **553/553** (62 domain + 491 api), up from 533.
