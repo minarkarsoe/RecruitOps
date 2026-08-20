@@ -64,13 +64,24 @@ Per-company install, subdomain routing. **Most prerequisites now exist — one r
 | Server sizing guide | ✅ **done** — `docs/architecture/server-sizing-guide.md` |
 | Backup/restore + upgrade runbooks | ✅ **done** — `docs/architecture/deployment-runbook.md` |
 
-⚠️ **Bulk CV upload is running on fire-and-forget `Task.Run`, not a job runner.**
-`BulkResumeService.EnqueueBatchAsync` launches `_ = Task.Run(() => ProcessBatchAsync(batchId))`
-and returns. It works, and the batch row records status — but an app restart mid-batch loses
-the processing with the row still saying "in progress", there is no retry, and an exception
-inside that task is unobserved. Fifty files is exactly the case ADR-0008 said must be
-asynchronous, so this is the shape of the answer rather than the answer. `grep` for
-`BackgroundService|IHostedService|Hangfire|Quartz` across `backend/src` returns nothing.
+⚠️ **Bulk CV upload is fire-and-forget `Task.Run` over a static in-memory dictionary.**
+`BulkResumeService` holds batches in `private static readonly ConcurrentDictionary<Guid,
+BatchStateHolder> Batches`, **including the raw uploaded file bytes**, and launches
+`_ = Task.Run(() => ProcessBatchAsync(batchId))`. Nothing is written to the database.
+
+- A restart does not make the status stale — it **loses the batch outright**, so
+  `GetBatchStatusAsync` returns null and the recruiter's 50 files 404 with no way to tell
+  whether any candidate was created.
+- Fifty CVs of several MB each sit in RAM per concurrent upload, which the server sizing guide
+  does not account for.
+- An exception inside that `Task.Run` is unobserved: no handler, no retry.
+- Two replicas would not see each other's batches — the same trap ADR-0016 recorded for
+  `LoginThrottle`, now present twice.
+
+ADR-0008 required this to be asynchronous; this is the *shape* of asynchronous, not the thing.
+`grep` for `BackgroundService|IHostedService|Hangfire|Quartz` across `backend/src` returns
+nothing. **Addressed by [ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md)**,
+which replaces it rather than extending it.
 
 ## Built in detail
 
@@ -519,7 +530,7 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | Burmese OCR accuracy unverified | 🟡 Medium | Deferred; evaluation plan in ADR-0009 |
 | Burmese keyword search needs trigram/segmentation | ✅ **fixed** | `AddPgTrgmAndSearchIndexes` migration + `SearchService`. Still unverified against a corpus of real Burmese CVs — trigram *runs*, but nobody has measured whether its results are good |
 | No `/api/version`, sizing guide, or upgrade runbook | ✅ **fixed** | `VersionController`, `docs/architecture/server-sizing-guide.md`, `docs/architecture/deployment-runbook.md`. The customer/version *registry* is still a manual list |
-| **No email sender anywhere in the codebase** | 🟠 High | `grep` for `SmtpClient\|IEmailSender\|MailKit\|SendGrid` across `backend/src` returns nothing. Blocks Module 3 interview invitations, Module 4 offer sends + reminders + the IT/Admin handoff, and Module 5 scheduled reports. **One capability, four modules** — pick a provider once |
+| **No email sender anywhere in the codebase** | 🟠 High | `grep` for `SmtpClient\|IEmailSender\|MailKit\|SendGrid` across `backend/src` returns nothing. Blocks Module 3 interview invitations, Module 4 offer sends + reminders + the IT/Admin handoff, and Module 5 scheduled reports. **One capability, four modules.** [ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md) proposes SMTP behind `IEmailSender` + a transactional outbox — **Proposed, one open dependency question blocks the start** |
 | Dead code: `frontend/internal/src/features/requisitions/` | 🟡 Medium | Zero importers repo-wide (verified 2026-08-18, LSP + grep). Five files including `requisitions.test.tsx`, which passes and proves nothing about the shipped app. Delete it, or wire it up |
 | ADR-0025 steps 3–4 not started | 🟡 Medium | The 25 design screens are on V1.0 tokens; `packages/ui/tailwind-preset.js` and both frontends are still on the Clear Pipeline preset. **Two token systems running in parallel is the exact condition ADR-0025 was written to end** — it is now reproduced, just in the other direction |
 | Build warning `CS8604` in `ApplicationFormSchema.cs:102` | 🟢 Low | Possible null reference argument to `HashSet<string>.Add`. Nullable reference types are enabled, so this is a real path the compiler cannot prove safe |

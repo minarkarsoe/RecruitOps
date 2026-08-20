@@ -5,6 +5,43 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-18 (latest)
 
+### 📐 ADR-0026 — outbound delivery and background jobs, proposed as one capability
+**Why:** four modules had been blocked for three weeks on an absence recorded as four separate
+gaps. There is no email sender and no job runner anywhere in `backend/src`. Six features
+(Module 3.1/3.2, 4.1/4.2/4.3, 5.3, 2.3, 8) all reduce to the same shape — *something happened,
+work must run outside the request, and somebody needs to know whether it actually happened* —
+so they are decided once.
+
+**Proposed:**
+- **SMTP behind `IEmailSender` is the floor**, not the fallback. Inverting the usual choice on
+  purpose: ADR-0004 sells on-premise installs, some of them banks with no outbound internet at
+  all. A product whose only send path is `api.sendgrid.com` does not deliver mail for them, and
+  fails at the worst moment — the offer reads "sent" and the candidate never heard. API
+  providers remain available as an adapter that nothing may depend on.
+- **A transactional outbox.** `OutboundMessage` is written in the same transaction as the thing
+  that caused it, then sent by the worker. Never fire-and-forget, because in Modules 4 and 8 the
+  recruiter's next action depends on whether the candidate was told. `Suppressed` is a
+  first-class status so an opt-out is not rendered as a failure.
+- **One in-process `BackgroundService`** claiming due rows with `FOR UPDATE SKIP LOCKED`.
+  ADR-0004's single instance removes the problem distributed schedulers exist to solve.
+- **Scheduling is a due-time on a row**, not a cron container — no mechanism that exists only in
+  the hosted deployment.
+
+**Left open deliberately, and it blocks the start: Hangfire or hand-rolled.** CLAUDE.md requires
+asking before adding a NuGet package. The ADR recommends hand-rolled and argues the opposite
+case honestly rather than deciding silently.
+
+**A finding that made the earlier entry below inaccurate, corrected in both status docs.**
+`BulkResumeService` does not keep batch state in a database row — it holds it in a
+`private static readonly ConcurrentDictionary`, **including the raw uploaded file bytes**. So a
+restart does not leave a stale "in progress" row; it **erases the batch**, and
+`GetBatchStatusAsync` 404s on a recruiter's 50 files with no way to tell whether any candidate
+was created. Fifty CVs of several MB each also sit in RAM per concurrent upload, which the
+sizing guide does not account for. ADR-0026 replaces that service rather than extending it.
+
+**Touched:** `docs/decisions/ADR-0026-outbound-delivery-and-background-jobs.md`,
+`docs/status/FEATURE-STATUS.md`, `docs/status/NEXT-SESSION.md`.
+
 ### 🔧 Status docs re-derived from the code — they were wrong about four modules
 **Why:** `FEATURE-STATUS.md` and `NEXT-SESSION.md` contradicted each other *and* the code, and
 CLAUDE.md makes them the entry point for every session. A fresh session trusting either would
@@ -32,10 +69,13 @@ shipped, and item 3 told the reader to start Module 2.3 CV upload — which is b
   the IT/Admin handoff, and Module 5 scheduled reports — one capability, four modules. Promoted
   to 🟠 High and made the top backlog item.
 - **Bulk CV upload is fire-and-forget, not a job runner.** `BulkResumeService.EnqueueBatchAsync`
-  runs `_ = Task.Run(() => ProcessBatchAsync(batchId))`. A restart mid-batch loses the work
-  while the batch row still reads "in progress"; there is no retry and exceptions are
-  unobserved. `grep` for `BackgroundService|IHostedService|Hangfire|Quartz` returns nothing.
-  ADR-0008 called for asynchronous processing and this is the shape of it, not the thing.
+  runs `_ = Task.Run(() => ProcessBatchAsync(batchId))` over a `static ConcurrentDictionary`
+  that also holds the raw uploaded bytes — nothing reaches the database, so a restart erases the
+  batch rather than leaving it stale. There is no retry and exceptions are unobserved. `grep`
+  for `BackgroundService|IHostedService|Hangfire|Quartz` returns nothing. ADR-0008 called for
+  asynchronous processing and this is the shape of it, not the thing.
+  *(This bullet originally said the batch row still reads "in progress". There is no row —
+  corrected the same day, see the ADR-0026 entry above.)*
 
 Also newly recorded: the orphaned `frontend/internal/src/features/requisitions/` tree (zero
 importers, five files, one test that proves nothing about the shipped app), ADR-0025 steps 3–4

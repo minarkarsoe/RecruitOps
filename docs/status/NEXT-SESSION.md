@@ -83,20 +83,25 @@ project.**
 
 Each of these is **one session**. Start a new one for each.
 
-### 1. Decide the email sender and the job runner — one ADR, four modules
-**The highest-leverage thing left.** There is no `SmtpClient`, `IEmailSender`, `MailKit` or
-`SendGrid` anywhere in `backend/src`, and no `BackgroundService`, `IHostedService`, `Hangfire`
-or `Quartz`. That single absence blocks:
+### 1. Answer ADR-0026's one open question, then build it
+**The highest-leverage thing left**, and the ADR is now written:
+[ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md) — SMTP behind
+`IEmailSender` as the floor, a transactional `OutboundMessage` outbox, and one in-process
+`BackgroundService` claiming rows with `FOR UPDATE SKIP LOCKED`.
 
-- Module 3.1 / 3.2 — interview invitations and calendar sync
-- Module 4 — sending an offer, reminding a candidate, the IT/Admin pre-boarding handoff
-- Module 5 — scheduled report delivery
-- Module 2.3 — bulk CV upload currently runs on `_ = Task.Run(...)` in `BulkResumeService`,
-  so a restart mid-batch loses the work while the batch row still says "in progress"
+**It is Proposed, not Accepted, and one question blocks the start: Hangfire or hand-rolled.**
+CLAUDE.md requires asking before adding a NuGet package, and this is that ask. The ADR
+recommends hand-rolled (no dependency, ~200 lines, no job dashboard to secure inside a bank
+install) and states the case for Hangfire honestly. **Settle that, mark the ADR Accepted, then
+build.**
 
-Treat it as **one shared capability**, not four features. On-premise installs (ADR-0004) may
-have only an internal SMTP relay and no outbound internet, so the provider choice is
-constrained — decide it in an ADR before any of the four modules starts.
+Why it is worth doing first — one absent capability blocks six things:
+Module 3.1/3.2 invitations · Module 4 offer sends, reminders and the IT/Admin handoff ·
+Module 5 scheduled reports · Module 8 candidate notifications · and Module 2.3, whose
+`BulkResumeService` keeps batches **and the raw uploaded bytes** in a `static
+ConcurrentDictionary` that a restart erases outright — the recruiter's 50 files 404 with no
+way to tell whether any candidate was created. That service is **replaced** by this work, not
+extended; leaving it gives the product two job mechanisms.
 
 ### 2. Frontend tests for Modules 1–2's largest untested logic
 Still open. The harness is proven and the suite is at 342, but these two components have no
