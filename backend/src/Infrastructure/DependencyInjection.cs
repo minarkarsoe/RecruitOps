@@ -10,7 +10,9 @@ using RecruitOps.Domain.Entities;
 using RecruitOps.Infrastructure.Options;
 using RecruitOps.Infrastructure.Persistence;
 using RecruitOps.Infrastructure.Services;
+using RecruitOps.Infrastructure.Services.Delivery;
 using RecruitOps.Infrastructure.Services.FileStorage;
+using RecruitOps.Infrastructure.Tenancy;
 using RecruitOps.Infrastructure.Services.MyanmarScript;
 
 using RecruitOps.Infrastructure.Services.DocumentExtraction;
@@ -51,6 +53,13 @@ public static class DependencyInjection
         services.AddSingleton<ILoginThrottle, LoginThrottle>();
 
         services.AddScoped<IDepartmentService, DepartmentService>();
+
+        // Outbound delivery & background jobs (ADR-0026).
+        // Scoped, and unset in a request scope: CurrentTenant reads the JWT claim first and only
+        // consults this when there is none, so entering a tenant mid-request is inert. The
+        // delivery worker is what actually uses it, one scope per message.
+        services.AddScoped<IAmbientTenantScope, AmbientTenantScope>();
+        services.Configure<OutboundDeliveryOptions>(config.GetSection(OutboundDeliveryOptions.SectionName));
 
         // Module 1 + department scoping (ADR-0003)
         services.AddScoped<IDepartmentAccess, DepartmentAccess>();

@@ -5,6 +5,56 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-20 (latest)
 
+### ⚙️ ADR-0026 step 2 — the tenant seam and the delivery worker
+**Why:** the second of four sessions. No email sender and no real handler yet — this is the
+machinery they will plug into. Backend **553/553** (62 domain + 491 api), up from 533.
+
+**🔐 `ICurrentTenant` is now settable, and that is an authorization change.**
+`CurrentTenant` gained a second source: `IAmbientTenantScope`, a scoped holder the delivery
+worker fills from the message row it claimed. Without it a background job sees
+`TenantId == Guid.Empty`, every query filter matches nothing, and the queue silently never drains.
+
+**The order is the security property.** The request claim is read first and wins whenever present,
+so resolving `IAmbientTenantScope` inside an authenticated request and entering a tenant is
+**inert** — nothing reachable from a request can redirect that request at another company's data.
+`CurrentTenantResolutionTests` asserts the order, including that an anonymous request still
+resolves to `Guid.Empty` so `PublicJobService` keeps working unchanged. A failure there is a
+security finding, not a test to update.
+
+`EnterTenant` refuses a second call — even with the same tenant. A worker that recycled one DI
+scope across two messages would run the second as the first one's tenant, read its data, and look
+entirely successful; this makes that a crash instead.
+
+**`OutboundMessageWorker`** claims due rows (the one place that legitimately calls
+`IgnoreQueryFilters()`), then handles each in its own scope with the tenant established, so
+handlers query normally. Outcomes: `Sent`, `Suppressed` (terminal, *not* an error — an honoured
+opt-out is the system working), `Retry` (exponential backoff to a cap), `Failed` (terminal). A
+missing handler retries rather than failing, because the usual cause is a deployment that has not
+registered it yet and burning the queue for a wiring mistake is worse than waiting. A handler that
+throws is retryable; a handler that knows better returns `Failed`.
+
+**A guarantee was narrowed, and the ADR now says so.** §3 originally specified claiming with
+`FOR UPDATE SKIP LOCKED`. It is implemented as a read-then-update through EF. Crash safety is
+unchanged — rows are pushed into the future, never marked in-flight — but with **two** workers
+against one database both could claim the same batch and send twice. Accepted because ADR-0004
+ships one instance per company, and because provider-specific SQL would mean the suite exercises a
+different claim path from production. This is now the **third** in-process assumption riding on
+"one replica", after `LoginThrottle` and the bulk-upload dictionary; they should be audited
+together.
+
+**Tests — 20, all proved to fail first.** Reversing the two lines in `CurrentTenant` produced
+exactly 1 failure (`The_Request_Claim_Beats_An_Ambient_Tenant`); removing `EnterTenant` from the
+worker produced 9 of 10. Includes the two-tenant isolation test ADR-0026 asked for by name: two
+messages, two tenants, one pass, each handler seeing only its own tenant's rows.
+
+⚠️ **Still needs a `security-reviewer` pass before step 3** — per CLAUDE.md, this touched an
+authorization surface.
+
+**Touched:** `backend/src/Application/Common/IAmbientTenantScope.cs`,
+`Application/Interfaces/IOutboundMessageHandler.cs`, `Infrastructure/Tenancy/AmbientTenantScope.cs`,
+`Infrastructure/Services/Delivery/`, `Api/Auth/CurrentTenant.cs`, `Api/Program.cs`,
+`Infrastructure/DependencyInjection.cs`, and two new test files.
+
 ### 🧱 ADR-0026 step 1 — `OutboundMessage` and `ScheduledJob` entities + migration
 **Why:** the first of the four sessions in the ADR's build order. Schema only — no worker, no
 sender, no handler. Backend **533/533** (57 domain + 476 api), up from 527.
@@ -31,8 +81,11 @@ sender, no handler. Backend **533/533** (57 domain + 476 api), up from 527.
 **Infrastructure** — DbSets, configuration (string-converted enums, `jsonb` payloads, three
 check constraints), tenant query filters, and two indexes shaped for the worker's claim query.
 
-**Migration `20260820072400_AddOutboundDeliveryAndScheduledJobs` is generated and NOT applied**,
-per CLAUDE.md. A human runs `dotnet ef database update` against a dev database.
+**Migration `20260820072400_AddOutboundDeliveryAndScheduledJobs`** is generated and committed.
+It applies itself: Postgres exists only inside Docker in this project, and
+`DatabaseStartup.MigrateAsync` runs pending migrations when the API container starts. Nobody runs
+`dotnet ef database update` here — an earlier version of this entry said to, which was wrong, and
+the correction is now recorded in NEXT-SESSION's "Things that will bite you".
 
 **A near-miss worth recording.** The first `migrations add` used `--no-build` and produced an
 **empty** migration — EF loaded a stale Api build that predated the new entities. It would have

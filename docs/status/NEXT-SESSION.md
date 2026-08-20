@@ -107,15 +107,15 @@ it is unavoidable.
 
 Suggested order, each a session:
 1. ✅ **Done 2026-08-20.** `OutboundMessage` + `ScheduledJob` entities, config, tenant filters and
-   six tests. **Migration `20260820072400_AddOutboundDeliveryAndScheduledJobs` is generated and
-   NOT applied** — run `dotnet ef database update` against a dev database before step 2, or every
-   query against these tables fails at runtime while the code compiles fine.
-2. ← **you are here.** The settable `ICurrentTenant` seam + the worker loop, **with the two-tenant
-   isolation test named in the ADR's consequences** before any real handler exists.
-   `OutboundDeliveryPersistenceTests.Worker_Without_A_Request_Sees_An_Empty_Queue_Until_It_Ignores_The_Filter`
-   already pins the trap this step has to solve — start by reading it.
-3. `IEmailSender` (SMTP) + the first handler — interview invitations (Module 3.2) is the
-   smallest real one.
+   six tests, plus migration `20260820072400_AddOutboundDeliveryAndScheduledJobs`.
+2. ✅ **Done 2026-08-20.** `IAmbientTenantScope` + `OutboundMessageWorker` + `IOutboundMessageHandler`,
+   with 20 tests including the two-tenant isolation test the ADR asked for by name. **Still needs
+   a `security-reviewer` pass** — it changed tenant resolution, which is an authorization surface
+   (CLAUDE.md). Do that before step 3.
+3. ← **you are here.** `IEmailSender` (SMTP) + the first real handler. Module 3.2 interview
+   invitations is the smallest one. The worker already dispatches by
+   `OutboundMessageKind`; a handler is one class plus one DI registration, and
+   `OutboundMessageWorkerTests` shows the contract it has to satisfy.
 4. Rewrite `BulkResumeService` onto persisted batch rows with bytes in object storage.
 
 ### 2. Frontend tests for Modules 1–2's largest untested logic
@@ -214,6 +214,21 @@ Learned the expensive way; all of them are load-bearing.
   else's draft into a chain and then decide on it. When you add a guard, grep for its siblings.
 - **`docker build` from `backend/`, `dotnet ef` from `backend/`** — not `backend/src/`.
   `dotnet ef` is a separate global tool, not part of the SDK.
+- **Nobody runs `dotnet ef database update` in this project, and telling someone to is wrong.**
+  Postgres exists only inside Docker, so there is no local database to point it at.
+  `DatabaseStartup.MigrateAsync` applies pending migrations when the API container starts —
+  rebuilding the stack *is* the procedure. What a session actually does is `dotnet ef migrations
+  add`, which needs no database, and then commit the files.
+  - Corollary: **`dotnet ef migrations remove` does need a database** and will fail here with
+    `28P01: password authentication failed`. To undo an unwanted migration, delete the two
+    generated files by hand and re-run `migrations add`.
+  - Never reach for `docker compose down -v` to "reset" the schema. That deletes the volume and
+    the dev data with it; migrations are additive and apply on their own.
+- **Never pass `--no-build` to `dotnet ef migrations add`.** It reads whatever is already
+  compiled in `src/Api/bin`, so a new entity added moments earlier is invisible and you get an
+  **empty** migration — which commits perfectly cleanly: entities in code, DbSets registered,
+  in-memory tests green, and no tables in any real database. Read the generated `Up()` before
+  trusting it. This happened on 2026-08-20 and was caught only by looking.
 - **One active scorecard template per scope** is enforced in the service. Tests that create
   templates must not collide on a scope — they share one in-memory database per test *class*,
   which is why the Module 3 template tests live in their own class.

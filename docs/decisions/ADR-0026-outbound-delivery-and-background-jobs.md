@@ -115,9 +115,28 @@ job frameworks exist to solve, so buying one buys mostly its failure modes.
 
 The worker is a single `BackgroundService` registered in `Api`, which on a fixed interval:
 
-1. claims due `OutboundMessage` rows (`Pending`, `NextAttemptAt <= now`) with
-   `UPDATE ... RETURNING` under `FOR UPDATE SKIP LOCKED`, so claiming is atomic even if the
-   single-instance assumption is ever broken;
+1. claims due `OutboundMessage` rows (`Pending`, `NextAttemptAt <= now`) by pushing
+   `NextAttemptAt` forward by a visibility timeout and incrementing `Attempts`;
+
+> **Amendment, 2026-08-20 — the claim is EF-level, not `FOR UPDATE SKIP LOCKED`.**
+> This section originally specified `UPDATE … RETURNING` under `FOR UPDATE SKIP LOCKED`, so that
+> claiming would stay atomic "even if the single-instance assumption is ever broken". It was
+> implemented as a read-then-update through EF instead. Recorded rather than quietly changed,
+> because it narrows a guarantee the ADR made:
+>
+> - **What is unchanged:** crash safety. A row is never marked in-flight, only pushed into the
+>   future, so a process that dies mid-send leaves work that becomes due again on its own.
+> - **What is weaker:** with **two** workers against one database, both could read the same due
+>   batch before either saves, and the message would be sent twice. `SKIP LOCKED` would have
+>   made that impossible.
+> - **Why it was accepted:** ADR-0004 ships one instance per company, so there is no second
+>   worker. Raw provider-specific SQL would also mean the test suite exercises a different claim
+>   path from production — and the in-memory suite is where this worker's behaviour is actually
+>   pinned.
+> - **The trigger to change it:** the moment a customer is given two app replicas. That is
+>   already the documented trigger for `LoginThrottle` (ADR-0016) and for the bulk-upload
+>   dictionary; this is the **third** in-process assumption riding on it, and they should be
+>   audited together rather than one at a time.
 2. renders and sends via `IEmailSender` or a channel adapter;
 3. writes the outcome, and on failure sets `NextAttemptAt` by exponential backoff up to a cap,
    then `Failed`.
