@@ -3,7 +3,62 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-08-18 (latest)
+## 2026-08-20 (latest)
+
+### 🧱 ADR-0026 step 1 — `OutboundMessage` and `ScheduledJob` entities + migration
+**Why:** the first of the four sessions in the ADR's build order. Schema only — no worker, no
+sender, no handler. Backend **533/533** (57 domain + 476 api), up from 527.
+
+**Domain** — `OutboundMessage`, `ScheduledJob`, and four enums in
+`OutboundDeliveryEnums.cs`. Decisions worth knowing, all documented on the members themselves:
+
+- **No `Sending` status.** The worker claims a row by pushing `NextAttemptAt` forward by a
+  visibility timeout inside the claiming transaction, so a process that dies mid-send leaves the
+  row `Pending` and it becomes due again. An in-flight state would need a reaper to clean up
+  after crashes — a second mechanism doing the first one's job.
+- **`Suppressed` is a status, not a failure.** An honoured opt-out is a correct outcome. Module 8
+  requires opt-out, and rendering it red teaches recruiters to ignore the failure colour.
+- **`PayloadJson` holds the data to render, not the rendered body.** A body frozen at enqueue
+  goes stale; a reminder queued for next week would carry last week's figures.
+- **`ScheduledJob.TimeZoneId` is required with no default.** Storing UTC alone would be quietly
+  wrong — a customer asking for "every Monday at 9" means 9 in their office, and UTC+6:30 turns
+  that into Sunday evening. There is no default because guessing a company's timezone is the same
+  bug with fewer symptoms. A company-level timezone setting does not exist yet; when it lands it
+  becomes this field's default, not its replacement.
+- **`DayOfMonth` is capped at 28**, in a check constraint. "The 31st" does not exist in February,
+  and both alternatives — skip the month, or silently slide — are surprises.
+
+**Infrastructure** — DbSets, configuration (string-converted enums, `jsonb` payloads, three
+check constraints), tenant query filters, and two indexes shaped for the worker's claim query.
+
+**Migration `20260820072400_AddOutboundDeliveryAndScheduledJobs` is generated and NOT applied**,
+per CLAUDE.md. A human runs `dotnet ef database update` against a dev database.
+
+**A near-miss worth recording.** The first `migrations add` used `--no-build` and produced an
+**empty** migration — EF loaded a stale Api build that predated the new entities. It would have
+committed clean: entities in code, DbSets registered, in-memory tests all green, and no tables in
+any real database. `dotnet ef migrations remove` then failed because it wanted a live DB
+connection, so the empty files had to be deleted by hand and regenerated with a real build.
+**Never pass `--no-build` to `migrations add`, and read the generated `Up()` before trusting it.**
+
+**Tests** — six new cases in `OutboundDeliveryPersistenceTests`, **proved to fail first**:
+deleting the `OutboundMessage` query filter produced exactly the 2 expected failures, then the
+file was restored. The load-bearing one is
+`Worker_Without_A_Request_Sees_An_Empty_Queue_Until_It_Ignores_The_Filter` — ADR-0026 §4 written
+as an executable assertion rather than a comment. A worker running outside any request sees
+`TenantId == Guid.Empty`, so the queue looks empty however full it is; nothing throws and the
+product just silently stops sending.
+
+**Also logged, not fixed** (separate changes): two migrations directories exist, with one stray
+duplicate under `Persistence/Migrations/`; and `ITenantScoped`'s doc comment still says a tenant
+is an "agency", missed by the 2026-07-27 pivot.
+
+**Touched:** `backend/src/Domain/Entities/OutboundMessage.cs`, `ScheduledJob.cs`,
+`backend/src/Domain/Enums/OutboundDeliveryEnums.cs`,
+`backend/src/Infrastructure/Persistence/AppDbContext.cs`,
+`backend/src/Infrastructure/Migrations/`, `backend/tests/RecruitOps.Domain.Tests/`.
+
+## 2026-08-18
 
 ### ✅ ADR-0026 accepted — hand-rolled queue, and the tenant problem it exposed
 **Why:** the dependency question left open below was put to the product owner and answered:

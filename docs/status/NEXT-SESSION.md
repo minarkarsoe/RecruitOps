@@ -106,9 +106,14 @@ request code and **no handler calls `IgnoreQueryFilters()`**. Do not copy the
 it is unavoidable.
 
 Suggested order, each a session:
-1. `OutboundMessage` + `ScheduledJob` entities, migration proposed for a human to apply.
-2. The settable `ICurrentTenant` seam + the worker loop, **with the two-tenant isolation test
-   named in the ADR's consequences** before any real handler exists.
+1. ✅ **Done 2026-08-20.** `OutboundMessage` + `ScheduledJob` entities, config, tenant filters and
+   six tests. **Migration `20260820072400_AddOutboundDeliveryAndScheduledJobs` is generated and
+   NOT applied** — run `dotnet ef database update` against a dev database before step 2, or every
+   query against these tables fails at runtime while the code compiles fine.
+2. ← **you are here.** The settable `ICurrentTenant` seam + the worker loop, **with the two-tenant
+   isolation test named in the ADR's consequences** before any real handler exists.
+   `OutboundDeliveryPersistenceTests.Worker_Without_A_Request_Sees_An_Empty_Queue_Until_It_Ignores_The_Filter`
+   already pins the trap this step has to solve — start by reading it.
 3. `IEmailSender` (SMTP) + the first handler — interview invitations (Module 3.2) is the
    smallest real one.
 4. Rewrite `BulkResumeService` onto persisted batch rows with bytes in object storage.
