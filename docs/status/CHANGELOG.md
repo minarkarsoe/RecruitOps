@@ -5,6 +5,65 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-20 (latest)
 
+### 📧 ADR-0026 step 3 — the product sends its first email
+**Why:** steps 1 and 2 built a queue and a worker with nothing to deliver. This is the transport
+and the first handler, and it closes Module 3.2 — the oldest of the five gaps ADR-0026 was
+written for. Backend **599/599** (62 domain + 537 api), up from 555; **+44 tests**.
+
+**`IEmailSender` + `SmtpEmailSender`, on `System.Net.Mail`, no new package.** SMTP is the floor
+rather than the fallback (ADR-0026 §1): it is the only transport that works in every deployment
+we sell, including the air-gapped on-premise bank whose one mail path is an internal relay.
+
+Two judgements the transport makes on its own, both pinned by tests:
+
+- **Unconfigured is retryable, not permanent.** An install with no `Smtp:Host` fails loudly and
+  keeps the message. An administrator fixes that in two minutes; marking it permanent would mean
+  every invitation queued in the meantime had already been given up on.
+- **Permanent means the *address* is wrong, and nothing else.** 550/551/553/554 are terminal;
+  a rejected password, a required STARTTLS, a busy relay, a refused connection are all retried.
+  The known imprecision is written down rather than hidden: some relays return 550 for "relaying
+  denied", which is a config fault and will land in the wrong bucket — visibly, in the log.
+
+**`InterviewInvitationHandler`** — the first `IOutboundMessageHandler`, and deliberately the
+worked example of §4: no `IgnoreQueryFilters()`, no hand-written tenant predicate, no
+`ICurrentUser`. The worker enters the tenant, so the handler's queries are ordinary queries.
+
+**`InterviewService` now writes the invitation in the same `SaveChangesAsync` as the interview.**
+That is what makes this an outbox rather than a send: there is no state in which the round exists
+and the intention to tell the candidate does not, and no request waits on a mail server.
+
+Because nothing is rendered until send time, three behaviours fall out rather than being coded:
+
+- **Cancelling a round suppresses a queued invitation.** `CancelAsync` writes one row and touches
+  the queue not at all; the handler reads the round's status at send time. `Suppressed` is not a
+  failure and the delivery log must not colour it red.
+- **Rescheduling before the invitation goes queues nothing new** — the pending row renders the
+  new time by itself. A second row would tell the candidate their time had "changed" from one
+  they were never given. After it has gone, a second message is queued and reads as a change.
+- **A slot that has already passed is suppressed.** Inviting somebody to an interview that
+  already happened is worse than saying nothing.
+
+**New: `Companies.TimeZoneId`** (migration `20260820081448_AddCompanyTimeZone`, additive and
+nullable). Npgsql stores `DateTimeOffset` as `timestamptz` and normalises to UTC — the instant
+survives a round-trip and the recruiter's *o'clock* does not. At UTC+06:30 that turns a Monday
+morning interview into Sunday evening. The zone is frozen into the message payload at enqueue;
+null falls back to UTC and the email labels itself UTC rather than quietly lying.
+
+**Two things found by writing the tests, both fixed:**
+
+- `MailAddress` does **not** reject `"a@x.test, b@y.test"` — it parses the first and carries on.
+  A two-address recipient would have delivered to one while the log claimed both. Now refused.
+- `WebApplicationFactory` starts hosted services, so the delivery worker had been polling
+  through the whole integration suite since step 1, racing any test that asserts on a queued
+  row. It is now removed from `IHostedService` in `CustomWebAppFactory` and driven deliberately.
+
+**What this does not do, stated plainly:** no XOAUTH2 and no implicit TLS, so **Microsoft 365 and
+Google Workspace cannot actually be used** even though the integrations design draws all three as
+first-class — that needs MailKit, which is a package decision ADR-0026 declined to take. Mail is
+English only. And **no screen reads `OutboundMessages`**, so a `Failed` invitation is recorded
+faithfully and shown to nobody. ⚠️ **Not yet security-reviewed** — this is the first code that
+reads candidate data with no user behind it.
+
 ### 🔐 Security review of the tenant seam — clean on isolation, one defect found and fixed
 **Why:** CLAUDE.md requires a `security-reviewer` pass on authorization changes, and step 2 made
 tenant resolution settable. Reviewed against `a2de09c`. Backend **555/555**, up from 553.

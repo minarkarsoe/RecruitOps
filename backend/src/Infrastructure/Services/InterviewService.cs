@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using RecruitOps.Application.Common;
 using RecruitOps.Application.DTOs;
@@ -122,6 +123,12 @@ public class InterviewService : IInterviewService
             });
         }
 
+        // ADR-0026 §2 — the transactional outbox. The invitation is a row written in the SAME
+        // SaveChangesAsync as the interview it is about, so there is no state in which the round
+        // exists and the intention to tell the candidate does not. Sending happens later, in the
+        // worker; nothing here waits on a mail server.
+        await EnqueueInvitationAsync(interview, application, isReschedule: false, ct);
+
         await _db.SaveChangesAsync(ct);
 
         return await MapAsync(interview.Id, ct);
@@ -169,6 +176,15 @@ public class InterviewService : IInterviewService
         interview.Mode = ParseMode(request.Mode);
         interview.Location = request.Location;
         interview.Agenda = request.Agenda;
+
+        // A candidate who has already blocked out Monday morning has to be told it moved. The
+        // application is re-read rather than passed in because Reschedule only ever loaded the
+        // interview — see EnqueueInvitationAsync for the duplicate rule.
+        var application = await _db.JobApplications
+            .FirstOrDefaultAsync(a => a.Id == interview.JobApplicationId, ct);
+
+        if (application is not null)
+            await EnqueueInvitationAsync(interview, application, isReschedule: true, ct);
 
         await _db.SaveChangesAsync(ct);
         return await MapAsync(interviewId, ct);
@@ -243,6 +259,10 @@ public class InterviewService : IInterviewService
         // The application stays at Interview on purpose. A cancelled round does not undo
         // the decision to interview, and rewinding the stage would write a history row
         // claiming the candidate moved backwards when nothing about them changed.
+        //
+        // Nothing is done to a queued invitation here, and that is not an omission: the handler
+        // reads the round's status at send time and suppresses an invitation to a round that is
+        // no longer Scheduled. Cancelling is one write, in one place.
         await _db.SaveChangesAsync(ct);
         return await MapAsync(interviewId, ct);
     }
@@ -328,6 +348,58 @@ public class InterviewService : IInterviewService
             throw new InvalidOperationException("The panel lead must be on the panel.");
 
         return users;
+    }
+
+    /// <summary>Queues the candidate's invitation (Module 3.2, ADR-0026 §2).
+    ///
+    /// <para><b>Adds to the change tracker and does not save.</b> The caller's
+    /// <c>SaveChangesAsync</c> is what makes this the transactional outbox: the interview and the
+    /// intention to tell the candidate about it commit together or not at all.</para>
+    ///
+    /// <para><b>The duplicate rule.</b> If an invitation for this round is still Pending it is
+    /// left exactly as it is, and nothing new is queued. It has not gone yet, and the handler
+    /// renders the slot live — so that one row will carry the new time by itself. Queueing a
+    /// second row would send the candidate an invitation and, seconds later, a notice that their
+    /// time had "changed" from one they were never given.</para>
+    ///
+    /// <para>A candidate with no email address still gets a row, with an empty recipient. The row
+    /// exists so that "was this person told?" has an answer, and <i>no, we have no address for
+    /// them</i> is an answer — in the delivery log, where a recruiter will see it.</para></summary>
+    private async Task EnqueueInvitationAsync(
+        Interview interview, JobApplication application, bool isReschedule, CancellationToken ct)
+    {
+        var alreadyQueued = await _db.OutboundMessages.AnyAsync(m =>
+            m.Kind == OutboundMessageKind.InterviewInvitation
+            && m.SubjectId == interview.Id
+            && m.Status == OutboundMessageStatus.Pending, ct);
+
+        if (alreadyQueued) return;
+
+        var recipient = await _db.Candidates
+            .Where(c => c.Id == application.CandidateId)
+            .Select(c => c.Email)
+            .FirstOrDefaultAsync(ct);
+
+        // Frozen into the payload rather than read at send time: it is the zone the recruiter
+        // picked the slot in, and re-reading it later would silently rewrite an invitation that
+        // has already gone out if the company setting is ever corrected.
+        var timeZoneId = await _db.Companies
+            .Where(c => c.Id == application.TenantId)
+            .Select(c => c.TimeZoneId)
+            .FirstOrDefaultAsync(ct);
+
+        _db.OutboundMessages.Add(new OutboundMessage
+        {
+            TenantId = application.TenantId,
+            Kind = OutboundMessageKind.InterviewInvitation,
+            Recipient = recipient ?? string.Empty,
+            SubjectType = nameof(Interview),
+            SubjectId = interview.Id,
+            PayloadJson = JsonSerializer.Serialize(
+                new InterviewInvitationPayload(timeZoneId ?? TimeZoneInfo.Utc.Id, isReschedule)),
+            Status = OutboundMessageStatus.Pending,
+            NextAttemptAt = _clock.GetUtcNow(),
+        });
     }
 
     private async Task<InterviewDto?> MapAsync(Guid interviewId, CancellationToken ct)

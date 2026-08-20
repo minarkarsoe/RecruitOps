@@ -1,7 +1,8 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-08-20 · **Backend 555/555 · Frontend 342/342 · typecheck clean**
-· ADR-0026 steps 1–2 built and security-reviewed · All seven modules have a drawn UI (25 screens)
+**Last updated:** 2026-08-20 · **Backend 599/599 · Frontend 342/342 · typecheck clean**
+· ADR-0026 steps 1–3 built · **the product now sends email** (Module 3.2 interview invitations)
+· All seven modules have a drawn UI (25 screens)
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
 > deliberately short-lived — one feature each — because conversation history is re-sent on
@@ -37,13 +38,17 @@ Hiring Manager raises a requisition
   → application lands in the pipeline at "Applied"
   → recruiter moves it through stages, every move in append-only history
   → recruiter schedules an interview
+  → the candidate is emailed the slot in the company's own time zone (ADR-0026)
   → panel scores it blind, and debriefs in notes with @mentions
   → Analytics renders time-to-hire, funnel and bottleneck metrics
   → Admin manages users, custom roles, feature flags, /api/version
 ```
 
-**Where it stops.** Nothing is emailed to anybody, ever — there is no email sender in the
-codebase. So the loop above is drivable in the browser and invisible outside it.
+**Where it stops.** One message leaves the building — the interview invitation. Everything else
+a candidate should hear about (an offer, a reminder, a rejection) still has no handler, and
+**nothing in the UI shows whether a message actually arrived**: the delivery log is drawn in
+`design/internal/channels.html` and reads from a table no screen queries yet. So "was this
+candidate told?" is answerable by the database and by nobody using the product.
 
 ## What's built
 
@@ -51,15 +56,15 @@ codebase. So the loop above is drivable in the browser and invisible outside it.
 |---|---|
 | Module 1 — Requisition & Approval | ✅ API + UI + tests, end to end. Rounds (ADR-0023) and senior skip-ahead (ADR-0024) landed 2026-08-16 |
 | Module 2 — ATS & Sourcing | ✅ 2.1–2.7 all built. Postings, custom forms, pipeline, dedup, bulk CV ingestion, AI profiling behind a key, pg_trgm search |
-| Module 3 — Interview & Assessment | 🚧 3.3 scorecards + 3.4 notes ✅ API + UI + tests · security-reviewed (ADR-0018) · **3.1 calendar / 3.2 invitations blocked on the email sender** |
+| Module 3 — Interview & Assessment | 🚧 3.3 scorecards + 3.4 notes ✅ API + UI + tests · security-reviewed (ADR-0018) · **3.2 invitations ✅ built 2026-08-20** (schedule and reschedule queue an email; cancel suppresses it) · **3.1 calendar free/busy still unbuilt** — no calendar client exists |
 | Module 5 — Reporting & Analytics | ✅ API + UI. ⚠️ Built to the *old* metric definitions — the 2026-08-18 spec moved both clocks |
 | Modules 4, 6, 8 | ⬜ code · ✅ spec + design (13 screens drawn 2026-08-18) |
 | Module 7 — Settings | 🚧 RBAC ✅ · integrations ⬜ |
 | Auth | ✅ JWT, dynamic RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |
 | Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested |
-| Delivery (ADR-0004) | ✅ compose prod, `/api/version`, feature flags, sizing guide, runbook · ⬜ **job runner** |
-| Outbound delivery (ADR-0026) | 🚧 queue + worker + tenant seam ✅ built and security-reviewed · ⬜ no email sender, no handlers yet |
-| Tests | ✅ backend **555/555** (62 domain + 493 api) · frontend **342/342** across 43 files |
+| Delivery (ADR-0004) | ✅ compose prod, `/api/version`, feature flags, sizing guide, runbook · ✅ in-process job runner (ADR-0026) · ⚠️ **every install now needs `Smtp:*` configured** or nothing is delivered |
+| Outbound delivery (ADR-0026) | 🚧 queue + worker + tenant seam ✅ (security-reviewed) · SMTP sender + interview-invitation handler ✅ (**not yet reviewed**) · ⬜ no delivery-log UI · ⬜ Module 4/5/8 handlers · ⬜ `BulkResumeService` still on its static dictionary |
+| Tests | ✅ backend **599/599** (62 domain + 537 api) · frontend **342/342** across 43 files |
 | Design | ✅ 25 static screens, all seven modules — `design/internal/index.html` |
 
 ## ⚠️ "The stack came up" is not "the screens are correct"
@@ -114,11 +119,24 @@ Suggested order, each a session:
    `IOutboundMessageHandler`, with 22 tests including the two-tenant isolation test the ADR asked
    for by name. The review found no tenant-isolation defect and one Low robustness bug, since
    fixed: a failure between claiming and recording used to dodge the attempt cap.
-3. ← **you are here.** `IEmailSender` (SMTP) + the first real handler. Module 3.2 interview
-   invitations is the smallest one. The worker already dispatches by
-   `OutboundMessageKind`; a handler is one class plus one DI registration, and
-   `OutboundMessageWorkerTests` shows the contract it has to satisfy.
+3. ✅ **Done 2026-08-20.** `IEmailSender` + `SmtpEmailSender` (`System.Net.Mail`, no new package)
+   and `InterviewInvitationHandler`, with 44 tests. `InterviewService` now writes the invitation
+   **in the same `SaveChangesAsync`** as the interview — that is the outbox, and it is the whole
+   point of §2. Migration `20260820081448_AddCompanyTimeZone` came with it.
+   **Not security-reviewed** — see step 3.5. Copy this handler when writing the next one; it is
+   the worked example of §4 (no `IgnoreQueryFilters`, no hand-written tenant predicate).
+3.5 **Run `security-reviewer` on the invitation handler.** CLAUDE.md requires it and it has not
+   happened. This is the first code in the product that reads candidate data **with no user
+   behind it** — under the tenant filter alone, with no department scoping, which ADR-0026 §4
+   says is correct ("a job is not a user") and which is therefore exactly the kind of deliberate
+   hole that deserves a second reader. It also puts candidate PII on the wire.
 4. Rewrite `BulkResumeService` onto persisted batch rows with bytes in object storage.
+
+**The gap that matters most now that mail actually leaves the building:** nothing renders
+`OutboundMessages`. A `Failed` invitation — wrong address, dead relay — is recorded faithfully
+and shown to nobody. `design/internal/channels.html` already draws the delivery log; it needs an
+endpoint and a screen. Until then the outbox answers "was this candidate told?" only to whoever
+opens psql, which is half of what ADR-0026 was written to fix.
 
 ### 2. Frontend tests for Modules 1–2's largest untested logic
 Still open. The harness is proven and the suite is at 342, but these two components have no
@@ -231,6 +249,26 @@ Learned the expensive way; all of them are load-bearing.
   **empty** migration — which commits perfectly cleanly: entities in code, DbSets registered,
   in-memory tests green, and no tables in any real database. Read the generated `Up()` before
   trusting it. This happened on 2026-08-20 and was caught only by looking.
+- **`AddDbContext`'s options lambda runs once per scope, not once per host.** Putting
+  `Guid.NewGuid()` inside `o.UseInMemoryDatabase(...)` gives every DI scope its own database, so
+  a test seeds one store and the code under test reads an empty one — and every assertion fails
+  in a way that looks like a missing row rather than a wiring mistake. Name the database once,
+  outside the lambda, and capture it. Cost 20 minutes on 2026-08-20.
+- **`WebApplicationFactory` starts hosted services**, so `OutboundMessageWorker` was polling
+  every ten seconds through the entire integration suite — racing any test that asserts on a
+  queued message. `CustomWebAppFactory` now removes it from `IHostedService` and registers it as
+  a plain singleton, so tests drive `RunOnceAsync()` deliberately. Anything else added as a
+  hosted service needs the same treatment, or the suite acquires a timing dependency nobody can
+  see.
+- **`MailAddress` does not reject `"a@x.test, b@y.test"`.** It parses the first address and
+  carries on, so a two-address recipient field would deliver an offer to one of them while the
+  delivery log claimed both. `SmtpEmailSender` refuses a comma or semicolon outright. Found by a
+  test written expecting the opposite, on 2026-08-20.
+- **An install with no `Smtp:*` configuration delivers nothing**, and that is now a real
+  deployment failure rather than a hypothetical: interview invitations queue, retry to the cap
+  and land `Failed`. The base `appsettings.json` ships it empty on purpose; Development writes
+  `.eml` files to `./tmp/mail` instead. **Add SMTP to the install checklist before the next
+  customer deployment** — `docs/architecture/deployment-runbook.md` does not mention it yet.
 - **One active scorecard template per scope** is enforced in the service. Tests that create
   templates must not collide on a scope — they share one in-memory database per test *class*,
   which is why the Module 3 template tests live in their own class.

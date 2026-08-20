@@ -27,7 +27,14 @@ public static class DbInitializer
         if (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == email, ct))
             return;
 
-        var company = new Company { Name = "Default Company", Slug = "default" };
+        // TimeZoneId is set here on purpose: an invitation rendered in UTC is the failure the
+        // field exists to prevent, and a dev database that leaves it null hides it (ADR-0026).
+        var company = new Company
+        {
+            Name = "Default Company",
+            Slug = "default",
+            TimeZoneId = "Asia/Yangon",
+        };
         db.Companies.Add(company);
 
         var adminRole = await db.Roles

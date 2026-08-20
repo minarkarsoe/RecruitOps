@@ -11,6 +11,7 @@ using RecruitOps.Infrastructure.Options;
 using RecruitOps.Infrastructure.Persistence;
 using RecruitOps.Infrastructure.Services;
 using RecruitOps.Infrastructure.Services.Delivery;
+using RecruitOps.Infrastructure.Services.Delivery.Handlers;
 using RecruitOps.Infrastructure.Services.FileStorage;
 using RecruitOps.Infrastructure.Tenancy;
 using RecruitOps.Infrastructure.Services.MyanmarScript;
@@ -60,6 +61,17 @@ public static class DependencyInjection
         // delivery worker is what actually uses it, one scope per message.
         services.AddScoped<IAmbientTenantScope, AmbientTenantScope>();
         services.Configure<OutboundDeliveryOptions>(config.GetSection(OutboundDeliveryOptions.SectionName));
+
+        // SMTP is the floor, not a fallback (ADR-0026 §1): it is the only transport that works in
+        // every deployment we sell, including an on-premise install with no outbound internet.
+        // Any provider adapter added later is registered alongside, never instead.
+        services.Configure<SmtpOptions>(config.GetSection(SmtpOptions.SectionName));
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
+
+        // One handler per OutboundMessageKind, resolved by the worker inside the message's own
+        // tenant scope. Registered as IOutboundMessageHandler (plural resolution) — a Kind with no
+        // handler retries rather than failing, so a missing line here is loud but not destructive.
+        services.AddScoped<IOutboundMessageHandler, InterviewInvitationHandler>();
 
         // Module 1 + department scoping (ADR-0003)
         services.AddScoped<IDepartmentAccess, DepartmentAccess>();

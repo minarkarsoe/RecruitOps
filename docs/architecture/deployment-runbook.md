@@ -4,6 +4,40 @@
 
 ---
 
+## 0. Install prerequisite — SMTP (ADR-0026)
+
+**An install without SMTP configured cannot tell any candidate anything.** Interview
+invitations, offers and reminders queue, retry to their attempt cap, and land `Failed`. Nothing
+is lost and nothing pretends to have been sent — but nobody is emailed, and the first person to
+notice is a candidate who did not turn up. Configure this **before** handing the system over,
+not after.
+
+```yaml
+environment:
+  Smtp__Host: "mail.customer.internal"
+  Smtp__Port: "587"                       # STARTTLS submission
+  Smtp__UseStartTls: "true"
+  Smtp__Username: "recruitops"            # omit for a relay that authorises by IP
+  Smtp__Password: "<from the secret store, never in a committed file>"
+  Smtp__FromAddress: "recruitment@customer.com"
+  Smtp__FromDisplayName: "Customer Recruitment"
+```
+
+- **Port 465 (implicit TLS) is not supported.** `System.Net.Mail` speaks STARTTLS only. A relay
+  offering nothing but 465 needs a code change, not a config change — raise it before the sale.
+- **Microsoft 365 and Google Workspace are not supported as SMTP endpoints.** Both require
+  XOAUTH2. An internal relay or a plain-SMTP submission host is what works today.
+- **Set `Companies.TimeZoneId`** (IANA, e.g. `Asia/Yangon`) for the customer's company row.
+  Candidate emails render interview times in it. Left null, they go out labelled UTC — correct
+  but useless to a candidate in Yangon, where the offset is +06:30.
+
+**Verifying it, without emailing a real candidate:** point `Smtp__Host` at the customer's relay
+and schedule an interview against a test candidate whose address you control. Then check the
+`OutboundMessages` table — `Status = 'Sent'` means the relay accepted it. A `Failed` row carries
+the server's own reason in `LastError`.
+
+---
+
 ## 1. Automated Database Migrations
 
 Automated, idempotent EF Core database migrations execute on backend application startup via `AppDbContext.Database.Migrate()`.

@@ -98,6 +98,8 @@ public class AppDbContext : DbContext
             e.Property(x => x.Slug).IsRequired().HasMaxLength(63); // DNS label limit
             e.HasIndex(x => x.Slug).IsUnique();                     // subdomain routing
             e.Property(x => x.LogoUrl).HasMaxLength(500);
+            // IANA zone id, e.g. "Asia/Yangon". 100 is well past the longest one there is.
+            e.Property(x => x.TimeZoneId).HasMaxLength(100);
         });
 
         // ---------- Department ----------

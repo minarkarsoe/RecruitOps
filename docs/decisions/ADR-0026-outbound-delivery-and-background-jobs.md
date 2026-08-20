@@ -80,6 +80,20 @@ handling; nothing in the product may depend on that adapter existing.
 `design/internal/settings-integrations.html` already renders this: Microsoft 365, Google
 Workspace and **Plain SMTP** as a first-class option rather than a hidden advanced setting.
 
+> **Implemented 2026-08-20 — and the choice of client narrows two of those three tiles.**
+> `SmtpEmailSender` is built on `System.Net.Mail.SmtpClient`, honouring §3's "no new package"
+> decision. That covers the floor this section actually specifies, and it brought one unplanned
+> benefit: `SmtpDeliveryMethod.SpecifiedPickupDirectory` gives local development a path that
+> renders and writes the *real* message with no server and no network — a development mode that
+> fabricates nothing, unlike the AI fallback ADR-0008 had to fence off.
+>
+> What it cannot do, recorded here rather than left to be discovered by the first customer:
+> **no XOAUTH2**, so Microsoft 365 and Google Workspace cannot be authenticated against at all;
+> and **no implicit TLS on port 465**, so a relay offering only that is unusable. Both are
+> MailKit's to solve. That is a package decision on the same axis this ADR already took once —
+> take it deliberately, when a customer needs one of those tiles, not as a quiet dependency
+> added under a bug fix.
+
 ### 2. Nothing is fire-and-forget: a transactional outbox
 
 Every outbound message is **written to the database in the same transaction as the thing that
@@ -289,6 +303,19 @@ None of the remaining ones block the start of work.)*
   via Microsoft 365 (Module 7.3), which is better for replies and needs delegated permission.
   Module 4's candidate-facing mail and Module 3's interview invitations may want different
   answers.
+  > **Now live rather than hypothetical (2026-08-20).** Invitations are going out from one
+  > company-wide `Smtp:FromAddress`, and the body invites the candidate to *reply* if the time
+  > does not suit them — into a mailbox nobody may be reading. Either change the copy or answer
+  > this question; the current pair is a promise the product does not keep.
+
+- **Nothing renders `OutboundMessage`.** Added 2026-08-20, and it is the larger half of §2 still
+  missing. The table answers "was this candidate told?" and no screen asks it, so a `Failed`
+  invitation — wrong address, dead relay — is recorded faithfully and seen by nobody.
+  `design/internal/channels.html` draws the log already; it needs an endpoint and a page.
+
+- **Candidate-facing mail is English only.** `design/internal/postings.html` offers a per-posting
+  language choice (Burmese / English / Both) with no backing field, so there is nothing to render
+  from. A Yangon field role advertised in Burmese gets its interview invitation in English.
 - **Retention on `OutboundMessage.Payload`.** It will contain a candidate's name and an offered
   salary. It is therefore in scope for the Module 7.4 retention policy and must not be the one
   table that quietly keeps everything.
