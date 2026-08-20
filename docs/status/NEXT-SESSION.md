@@ -1,6 +1,7 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-08-13 · **Delivery & Deployment Prerequisites Complete · 507 Backend Tests + 318 Frontend Tests Passing**
+**Last updated:** 2026-08-18 · **Backend 527/527 · Frontend 342/342 · typecheck clean**
+· All seven modules now have a drawn UI (25 screens)
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
 > deliberately short-lived — one feature each — because conversation history is re-sent on
@@ -9,126 +10,141 @@
 > Read this, then [FEATURE-STATUS.md](FEATURE-STATUS.md). Nothing else, until you know which
 > task you're on.
 
+> ⚠️ **This file and FEATURE-STATUS.md contradicted each other for five days**, and both
+> contradicted the code — this one said Module 2.6 search and 2.3 OCR were unbuilt while
+> `SearchService` and `BulkResumeService` were in the tree and under passing tests; the other
+> said Module 5 had not started while `AnalyticsController` shipped. A session that trusted
+> either would have rebuilt working software. Both were re-derived from the code on 2026-08-18.
+> **When you finish a feature, update these two together, from the code.**
+
 ## Where the product is
 
-The governance loop, the hiring loop, the interview loop, AI CV Profiling, Reporting & Analytics, Full-Text Search, Dynamic RBAC, and Feature Flags Gating are connected and verified:
+The governance loop, the hiring loop, the interview loop, CV ingestion + AI profiling,
+reporting, trigram search, dynamic RBAC and feature flags are connected and verified:
 
 ```
 Hiring Manager raises a requisition
   → sequential approval chain (snapshotted on submit)
+  → rejected rounds send it back to revise and resubmit (ADR-0023)
+  → a later approver may approve forward, never reject forward (ADR-0024)
   → Approved
   → Recruiter creates a job posting FROM that requisition
-  → publishes it, getting an unguessable public link
+  → publishes it, getting an unguessable public link (Sqid, ADR-0020)
   → a stranger applies on the public page (custom questions supported)
-  → recruiter uploads bulk PDF/Word CVs into local extraction pipeline
-  → AI profiles candidate skills & generates Burmese/English executive summary
-  → recruiter searches candidates via trigram full-text search
-  → application lands in pipeline at "Applied"
-  → recruiter moves it through stages, every move recorded in append-only history
+  → recruiter bulk-uploads PDF/Word CVs into local extraction; Zawgyi normalised at ingest
+  → AI profiles skills and writes a Burmese/English summary — IF a key is configured
+  → recruiter searches candidates via pg_trgm
+  → application lands in the pipeline at "Applied"
+  → recruiter moves it through stages, every move in append-only history
   → recruiter schedules an interview
   → panel scores it blind, and debriefs in notes with @mentions
-  → Analytics dashboard renders time-to-hire, funnel, bottleneck metrics
-  → Admin manages Users Directory, Custom Roles, Feature Flags & Version endpoints
+  → Analytics renders time-to-hire, funnel and bottleneck metrics
+  → Admin manages users, custom roles, feature flags, /api/version
 ```
 
-## ✅ Recent Verification & Deliverables Summary
-
-- **507/507 Backend Tests Passing**: 51 Domain + 456 Api integration tests executing via `dotnet test backend/RecruitOps.sln`.
-- **318/318 Frontend Tests Passing**: 39 Vitest test suites executing clean in `frontend/internal`.
-- **0 TypeScript Errors**: `npm run typecheck` clean across all workspaces.
-- **Delivery Prerequisites (ADR-0004 & ADR-0007)**: `IFeatureFlagService`, `[FeatureGate]`, `GET /api/version`, `GET /health`, `docker-compose.prod.yml`, Nginx proxy configuration, `docs/architecture/deployment-runbook.md`, `docs/architecture/server-sizing-guide.md`.
-
-🔧 **One loose end, cosmetic:** the CI `Test counts` job summary still can't reliably lift
-per-assembly numbers out of a BuildKit log. It reports and no longer adjudicates, so it cannot
-fail a green suite — but it can still print a number nobody should trust. **Fix it or delete
-it.** A half-trusted instrument costs a reader more than no instrument.
-
-## ⚠️ "The stack came up" is not "the screens are correct"
-
-Three Module 3 behaviours were flagged as worth checking specifically, and have **not** been
-eyeballed. Each takes about a minute in the browser, and each fails *quietly* — which is why
-they were named rather than left to chance. **Do these before anything else; they are the
-cheapest verification left in the project.**
-
-1. **The panel picker populates when logged in as a Recruiter.** This is ADR-0019's entire
-   reason to exist, and it has still only been proved *reachable* by a test, never *observed*
-   working. Scheduling requires a non-empty panel, so if the picker is empty the whole module
-   is undrivable by its main role — for the third time, and it would be the third distinct
-   cause.
-2. **The blind state on `/interviews/:id` with two panel members.** Member A submits; member B
-   should see `hiddenCount: 1` and no scores until they submit. This is enforced server-side and
-   rendered three different ways client-side, so a UI-only regression is invisible to the API
-   tests.
-3. **`.mention` styling survives the Tailwind build.** The markup is generated in C#, so
-   Tailwind's content scanner cannot see the class — it lives in `index.css` for exactly that
-   reason. A production build purging it is the failure mode; it renders as unstyled text, not
-   as an error.
+**Where it stops.** Nothing is emailed to anybody, ever — there is no email sender in the
+codebase. So the loop above is drivable in the browser and invisible outside it.
 
 ## What's built
 
 | | State |
 |---|---|
-| Module 1 — Requisition & Approval | ✅ API + UI + tests, end to end |
-| Module 2 — ATS & Sourcing | 🚧 2.1 postings, 2.2 custom forms, 2.5 pipeline, 2.7 dedup ✅ · 2.3 OCR, 2.4 Smart Match, 2.6 search ⬜ |
-| Module 3 — Interview & Assessment | 🚧 3.3 scorecards + 3.4 notes ✅ API + tests · ✅ security-reviewed (ADR-0018) · ✅ UI built and run · 3.1/3.2 deferred to Module 7 |
-| Auth | ✅ JWT, RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |
-| Departments | ✅ Admin CRUD + membership assignment |
+| Module 1 — Requisition & Approval | ✅ API + UI + tests, end to end. Rounds (ADR-0023) and senior skip-ahead (ADR-0024) landed 2026-08-16 |
+| Module 2 — ATS & Sourcing | ✅ 2.1–2.7 all built. Postings, custom forms, pipeline, dedup, bulk CV ingestion, AI profiling behind a key, pg_trgm search |
+| Module 3 — Interview & Assessment | 🚧 3.3 scorecards + 3.4 notes ✅ API + UI + tests · security-reviewed (ADR-0018) · **3.1 calendar / 3.2 invitations blocked on the email sender** |
+| Module 5 — Reporting & Analytics | ✅ API + UI. ⚠️ Built to the *old* metric definitions — the 2026-08-18 spec moved both clocks |
+| Modules 4, 6, 8 | ⬜ code · ✅ spec + design (13 screens drawn 2026-08-18) |
+| Module 7 — Settings | 🚧 RBAC ✅ · integrations ⬜ |
+| Auth | ✅ JWT, dynamic RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |
 | Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested |
-| Tests | ✅ backend **169/169** off CI · frontend **27/27** |
-| CI | ✅ green on both jobs · `github.com/minarkarsoe/RecruitOps` |
-| Modules 4–8 | ⬜ |
+| Delivery (ADR-0004) | ✅ compose prod, `/api/version`, feature flags, sizing guide, runbook · ⬜ **job runner** |
+| Tests | ✅ backend **527/527** (51 domain + 476 api) · frontend **342/342** across 43 files |
+| Design | ✅ 25 static screens, all seven modules — `design/internal/index.html` |
+
+## ⚠️ "The stack came up" is not "the screens are correct"
+
+Three Module 3 behaviours were flagged as worth checking specifically, and **still have not
+been eyeballed** — carried across four updates of this file now. Each takes about a minute in
+the browser, and each fails *quietly*. **These remain the cheapest verification left in the
+project.**
+
+1. **The panel picker populates when logged in as a Recruiter.** This is ADR-0019's entire
+   reason to exist, and it has only ever been proved *reachable* by a test, never *observed*
+   working. Scheduling requires a non-empty panel, so if the picker is empty the whole module
+   is undrivable by its main role.
+2. **The blind state on `/interviews/:id` with two panel members.** Member A submits; member B
+   should see `hiddenCount: 1` and no scores until they submit. Enforced server-side and
+   rendered three ways client-side, so a UI-only regression is invisible to the API tests.
+3. **`.mention` styling survives the Tailwind build.** The markup is generated in C#, so
+   Tailwind's content scanner cannot see the class — it lives in `index.css` for that reason.
+   A production build purging it renders unstyled text, not an error.
 
 ## Backlog, in the order I'd take it
 
 Each of these is **one session**. Start a new one for each.
 
-### 1. Frontend tests for Modules 1–2
-The harness exists and is proven — 27 tests cover Module 3's three quiet-failure cases, and it
-was **proved to fail first** (three deliberate mutations produced 5 failures across all three
-files). Modules 1–2 screens have **none**. Largest untested conditional logic, in order:
+### 1. Decide the email sender and the job runner — one ADR, four modules
+**The highest-leverage thing left.** There is no `SmtpClient`, `IEmailSender`, `MailKit` or
+`SendGrid` anywhere in `backend/src`, and no `BackgroundService`, `IHostedService`, `Hangfire`
+or `Quartz`. That single absence blocks:
+
+- Module 3.1 / 3.2 — interview invitations and calendar sync
+- Module 4 — sending an offer, reminding a candidate, the IT/Admin pre-boarding handoff
+- Module 5 — scheduled report delivery
+- Module 2.3 — bulk CV upload currently runs on `_ = Task.Run(...)` in `BulkResumeService`,
+  so a restart mid-batch loses the work while the batch row still says "in progress"
+
+Treat it as **one shared capability**, not four features. On-premise installs (ADR-0004) may
+have only an internal SMTP relay and no outbound internet, so the provider choice is
+constrained — decide it in an ADR before any of the four modules starts.
+
+### 2. Frontend tests for Modules 1–2's largest untested logic
+Still open. The harness is proven and the suite is at 342, but these two components have no
+test file at all:
 
 - **`RequisitionFormPage`** — one component serving both create and edit. Two modes in one
   component is where this repo's recurring "rule added to two of three siblings" bug lives.
-- **The approval timeline** — sequential state rendered from snapshotted steps; a wrong reading
-  of "whose turn is it" looks plausible on screen.
 - **`FormFieldBuilder`** — a schema editor whose output the *server* validates. A builder that
   emits a schema the server rejects fails at the worst possible moment: when a stranger submits.
 
 Pattern to copy: `src/lib/scorecard.test.ts` for pure rules,
 `src/pages/InterviewDetailPage.test.tsx` for a page with `vi.mock('../lib/api')`.
-Commands: `npm run test` (root) or `npm run test --workspace @recruitops/internal`.
 **Prove each new test fails before you believe it passes.**
 
-### 2. `GET /api/users` projects `enum.ToString()` inside the query
-🟡 Medium, and **cheap to settle now that the stack runs against real Postgres**: EF Core 10
-cannot translate it, and the endpoint has only ever run in-memory. Open the approval-chain
-builder as an Admin. If it throws, apply the two-step pattern the rest of the codebase uses
-(query in SQL, project in memory). If it doesn't, delete the row from the gaps table.
+### 3. Finish ADR-0025 — move the code onto the V1.0 tokens
+The 25 design screens are on V1.0; `packages/ui/tailwind-preset.js` and both frontends are
+still on the Clear Pipeline preset. **Two token systems running in parallel is the exact
+condition ADR-0025 was written to end**, and it now exists again in the other direction.
+Sequence from the ADR: preset → both frontends → `RecruitOps_Design_System.md` →
+`marketing/landing.html` and `DESIGN.md` last.
 
-### 3. Module 2.3 — CV upload + OCR
-**Do not start this without a planning session first.** Three prerequisites, none of which
-exist:
+### 4. Answer the five questions the design kit surfaced
+All five are recorded in FEATURE-STATUS under Known gaps, and three are business decisions
+rather than engineering ones:
 
-- Object-storage abstraction (R2 hosted / MinIO on-prem) — [ADR-0013](../decisions/ADR-0013-infrastructure-and-storage.md)
-- Background job runner — bulk upload is 50 files, so it cannot be synchronous ([ADR-0008](../decisions/ADR-0008-document-extraction-and-ai-profiling.md))
-- **Zawgyi→Unicode normalization** — 🔴 High, and *not* only an OCR problem: a Word/PDF
-  authored in Zawgyi extracts as garbage with no OCR involved ([ADR-0009](../decisions/ADR-0009-myanmar-script-handling.md))
-
-Plus an open decision: which OCR engine (cost, PII residency, Burmese accuracy). Expect one
-or two ADRs before any code.
-
-### 4. Deployment prerequisites (ADR-0004)
-Needed before a first customer install, none exist: feature-flag mechanism, `/api/version` +
-customer/version registry, backup/restore runbook, server sizing guide, support policy.
+- The **threshold rule** is drawn on three screens and modelled nowhere — `ApprovalChain` has
+  no condition field. Either it gains one or those screens are wrong.
+- **`ApprovalChainStep.ApproverUserId` is a person, not a role** — disabling a user silently
+  stalls every requisition at their step.
+- **Module 8 may be unbuildable on-premise** (webhooks need a public endpoint). Commercial
+  decision as much as technical, and it is the headline differentiator.
+- **Module 6 needs `Requisition → HeadcountPlan`** or its headline number is uncomputable.
+- **Age/gender filtering** is unconfirmed for this market.
 
 ### 5. Smaller, whenever
-- **User admin** — creating users is still seed-only; departments can now be managed but the
-  people in them cannot. Module 3 makes this sharper: you cannot put someone on a panel who
-  doesn't exist.
-- Fix or delete the CI `Test counts` summary step (above).
-- Refresh token + httpOnly cookie option ([ADR-0016](../decisions/ADR-0016-login-brute-force-protection.md) follow-ups)
-- Application-form **file upload** field type — waits on the same storage abstraction as 2.3
-- `NotificationLog` + interview invitations — deferred with Module 7 (ADR-0017 follow-ups)
+- **Delete or wire up `frontend/internal/src/features/requisitions/`** — zero importers
+  repo-wide, five files, and a test that passes while proving nothing about the shipped app.
+- Re-run Module 5's metrics against the **new** definitions once Module 4 exists; the shipped
+  ones end at a different event.
+- Fix or delete the CI `Test counts` summary step — it reports a number nobody should trust.
+- Build warning `CS8604` in `ApplicationFormSchema.cs:102`.
+- Write the **99.9% SLA ADR** before `marketing/landing.html` goes live — it is asserted
+  publicly and recorded nowhere.
+- Application-form **file upload** field type — waits on the storage abstraction (ADR-0013).
+- The **merge-two-existing-candidates** UI — drawn in `design/internal/talent-pool.html`,
+  not built.
+- Verify trigram search against a corpus of **real Burmese CVs**. It runs; nobody has measured
+  whether its results are good.
 
 ## Things that will bite you
 
@@ -238,6 +254,28 @@ Learned the expensive way; all of them are load-bearing.
   recursively, and run every git command from a Windows terminal, not from here.
 - **A GitHub token needs `workflow` scope to push `.github/workflows/`.** An ordinary OAuth
   credential pushes 500 objects and then has the ref rejected at the last step.
+- **Two GitHub accounts are authenticated here, and only one can write.** `gh auth status`
+  lists `minarkarsoe` (owns the repo) and `minarkarsoe-backend` (cannot push to it). If a push
+  dies with `403 ... denied to minarkarsoe-backend`, nothing is wrong with the commits —
+  `gh auth switch --user minarkarsoe` and push again. Check which one is active *before* a long
+  commit sequence rather than after.
+- **The Bash tool is bash, not PowerShell — `@'...'@` here-strings silently corrupt a commit
+  message.** `git commit -m @'...'@` produces a commit whose subject line is a literal `@`.
+  Use a real heredoc: `git commit -F - <<'MSG' ... MSG`. Both shells are available in this
+  project and each takes its own syntax; the failure is silent in exactly this case.
+- **Headless Chrome screenshots need an absolute `file:///` URL and forward slashes out.**
+  `chrome.exe --headless=new --screenshot=<out> <relative-path>` writes nothing and reports
+  nothing. Escaping `\\` inside a double-quoted bash string also eats the `$` of a loop
+  variable, producing one file literally named `$f.png`. Use forward slashes on both sides:
+
+  ```
+  CHROME="/c/Program Files/Google/Chrome/Application/chrome.exe"
+  "$CHROME" --headless=new --disable-gpu --hide-scrollbars --virtual-time-budget=5000 \
+    --window-size=1440,3200 --screenshot="C:/abs/path/out.png" "file:///C:/abs/path/in.html"
+  ```
+
+  Note the window height *is* the capture height: a page shorter than it gets tiled, and a
+  page using `min-h-screen` grows to fill it, pushing later sections out of frame.
 - **`$HOME` inside the sandbox is a native path; `/tmp` may be owned by another session.**
   The copy-out recipe above works verbatim with `W=$HOME/rowork`.
 - **Background processes do not survive between sandbox commands** — each call gets its own

@@ -5,6 +5,50 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-18 (latest)
 
+### 🔧 Status docs re-derived from the code — they were wrong about four modules
+**Why:** `FEATURE-STATUS.md` and `NEXT-SESSION.md` contradicted each other *and* the code, and
+CLAUDE.md makes them the entry point for every session. A fresh session trusting either would
+have rebuilt working software.
+
+**What was wrong**, all verified against the tree rather than against the previous version of
+the file:
+
+| Claim | Reality |
+|---|---|
+| Module 5 Reporting ⬜ not started | `AnalyticsController` + `AnalyticsService` + `AnalyticsPage.tsx` ship and are tested |
+| Module 2.3 OCR / 2.4 Smart Match / 2.6 search ⬜ | `BulkResumeService`, `DocumentExtraction/`, `AiIntegrationService`, `SearchService` all ship |
+| Zawgyi→Unicode normalization 🔴 High, not implemented | `MyanmarScriptNormalizer` ships and is applied at ingest |
+| Burmese trigram search 🟡 outstanding | `AddPgTrgmAndSearchIndexes` migration applied |
+| Feature flags ⬜, `/api/version` ⬜, sizing guide ⬜, runbooks ⬜ | All four exist |
+| Backend 507 tests / frontend 318 | **527** (51 + 476) and **342** across 43 files, both re-run today |
+
+`NEXT-SESSION.md`'s backlog was the sharpest problem: three of its five items had already
+shipped, and item 3 told the reader to start Module 2.3 CV upload — which is built.
+
+**Two gaps the check found that the docs had not recorded at all:**
+
+- **There is no email sender anywhere in `backend/src`.** No `SmtpClient`, `IEmailSender`,
+  `MailKit` or `SendGrid`. It blocks Module 3 invitations, Module 4 offer sends, reminders and
+  the IT/Admin handoff, and Module 5 scheduled reports — one capability, four modules. Promoted
+  to 🟠 High and made the top backlog item.
+- **Bulk CV upload is fire-and-forget, not a job runner.** `BulkResumeService.EnqueueBatchAsync`
+  runs `_ = Task.Run(() => ProcessBatchAsync(batchId))`. A restart mid-batch loses the work
+  while the batch row still reads "in progress"; there is no retry and exceptions are
+  unobserved. `grep` for `BackgroundService|IHostedService|Hangfire|Quartz` returns nothing.
+  ADR-0008 called for asynchronous processing and this is the shape of it, not the thing.
+
+Also newly recorded: the orphaned `frontend/internal/src/features/requisitions/` tree (zero
+importers, five files, one test that proves nothing about the shipped app), ADR-0025 steps 3–4
+being unstarted (**two token systems are running in parallel again**, now in the other
+direction), and build warning `CS8604` in `ApplicationFormSchema.cs:102`.
+
+`NEXT-SESSION.md`'s "Things that will bite you" section is carried over unchanged — it is
+hard-won and still accurate — with three new entries in "Working cheaply" for traps hit today:
+the two GitHub accounts where only one can push, the PowerShell here-string that silently
+corrupts a `git commit -m` under bash, and the headless-Chrome screenshot invocation.
+
+**Touched:** `docs/status/FEATURE-STATUS.md`, `docs/status/NEXT-SESSION.md`.
+
 ### 🎨 The remaining thirteen screens — every module now has a drawn UI
 **Why:** the design kit stopped at Modules 1–5, so the whole administration surface, both
 sourcing modules, planning and the entire public app existed only as prose. The customer has

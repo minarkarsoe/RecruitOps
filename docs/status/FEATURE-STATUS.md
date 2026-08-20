@@ -1,17 +1,17 @@
 # Feature Status
 
-**Last updated:** 2026-08-18 (**UI/UX design kit complete — 25 static screens across all seven modules**, in `design/internal/` and `design/public/`, indexed at `design/internal/index.html`. Drawn against the entities and seed data, not against intentions; five spec gaps it surfaced are logged under Known gaps. No production code touched) · Previously 2026-08-17 (marketing landing page added; design system pivoted off the agency model and its contrast failures fixed — frontend now **342/342 Vitest green**, 43 files, 0 typecheck errors) · Previously 2026-08-13 (Delivery Readiness & Feature Flags complete — 507/507 backend tests + 318/318 frontend tests green, 0 typecheck errors) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
+**Last updated:** 2026-08-18 (**status re-derived from the code, not from the previous version of this file** — the module table below was wrong about four modules; see the note under it. Suites re-run the same day: **backend 527/527**, frontend 342/342, typecheck clean. Also: **UI/UX design kit complete — 25 static screens across all seven modules**, in `design/internal/` and `design/public/`, indexed at `design/internal/index.html`; five spec gaps it surfaced are logged under Known gaps) · Previously 2026-08-17 (marketing landing page added; design system pivoted off the agency model and its contrast failures fixed — frontend now **342/342 Vitest green**, 43 files, 0 typecheck errors) · Previously 2026-08-13 (Delivery Readiness & Feature Flags complete — 507/507 backend tests + 318/318 frontend tests green, 0 typecheck errors) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
 
 > 🎨 **Marketing surface (2026-08-17):** `marketing/landing.html` — standalone single-file
 > HTML + Tailwind CDN, not a route in either app. Visual system recorded in `DESIGN.md`,
 > product truth in `PRODUCT.md` (both at repo root). No backend or frontend code was touched.
 
-> ✅ **Backend: 507/507 green** (51 domain + 456 api). Covers Module 1 end to end, login
+> ✅ **Backend: 527/527 green** (51 domain + 476 api), re-run 2026-08-18. Covers Module 1 end to end, login
 > throttling, department administration, Module 2 requisitions/postings/pipeline/CV ingestion/Full-Text search, Module 3 interviews/scorecards/notes, Module 5 Reporting & Analytics, Module 7 Dynamic RBAC & User Management, and Delivery Prerequisites (`/api/version`, Feature Flags, Healthchecks).
 >
 > ✅ **`docker compose up --build` runs** — Postgres + API + both frontends, migrations applying on startup.
 >
-> ✅ **Frontend: 318/318 Vitest passing** across 39 test files, `npm run typecheck` 0 errors across both apps.
+> ✅ **Frontend: 342/342 Vitest passing** across 43 test files, `npm run typecheck` 0 errors across both apps (re-run 2026-08-18).
 >
 > ✅ **Granular Dynamic RBAC & Permission-Aware UX complete** — `/api/roles`, `/api/permissions`, `/api/users`, `[HasPermission]` policy attribute, User Directory (`/users`), Role Builder (`/roles`), and dynamic permission-aware UI filtering across navigation sidebar and action buttons.
 >
@@ -32,28 +32,45 @@
 | — | Foundation (scaffold, layering, CI-less tooling) | ✅ | Structure per CLAUDE.md |
 | — | Multi-tenancy | ✅ | Query filters + claim-based resolver, isolation-tested |
 | 1 | Job Requisition & Approval | ✅ API + UI | ⭐ MVP · full loop drivable from the browser: chain config → requisition → submit → sequential approve/reject → cancel. |
-| 2 | ATS & Sourcing | 🚧 | ⭐ MVP · **2.1/2.2/2.5/2.7 built** (posting → public page + custom form → application → pipeline). 2.3 OCR, 2.4 Smart Match, 2.6 search not started. |
-| 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). 3.1 calendar / 3.2 invitations deferred to Module 7 — no email sender or calendar client exists. |
-| 4 | Offer & Pre-boarding | ⬜ | Deferred (post-MVP) |
-| 5 | Reporting & Analytics | ⬜ | ⭐ MVP · build last · blocked on stage history (Module 2) |
-| 6 | Planning & Budgeting | ⬜ | Deferred (post-MVP) |
-| 7 | Settings & Integrations | ✅ | Dynamic RBAC, Authorization Engine, Roles & Permissions Management, User Directory & Role Builder UI, Permission-Aware UX ✅; integrations ⬜ |
-| 8 | Multi-Channel Sourcing (bots) | ⬜ | First post-MVP; contracted in Mid-Tier (ADR-0014) |
+| 2 | ATS & Sourcing | ✅ API + UI | ⭐ MVP · **2.1–2.7 all built.** Posting → public page + custom form → application → pipeline; bulk CV ingestion with local extraction (`BulkResumeService`, `DocumentExtraction/`); AI profiling behind a key (`AiIntegrationService`); trigram search (`SearchService`, `AddPgTrgmAndSearchIndexes`). Remaining: file-upload field type (waits on ADR-0013) and the merge-two-existing-candidates UI. |
+| 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). 3.1 calendar / 3.2 invitations deferred to Module 7 — no email sender or calendar client exists. ⚠️ Three behaviours have never been eyeballed — see the warning below the table. |
+| 4 | Offer & Pre-boarding | ⬜ code · ✅ spec + design | Post-MVP. Scope rewritten 2026-08-18; 4 screens drawn. Blocked on the email sender. |
+| 5 | Reporting & Analytics | ✅ API + UI | ⭐ MVP · `AnalyticsController` + `AnalyticsService` + `AnalyticsPage.tsx`, built on Module 2's stage history. ⚠️ The 2026-08-18 spec re-defines both Time-to-* clocks to end at *offer accepted*, so **the shipped metrics do not match the current spec** and neither is computable until Module 4 exists. Scheduled reports need the email sender. |
+| 6 | Planning & Budgeting | ⬜ code · ✅ spec + design | Post-MVP. Needs `Requisition → HeadcountPlan` decided first, or its headline number is uncomputable. |
+| 7 | Settings & Integrations | 🚧 | 7.1 RBAC ✅ (authorization engine, roles & permissions, User Directory, Role Builder UI, permission-aware UX). 7.2 HRMS / 7.3 mail & calendar / 7.4 retention ⬜ — all four screens drawn. |
+| 8 | Multi-Channel Sourcing (bots) | ⬜ code · ✅ design | First post-MVP; contracted in Mid-Tier (ADR-0014). ⚠️ May be unbuildable on-premise — see Known gaps. |
+
+> ⚠️ **This table was materially wrong until 2026-08-18** and is worth a note, because the
+> failure mode repeats. It listed Module 5 as not started, and 2.3 / 2.4 / 2.6 as not started,
+> while `AnalyticsController`, `SearchController`, `BulkResumeService` and
+> `MyanmarScriptNormalizer` were all in the tree and covered by passing tests. `NEXT-SESSION.md`
+> said the opposite of this file. Two status docs disagreeing with each other and with the code
+> is how a session gets sent to rebuild something that already ships. **Re-derive this table
+> from the code, not from the previous version of the table.**
 
 ## Delivery readiness (ADR-0004)
 
-Per-company install, subdomain routing. **None of the operational prerequisites exist yet:**
+Per-company install, subdomain routing. **Most prerequisites now exist — one real gap left**
+(verified against the code 2026-08-18, not carried forward from a previous note):
 
 | Item | Status |
 |---|---|
-| Docker/Compose packaging | ✅ **verified running** |
-| Feature-flag mechanism (add-on gating) | ⬜ |
-| Background job runner (bulk CV processing) | ⬜ |
+| Docker/Compose packaging | ✅ **verified running** — `docker-compose.yml` + `docker-compose.prod.yml` |
+| Feature-flag mechanism (add-on gating) | ✅ **done** — `FeatureFlagService`, `[FeatureGate]` |
+| Background job runner (bulk CV processing) | ⬜ **the one real gap — see the row below** |
 | Automated EF migrations on startup | ✅ **done** — `InitialCreate` generated |
-| `/api/version` + customer/version registry | ⬜ |
+| `/api/version` + customer/version registry | ✅ **done** — `VersionController`; registry still manual |
 | Support policy (latest, latest-1) | ⬜ |
-| Server sizing guide | ⬜ |
-| Backup/restore + upgrade runbooks | ⬜ |
+| Server sizing guide | ✅ **done** — `docs/architecture/server-sizing-guide.md` |
+| Backup/restore + upgrade runbooks | ✅ **done** — `docs/architecture/deployment-runbook.md` |
+
+⚠️ **Bulk CV upload is running on fire-and-forget `Task.Run`, not a job runner.**
+`BulkResumeService.EnqueueBatchAsync` launches `_ = Task.Run(() => ProcessBatchAsync(batchId))`
+and returns. It works, and the batch row records status — but an app restart mid-batch loses
+the processing with the row still saying "in progress", there is no retry, and an exception
+inside that task is unobserved. Fifty files is exactly the case ADR-0008 said must be
+asynchronous, so this is the shape of the answer rather than the answer. `grep` for
+`BackgroundService|IHostedService|Hangfire|Quartz` across `backend/src` returns nothing.
 
 ## Built in detail
 
@@ -495,10 +512,14 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 
 | No `package-lock.json` at the workspace root | 🟢 Low | A root `package-lock.json` now exists (2026-07-28). Remaining work: switch the frontend images to `npm ci` |
 | Frontend images never built; only type-checked | ✅ **fixed** | `docker compose up --build` builds and serves both apps (2026-07-29) |
-| No feature-flag mechanism (needed for add-ons, ADR-0007) | 🟡 Medium | Cheap now, invasive later |
+| No feature-flag mechanism (needed for add-ons, ADR-0007) | ✅ **fixed** | `IFeatureFlagService` + `[FeatureGate]`; `FeatureGate.test.tsx` on the client |
 | PDF/OCR library licences not yet reviewed | 🟡 Medium | Copyleft would be disqualifying |
-| Zawgyi→Unicode normalization not implemented | 🔴 High | Affects MVP Phase 1, not just OCR (ADR-0009) |
-| No .NET client for `myanmar-tools` — integration undecided | 🟡 Medium | Resolve before Module 2 ingest |
+| Zawgyi→Unicode normalization not implemented | ✅ **fixed** | `MyanmarScriptNormalizer` + `IMyanmarScriptNormalizer`, applied at ingest across CV extraction, search and `JobApplication`. This row sat at 🔴 High for days after the code landed |
+| No .NET client for `myanmar-tools` — integration undecided | ✅ **resolved** | Superseded by `MyanmarScriptNormalizer` — no external client was needed |
 | Burmese OCR accuracy unverified | 🟡 Medium | Deferred; evaluation plan in ADR-0009 |
-| Burmese keyword search needs trigram/segmentation | 🟡 Medium | Module 2.6; default Postgres FTS won't work |
-| No `/api/version`, sizing guide, or upgrade runbook | 🟡 Medium | Required before first install |
+| Burmese keyword search needs trigram/segmentation | ✅ **fixed** | `AddPgTrgmAndSearchIndexes` migration + `SearchService`. Still unverified against a corpus of real Burmese CVs — trigram *runs*, but nobody has measured whether its results are good |
+| No `/api/version`, sizing guide, or upgrade runbook | ✅ **fixed** | `VersionController`, `docs/architecture/server-sizing-guide.md`, `docs/architecture/deployment-runbook.md`. The customer/version *registry* is still a manual list |
+| **No email sender anywhere in the codebase** | 🟠 High | `grep` for `SmtpClient\|IEmailSender\|MailKit\|SendGrid` across `backend/src` returns nothing. Blocks Module 3 interview invitations, Module 4 offer sends + reminders + the IT/Admin handoff, and Module 5 scheduled reports. **One capability, four modules** — pick a provider once |
+| Dead code: `frontend/internal/src/features/requisitions/` | 🟡 Medium | Zero importers repo-wide (verified 2026-08-18, LSP + grep). Five files including `requisitions.test.tsx`, which passes and proves nothing about the shipped app. Delete it, or wire it up |
+| ADR-0025 steps 3–4 not started | 🟡 Medium | The 25 design screens are on V1.0 tokens; `packages/ui/tailwind-preset.js` and both frontends are still on the Clear Pipeline preset. **Two token systems running in parallel is the exact condition ADR-0025 was written to end** — it is now reproduced, just in the other direction |
+| Build warning `CS8604` in `ApplicationFormSchema.cs:102` | 🟢 Low | Possible null reference argument to `HashSet<string>.Add`. Nullable reference types are enabled, so this is a real path the compiler cannot prove safe |
