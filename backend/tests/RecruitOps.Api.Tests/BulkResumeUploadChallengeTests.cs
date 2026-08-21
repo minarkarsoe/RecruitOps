@@ -10,12 +10,18 @@ namespace RecruitOps.Api.Tests;
 
 public class BulkResumeUploadChallengeTests : IClassFixture<CustomWebAppFactory>
 {
+    private readonly CustomWebAppFactory _factory;
     private readonly Module3Scenario _scenario;
 
     public BulkResumeUploadChallengeTests(CustomWebAppFactory factory)
     {
+        _factory = factory;
         _scenario = new Module3Scenario(factory);
     }
+
+    /// <summary>Runs the bulk queue to completion. Replaces the Task.Delay this suite used to
+    /// bet on — see BulkResumeQueue.</summary>
+    private Task<int> DrainAsync() => BulkResumeQueue.DrainAsync(_factory);
 
     private HttpClient Recruiter() => _scenario.Recruiter();
     private HttpClient FinanceManager() => _scenario.FinanceManager();
@@ -88,8 +94,7 @@ public class BulkResumeUploadChallengeTests : IClassFixture<CustomWebAppFactory>
         var batchRes = await uploadResp.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>();
         Assert.NotNull(batchRes);
 
-        // Wait for asynchronous processing to complete
-        await Task.Delay(500);
+        await DrainAsync();
 
         var response = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batchRes.BatchId}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -181,7 +186,7 @@ public class BulkResumeUploadChallengeTests : IClassFixture<CustomWebAppFactory>
         var batchRes = await uploadResp.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>();
         Assert.NotNull(batchRes);
 
-        await Task.Delay(500);
+        await DrainAsync();
 
         var statusResp = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batchRes.BatchId}");
         var status = await statusResp.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
@@ -212,7 +217,7 @@ public class BulkResumeUploadChallengeTests : IClassFixture<CustomWebAppFactory>
             var batchRes1 = await uploadResp1.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>();
             Assert.NotNull(batchRes1);
 
-            await Task.Delay(500);
+            await DrainAsync();
 
             var statusResp1 = await client.GetAsync($"/api/jobpostings/{postingId1}/resumes/bulk/{batchRes1.BatchId}");
             var status1 = await statusResp1.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
@@ -233,7 +238,7 @@ public class BulkResumeUploadChallengeTests : IClassFixture<CustomWebAppFactory>
                 var batchRes2 = await uploadResp2.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>();
                 Assert.NotNull(batchRes2);
 
-                await Task.Delay(500);
+                await DrainAsync();
 
                 var statusResp2 = await client.GetAsync($"/api/jobpostings/{postingId2}/resumes/bulk/{batchRes2.BatchId}");
                 var status2 = await statusResp2.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
@@ -270,7 +275,7 @@ public class BulkResumeUploadChallengeTests : IClassFixture<CustomWebAppFactory>
         var batchRes = await uploadResp.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>();
         Assert.NotNull(batchRes);
 
-        await Task.Delay(500);
+        await DrainAsync();
 
         var statusResp = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batchRes.BatchId}");
         var status = await statusResp.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
@@ -312,7 +317,7 @@ public class BulkResumeUploadChallengeTests : IClassFixture<CustomWebAppFactory>
         var batchRes = await uploadResp.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>();
         Assert.NotNull(batchRes);
 
-        await Task.Delay(600);
+        await DrainAsync();
 
         var statusResp = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batchRes.BatchId}");
         var status = await statusResp.Content.ReadFromJsonAsync<BulkBatchStatusDto>();

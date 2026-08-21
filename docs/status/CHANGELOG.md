@@ -3,7 +3,53 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-08-20 (latest)
+## 2026-08-21 (latest)
+
+### 📦 ADR-0026 step 4 — bulk CV upload comes off the static dictionary
+**Why:** the last of the two job mechanisms ADR-0026 exists to collapse into one. Backend
+**612/612** (62 domain + 550 api), up from 599; **+13 tests**, and the 20 existing API tests pass
+**unchanged** against the new implementation — which is the signal that the contract survived.
+
+**What it replaced**, quoted here because the status file recorded this as "asynchronous ✅" for
+weeks: `private static readonly ConcurrentDictionary<Guid, BatchStateHolder> Batches`, holding the
+**raw uploaded bytes**, populated by `_ = Task.Run(() => ProcessBatchAsync(batchId))`.
+
+| Was | Is |
+|---|---|
+| A restart **erased** the batch — not "the status goes stale"; the entry was gone, `GetBatchStatusAsync` returned null, and a recruiter's 50 files 404'd with no way to learn whether any candidate had been created | `BulkUploadBatch` + `BulkUploadFile`, written before the response returns. A claim only pushes a due time forward, so a process that dies mid-batch leaves work that becomes due again by itself |
+| 50 CVs of several MB each in RAM per concurrent upload | Bytes in object storage at upload (ADR-0013); the row keeps a key. That same object becomes the application's résumé — uploaded once, referenced, **never copied** |
+| An unobserved exception inside `Task.Run` | Backoff, an attempt cap of 3, and the between-claim-and-record wrapper the 2026-08-20 security review forced onto the mail worker — here from the start |
+| Candidate dedup via `IgnoreQueryFilters()` + a hand-written `c.TenantId == …` | An ordinary filtered query. The worker enters the tenant, so there is no predicate left to forget (ADR-0026 §4) |
+| Four counters maintained by hand under a `lock` | Status and every count **derived** from the file rows. A computed count cannot disagree with the rows it counts |
+
+**Two decisions worth naming, not transcription:**
+
+- **It is a second `BackgroundService`, and §3 said "a single" one.** The claim loop is reproduced
+  rather than shared: a generic base class over two entities with different status enums and
+  different terminal states is more coupling than two queues justify, and `OutboundMessageWorker`
+  is security-reviewed, so refactoring it to serve a second caller would put that behind a
+  re-review. **A third queue is the point at which to extract it** — written into the class.
+- **The storage key carries no part of the uploaded file name**, only ids and a validated
+  extension. The old key was `{Guid}_{item.FileName}`; a candidate-supplied name in an object key
+  is how a stray `../` becomes somebody else's problem in whichever backend a customer runs.
+
+**Found by writing a test that asserted the opposite:** cleanup of a failed file's stored bytes
+ran only on the in-scope path, but a CV that cannot be parsed reaches terminal-Failed through the
+*exception* path — so the common failure would have left a candidate's CV in storage every time,
+with nothing pointing at it. Fixed; it is a Module 7.4 retention concern, not a tidiness one.
+
+**Also gone:** a second, identical `IBulkResumeService` in `Application.Common.Interfaces`,
+registered in DI alongside the real one and consumed by nothing.
+
+**Tests stopped sleeping.** The three suites used `await Task.Delay(300)` and then asserted that a
+background task had finished — two of them inside twenty-round retry loops that turn a real
+failure into six seconds of "still processing". Replaced by `BulkResumeQueue.DrainAsync`, which
+runs passes until the queue is empty and throws if it never is.
+
+⚠️ **Not security-reviewed.** Migration `AddBulkUploadPersistence` is additive and applies on
+container start.
+
+## 2026-08-20
 
 ### 🔐 Security review of the invitation handler and SMTP transport — nothing found
 **Why:** step 3 is the first code in the product that reads candidate data with **no user behind

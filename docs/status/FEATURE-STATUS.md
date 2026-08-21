@@ -6,7 +6,7 @@
 > HTML + Tailwind CDN, not a route in either app. Visual system recorded in `DESIGN.md`,
 > product truth in `PRODUCT.md` (both at repo root). No backend or frontend code was touched.
 
-> ✅ **Backend: 599/599 green** (62 domain + 537 api), re-run 2026-08-20 after ADR-0026 step 3 (SMTP sender + the interview-invitation handler; +44 tests). Covers Module 1 end to end, login
+> ✅ **Backend: 612/612 green** (62 domain + 550 api), re-run 2026-08-21 after ADR-0026 step 4 — `BulkResumeService` rewritten off its static dictionary onto the durable queue (+13 tests). Covers Module 1 end to end, login
 > throttling, department administration, Module 2 requisitions/postings/pipeline/CV ingestion/Full-Text search, Module 3 interviews/scorecards/notes, Module 5 Reporting & Analytics, Module 7 Dynamic RBAC & User Management, and Delivery Prerequisites (`/api/version`, Feature Flags, Healthchecks).
 >
 > ✅ **`docker compose up --build` runs** — Postgres + API + both frontends, migrations applying on startup.
@@ -32,7 +32,7 @@
 | — | Foundation (scaffold, layering, CI-less tooling) | ✅ | Structure per CLAUDE.md |
 | — | Multi-tenancy | ✅ | Query filters + claim-based resolver, isolation-tested |
 | 1 | Job Requisition & Approval | ✅ API + UI | ⭐ MVP · full loop drivable from the browser: chain config → requisition → submit → sequential approve/reject → cancel. |
-| 2 | ATS & Sourcing | ✅ API + UI | ⭐ MVP · **2.1–2.7 all built.** Posting → public page + custom form → application → pipeline; bulk CV ingestion with local extraction (`BulkResumeService`, `DocumentExtraction/`); AI profiling behind a key (`AiIntegrationService`); trigram search (`SearchService`, `AddPgTrgmAndSearchIndexes`). Remaining: file-upload field type (waits on ADR-0013) and the merge-two-existing-candidates UI. |
+| 2 | ATS & Sourcing | ✅ API + UI | ⭐ MVP · **2.1–2.7 all built.** Posting → public page + custom form → application → pipeline; bulk CV ingestion with local extraction (`BulkResumeService` + `BulkResumeWorker`, `DocumentExtraction/`) — **rewritten 2026-08-21 onto ADR-0026's durable queue**, so a batch survives a restart and the uploaded bytes live in object storage rather than in process memory; AI profiling behind a key (`AiIntegrationService`); trigram search (`SearchService`, `AddPgTrgmAndSearchIndexes`). Remaining: file-upload field type (waits on ADR-0013) and the merge-two-existing-candidates UI. |
 | 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). **3.2 invitations built 2026-08-20** — scheduling and rescheduling queue a candidate email through the ADR-0026 outbox, sent by the worker over SMTP; cancelling suppresses a queued one. 3.1 calendar free/busy still deferred — no calendar client exists. ⚠️ Three behaviours have never been eyeballed — see the warning below the table. |
 | 4 | Offer & Pre-boarding | ⬜ code · ✅ spec + design | Post-MVP. Scope rewritten 2026-08-18; 4 screens drawn. **No longer blocked** — `IEmailSender` and the outbox exist; 4.1/4.2/4.3 each need a handler and an enqueue call. |
 | 5 | Reporting & Analytics | ✅ API + UI | ⭐ MVP · `AnalyticsController` + `AnalyticsService` + `AnalyticsPage.tsx`, built on Module 2's stage history. ⚠️ The 2026-08-18 spec re-defines both Time-to-* clocks to end at *offer accepted*, so **the shipped metrics do not match the current spec** and neither is computable until Module 4 exists. Scheduled report *delivery* is unblocked — `IEmailSender` exists — but needs a `ScheduledReport` handler and attachment support, which `EmailMessage` does not have yet. |
@@ -57,31 +57,33 @@ Per-company install, subdomain routing. **Most prerequisites now exist — one r
 |---|---|
 | Docker/Compose packaging | ✅ **verified running** — `docker-compose.yml` + `docker-compose.prod.yml` |
 | Feature-flag mechanism (add-on gating) | ✅ **done** — `FeatureFlagService`, `[FeatureGate]` |
-| Background job runner (bulk CV processing) | ⬜ **the one real gap — see the row below** |
+| Background job runner (bulk CV processing) | ✅ **done 2026-08-21** — `BulkResumeWorker` on ADR-0026's durable queue; see the block below for what it replaced |
 | Automated EF migrations on startup | ✅ **done** — `InitialCreate` generated |
 | `/api/version` + customer/version registry | ✅ **done** — `VersionController`; registry still manual |
 | Support policy (latest, latest-1) | ⬜ |
 | Server sizing guide | ✅ **done** — `docs/architecture/server-sizing-guide.md` |
 | Backup/restore + upgrade runbooks | ✅ **done** — `docs/architecture/deployment-runbook.md` |
 
-⚠️ **Bulk CV upload is fire-and-forget `Task.Run` over a static in-memory dictionary.**
-`BulkResumeService` holds batches in `private static readonly ConcurrentDictionary<Guid,
-BatchStateHolder> Batches`, **including the raw uploaded file bytes**, and launches
-`_ = Task.Run(() => ProcessBatchAsync(batchId))`. Nothing is written to the database.
+✅ **Bulk CV upload was rewritten onto ADR-0026 on 2026-08-21.** It is kept here as a record of
+what was wrong, because the entry sat at "asynchronous ✅" for weeks while it was none of these
+things.
 
-- A restart does not make the status stale — it **loses the batch outright**, so
-  `GetBatchStatusAsync` returns null and the recruiter's 50 files 404 with no way to tell
-  whether any candidate was created.
-- Fifty CVs of several MB each sit in RAM per concurrent upload, which the server sizing guide
-  does not account for.
-- An exception inside that `Task.Run` is unobserved: no handler, no retry.
-- Two replicas would not see each other's batches — the same trap ADR-0016 recorded for
-  `LoginThrottle`, now present twice.
+`BulkResumeService` used to hold batches in `private static readonly ConcurrentDictionary<Guid,
+BatchStateHolder> Batches` — **including the raw uploaded file bytes** — and launch
+`_ = Task.Run(() => ProcessBatchAsync(batchId))`. Nothing was written to the database.
 
-ADR-0008 required this to be asynchronous; this is the *shape* of asynchronous, not the thing.
-`grep` for `BackgroundService|IHostedService|Hangfire|Quartz` across `backend/src` returns
-nothing. **Addressed by [ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md)**,
-which replaces it rather than extending it.
+| What was wrong | What it is now |
+|---|---|
+| A restart **lost the batch outright**, so `GetBatchStatusAsync` returned null and the recruiter's 50 files 404'd with no way to tell whether any candidate was created | `BulkUploadBatch` + `BulkUploadFile` rows, written before the response returns. A claim only pushes a due time forward, so a process that dies mid-batch leaves work that becomes due again by itself |
+| Fifty CVs of several MB each sat in RAM per concurrent upload, which the sizing guide did not account for | Bytes go to object storage at upload (ADR-0013); the row keeps a key. The same object later becomes the application's résumé — uploaded once, referenced, never copied |
+| An exception inside `Task.Run` was unobserved: no handler, no retry | Retry with exponential backoff and an attempt cap of 3, plus the between-claim-and-record wrapper the 2026-08-20 security review forced onto the mail worker |
+| Two replicas would not see each other's batches | The queue is a table, so they would. It is still one worker per ADR-0004 |
+| The candidate lookup used `IgnoreQueryFilters()` with a hand-written `c.TenantId == …` predicate | Ordinary filtered queries. The worker enters the tenant; there is no predicate left to forget (ADR-0026 §4) |
+
+ADR-0008 required this to be asynchronous; what shipped was the *shape* of asynchronous, not the
+thing. Replaced, not extended, by
+[ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md) — leaving it would have
+meant two job mechanisms, which is the outcome the ADR exists to prevent.
 
 ## Built in detail
 
@@ -538,12 +540,14 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | Candidate-facing email is English only | 🟡 Medium | `InterviewInvitationHandler` renders one language. `design/internal/postings.html` offers a per-posting language choice (Burmese / English / Both) that has **no backing field**, so there is nothing to render from. A Yangon field role advertised in Burmese currently gets its interview invitation in English |
 | Nobody is told when a message reaches `Failed` | 🟠 High | The row records it and `design/internal/channels.html` draws the delivery log, but **no UI reads `OutboundMessages` yet**. So "the candidate was never told" is currently discoverable only by querying the database — which is the failure mode ADR-0026 exists to remove. The outbox is only half the answer without the screen |
 | Sender identity is still `noreply@` | 🟡 Medium | One company-wide `Smtp:FromAddress`. A candidate replying to an interview invitation — which the body explicitly invites them to do — replies into a mailbox nobody may be reading. ADR-0026 lists sending as the acting recruiter (via Microsoft 365 delegated permission) as an open question; it is now a live one, because invitations are actually going out |
+| Migration `AddBulkUploadPersistence` | ✅ applies on startup | `20260821…`. Creates `BulkUploadBatches` and `BulkUploadFiles` with three indexes. Additive — no existing table is touched, and there is nothing to back-fill because the state it replaces only ever existed in memory |
+| Two `IBulkResumeService` interfaces existed | ✅ **deleted 2026-08-21** | An identical copy lived in `Application.Common.Interfaces` and was registered in DI alongside the real one. Nothing consumed it. Removed with the rewrite rather than carried forward |
 | Migration `AddCompanyTimeZone` | ✅ applies on startup | `20260820081448`. Adds nullable `Companies.TimeZoneId` (IANA, e.g. `Asia/Yangon`). Needed because Npgsql stores `DateTimeOffset` as `timestamptz` and normalises to UTC — the instant survives a round-trip and the recruiter's *o'clock* does not, and "09:00" is the one thing a candidate acts on. Null falls back to UTC and the email labels itself UTC rather than lying |
 | **`ICurrentTenant` is now settable** | ✅ **security-reviewed 2026-08-20 — no tenant-isolation finding** | Reviewed against `a2de09c`. Verified: an ambient tenant cannot redirect an authenticated request (middleware order checked, `EnterTenant` called from exactly one place); a scope carries at most one tenant and `CurrentTenant` resolves the same instance the worker set; the cross-tenant claim is contained and the claimed entity is never reattached to a later scope; `PublicJobService` is unaffected. The review found **one Low robustness defect, now fixed** — see the row below | ADR-0026 §4. `IAmbientTenantScope` lets the delivery worker establish a tenant with no HTTP request, so handlers query with filters on. The safety property is ordering: the request claim is read first and wins, making an ambient tenant inert inside a request — asserted by `CurrentTenantResolutionTests`, and a failure there is a security finding. `EnterTenant` refuses a second call so a recycled scope crashes rather than reading cross-tenant |
 | Step 3 (invitations + SMTP) | ✅ **security-reviewed 2026-08-20 — nothing found** | Reviewed against `b7f65d3`. Six claims put up to be **disproved**, all held: (1) no path reads across tenants — the unfiltered `Companies` lookup is safe because `message.TenantId` itself comes from a tenant-filtered re-read, so it cannot diverge from the scope's tenant; (2) `Recipient` has exactly one write site and neither request DTO carries an address field, so nobody can have another candidate's details mailed to an address they control; (3) the absent department scoping is sound because `SubjectId` is only ever set inside an authorised write, so the handler's FK chain is the chain that was authorised — and `RescheduleAsync` re-reads the application only *after* `LoadWritableAsync`; (4) header injection blocked — the reviewer tested `MailAddress` against four CRLF variants directly rather than trusting the read, all rejected; (5) no credential or candidate data in any log or payload, nothing real committed to either `appsettings`; (6) the worker change is inside `ConfigureTestServices` and `Program.cs` still registers the real hosted service |
 | A slow relay throttles a company's own queue | 🟢 Low | Raised by that review. A pass drains its batch sequentially, so its worst case is `BatchSize × Smtp:TimeoutSeconds` — 20 × 30 s = **10 minutes** against a 5-minute visibility timeout. **No duplicate sends today**: one worker, and passes never overlap. It is a throughput ceiling for one company with a degraded relay, and it becomes a duplicate-send bug the moment anyone runs two replicas — the **fourth** thing on that list. Recorded in `OutboundDeliveryOptions.BatchSize`; bounded parallelism is a product call, not a fix |
 | A failure between claiming and recording dodged the attempt cap | ✅ **fixed 2026-08-20** | Found by the security review. Anything thrown between claiming a message and `Record()` escaped to the pass-level catch, so the row's cap was never checked: it could be reclaimed every visibility window **forever** — the exact poison message the cap exists to stop, dodging the cap — and it abandoned the rest of that pass's batch. Now wrapped: the failure is a counted, capped retry, and the batch continues. Two tests, proved to fail first |
-| Claim is EF-level, not `FOR UPDATE SKIP LOCKED` | 🟡 Medium | ADR-0026 §3 promised `SKIP LOCKED`; the implementation reads then updates through EF. Crash safety is unchanged, but **two workers could claim the same batch and send twice**. Fine on one instance (ADR-0004). This is the **third** in-process assumption riding on "one replica" after `LoginThrottle` and the bulk dictionary — audit all three together before any customer gets two |
+| Claim is EF-level, not `FOR UPDATE SKIP LOCKED` | 🟡 Medium | ADR-0026 §3 promised `SKIP LOCKED`; the implementation reads then updates through EF. Crash safety is unchanged, but **two workers could claim the same batch and send twice**. Fine on one instance (ADR-0004). The list of things riding on "one replica" changed on 2026-08-21: the bulk dictionary **came off it** (it is a table now), so what is left is `LoginThrottle` (ADR-0016), this EF-level claim, and the pass-duration point in the row above — **two workers, not three**, plus one tuning invariant. Audit them together before any customer gets a second replica, not after |
 | Dead code: `frontend/internal/src/features/requisitions/` | 🟡 Medium | Zero importers repo-wide (verified 2026-08-18, LSP + grep). Five files including `requisitions.test.tsx`, which passes and proves nothing about the shipped app. Delete it, or wire it up |
 | ADR-0025 steps 3–4 not started | 🟡 Medium | The 25 design screens are on V1.0 tokens; `packages/ui/tailwind-preset.js` and both frontends are still on the Clear Pipeline preset. **Two token systems running in parallel is the exact condition ADR-0025 was written to end** — it is now reproduced, just in the other direction |
 | Build warning `CS8604` in `ApplicationFormSchema.cs:102` | 🟢 Low | Possible null reference argument to `HashSet<string>.Add`. Nullable reference types are enabled, so this is a real path the compiler cannot prove safe |

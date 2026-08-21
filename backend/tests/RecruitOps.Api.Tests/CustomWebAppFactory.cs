@@ -115,18 +115,20 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase(_databaseName, Root));
 
-            // Take the delivery worker off its timer (ADR-0026 §3).
+            // Take both background workers off their timers (ADR-0026 §3).
             //
-            // WebApplicationFactory starts hosted services, so the worker would be polling every
-            // ten seconds throughout the suite — claiming rows out from under the test that just
-            // wrote them, and turning any assertion on a queued message into a race that fails
-            // occasionally on a slow machine. It stays registered as a plain singleton so a test
-            // can still drive a pass deliberately with RunOnceAsync().
-            var hostedWorker = services
-                .Where(d => d.ImplementationType == typeof(OutboundMessageWorker))
+            // WebApplicationFactory starts hosted services, so these would be polling every few
+            // seconds throughout the suite — claiming rows out from under the test that just wrote
+            // them, and turning any assertion on a queued row into a race that fails occasionally
+            // on a slow machine. They stay registered as plain singletons so a test can drive a
+            // pass deliberately with RunOnceAsync(). See BulkResumeQueue for the helper.
+            var hostedWorkers = services
+                .Where(d => d.ImplementationType == typeof(OutboundMessageWorker)
+                            || d.ImplementationType == typeof(BulkResumeWorker))
                 .ToList();
-            foreach (var d in hostedWorker) services.Remove(d);
+            foreach (var d in hostedWorkers) services.Remove(d);
             services.AddSingleton<OutboundMessageWorker>();
+            services.AddSingleton<BulkResumeWorker>();
 
             // Replace IFileStorage with InMemoryFileStorage so integration tests run completely offline without S3/MinIO
             var storageDescriptors = services.Where(d => d.ServiceType == typeof(RecruitOps.Application.Interfaces.IFileStorage)).ToList();

@@ -10,12 +10,18 @@ namespace RecruitOps.Api.Tests;
 
 public class BulkResumeUploadStressTests : IClassFixture<CustomWebAppFactory>
 {
+    private readonly CustomWebAppFactory _factory;
     private readonly Module3Scenario _scenario;
 
     public BulkResumeUploadStressTests(CustomWebAppFactory factory)
     {
+        _factory = factory;
         _scenario = new Module3Scenario(factory);
     }
+
+    /// <summary>Runs the bulk queue to completion. Replaces the Task.Delay this suite used to
+    /// bet on — see BulkResumeQueue.</summary>
+    private Task<int> DrainAsync() => BulkResumeQueue.DrainAsync(_factory);
 
     private HttpClient Recruiter() => _scenario.Recruiter();
 
@@ -61,7 +67,7 @@ public class BulkResumeUploadStressTests : IClassFixture<CustomWebAppFactory>
             Assert.NotNull(batch1);
             Assert.Equal(1, batch1.TotalFiles);
 
-            await Task.Delay(300);
+            await DrainAsync();
             var statusRes1 = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batch1.BatchId}");
             var status1 = await statusRes1.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
             Assert.NotNull(status1);
@@ -85,17 +91,13 @@ public class BulkResumeUploadStressTests : IClassFixture<CustomWebAppFactory>
             Assert.NotNull(batch50);
             Assert.Equal(50, batch50.TotalFiles);
 
-            // Wait for 50 files to finish processing asynchronously
-            int retries = 0;
-            BulkBatchStatusDto? status50 = null;
-            while (retries < 20)
-            {
-                await Task.Delay(300);
-                var statusRes50 = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batch50.BatchId}");
-                status50 = await statusRes50.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
-                if (status50 != null && status50.ProcessedFiles == 50) break;
-                retries++;
-            }
+            // Fifty files, drained in passes of BulkResumeOptions.BatchSize. Deterministic, so
+            // no retry loop and no sleep — if it does not finish, the test fails rather than
+            // spending twenty rounds pretending it might still be working.
+            await DrainAsync();
+
+            var statusRes50 = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batch50.BatchId}");
+            var status50 = await statusRes50.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
 
             Assert.NotNull(status50);
             Assert.Equal(50, status50.ProcessedFiles);
@@ -175,17 +177,13 @@ public class BulkResumeUploadStressTests : IClassFixture<CustomWebAppFactory>
         Assert.NotNull(batchRes);
         Assert.Equal(8, batchRes.TotalFiles);
 
-        // Poll for processing completion
-        int retries = 0;
-        BulkBatchStatusDto? status = null;
-        while (retries < 20)
-        {
-            await Task.Delay(300);
-            var statusRes = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batchRes.BatchId}");
-            status = await statusRes.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
-            if (status != null && status.ProcessedFiles == 8) break;
-            retries++;
-        }
+        // One drain, then assert. The retry loop that used to be here existed only because the
+        // work was started with Task.Run and nobody could tell when it had finished; it also hid
+        // a genuine failure as "still processing" for twenty rounds before giving up.
+        await DrainAsync();
+
+        var statusRes = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batchRes.BatchId}");
+        var status = await statusRes.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
 
         Assert.NotNull(status);
         Assert.Equal(8, status.ProcessedFiles);
@@ -264,23 +262,21 @@ public class BulkResumeUploadStressTests : IClassFixture<CustomWebAppFactory>
         // All batch IDs must be unique
         Assert.Equal(ConcurrentBatchCount, batchIds.Distinct().Count());
 
-        // Wait for all 10 concurrent batches to complete processing
-        int totalProcessedBatches = 0;
-        int retries = 0;
-        while (retries < 25 && totalProcessedBatches < ConcurrentBatchCount)
+        // Thirty files across ten batches, drained in passes of BatchSize. The helper loops until
+        // the queue is empty and throws if it never is — so a row that could be reclaimed forever
+        // fails this test rather than quietly making it slow.
+        var handled = await DrainAsync();
+        Assert.Equal(ConcurrentBatchCount * 3, handled);
+
+        var totalProcessedBatches = 0;
+        foreach (var bId in batchIds)
         {
-            await Task.Delay(400);
-            totalProcessedBatches = 0;
-            foreach (var bId in batchIds)
+            var statusRes = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{bId}");
+            var status = await statusRes.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
+            if (status is { Status: "Completed", ProcessedFiles: 3 })
             {
-                var statusRes = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{bId}");
-                var status = await statusRes.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
-                if (status != null && status.Status == "Completed" && status.ProcessedFiles == 3)
-                {
-                    totalProcessedBatches++;
-                }
+                totalProcessedBatches++;
             }
-            retries++;
         }
 
         Assert.Equal(ConcurrentBatchCount, totalProcessedBatches);

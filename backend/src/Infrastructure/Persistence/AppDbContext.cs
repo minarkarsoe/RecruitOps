@@ -47,6 +47,8 @@ public class AppDbContext : DbContext
     // Outbound delivery and background jobs (ADR-0026).
     public DbSet<OutboundMessage> OutboundMessages => Set<OutboundMessage>();
     public DbSet<ScheduledJob> ScheduledJobs => Set<ScheduledJob>();
+    public DbSet<BulkUploadBatch> BulkUploadBatches => Set<BulkUploadBatch>();
+    public DbSet<BulkUploadFile> BulkUploadFiles => Set<BulkUploadFile>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -501,6 +503,32 @@ public class AppDbContext : DbContext
             e.HasIndex(x => new { x.IsActive, x.NextRunAt });
         });
 
+        // ---------- Bulk CV upload (Module 2.3, ADR-0026) ----------
+        builder.Entity<BulkUploadBatch>(e =>
+        {
+            // "Show me this posting's recent uploads", newest first.
+            e.HasIndex(x => new { x.TenantId, x.JobPostingId, x.CreatedAt });
+        });
+
+        builder.Entity<BulkUploadFile>(e =>
+        {
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            // Windows caps a path segment at 255; a longer name than that never reached us.
+            e.Property(x => x.FileName).IsRequired().HasMaxLength(255);
+            e.Property(x => x.ContentType).HasMaxLength(255);
+            e.Property(x => x.StorageKey).HasMaxLength(1024);
+            // Room for a sentence a recruiter can act on, capped because it can carry an
+            // extraction library's error text.
+            e.Property(x => x.LastError).HasMaxLength(2000);
+
+            // The worker's claim query: due Queued rows, oldest first.
+            // ⚠️ Runs with IgnoreQueryFilters() for the same reason as OutboundMessage below.
+            e.HasIndex(x => new { x.Status, x.NextAttemptAt });
+
+            // The status endpoint reads one batch in upload order.
+            e.HasIndex(x => new { x.BulkUploadBatchId, x.Ordinal });
+        });
+
         // ---------- Tenant query filters ----------
         // Each company has its own database (ADR-0004), so these are a dormant safety
         // net against misconfiguration — NOT the primary isolation boundary. The
@@ -534,13 +562,15 @@ public class AppDbContext : DbContext
         builder.Entity<NoteMention>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<Role>().HasQueryFilter(e => e.TenantId == null || e.TenantId == _tenant.TenantId);
         builder.Entity<RefreshToken>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
-        // ⚠️ These two are filtered like everything else, and the background worker MUST read
-        // them with IgnoreQueryFilters(): it runs outside any request, so _tenant.TenantId is
-        // Guid.Empty and the queue would silently never drain. The worker re-establishes the
-        // tenant for the handler's scope from the claimed row, so handlers keep the filter on
-        // (ADR-0026 §4). The worker is the only place in the job runner allowed to bypass it.
+        // ⚠️ These four are filtered like everything else, and the background workers MUST read
+        // them with IgnoreQueryFilters(): they run outside any request, so _tenant.TenantId is
+        // Guid.Empty and the queues would silently never drain. A worker re-establishes the
+        // tenant for the processing scope from the claimed row, so the work itself keeps the
+        // filter on (ADR-0026 §4). The claim query is the only place allowed to bypass it.
         builder.Entity<OutboundMessage>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<ScheduledJob>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<BulkUploadBatch>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<BulkUploadFile>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
 
         base.OnModelCreating(builder);
     }

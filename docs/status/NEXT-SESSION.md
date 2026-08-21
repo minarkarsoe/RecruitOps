@@ -1,8 +1,8 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-08-20 · **Backend 599/599 · Frontend 342/342 · typecheck clean**
-· ADR-0026 steps 1–3 built **and security-reviewed** · **the product now sends email**
-(Module 3.2 interview invitations)
+**Last updated:** 2026-08-21 · **Backend 612/612 · Frontend 342/342 · typecheck clean**
+· **ADR-0026 is complete** — steps 1–4 built, steps 1–3 security-reviewed · the product sends email
+(Module 3.2 invitations) and no longer keeps a recruiter's fifty CVs in process memory
 · All seven modules have a drawn UI (25 screens)
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
@@ -33,7 +33,7 @@ Hiring Manager raises a requisition
   → Recruiter creates a job posting FROM that requisition
   → publishes it, getting an unguessable public link (Sqid, ADR-0020)
   → a stranger applies on the public page (custom questions supported)
-  → recruiter bulk-uploads PDF/Word CVs into local extraction; Zawgyi normalised at ingest
+  → recruiter bulk-uploads PDF/Word CVs onto a durable queue; local extraction, Zawgyi normalised
   → AI profiles skills and writes a Burmese/English summary — IF a key is configured
   → recruiter searches candidates via pg_trgm
   → application lands in the pipeline at "Applied"
@@ -56,7 +56,7 @@ candidate told?" is answerable by the database and by nobody using the product.
 | | State |
 |---|---|
 | Module 1 — Requisition & Approval | ✅ API + UI + tests, end to end. Rounds (ADR-0023) and senior skip-ahead (ADR-0024) landed 2026-08-16 |
-| Module 2 — ATS & Sourcing | ✅ 2.1–2.7 all built. Postings, custom forms, pipeline, dedup, bulk CV ingestion, AI profiling behind a key, pg_trgm search |
+| Module 2 — ATS & Sourcing | ✅ 2.1–2.7 all built. Postings, custom forms, pipeline, dedup, bulk CV ingestion (**rewritten 2026-08-21 onto the durable queue**), AI profiling behind a key, pg_trgm search |
 | Module 3 — Interview & Assessment | 🚧 3.3 scorecards + 3.4 notes ✅ API + UI + tests · security-reviewed (ADR-0018) · **3.2 invitations ✅ built 2026-08-20** (schedule and reschedule queue an email; cancel suppresses it) · **3.1 calendar free/busy still unbuilt** — no calendar client exists |
 | Module 5 — Reporting & Analytics | ✅ API + UI. ⚠️ Built to the *old* metric definitions — the 2026-08-18 spec moved both clocks |
 | Modules 4, 6, 8 | ⬜ code · ✅ spec + design (13 screens drawn 2026-08-18) |
@@ -64,8 +64,8 @@ candidate told?" is answerable by the database and by nobody using the product.
 | Auth | ✅ JWT, dynamic RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |
 | Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested |
 | Delivery (ADR-0004) | ✅ compose prod, `/api/version`, feature flags, sizing guide, runbook · ✅ in-process job runner (ADR-0026) · ⚠️ **every install now needs `Smtp:*` configured** or nothing is delivered |
-| Outbound delivery (ADR-0026) | 🚧 queue + worker + tenant seam ✅ · SMTP sender + interview-invitation handler ✅ · **both security-reviewed, nothing found** · ⬜ no delivery-log UI · ⬜ Module 4/5/8 handlers · ⬜ `BulkResumeService` still on its static dictionary |
-| Tests | ✅ backend **599/599** (62 domain + 537 api) · frontend **342/342** across 43 files |
+| Background jobs (ADR-0026) | ✅ **all four steps built.** Queue + tenant seam + mail worker + SMTP + invitation handler (security-reviewed, nothing found) + bulk CV worker · ⬜ no delivery-log UI · ⬜ Module 4/5/8 handlers · ⬜ step 4 not yet security-reviewed |
+| Tests | ✅ backend **612/612** (62 domain + 550 api) · frontend **342/342** across 43 files |
 | Design | ✅ 25 static screens, all seven modules — `design/internal/index.html` |
 
 ## ⚠️ "The stack came up" is not "the screens are correct"
@@ -90,30 +90,32 @@ project.**
 
 Each of these is **one session**. Start a new one for each.
 
-### 1. Build ADR-0026 — outbound delivery and background jobs
-**The highest-leverage thing left**, and it is now decided and unblocked:
-[ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md) is **Accepted**.
-SMTP behind `IEmailSender` as the floor, a transactional `OutboundMessage` outbox, one
-in-process `BackgroundService` claiming due rows with a visibility timeout, and **no new NuGet
-package** — hand-rolled was chosen by the product owner on 2026-08-18. (The ADR originally
-specified `FOR UPDATE SKIP LOCKED`; see its 2026-08-20 amendment for what that trade narrowed.)
+### 1. ✅ ADR-0026 is built — all four steps. What is left is the *screen*.
 
-Why it is first — one absent capability blocks six things: Module 3.1/3.2 invitations ·
-Module 4 offer sends, reminders and the IT/Admin handoff · Module 5 scheduled reports ·
-Module 8 candidate notifications · and Module 2.3, whose `BulkResumeService` keeps batches
-**and the raw uploaded bytes** in a `static ConcurrentDictionary` that a restart erases
-outright. That service is **replaced** by this work, not extended; leaving it gives the product
-two job mechanisms.
+[ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md) is Accepted and, as of
+2026-08-21, **implemented**. SMTP behind `IEmailSender` as the floor, a transactional
+`OutboundMessage` outbox, in-process workers claiming due rows with a visibility timeout, and no
+new NuGet package. (The ADR originally specified `FOR UPDATE SKIP LOCKED`; see its 2026-08-20
+amendment for what that trade narrowed.)
 
-**Read §4 of the ADR before writing any handler.** A background job has no `HttpContext`, so
-`CurrentTenant.TenantId` is `Guid.Empty` and every global query filter matches nothing — and
-`AppDbContext` would stamp new rows with tenant `Guid.Empty`. The decision is that the *worker*
-sets a scoped tenant from the message row before resolving anything, so handler code looks like
-request code and **no handler calls `IgnoreQueryFilters()`**. Do not copy the
-`PublicJobService` / `BulkResumeService` workaround into job handlers; that pattern stays where
-it is unavoidable.
+**Two things it did NOT finish, and the first one is now the top item in this file:**
 
-Suggested order, each a session:
+- 🔴 **Nothing renders `OutboundMessages`.** A `Failed` invitation — wrong address, dead relay —
+  is recorded faithfully and shown to nobody, so "was this candidate told?" is answerable only by
+  someone with a psql prompt. That is half of what the ADR was written to fix, still missing.
+  `design/internal/channels.html` already draws the delivery log; it needs an endpoint and a page.
+- 🟠 **Step 4 has not been security-reviewed.** Steps 1–3 have. Step 4 added a second worker that
+  reads and writes candidate data with no user behind it, and a new object-storage key format.
+  CLAUDE.md requires the pass.
+
+**Read §4 of the ADR before writing any handler or worker.** A background job has no
+`HttpContext`, so `CurrentTenant.TenantId` is `Guid.Empty`, every global query filter matches
+nothing, and `AppDbContext` would stamp new rows with tenant `Guid.Empty`. The worker sets a
+scoped tenant from the claimed row before resolving anything, so the work itself looks like
+request code and **calls no `IgnoreQueryFilters()`**. `InterviewInvitationHandler` and
+`BulkResumeWorker.ExtractAndCreateAsync` are the two worked examples; copy either.
+
+How it was built, each step a session:
 1. ✅ **Done 2026-08-20.** `OutboundMessage` + `ScheduledJob` entities, config, tenant filters and
    six tests, plus migration `20260820072400_AddOutboundDeliveryAndScheduledJobs`.
 2. ✅ **Done 2026-08-20, security-reviewed.** `IAmbientTenantScope` + `OutboundMessageWorker` +
@@ -127,16 +129,14 @@ Suggested order, each a session:
    **Security-reviewed the same day — nothing found**, across six claims put up to be disproved.
    Copy this handler when writing the next one; it is the worked example of §4 (no
    `IgnoreQueryFilters`, no hand-written tenant predicate, no `ICurrentUser`).
-4. ← **you are here.** Rewrite `BulkResumeService` onto persisted batch rows with bytes in object
-   storage. It is the last thing standing between the product and one job mechanism instead of
-   two, and its `static ConcurrentDictionary` loses a recruiter's 50 uploaded CVs outright on
-   restart — not "the status goes stale", the entry is gone and they get a 404.
+4. ✅ **Done 2026-08-21.** `BulkResumeService` rewritten off its `static ConcurrentDictionary` onto
+   `BulkUploadBatch` + `BulkUploadFile` with the bytes in object storage, drained by
+   `BulkResumeWorker`; migration `AddBulkUploadPersistence`; +13 tests, and the 20 existing API
+   tests pass unchanged against the new implementation. Their `Task.Delay(300)`-and-hope polling
+   was replaced by `BulkResumeQueue.DrainAsync`. **Not security-reviewed.**
 
-**The gap that matters most now that mail actually leaves the building:** nothing renders
-`OutboundMessages`. A `Failed` invitation — wrong address, dead relay — is recorded faithfully
-and shown to nobody. `design/internal/channels.html` already draws the delivery log; it needs an
-endpoint and a screen. Until then the outbox answers "was this candidate told?" only to whoever
-opens psql, which is half of what ADR-0026 was written to fix.
+← **you are here: the delivery-log screen, then the step-4 security review.** See the two bullets
+above the step list.
 
 ### 2. Frontend tests for Modules 1–2's largest untested logic
 Still open. The harness is proven and the suite is at 342, but these two components have no
@@ -249,6 +249,12 @@ Learned the expensive way; all of them are load-bearing.
   **empty** migration — which commits perfectly cleanly: entities in code, DbSets registered,
   in-memory tests green, and no tables in any real database. Read the generated `Up()` before
   trusting it. This happened on 2026-08-20 and was caught only by looking.
+- **A test that sleeps and then asserts on background work is a bet, re-placed every run.** The
+  three bulk-upload suites did `await Task.Delay(300)` and then checked whether a `Task.Run` had
+  finished; two of them wrapped it in a twenty-round retry loop, which turns a genuine failure
+  into "still processing" for six seconds before failing anyway. Once work is claimable, a test
+  can *drive* it — `BulkResumeQueue.DrainAsync` runs passes until the queue is empty and throws if
+  it never is. No sleeps left in those suites.
 - **`AddDbContext`'s options lambda runs once per scope, not once per host.** Putting
   `Guid.NewGuid()` inside `o.UseInMemoryDatabase(...)` gives every DI scope its own database, so
   a test seeds one store and the code under test reads an empty one — and every assertion fails

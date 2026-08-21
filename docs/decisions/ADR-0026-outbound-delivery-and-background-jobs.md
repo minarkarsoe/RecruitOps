@@ -249,6 +249,19 @@ nothing that only exists in the hosted deployment.
 - **`BulkResumeService` must be rewritten**, not extended. Its static dictionary is the thing
   this ADR replaces; leaving it in place means two job mechanisms, which is the outcome the ADR
   exists to prevent.
+  > **Done 2026-08-21.** `BulkUploadBatch` + `BulkUploadFile`, bytes in object storage, drained by
+  > `BulkResumeWorker`. Two things worth recording because they were decisions, not transcription:
+  >
+  > - **It is a second `BackgroundService`, not the same one.** §3 says "a single
+  >   `BackgroundService`", and this is the first departure from that letter. The claim loop is
+  >   reproduced rather than shared, because a generic base class over two entities with different
+  >   status enums and different terminal states is more coupling than two queues justify — and
+  >   `OutboundMessageWorker` has been security-reviewed, so refactoring it to serve a second
+  >   caller would put that behind a re-review. **A third queue is the point at which to extract
+  >   it.**
+  > - **Batch status and every count are derived from the file rows, not stored.** The old code
+  >   maintained four counters by hand under a lock; a computed count cannot disagree with the rows
+  >   it counts.
 - **New entities and a migration** — `OutboundMessage`, `ScheduledJob`, and persisted bulk-batch
   rows. Propose the migration; a human applies it (CLAUDE.md).
 - **Every on-premise install now needs SMTP configuration**, and that belongs in
@@ -261,6 +274,12 @@ nothing that only exists in the hosted deployment.
   and the bulk dictionary). `SKIP LOCKED` means the queue itself survives a second replica, but
   **write it down here as ADR-0016 did**: if a customer is ever given two app replicas, audit
   every in-process assumption before scaling, not after.
+  > **Updated 2026-08-21 — the list moved in both directions.** The bulk dictionary came *off* it:
+  > that state is a table now, so two replicas would see each other's batches. What is on it:
+  > `LoginThrottle` (ADR-0016); the EF-level claim in both workers, which `SKIP LOCKED` would have
+  > covered and does not; and one tuning invariant found by the 2026-08-20 security review — a
+  > pass whose duration exceeds its own visibility timeout is safe with one worker and is a
+  > duplicate-send with two. **Three items, and they are all on the same trigger.**
 - **`ICurrentTenant` gains a second implementation, and that is a change to a security-critical
   seam.** Today it is a thin read of a claim; after this it can be *set*. A settable tenant is
   worth exactly one code review of its own — the failure mode is a scope that keeps a previous

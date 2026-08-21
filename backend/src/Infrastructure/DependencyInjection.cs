@@ -68,6 +68,10 @@ public static class DependencyInjection
         services.Configure<SmtpOptions>(config.GetSection(SmtpOptions.SectionName));
         services.AddScoped<IEmailSender, SmtpEmailSender>();
 
+        // The second queue on the same mechanism (Module 2.3). Its own options because extracting
+        // text from a scanned PDF and sending an email have opposite characters — see the class.
+        services.Configure<BulkResumeOptions>(config.GetSection(BulkResumeOptions.SectionName));
+
         // One handler per OutboundMessageKind, resolved by the worker inside the message's own
         // tenant scope. Registered as IOutboundMessageHandler (plural resolution) — a Kind with no
         // handler retries rather than failing, so a missing line here is loud but not destructive.
@@ -128,8 +132,11 @@ public static class DependencyInjection
         // Document Text Extraction & Resume Storage (Module 2 / Milestone 1 & 2)
         services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
         services.AddScoped<IResumeService, ResumeService>();
+        // Module 2.3 — bulk CV upload, on ADR-0026's durable queue rather than a static
+        // dictionary. There used to be a second, identical IBulkResumeService interface in
+        // Application.Common.Interfaces registered alongside this one; nothing consumed it, so it
+        // was deleted with the rewrite rather than carried forward.
         services.AddScoped<IBulkResumeService, BulkResumeService>();
-        services.AddScoped<Application.Common.Interfaces.IBulkResumeService, BulkResumeService>();
 
         // Module 5 — Reporting & Analytics
         services.AddScoped<IAnalyticsService, AnalyticsService>();

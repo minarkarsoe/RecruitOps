@@ -34,8 +34,10 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<ICurrentTenant, CurrentTenant>();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
-// Outbound delivery (ADR-0026). One in-process worker: ADR-0004 ships one instance per company.
+// Background queues (ADR-0026). In-process, because ADR-0004 ships one instance per company —
+// which removes the problem a distributed scheduler exists to solve.
 builder.Services.AddHostedService<OutboundMessageWorker>();
+builder.Services.AddHostedService<BulkResumeWorker>();
 
 // --- Authentication: self-issued JWT bearer ---
 var jwt = builder.Configuration.GetSection("Jwt");
