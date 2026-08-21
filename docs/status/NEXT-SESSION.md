@@ -1,7 +1,8 @@
 # Next Session — pickup guide
 
 **Last updated:** 2026-08-20 · **Backend 599/599 · Frontend 342/342 · typecheck clean**
-· ADR-0026 steps 1–3 built · **the product now sends email** (Module 3.2 interview invitations)
+· ADR-0026 steps 1–3 built **and security-reviewed** · **the product now sends email**
+(Module 3.2 interview invitations)
 · All seven modules have a drawn UI (25 screens)
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
@@ -63,7 +64,7 @@ candidate told?" is answerable by the database and by nobody using the product.
 | Auth | ✅ JWT, dynamic RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |
 | Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested |
 | Delivery (ADR-0004) | ✅ compose prod, `/api/version`, feature flags, sizing guide, runbook · ✅ in-process job runner (ADR-0026) · ⚠️ **every install now needs `Smtp:*` configured** or nothing is delivered |
-| Outbound delivery (ADR-0026) | 🚧 queue + worker + tenant seam ✅ (security-reviewed) · SMTP sender + interview-invitation handler ✅ (**not yet reviewed**) · ⬜ no delivery-log UI · ⬜ Module 4/5/8 handlers · ⬜ `BulkResumeService` still on its static dictionary |
+| Outbound delivery (ADR-0026) | 🚧 queue + worker + tenant seam ✅ · SMTP sender + interview-invitation handler ✅ · **both security-reviewed, nothing found** · ⬜ no delivery-log UI · ⬜ Module 4/5/8 handlers · ⬜ `BulkResumeService` still on its static dictionary |
 | Tests | ✅ backend **599/599** (62 domain + 537 api) · frontend **342/342** across 43 files |
 | Design | ✅ 25 static screens, all seven modules — `design/internal/index.html` |
 
@@ -123,14 +124,13 @@ Suggested order, each a session:
    and `InterviewInvitationHandler`, with 44 tests. `InterviewService` now writes the invitation
    **in the same `SaveChangesAsync`** as the interview — that is the outbox, and it is the whole
    point of §2. Migration `20260820081448_AddCompanyTimeZone` came with it.
-   **Not security-reviewed** — see step 3.5. Copy this handler when writing the next one; it is
-   the worked example of §4 (no `IgnoreQueryFilters`, no hand-written tenant predicate).
-3.5 **Run `security-reviewer` on the invitation handler.** CLAUDE.md requires it and it has not
-   happened. This is the first code in the product that reads candidate data **with no user
-   behind it** — under the tenant filter alone, with no department scoping, which ADR-0026 §4
-   says is correct ("a job is not a user") and which is therefore exactly the kind of deliberate
-   hole that deserves a second reader. It also puts candidate PII on the wire.
-4. Rewrite `BulkResumeService` onto persisted batch rows with bytes in object storage.
+   **Security-reviewed the same day — nothing found**, across six claims put up to be disproved.
+   Copy this handler when writing the next one; it is the worked example of §4 (no
+   `IgnoreQueryFilters`, no hand-written tenant predicate, no `ICurrentUser`).
+4. ← **you are here.** Rewrite `BulkResumeService` onto persisted batch rows with bytes in object
+   storage. It is the last thing standing between the product and one job mechanism instead of
+   two, and its `static ConcurrentDictionary` loses a recruiter's 50 uploaded CVs outright on
+   restart — not "the status goes stale", the entry is gone and they get a 404.
 
 **The gap that matters most now that mail actually leaves the building:** nothing renders
 `OutboundMessages`. A `Failed` invitation — wrong address, dead relay — is recorded faithfully

@@ -5,6 +5,46 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-20 (latest)
 
+### 🔐 Security review of the invitation handler and SMTP transport — nothing found
+**Why:** step 3 is the first code in the product that reads candidate data with **no user behind
+it**, and it puts a candidate's name and interview details on the wire. CLAUDE.md requires the
+pass; the previous review covered only the tenant seam.
+
+Six claims were put up to be **disproved**. All six held, and each was established by a code path
+rather than by inspection of intent:
+
+- **Cross-tenant reads.** The one unfiltered lookup — `Companies`, which is not `ITenantScoped` —
+  is safe because `message.TenantId` is itself read from a tenant-filtered re-read inside the
+  worker's scope, so it cannot diverge from the tenant governing every other query.
+- **Recipient steering.** `OutboundMessages` has exactly one write site repo-wide, and neither
+  `ScheduleInterviewRequest` nor `RescheduleInterviewRequest` carries an address field. Nobody can
+  get another candidate's interview details emailed to an address they control.
+- **The absent department scoping** (deliberate — ADR-0026 §4, "a job is not a user") is sound
+  because `SubjectId` is only ever set inside an already-authorised write, so the handler's
+  foreign-key chain is the chain that was authorised, not a query an attacker can parameterise.
+  `RescheduleAsync` re-reads the application only *after* `LoadWritableAsync`.
+- **Header injection.** Tested rather than read: `MailAddress` was driven against four CRLF
+  variants, including a quoted local part, and rejected all of them.
+- **Secrets and PII.** No credential or candidate data reaches any log or `PayloadJson`; nothing
+  real was committed to either `appsettings` file.
+- **The test-only worker change** is inside `ConfigureTestServices`; `Program.cs` still registers
+  the real hosted service.
+
+**One Low observation, recorded rather than fixed.** A pass drains its batch sequentially, so its
+worst case is `BatchSize × Smtp:TimeoutSeconds` — 20 × 30 s = 10 minutes, against a 5-minute
+visibility timeout. It causes **no duplicate sends today** (one worker, passes never overlap) and
+throttles only that company's own queue, but it becomes a duplicate-send bug the moment anyone
+runs two replicas — the fourth item now riding on that assumption. Written into
+`OutboundDeliveryOptions.BatchSize` where somebody tuning these will read it. Bounded parallelism
+is a throughput decision ADR-0026 chose not to take, not a defect to patch quietly.
+
+**Separately, one copy fix from actually reading a rendered invitation** rather than only
+asserting substrings on it: "Thank you for your interest in Collections Officer (Field)" read as
+though a word had gone missing. The subject wants the bare title; a sentence wants "the … role".
+Two forms now, and the three-mode render was eyeballed end to end.
+
+Frontend re-verified unchanged: **342/342** across 43 files, typecheck clean both apps.
+
 ### 📧 ADR-0026 step 3 — the product sends its first email
 **Why:** steps 1 and 2 built a queue and a worker with nothing to deliver. This is the transport
 and the first handler, and it closes Module 3.2 — the oldest of the five gaps ADR-0026 was

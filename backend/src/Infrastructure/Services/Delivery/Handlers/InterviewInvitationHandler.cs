@@ -198,7 +198,15 @@ public sealed class InterviewInvitationHandler : IOutboundMessageHandler
         TimeZoneInfo zone,
         bool isReschedule)
     {
-        var role = string.IsNullOrWhiteSpace(jobTitle) ? "the role you applied for" : jobTitle;
+        var hasTitle = !string.IsNullOrWhiteSpace(jobTitle);
+
+        // Two forms, because one does not fit both places. A subject wants the bare title —
+        // "Interview invitation — Collections Officer (Field)". A sentence does not:
+        // "Thank you for your interest in Collections Officer (Field)" reads as though a word
+        // went missing. Found by rendering one and reading it, not by a test.
+        var role = hasTitle ? jobTitle! : "the role you applied for";
+        var rolePhrase = hasTitle ? $"the {jobTitle} role" : "the role you applied for";
+
         var greeting = string.IsNullOrWhiteSpace(candidateName) ? "Hello" : $"Dear {candidateName}";
 
         var start = TimeZoneInfo.ConvertTime(interview.ScheduledStart, zone);
@@ -214,8 +222,8 @@ public sealed class InterviewInvitationHandler : IOutboundMessageHandler
         body.AppendLine();
 
         body.AppendLine(isReschedule
-            ? $"The interview we arranged with you for {role} has been moved. The new details are below."
-            : $"Thank you for your interest in {role}. We would like to invite you to an interview.");
+            ? $"The interview we arranged with you for {rolePhrase} has been moved. The new details are below."
+            : $"Thank you for your interest in {rolePhrase}. We would like to invite you to an interview.");
         body.AppendLine();
 
         body.AppendLine(Row("Date:", start.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture)));
