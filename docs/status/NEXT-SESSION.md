@@ -131,7 +131,49 @@ the public surface, which is read on a phone.
 downloading. Verified in the browser: `document.fonts` now lists Inter, JetBrains Mono and Noto
 Sans Myanmar only, from a single Google Fonts request.
 
-### ← You are here: 3c — migrate the screens off the compat names
+### ✅ 3c — `packages/ui` (done 2026-08-21)
+
+**0 compat usages left in `packages/ui/src`** — 133 migrated across 13 components, built against
+`design/internal/components.html` rather than renamed. Verified by reading computed styles in the
+browser, not by reading the diff:
+
+| | Measured | Kit |
+|---|---|---|
+| `StatusPill` warn | `#FFFBEB` bg / `#B45309` text / 24px / 12px / 500 | warn-50, warn-700, h-6, text-xs, medium |
+| `StatusPill` neutral | canvas + 1px line border + ink-600 | the only pill with a border, because it has no tint |
+| `Button` primary | `#0F766E` / 36px / 14px / 500 / r10 | brand-700, h-9, text-base, medium |
+| `Input` | 36px / r10 / 14px / line border | h-9, rounded-md, text-base |
+| `Card` | white / r12 / 20px pad / line border | rounded-lg, p-5 |
+
+Shape changes the rename would have missed, each from the kit: pill tint `-100`→`-50` and
+13px/semibold→12px/medium; button `h-10`→`h-9`, 15px/semibold→14px/medium, primary base
+`brand-600`→`brand-700` with `active:` states; input/select `h-10`→`h-9`, `rounded-sm`→`rounded-md`,
+soft `/20` focus ring; **table header lost its uppercase micro-caps** and rows are 44px per the
+kit; card title dropped from 19px display to 14px semibold.
+
+**All six pill contrast pairs were re-measured, not assumed** — `-50` tints improve every one:
+ink-600/canvas 7.24 · brand-800/brand-50 7.27 · info-700/info-50 6.16 · critical-700/critical-50
+5.91 · positive-700/positive-50 5.21 · warn-700/warn-50 **4.84** ← least headroom.
+
+12 design-system tests were updated to the V1.0 names and 2 added (the `Shortlisted` contrast pair,
+and one asserting the neutral pill keeps its border). Frontend **344/344**.
+
+> 🔎 Also fixed in `design/` itself: `components.html` said "radius 8" in prose while its markup
+> used `rounded-md` in 157 places, which V1.0 maps to **10px**. The prose was the outlier and is
+> now corrected — the source of truth has to be consistent with itself.
+
+### ← You are here: 3d — the app's own screens
+
+**599 compat usages left**: `features` 323 · `pages` 189 · `components` 70 · `public/app` 17.
+
+> ⚠️ **Found while verifying: the shared components are not what most screens actually use.**
+> `frontend/internal/src` hand-rolls **50 `<input>`, 63 `<button>` and 24 `<select>`** elements,
+> against 24 files importing `Button` and 9 importing `Input`. The login page's field is 40px tall
+> with a 6px radius — it is not the `Input` component at all. So migrating `packages/ui` moved the
+> tokens but reached a minority of the surface. **Each screen is a decision: adopt the shared
+> component, or restyle the local one.** Adopting is usually right and is what makes the next
+> rebrand cheap, but it changes markup and can move focus/keyboard behaviour, so it is a per-screen
+> call — not a sweep.
 
 **Baseline measured 2026-08-21, source files only** (`.next`, `dist` and `node_modules` excluded —
 an earlier count of "~1,120" included build artifacts and was wrong):

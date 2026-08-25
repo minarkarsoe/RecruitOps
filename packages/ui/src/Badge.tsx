@@ -25,16 +25,16 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  default: 'bg-surface-50 text-ink-900 border border-line-200',
-  primary: 'bg-primary-100 text-primary-700',
-  secondary: 'bg-surface-50 text-ink-600 border border-line-200',
-  cyan: 'bg-primary-100 text-primary-700',
-  teal: 'bg-primary-100 text-primary-700',
-  zinc: 'bg-surface-50 text-ink-600 border border-line-200',
-  success: 'bg-success-100 text-success-600',
-  warning: 'bg-warning-100 text-warning-600',
-  danger: 'bg-danger-100 text-danger-600',
-  info: 'bg-info-100 text-info-600',
+  default: 'bg-canvas text-ink-900 border border-line',
+  primary: 'bg-brand-100 text-brand-700',
+  secondary: 'bg-canvas text-ink-600 border border-line',
+  cyan: 'bg-brand-100 text-brand-700',
+  teal: 'bg-brand-100 text-brand-700',
+  zinc: 'bg-canvas text-ink-600 border border-line',
+  success: 'bg-positive-50 text-positive-500',
+  warning: 'bg-warn-50 text-warn-500',
+  danger: 'bg-critical-50 text-critical-500',
+  info: 'bg-info-50 text-info-600',
   // Client tier badges (design system §5.3)
   gold: 'bg-[#FBF3E1] text-[#B58226] border border-[#F2DBA8]',
   silver: 'bg-[#EFF2F5] text-[#5A6872] border border-[#D3DBE2]',
@@ -42,8 +42,8 @@ const VARIANT_CLASSES: Record<BadgeVariant, string> = {
 };
 
 const SIZE_CLASSES: Record<BadgeSize, string> = {
-  sm: 'h-5 px-2 text-[11px] font-medium gap-1',
-  md: 'h-6 px-2.5 text-[13px] font-semibold gap-1.5',
+  sm: 'h-5 px-2 text-2xs font-medium gap-1',
+  md: 'h-6 px-2.5 text-xs font-medium gap-1.5',
 };
 
 export function Badge({

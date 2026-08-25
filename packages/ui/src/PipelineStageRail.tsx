@@ -41,7 +41,7 @@ export function PipelineStageRail({
   return (
     <div
       aria-label="Pipeline Stages"
-      className={`flex flex-wrap items-center gap-2 rounded-xl bg-surface-0 p-3 shadow-card border border-line-200 ${className}`}
+      className={`flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 shadow-card border border-line ${className}`}
     >
       {stages.map((stage, index) => {
         const isActive = activeStage === stage.label || activeStage === stage.status;
@@ -51,14 +51,14 @@ export function PipelineStageRail({
             <button
               type="button"
               onClick={() => onStageClick?.(stage.label)}
-              className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary-600 ${
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-600 ${
                 isActive
-                  ? 'bg-primary-100 text-primary-700 ring-1 ring-primary-600 font-semibold'
-                  : 'bg-surface-50 text-ink-600 hover:bg-line-200'
+                  ? 'bg-brand-100 text-brand-700 ring-1 ring-brand-600 font-semibold'
+                  : 'bg-canvas text-ink-600 hover:bg-line'
               }`}
             >
               <span>{stage.label}</span>
-              <span className="font-mono text-xs font-semibold px-1.5 py-0.5 rounded bg-surface-0 border border-line-200">
+              <span className="font-mono text-xs font-semibold px-1.5 py-0.5 rounded bg-white border border-line">
                 {stage.count}
               </span>
             </button>

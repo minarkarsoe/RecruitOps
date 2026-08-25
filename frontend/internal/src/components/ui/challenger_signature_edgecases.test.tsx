@@ -17,7 +17,7 @@ describe('Challenger Empirical Edge-Case Tests — Signature UI Components', () 
       const { container } = render(<StatusPill status="NonExistentStatus" />);
       expect(screen.getByText('Non Existent Status')).toBeInTheDocument();
       const pill = container.firstChild as HTMLElement;
-      expect(pill.className).toContain('bg-surface-50');
+      expect(pill.className).toContain('bg-canvas');
       expect(pill.className).toContain('text-ink-600');
     });
 
@@ -66,7 +66,7 @@ describe('Challenger Empirical Edge-Case Tests — Signature UI Components', () 
       const stages = [{ label: 'Custom Label', count: 5, status: 'Interview' }];
       render(<PipelineStageRail stages={stages} activeStage="Interview" />);
       const activeBtn = screen.getByRole('button', { name: /Custom Label/i });
-      expect(activeBtn.className).toContain('bg-primary-100');
+      expect(activeBtn.className).toContain('bg-brand-100');
     });
 
     it('renders zero counts and large counts correctly', () => {

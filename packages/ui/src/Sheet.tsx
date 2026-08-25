@@ -58,16 +58,16 @@ export function Sheet({
       {/* Drawer Container */}
       <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
         <div
-          className={`w-screen ${SIZE_CLASSES[size]} transform bg-surface-0 shadow-pop transition-transform duration-200 ease-in-out flex flex-col ${className}`}
+          className={`w-screen ${SIZE_CLASSES[size]} transform bg-white shadow-overlay transition-transform duration-200 ease-in-out flex flex-col ${className}`}
           role="dialog"
           aria-modal="true"
         >
           {/* Default header if title is passed */}
           {(title || description) ? (
-            <div className="flex items-start justify-between border-b border-line-200 px-6 py-4">
+            <div className="flex items-start justify-between border-b border-line px-6 py-4">
               <div>
                 {title && (
-                  <h2 className="font-display text-lg font-semibold text-ink-900">
+                  <h2 className="font-sans text-lg font-semibold text-ink-900">
                     {title}
                   </h2>
                 )}
@@ -78,7 +78,7 @@ export function Sheet({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md p-1.5 text-ink-400 hover:bg-surface-50 hover:text-ink-600 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                className="rounded-md p-1.5 text-ink-400 hover:bg-canvas hover:text-ink-600 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 aria-label="Close panel"
               >
                 <svg
@@ -101,7 +101,7 @@ export function Sheet({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md p-1.5 text-ink-400 hover:bg-surface-50 hover:text-ink-600 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                className="rounded-md p-1.5 text-ink-400 hover:bg-canvas hover:text-ink-600 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 aria-label="Close panel"
               >
                 <svg
@@ -137,7 +137,7 @@ export function SheetHeader({
   className?: string;
 }) {
   return (
-    <div className={`border-b border-line-200 px-6 py-4 ${className}`}>
+    <div className={`border-b border-line px-6 py-4 ${className}`}>
       {children}
     </div>
   );
@@ -151,7 +151,7 @@ export function SheetTitle({
   className?: string;
 }) {
   return (
-    <h2 className={`font-display text-lg font-semibold text-ink-900 ${className}`}>
+    <h2 className={`font-sans text-lg font-semibold text-ink-900 ${className}`}>
       {children}
     </h2>
   );
@@ -186,7 +186,7 @@ export function SheetFooter({
 }) {
   return (
     <div
-      className={`border-t border-line-200 bg-surface-50 px-6 py-4 flex items-center justify-end gap-3 ${className}`}
+      className={`border-t border-line bg-canvas px-6 py-4 flex items-center justify-end gap-3 ${className}`}
     >
       {children}
     </div>

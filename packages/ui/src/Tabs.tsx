@@ -43,7 +43,7 @@ export function Tabs({
   // If prop-driven tabs array is provided
   if (tabs) {
     return (
-      <div className={`border-b border-line-200 ${className}`}>
+      <div className={`border-b border-line ${className}`}>
         <nav className="-mb-px flex gap-6" aria-label="Tabs">
           {tabs.map((tab) => {
             const isActive = tab.id === currentActive;
@@ -55,8 +55,8 @@ export function Tabs({
                 onClick={() => handleTabChange(tab.id)}
                 className={`inline-flex items-center gap-2 border-b-2 py-3 text-sm transition-colors focus:outline-none ${
                   isActive
-                    ? 'border-primary-600 font-semibold text-ink-900'
-                    : 'border-transparent font-medium text-ink-600 hover:border-line-200 hover:text-ink-900'
+                    ? 'border-brand-600 font-semibold text-ink-900'
+                    : 'border-transparent font-medium text-ink-600 hover:border-line hover:text-ink-900'
                 } ${tab.disabled ? 'cursor-not-allowed opacity-50' : ''}`}
                 aria-current={isActive ? 'page' : undefined}
               >
@@ -65,8 +65,8 @@ export function Tabs({
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                       isActive
-                        ? 'bg-primary-100 text-primary-700'
-                        : 'bg-surface-50 text-ink-600'
+                        ? 'bg-brand-100 text-brand-700'
+                        : 'bg-canvas text-ink-600'
                     }`}
                   >
                     {tab.count}
@@ -96,7 +96,7 @@ export function TabsList({
   className?: string;
 }) {
   return (
-    <div className={`border-b border-line-200 ${className}`}>
+    <div className={`border-b border-line ${className}`}>
       <nav className="-mb-px flex gap-6" aria-label="Tabs">
         {children}
       </nav>
@@ -129,8 +129,8 @@ export function TabsTrigger({
       onClick={() => onChange(value)}
       className={`inline-flex items-center gap-2 border-b-2 py-3 text-sm transition-colors focus:outline-none ${
         isActive
-          ? 'border-primary-600 font-semibold text-ink-900'
-          : 'border-transparent font-medium text-ink-600 hover:border-line-200 hover:text-ink-900'
+          ? 'border-brand-600 font-semibold text-ink-900'
+          : 'border-transparent font-medium text-ink-600 hover:border-line hover:text-ink-900'
       } ${disabled ? 'cursor-not-allowed opacity-50' : ''} ${className}`}
       aria-current={isActive ? 'page' : undefined}
     >
@@ -139,8 +139,8 @@ export function TabsTrigger({
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
             isActive
-              ? 'bg-primary-100 text-primary-700'
-              : 'bg-surface-50 text-ink-600'
+              ? 'bg-brand-100 text-brand-700'
+              : 'bg-canvas text-ink-600'
           }`}
         >
           {count}

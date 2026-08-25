@@ -210,13 +210,13 @@ export function CommandPalette({
 
       {/* Palette Box */}
       <div
-        className="relative w-full max-w-2xl bg-surface-0 rounded-md shadow-pop border border-line-200 overflow-hidden z-10 flex flex-col max-h-[80vh]"
+        className="relative w-full max-w-2xl bg-white rounded-md shadow-overlay border border-line overflow-hidden z-10 flex flex-col max-h-[80vh]"
         role="dialog"
         aria-modal="true"
         aria-label="Command Palette"
       >
         {/* Search Header */}
-        <div className="flex items-center border-b border-line-200 px-4 py-3 bg-surface-0">
+        <div className="flex items-center border-b border-line px-4 py-3 bg-white">
           <svg
             className="h-5 w-5 text-ink-400 mr-3 flex-shrink-0"
             fill="none"
@@ -240,7 +240,7 @@ export function CommandPalette({
           />
           {isLoading && (
             <svg
-              className="animate-spin h-4 w-4 text-primary-600 ml-2 flex-shrink-0"
+              className="animate-spin h-4 w-4 text-brand-600 ml-2 flex-shrink-0"
               viewBox="0 0 24 24"
               fill="none"
             >
@@ -268,7 +268,7 @@ export function CommandPalette({
               Clear
             </button>
           )}
-          <span className="text-[11px] font-mono font-medium text-ink-400 bg-surface-50 border border-line-200 px-1.5 py-0.5 rounded ml-2">
+          <span className="text-2xs font-mono font-medium text-ink-500 bg-canvas border border-line px-1.5 py-0.5 rounded ml-2">
             ESC
           </span>
         </div>
@@ -310,7 +310,7 @@ export function CommandPalette({
 
               return (
                 <div key={category} className="mb-3 last:mb-0">
-                  <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-400">
+                  <div className="px-3 py-1.5 text-2xs font-medium text-ink-500">
                     {category}
                   </div>
                   <div className="space-y-0.5">
@@ -325,8 +325,8 @@ export function CommandPalette({
                           onMouseEnter={() => setSelectedIndex(currentIndex)}
                           className={`flex items-center justify-between px-3 py-2.5 rounded-md cursor-pointer text-sm transition-colors ${
                             isSelected
-                              ? 'bg-primary-100/70 text-ink-900 font-medium'
-                              : 'text-ink-600 hover:bg-surface-50'
+                              ? 'bg-brand-100/70 text-ink-900 font-medium'
+                              : 'text-ink-600 hover:bg-canvas'
                           }`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
@@ -359,7 +359,7 @@ export function CommandPalette({
                             </div>
                           </div>
                           {item.shortcut && (
-                            <kbd className="text-[11px] font-mono text-ink-400 bg-surface-0 border border-line-200 px-1.5 py-0.5 rounded shadow-xs ml-3 flex-shrink-0">
+                            <kbd className="text-2xs font-mono text-ink-500 bg-white border border-line px-1.5 py-0.5 rounded shadow-sm ml-3 flex-shrink-0">
                               {item.shortcut}
                             </kbd>
                           )}
@@ -374,13 +374,13 @@ export function CommandPalette({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-line-200 px-4 py-2 bg-surface-50 text-xs text-ink-400 flex items-center justify-between">
+        <div className="border-t border-line px-4 py-2 bg-canvas text-xs text-ink-400 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span>
-              <kbd className="font-mono bg-surface-0 border border-line-200 px-1 rounded">↑↓</kbd> Navigate
+              <kbd className="font-mono bg-white border border-line px-1 rounded">↑↓</kbd> Navigate
             </span>
             <span>
-              <kbd className="font-mono bg-surface-0 border border-line-200 px-1 rounded">↵</kbd> Select
+              <kbd className="font-mono bg-white border border-line px-1 rounded">↵</kbd> Select
             </span>
           </div>
           <span>RecruitOps CRM</span>

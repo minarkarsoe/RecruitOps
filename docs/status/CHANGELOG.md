@@ -5,6 +5,48 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-21 (latest)
 
+### 🎨 ADR-0025 step 3c — `packages/ui` rebuilt against the kit
+**Why:** both apps import it, so it is the one place where a fix reaches everything. Frontend
+**344/344**, typecheck clean. **0 compat tokens left in `packages/ui/src`** — 133 migrated across
+13 components; repo-wide 732 → 599.
+
+**Built against `design/internal/components.html`, not renamed.** The colour aliases were a
+mechanical pass; the shape was not, and the kit changes more than colour:
+
+- `StatusPill` — tint `-100`→`-50`, type 13px/semibold→12px/medium, and the neutral statuses gain
+  a border because they are the only ones with no tint to sit on.
+- `Button` — `h-10`→`h-9`, 15px/semibold→14px/medium, primary base `brand-600`→`brand-700` with
+  real `active:` steps (on a touch screen there is no hover, so press feedback is the only
+  confirmation the tap landed), disabled `bg-ink-400/40`.
+- `Input`/`Select` — `h-10`→`h-9`, `rounded-sm`→`rounded-md`, soft `/20` focus ring, and the error
+  message moved from `text-xs text-critical-500` to `text-sm text-critical-700` (the -500 step on
+  white is 3.76:1 — it failed).
+- `Table` — **the uppercase micro-caps header is gone**, rows are 44px per the kit, one rule per
+  row instead of `divide-y` *and* `border-b`, selected row `bg-brand-50/60`.
+- `Card` — title dropped from 19px in the display face to 14px semibold. A card heading labels the
+  thing below it; it is not a headline.
+
+**Every pill contrast pair was re-measured rather than assumed**, because the `-100`→`-50` move
+changes all of them: ink-600/canvas 7.24 · brand-800/brand-50 7.27 · info-700/info-50 6.16 ·
+critical-700/critical-50 5.91 · positive-700/positive-50 5.21 · warn-700/warn-50 **4.84**. All
+pass AA; warn has the least headroom and is the pair that breaks first.
+
+**Verified by reading computed styles in a browser**, not by reading the diff — button
+`#0F766E`/36px/14px/500/r10, pill `#FFFBEB` on `#B45309`/24px/12px/500, card white/r12/20px.
+
+12 design-system test assertions were updated to the V1.0 names and 2 tests added. They were doing
+their job: they pinned the old system and failed the moment it changed.
+
+> **Also fixed in `design/` itself:** `components.html` said "radius 8" in prose while its markup
+> used `rounded-md` in 157 places — 10px in V1.0. The prose was the outlier. A source of truth
+> that contradicts itself is not one.
+
+> ⚠️ **Found while verifying, and it changes the size of what is left:** most screens do not use
+> these components at all. `frontend/internal/src` hand-rolls **50 `<input>`, 63 `<button>` and 24
+> `<select>`**, against 24 files importing `Button` and 9 importing `Input` — the login page's
+> field is 40px/r6, not the `Input` component. Migrating the shared package moved the tokens but
+> reached a minority of the surface.
+
 ### 🎨 ADR-0025 step 3a+3b — the apps are on V1.0 tokens
 **Why:** `design/` is now the declared source of truth for UI, and that rule was inert while the
 kit and the apps used different *class names* — a screen copied from the kit rendered unstyled,

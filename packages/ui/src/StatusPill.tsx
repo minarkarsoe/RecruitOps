@@ -23,34 +23,48 @@ export type StatusPillVocabulary =
 
 type Status = StatusPillVocabulary;
 
-// Text on a tint uses the -700 step, not -600. The -600/-100 pairs the design system used to
-// mandate do not reach 4.5:1 at this size — measured 2026-08-17: warning 2.97, success 3.62,
-// danger 4.08, info 4.23. `ink-400` on `surface-50` (2.77) is out for the same reason.
+// V1.0 (ADR-0025), built against `design/internal/components.html` → "Status pills".
+//
+// Text on a tint uses the -700 step, never -600. That rule came from measurement, not taste:
+// the -600/-100 pairs the old design system mandated do not reach 4.5:1 at this size —
+// measured 2026-08-17: warning 2.97, success 3.62, danger 4.08, info 4.23.
+//
+// The kit moves the tint from -100 to -50, so every pair was re-measured 2026-08-21 rather
+// than assumed. All six pass AA, and the lighter tint improves each one:
+//
+//   ink-600      on canvas        7.24     brand-800    on brand-50      7.27
+//   info-700     on info-50       6.16     critical-700 on critical-50   5.91
+//   positive-700 on positive-50   5.21     warn-700     on warn-50       4.84  ← tightest
+//
+// warn is the pair with the least headroom. If a future palette darkens `warn-50` or lightens
+// `warn-700`, that is the one that breaks first — re-measure before changing either.
+const NEUTRAL = 'bg-canvas border border-line text-ink-600';
+
 const STYLES: Record<string, string> = {
   // Candidate pipeline
-  Sourced: 'bg-surface-50 text-ink-600',
-  Applied: 'bg-info-100 text-info-700',
-  Screening: 'bg-info-100 text-info-700',
-  Shortlisted: 'bg-primary-100 text-primary-700',
-  Interview: 'bg-warning-100 text-warning-700',
-  Offer: 'bg-accent-100 text-accent-700',
-  Hired: 'bg-success-100 text-success-700',
+  Sourced: NEUTRAL,
+  Applied: 'bg-info-50 text-info-700',
+  Screening: 'bg-info-50 text-info-700',
+  Shortlisted: 'bg-brand-50 text-brand-800',
+  Interview: 'bg-warn-50 text-warn-700',
+  Offer: 'bg-warn-50 text-warn-700',
+  Hired: 'bg-positive-50 text-positive-700',
   // Requisition lifecycle
-  Draft: 'bg-surface-50 text-ink-600',
-  PendingApproval: 'bg-warning-100 text-warning-700',
-  Approved: 'bg-success-100 text-success-700',
-  Cancelled: 'bg-surface-50 text-ink-600',
+  Draft: NEUTRAL,
+  PendingApproval: 'bg-warn-50 text-warn-700',
+  Approved: 'bg-positive-50 text-positive-700',
+  Cancelled: NEUTRAL,
   // Job posting lifecycle ('Draft' is shared with the requisition lifecycle above)
-  Live: 'bg-success-100 text-success-700',
-  Closed: 'bg-surface-50 text-ink-600',
+  Live: 'bg-positive-50 text-positive-700',
+  Closed: NEUTRAL,
   // Interview lifecycle ('Cancelled' is shared with the requisition lifecycle above).
-  // NoShow is warning rather than danger: the candidate not turning up is a fact to record,
+  // NoShow is warn rather than critical: the candidate not turning up is a fact to record,
   // not a failure to flag red at a recruiter.
-  Scheduled: 'bg-info-100 text-info-700',
-  Completed: 'bg-success-100 text-success-700',
-  NoShow: 'bg-warning-100 text-warning-700',
+  Scheduled: 'bg-info-50 text-info-700',
+  Completed: 'bg-positive-50 text-positive-700',
+  NoShow: 'bg-warn-50 text-warn-700',
   // Shared
-  Rejected: 'bg-danger-100 text-danger-700',
+  Rejected: 'bg-critical-50 text-critical-700',
 };
 
 // Insert a space before capitals so "PendingApproval" reads as "Pending Approval",
@@ -60,11 +74,14 @@ function humanise(status: string): string {
 }
 
 export function StatusPill({ status }: { status: Status | string }) {
-  const styleClass = STYLES[status] || 'bg-surface-50 text-ink-600';
+  // An unknown status falls back to neutral rather than throwing. It is a label the backend
+  // sent that this build does not know yet — showing it plainly beats a blank space.
+  const styleClass = STYLES[status] || NEUTRAL;
   return (
     <span
-      className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold ${styleClass}`}
+      className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium ${styleClass}`}
     >
+      {/* Never colour alone — the dot is reinforcement, the label carries the meaning. */}
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
       {humanise(status)}
     </span>
