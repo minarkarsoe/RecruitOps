@@ -70,6 +70,21 @@ body {
 .rail-step:last-child::before { display: none; }
 .rail-step.is-done::before { background: theme('colors.brand.200'); }
 
+/* --- Chart marks ----------------------------------------------------------
+   Ported from `design/internal/analytics-dashboard.html` and `analytics-pipeline.html`,
+   where they are defined as CSS rather than utilities for the same reason `.rail-step` is:
+   the data-end radius is asymmetric (square at the baseline, rounded at the tip) and no
+   utility says that.
+
+   The fill is ONE hue. Every bar in this product is single-series magnitude — days in a
+   stage, candidates from a source, headcount in a department — and a hue per row encodes
+   the row's position, not its identity. The kit reserves its validated categorical set
+   (#0D9488 #7C3AED #D97706 #0369A1) for the one place identity is actually encoded: the
+   same channel appearing in two different charts. */
+.bar-track { background: theme('colors.line.100'); border-radius: 4px; overflow: hidden; }
+.bar-fill  { background: theme('colors.brand.600'); border-radius: 0 4px 4px 0; height: 100%; }
+.bar-row:hover .bar-fill { background: theme('colors.brand.700'); }
+
 /* --- Skeleton loading -----------------------------------------------------
    Skeletons, never a spinner parked in the middle of content: the shape of what is
    coming is information, a spinner is not. */

@@ -17,6 +17,21 @@
 // the failure that shipped in the previous system and was fixed by measurement, not by eye.
 // ============================================================================================
 export default {
+  // ⚠️ V1.0 HAS NO DARK THEME, and this line is what makes that true rather than aspirational.
+  //
+  // Tailwind's default is `darkMode: 'media'`, so a stray `dark:` utility fires on any machine
+  // whose OS is set to dark — no opt-in, no `.dark` class needed. `features/analytics` carried 97
+  // of them while `index.css` declared `color-scheme: light` and the shell had none at all, so on
+  // a dark-mode machine the analytics page painted `bg-zinc-800` panels and `text-zinc-400` labels
+  // onto a light canvas. Measured live in the running app on 2026-08-25: body still
+  // `rgb(248,250,252)`, labels `rgb(148,163,184)` — **2.45:1**, and the error banner rendered
+  // near-black translucent red. Half an app in the wrong theme, visible to nobody who develops in
+  // light mode.
+  //
+  // The 97 classes are gone. `'class'` means the next one that slips in is inert until someone
+  // deliberately puts `.dark` on an ancestor, which is a decision rather than an accident. When a
+  // real dark theme is designed, this is where it turns on.
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {

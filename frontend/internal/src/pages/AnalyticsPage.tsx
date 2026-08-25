@@ -50,12 +50,12 @@ export const AnalyticsPage: React.FC = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6" data-testid="analytics-page-container">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-line dark:border-ink-800 pb-5">
+      <div className="flex flex-col justify-between gap-4 border-b border-line pb-5 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">
             Reporting &amp; Analytics
           </h1>
-          <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">
+          <p className="mt-1 text-sm text-ink-600">
             Real-time recruitment metrics, time-to-hire benchmarks, conversion funnels, and custom CSV reporting.
           </p>
         </div>
@@ -75,7 +75,7 @@ export const AnalyticsPage: React.FC = () => {
 
       {/* Global Error Banner */}
       {error && (
-        <div className="p-4 rounded-lg bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-sm">
+        <div className="rounded-lg border border-critical-100 bg-critical-50 p-4 text-sm text-critical-700">
           {error}
         </div>
       )}

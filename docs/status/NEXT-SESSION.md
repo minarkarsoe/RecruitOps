@@ -272,9 +272,63 @@ something.
 > the words alone unless the words are the task.** A fifth was a `tnum` span splitting a text node
 > that a regex matched across — wrapping part of a sentence in a span is a functional change.
 
-### ← You are here: 3e(ii) — `features/analytics` (165), `features/interviews` (24), `features/requisitions` (14), `public/app` (12)
+### ✅ 3e(ii) — `features/analytics/` (done 2026-08-25)
 
-**215 compat usages left.** `packages/ui`, `components`, `pages` and `features/pipeline` are at zero.
+Analytics is at **0** real usages (5 remaining hits are comments quoting what was removed).
+Repo-wide 215 → **55**. Frontend **358/358**.
+
+**Two bugs, not restyling.**
+
+**The analytics page rendered in dark mode on any dark-mode machine.** 97 `dark:` utilities in
+this one folder, none anywhere else, and Tailwind's default `darkMode: 'media'` needs no opt-in.
+Measured live with the OS in dark: body still light canvas, chart labels ink-400 on white at
+**2.45:1**, skeletons `bg-ink-800`, the error banner near-black translucent red. The preset now
+sets **`darkMode: 'class'`** — a stray `dark:` is inert until someone puts `.dark` on an ancestor.
+
+**The eight-colour source palette failed the dataviz validator** — `indigo-500 ↔ purple-500`
+ΔE **0.9** (protan) and `emerald-500 ↔ teal-500` ΔE **5.4** normal-vision, i.e. two pairs nobody
+could separate. Replaced by one hue, because the chart is one measure across directly-labelled
+categories. The kit's validated four-colour set is for the case that carries identity (one channel
+in two charts) — do not reach for it on a single-series bar.
+
+Bars now come from `.bar-track` / `.bar-fill` in `index.css`, ported from the kit. `ChartMarks.test.tsx`
+pins one-hue, `aria-pressed`, `role="img"` and no-`dark:`; every assertion was proved against a
+mutation, and **one initially passed** (a per-row colour set via inline `style` rather than a
+class), so the check now covers both routes.
+
+### ⚠️ Before 3e(iii): most of `features/` never reaches a screen
+
+Measured 2026-08-25 — grep for each symbol outside its own file and its barrel:
+
+| Component | Reaches a screen? |
+|---|---|
+| `features/analytics/*` | ✅ `AnalyticsPage` renders all five |
+| `features/search/*` | ✅ `AppLayout` |
+| `features/pipeline/BulkCvUploadModal` | ✅ `JobPostingDetailPage` |
+| `features/pipeline/PipelineKanbanBoard` | ❌ barrel export only |
+| `features/pipeline/CandidateSlideOver` | ❌ barrel export only |
+| `features/pipeline/SmartMatchBreakdown` | ❌ only via `CandidateSlideOver` |
+| `features/pipeline/ExecutiveSummaryPanel` | ❌ only via `CandidateSlideOver` |
+| `features/interviews/BlindScorecardDrawer` | ❌ barrel export only |
+| `features/requisitions/RequisitionTable` | ❌ barrel export only |
+| `features/requisitions/RequisitionDrawer` | ❌ barrel export only |
+
+`JobPostingDetailPage` hand-rolls its own pipeline list rather than using `PipelineKanbanBoard`,
+and there is no Candidate 360 route at all — so the AI Smart Match and executive-summary panels,
+which have 402-gating, skeletons and eleven tests, are **unreachable in the product**. The
+`features/requisitions` orphan CLAUDE.md already warns about is not the exception; it is the rule.
+
+**This was found only after `features/pipeline` had been migrated**, so four of those files were
+restyled while orphaned. That work is not wasted if the components get wired up, and is wasted if
+they get deleted — which is exactly why the question comes before 3e(iii) rather than after.
+
+> **Decide before migrating `interviews` (24) and `requisitions` (14): wire up or delete.**
+> Styling dead code is the one kind of effort here that cannot pay off either way.
+
+### ← You are here: 3e(iii) — `features/interviews` (24), `features/requisitions` (14), `public/app` (12)
+
+**55 compat usages left**, of which 5 are comments. `packages/ui`, `components`, `pages`,
+`features/pipeline` and `features/analytics` are at zero — and so is `dark:`, repo-wide.
 
 > ⚠️ **The old exit-condition grep counted build output.** Pointed at `frontend/public` it also
 > reads `.next/` — 78 hits there, **66 of them compiled artifacts**, so the number could never

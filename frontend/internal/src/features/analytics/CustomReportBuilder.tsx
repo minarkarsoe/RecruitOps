@@ -58,6 +58,16 @@ const ALL_COLUMNS = [
   'DaysInProcess',
 ];
 
+// One toggle-chip treatment for both groups. They had two — teal for stages, cyan for columns —
+// which under the V1.0 preset alias to the identical hex, so the code claimed a distinction the
+// screen could not show. What separates the two groups is the label above them.
+const chipClass = (isSelected: boolean) =>
+  `h-7 rounded-full border px-2.5 text-sm transition-colors ${
+    isSelected
+      ? 'border-brand-700 bg-brand-50 font-medium text-brand-800'
+      : 'border-line bg-white text-ink-600 hover:border-line-strong'
+  }`;
+
 export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
   onQueryReport,
   onExportCsv,
@@ -115,8 +125,8 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
   return (
     <div data-testid="custom-report-builder-card">
       <Card title="Custom Report Builder">
-        <div className="mb-5 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="mb-5 flex flex-col justify-between gap-3 border-b border-line pb-3 sm:flex-row sm:items-center">
+          <p className="text-sm text-ink-600">
             Filter parameters, select visible report columns, and export custom CSV datasets
           </p>
 
@@ -144,37 +154,31 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
         </div>
 
         {/* Filter Parameters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5 bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-lg border border-zinc-100 dark:border-zinc-800">
+        <div className="mb-5 grid grid-cols-1 gap-4 rounded-lg border border-line bg-canvas p-4 md:grid-cols-4">
           <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Date From
-            </label>
+            <label className="mb-1 block text-sm text-ink-600">Date From</label>
             <Input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full text-xs"
+              className="w-full"
               data-testid="date-from-input"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Date To
-            </label>
+            <label className="mb-1 block text-sm text-ink-600">Date To</label>
             <Input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="w-full text-xs"
+              className="w-full"
               data-testid="date-to-input"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Department
-            </label>
+            <label className="mb-1 block text-sm text-ink-600">Department</label>
             <Select
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
@@ -182,15 +186,13 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
                 { value: '', label: 'All Departments' },
                 ...departments.map((d) => ({ value: d.id, label: d.name })),
               ]}
-              className="w-full text-xs"
+              className="w-full"
               data-testid="department-select"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Job Posting
-            </label>
+            <label className="mb-1 block text-sm text-ink-600">Job Posting</label>
             <Select
               value={jobPostingId}
               onChange={(e) => setJobPostingId(e.target.value)}
@@ -198,7 +200,7 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
                 { value: '', label: 'All Postings' },
                 ...jobPostings.map((jp) => ({ value: jp.id, label: jp.title })),
               ]}
-              className="w-full text-xs"
+              className="w-full"
               data-testid="job-posting-select"
             />
           </div>
@@ -206,7 +208,7 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
 
         {/* Stage Selection */}
         <div className="mb-4">
-          <span className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+          <span className="mb-1.5 block text-sm text-ink-600">
             Filter by Pipeline Stage (Optional):
           </span>
           <div className="flex flex-wrap gap-2">
@@ -216,12 +218,9 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
                 <button
                   key={stage}
                   type="button"
+                  aria-pressed={isSelected}
                   onClick={() => toggleStage(stage)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                    isSelected
-                      ? 'bg-teal-50 dark:bg-teal-950/60 border-teal-500 text-teal-700 dark:text-teal-300 font-semibold'
-                      : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300'
-                  }`}
+                  className={chipClass(isSelected)}
                   data-testid={`stage-toggle-${stage}`}
                 >
                   {stage}
@@ -233,9 +232,7 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
 
         {/* Column Selection */}
         <div className="mb-6">
-          <span className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-            Select Output Columns:
-          </span>
+          <span className="mb-1.5 block text-sm text-ink-600">Select Output Columns:</span>
           <div className="flex flex-wrap gap-2">
             {ALL_COLUMNS.map((col) => {
               const isSelected = selectedColumns.includes(col);
@@ -243,12 +240,9 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
                 <button
                   key={col}
                   type="button"
+                  aria-pressed={isSelected}
                   onClick={() => toggleColumn(col)}
-                  className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
-                    isSelected
-                      ? 'bg-cyan-50 dark:bg-cyan-950/60 border-cyan-500 text-cyan-700 dark:text-cyan-300 font-semibold'
-                      : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300'
-                  }`}
+                  className={chipClass(isSelected)}
                   data-testid={`column-toggle-${col}`}
                 >
                   {col}
@@ -260,41 +254,40 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
 
         {/* Error Alert */}
         {reportError && (
-          <div className="mb-4 p-3 text-xs rounded-md bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+          <div className="mb-4 rounded-md border border-critical-100 bg-critical-50 p-3 text-sm text-critical-700">
             {reportError}
           </div>
         )}
 
         {/* Tabular Preview */}
-        <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden" data-testid="report-preview-container">
-          <div className="bg-zinc-100 dark:bg-zinc-800/80 px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
+        <div className="overflow-hidden rounded-lg border border-line" data-testid="report-preview-container">
+          <div className="flex items-center justify-between border-b border-line bg-canvas px-4 py-2 text-sm text-ink-600">
             <span>Report Data Preview</span>
             {reportResult && (
-              <span className="text-[10px] text-zinc-500">
-                {reportResult.rows.length} rows returned
-              </span>
+              <span className="tnum">{reportResult.rows.length} rows returned</span>
             )}
           </div>
 
           {reportLoading ? (
-            <div className="p-4 space-y-2">
+            <div className="space-y-2 p-4">
               <SkeletonRow />
               <SkeletonRow />
               <SkeletonRow />
             </div>
           ) : !reportResult || reportResult.rows.length === 0 ? (
-            <div className="p-8 text-center text-xs text-zinc-500 dark:text-zinc-400" data-testid="no-report-data">
+            <p className="p-8 text-center text-sm text-ink-600" data-testid="no-report-data">
               No report data queried yet. Click &quot;Run Query&quot; to fetch live tabular data preview.
-            </div>
+            </p>
           ) : (
-            <div className="overflow-x-auto max-h-96">
+            <div className="max-h-96 overflow-x-auto">
+              {/* No className overrides on the table parts — Table already carries the kit's
+                  treatment, and overriding its type size here is how four hand-rolled tables
+                  drifted apart before they were unified. */}
               <Table>
                 <TableHeader>
                   <TableRow>
                     {reportResult.headers.map((hdr, i) => (
-                      <TableHead key={i} className="text-xs font-semibold">
-                        {hdr}
-                      </TableHead>
+                      <TableHead key={i}>{hdr}</TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
@@ -302,7 +295,7 @@ export const CustomReportBuilder: React.FC<CustomReportBuilderProps> = ({
                   {reportResult.rows.map((row, rIdx) => (
                     <TableRow key={rIdx} data-testid={`report-row-${rIdx}`}>
                       {reportResult.headers.map((hdr, cIdx) => (
-                        <TableCell key={cIdx} className="text-xs">
+                        <TableCell key={cIdx}>
                           {row[hdr] !== undefined && row[hdr] !== null
                             ? String(row[hdr])
                             : '-'}

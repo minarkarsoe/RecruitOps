@@ -5,6 +5,57 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-25 (latest)
 
+### 📊 `features/analytics` on the design kit — half the app was rendering in dark mode
+**Why:** ADR-0025 step 3e(ii). Analytics reaches 0 real compat tokens (5 remaining hits are
+comments quoting what was removed); repo-wide 215 → **55**. Frontend **358/358** (six new),
+typecheck clean.
+
+**Two of these are bugs, not restyling.**
+
+**1. The analytics page rendered in dark mode on any dark-mode machine.** `features/analytics`
+carried **97 `dark:` utilities** while `index.css` declares `color-scheme: light` and the rest of
+the app has none at all. Tailwind's default is `darkMode: 'media'`, so they need no opt-in — they
+fire off the OS setting. Measured live in the running app on 2026-08-25 with the OS in dark:
+
+```
+body background      rgb(248,250,252)   canvas — light, as designed
+chart labels         rgb(148,163,184)   ink-400 on a white card = 2.45:1
+skeleton blocks      rgb(30,41,59)      ink-800 — near-black on white
+error banner         rgb(252,165,165) on rgba(69,10,10,.5)
+```
+
+Half an app in the wrong theme, invisible to anyone who develops in light mode. The 97 classes
+are gone, and the preset now sets `darkMode: 'class'` so the next stray one is inert until
+someone deliberately opts a subtree in. Re-measured after the fix: `dark:bg-zinc-800` resolves to
+`rgb(241,245,249)` — the light half — with the OS still in dark.
+
+**2. The eight-colour source palette was not distinguishable.** Run through the dataviz validator
+(light surface, 2026-08-25) it FAILS two hard checks:
+
+```
+CVD separation        indigo-500 ↔ purple-500   ΔE 0.9 (protan)  — indistinguishable
+Normal-vision floor   emerald-500 ↔ teal-500    ΔE 5.4           — below the floor of 15
+```
+
+Five of the eight were near-neighbours, two of them unseparable **with full colour vision**. It is
+replaced by one hue rather than a corrected eight: the chart is one measure across categories
+whose names sit beside their bars, so colour was encoding position in a list the list already
+orders. The kit does keep a validated four-colour categorical set (reproduced here: ΔE 21.0
+deutan / 13.6 tritan / 30.2 normal, all six checks pass) and reserves it for the one case that
+carries identity — the same channel appearing in two charts.
+
+Also from `analytics-dashboard.html`: bars are `.bar-track`/`.bar-fill` in `index.css` (brand-600
+fill, `line-100` track, `0 4px 4px 0` radius anchored to the baseline — verified live); the KPI
+tiles put their number in **ink**, not four hues encoding position in a row of four unrelated
+measures; time-to-hire draws all three tabs in one hue, because all three measure average days
+and the tab already says which breakdown you are on; the two chip groups in the report builder
+share one treatment, having previously used `teal` and `cyan`, which alias to the same hex.
+
+Six tests pin this (`ChartMarks.test.tsx`), each proved to fail against a mutation first. **One
+mutation initially passed** — painting a row via inline `style` rather than a class — so the
+assertion was widened to cover the inline route, which is the one a per-row colour would actually
+take.
+
 ### 🗂 `features/pipeline` on the design kit — and a contrast failure we shipped
 **Why:** ADR-0025 step 3e. `features/pipeline` is at **0** compat tokens; the honest repo-wide
 count is 334 → **215**. Frontend **352/352**, typecheck clean.
