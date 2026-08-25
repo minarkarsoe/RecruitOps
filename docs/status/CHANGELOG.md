@@ -3,7 +3,52 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-08-21 (latest)
+## 2026-08-25 (latest)
+
+### 🗂 `features/pipeline` on the design kit — and a contrast failure we shipped
+**Why:** ADR-0025 step 3e. `features/pipeline` is at **0** compat tokens; the honest repo-wide
+count is 334 → **215**. Frontend **352/352**, typecheck clean.
+
+**Badge failed AA on three of its variants, and this change fixed it.** `packages/ui`'s rebuild
+(2026-08-21) checked `StatusPill` and never opened `Badge`, so `success`, `warning` and `danger`
+kept a **-500 step as text on their own -50 tint** — the exact failure the preset's own comment
+warns about, three files above where it happened. Measured 2026-08-25:
+
+| | before | | after | |
+|---|---|---|---|---|
+| `success` | positive-500 on positive-50 | **2.41:1 FAIL** | positive-700 | 5.21:1 PASS |
+| `warning` | warn-500 on warn-50 | **2.07:1 FAIL** | warn-700 | 4.84:1 PASS |
+| `danger` | critical-500 on critical-50 | **3.44:1 FAIL** | critical-700 | 5.91:1 PASS |
+
+The colours were right and the *steps* were wrong, which is why review missed it twice and a
+five-line script caught it immediately.
+
+Beyond the rename, four things changed shape, each read off `design/internal/board.html`:
+
+- **The board's columns are white on the canvas ground**, not grey fills holding white cards. The
+  kit's board is cards floating on the page; a grey column inverts that and makes the container
+  louder than its contents on a screen that is nothing but contents.
+- **Column counts are `font-mono tnum text-ink-500`, not eight coloured Badges.** A badge is a
+  status; a column count is a number that changes every time a card moves. Tabular figures stop
+  it jittering, and eight tinted pills across the top stop competing with the stage names.
+- **Loading is a skeleton, empty is a sentence.** `Loading…` tells the user to wait; a skeleton
+  tells them what is coming. And the two terminal columns now say what they cost — the kit
+  writes the Hired one out in full because "this closes the requisition" is a bad thing to
+  learn by doing.
+- **Stage history uses the approval-chain rail** (`.rail-step`), which the kit reuses for exactly
+  this. The numbered circles it replaces encoded nothing the order didn't already say.
+
+Two smaller ones: `ExecutiveSummaryPanel`'s two hand-rolled toggle groups became one segmented
+control on the kit's detented-filter pattern — they had used **brand for "selected" in one group
+and ink in the other**, two meanings for one idea on one row, and brand is the *action* colour, so
+a filter painted brand looked like a button that would go and do something. And the AI panels'
+402 banners moved off raw Tailwind `amber` onto `warn` tokens.
+
+**A correction to the last entry.** It reported "repo-wide 525 → 340". That 340 counted only
+`frontend/public/app`; pointed at `frontend/public`, the same grep also reads `.next/` build
+output — 78 hits there, of which **66 are compiled artifacts that can never reach zero**. The
+preset's exit-condition command now carries `--include` filters and points at `public/app`, with
+the reason written next to it. A count that cannot reach zero is not an exit condition.
 
 ### 📄 `pages/` on the design kit
 **Why:** ADR-0025 step 3d continued. `pages/` is at **0** compat tokens; repo-wide 525 → 340.

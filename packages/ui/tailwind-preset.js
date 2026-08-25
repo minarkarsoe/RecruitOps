@@ -59,7 +59,14 @@ export default {
         //
         // ⚠️ DELETE THIS BLOCK when the count is zero. To check:
         //     grep -rEo "(primary|success|warning|danger|accent|surface|zinc|cyan|teal)-[0-9]+" \
-        //       frontend/internal/src frontend/public packages/ui/src | wc -l
+        //       --include=*.ts --include=*.tsx --include=*.css \
+        //       frontend/internal/src frontend/public/app packages/ui/src | wc -l
+        //
+        // ⚠️ The `--include` filters and `public/app` are load-bearing. Pointed at
+        // `frontend/public`, this grep also reads `.next/` — the build output, which contains
+        // compiled copies of the same classes and can never reach zero however much source is
+        // migrated. Measured 2026-08-25: `frontend/public` reports 78, of which 66 are build
+        // artifacts and 12 are real. A count that cannot reach zero is not an exit condition.
         //
         // Do NOT add anything to this block. A new screen that needs a token it does not have is
         // a screen that should be using the V1.0 name.

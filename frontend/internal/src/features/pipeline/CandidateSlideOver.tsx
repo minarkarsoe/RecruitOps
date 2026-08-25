@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import {
   Badge,
   Button,
@@ -42,6 +42,16 @@ export interface CandidateSlideOverProps {
   initialMatchAnalysis?: CandidateMatchAnalysis | null;
 }
 
+// The drawer's section label, straight out of `design/internal/board.html`. This is the ONE
+// place the kit uses uppercase micro-caps: a drawer is a stack of short unrelated sections and
+// the label is a divider, not a heading. On a page the same treatment reads as a label for the
+// thing beside it, which is why the pages were moved off it and this was not.
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-2xs font-medium uppercase tracking-wider text-ink-500">{children}</p>
+  );
+}
+
 function CustomAnswersView({
   answersJson,
   schemaJson,
@@ -49,26 +59,26 @@ function CustomAnswersView({
   answersJson: string | null;
   schemaJson?: string | null;
 }) {
-  if (!answersJson) return <p className="text-xs text-ink-400">No custom response submitted.</p>;
+  if (!answersJson) return <p className="text-sm text-ink-600">No custom response submitted.</p>;
 
   let answers: Record<string, unknown>;
   try {
     answers = JSON.parse(answersJson) as Record<string, unknown>;
   } catch {
-    return <p className="text-xs text-ink-400">Unable to parse custom responses.</p>;
+    return <p className="text-sm text-ink-600">Unable to parse custom responses.</p>;
   }
 
   const entries = Object.entries(answers);
-  if (entries.length === 0) return <p className="text-xs text-ink-400">No custom response submitted.</p>;
+  if (entries.length === 0) return <p className="text-sm text-ink-600">No custom response submitted.</p>;
 
   const labels = new Map(parseFormFields(schemaJson).map((f) => [f.key, f.label]));
 
   return (
-    <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
+    <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
       {entries.map(([key, value]) => (
-        <div key={key} className="rounded-md border border-line-200 bg-surface-50 p-2.5">
-          <dt className="text-xs font-semibold text-ink-600">{labels.get(key) ?? key}</dt>
-          <dd className="mt-0.5 font-medium text-ink-900">
+        <div key={key} className="rounded-md border border-line bg-canvas p-2.5">
+          <dt className="text-sm text-ink-600">{labels.get(key) ?? key}</dt>
+          <dd className="mt-0.5 text-base font-medium text-ink-900">
             {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
           </dd>
         </div>
@@ -185,12 +195,12 @@ export function CvAndDocumentsTab({
   return (
     <div className="space-y-6">
       {/* Candidate Resume File Header */}
-      <div className="flex items-center justify-between rounded-md border border-line-200 bg-surface-50 p-3">
+      <div className="flex items-center justify-between rounded-md border border-line bg-canvas p-3">
         <div className="flex items-center gap-2">
-          <svg className="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-5 w-5 text-brand-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <span className="text-sm font-semibold text-ink-900">
+          <span className="text-base font-medium text-ink-900">
             {candidate.candidateName}_Resume.pdf
           </span>
         </div>
@@ -200,8 +210,8 @@ export function CvAndDocumentsTab({
       <div
         className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${
           dragActive
-            ? 'border-primary-500 bg-primary-50/50'
-            : 'border-line-300 bg-surface-50 hover:border-primary-400'
+            ? 'border-brand-700 bg-brand-50'
+            : 'border-line-strong bg-canvas hover:border-brand-600'
         }`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -228,10 +238,10 @@ export function CvAndDocumentsTab({
           <svg className="h-10 w-10 text-ink-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
           </svg>
-          <span className="text-sm font-semibold text-primary-600 hover:underline">
+          <span className="text-base font-medium text-brand-700 hover:underline">
             Click to upload CV document
           </span>
-          <span className="mt-1 text-xs text-ink-500">
+          <span className="mt-1 text-sm text-ink-500">
             Supports PDF, DOCX, PNG, JPG up to 10MB
           </span>
         </label>
@@ -240,22 +250,26 @@ export function CvAndDocumentsTab({
       {/* Upload progress bar */}
       {uploading && (
         <div className="space-y-1">
-          <div className="flex justify-between text-xs text-ink-600 font-medium">
+          <div className="flex justify-between text-sm text-ink-600">
             <span>Uploading and extracting text...</span>
-            <span>{uploadProgress}%</span>
+            <span className="font-mono tnum">{uploadProgress}%</span>
           </div>
-          <div className="w-full bg-line-200 h-2 rounded-full overflow-hidden">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-line">
             <div
-              className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+              className="h-2 rounded-full bg-brand-700 transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
         </div>
       )}
 
-      {error && <div className="rounded-md bg-danger-50 p-3 text-xs text-danger-700 font-medium">{error}</div>}
+      {error && (
+        <div className="rounded-md border border-critical-100 bg-critical-50 p-3 text-sm text-critical-700">
+          {error}
+        </div>
+      )}
       {confirmSuccess && (
-        <div className="rounded-md bg-success-50 p-3 text-xs text-success-700 font-medium">
+        <div className="rounded-md border border-positive-100 bg-positive-50 p-3 text-sm text-positive-700">
           Candidate profile updated and confirmed successfully!
         </div>
       )}
@@ -263,29 +277,31 @@ export function CvAndDocumentsTab({
       {/* Side-by-side view: Raw extracted text & Human Review form */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Extracted Raw CV Text */}
-        <div className="flex flex-col rounded-md border border-line-200 bg-surface-0 p-4">
+        <div className="flex flex-col rounded-md border border-line bg-white p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-500">
-              Extracted Raw CV Text
-            </h4>
+            <SectionLabel>Extracted raw CV text</SectionLabel>
             {extractionResult?.isZawgyiNormalized && (
-              <Badge variant="cyan">Zawgyi → Unicode Normalized</Badge>
+              <span className="inline-flex h-5 items-center rounded-full bg-info-50 px-2 text-2xs font-medium text-info-700">
+                Zawgyi → Unicode Normalized
+              </span>
             )}
           </div>
 
           {extractionResult ? (
-            <div className="flex-1 max-h-80 overflow-y-auto rounded bg-surface-50 p-3 font-mono text-xs text-ink-900 whitespace-pre-wrap border border-line-200">
+            <div className="max-h-80 flex-1 overflow-y-auto whitespace-pre-wrap rounded-md border border-line bg-canvas p-3 font-mono text-sm text-ink-900">
               {extractionResult.extractedText || 'No text extracted from document.'}
             </div>
           ) : (
-            <div className="flex min-h-[220px] flex-col items-center justify-center rounded bg-surface-50 p-6 text-center text-xs text-ink-500 border border-line-200">
-              <h4 className="text-sm font-semibold text-ink-900 mb-1">CV Document Preview</h4>
-              <p>Upload a CV document above to extract and view readable text.</p>
+            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-md border border-line bg-canvas p-6 text-center">
+              <p className="text-base font-medium text-ink-900">CV Document Preview</p>
+              <p className="mt-1 text-sm text-ink-600">
+                Upload a CV document above to extract and view readable text.
+              </p>
             </div>
           )}
 
           {extractionResult && (
-            <div className="mt-3 flex items-center justify-between text-xs text-ink-500">
+            <div className="mt-3 flex items-center justify-between text-sm text-ink-500">
               <span>File: {extractionResult.fileName}</span>
               <span>Language: {extractionResult.detectedLanguage || 'EN'}</span>
             </div>
@@ -293,14 +309,14 @@ export function CvAndDocumentsTab({
         </div>
 
         {/* Parsed Profile Human Review Form */}
-        <div className="rounded-md border border-line-200 bg-surface-0 p-4 space-y-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-500 border-b border-line-200 pb-2">
-            Parsed Profile Human Review
-          </h4>
+        <div className="space-y-4 rounded-md border border-line bg-white p-4">
+          <div className="border-b border-line pb-2">
+            <SectionLabel>Parsed profile — human review</SectionLabel>
+          </div>
 
-          <div className="space-y-3 text-xs">
+          <div className="space-y-3">
             <div>
-              <label className="block font-semibold text-ink-700 mb-1">Candidate Name *</label>
+              <label className="mb-1 block text-sm font-medium text-ink-700">Candidate Name *</label>
               <Input
                 value={form.candidateName}
                 onChange={(e) => setForm({ ...form, candidateName: e.target.value })}
@@ -310,7 +326,7 @@ export function CvAndDocumentsTab({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-ink-700 mb-1">Email Address</label>
+                <label className="mb-1 block text-sm font-medium text-ink-700">Email Address</label>
                 <Input
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -318,7 +334,7 @@ export function CvAndDocumentsTab({
                 />
               </div>
               <div>
-                <label className="block font-semibold text-ink-700 mb-1">Phone Number</label>
+                <label className="mb-1 block text-sm font-medium text-ink-700">Phone Number</label>
                 <Input
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -328,7 +344,7 @@ export function CvAndDocumentsTab({
             </div>
 
             <div>
-              <label className="block font-semibold text-ink-700 mb-1">Years of Experience</label>
+              <label className="mb-1 block text-sm font-medium text-ink-700">Years of Experience</label>
               <Input
                 type="number"
                 value={form.yearsOfExperience}
@@ -340,17 +356,17 @@ export function CvAndDocumentsTab({
             </div>
 
             <div>
-              <label className="block font-semibold text-ink-700 mb-1">Skills</label>
+              <label className="mb-1 block text-sm font-medium text-ink-700">Skills</label>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {form.skills.map((skill, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex items-center gap-1 rounded bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 border border-primary-200"
+                    className="inline-flex h-5 items-center gap-1 rounded-full bg-brand-50 px-2 text-2xs font-medium text-brand-800"
                   >
                     {skill}
                     <button
                       type="button"
-                      className="text-primary-500 hover:text-primary-800"
+                      className="text-brand-700 hover:text-brand-900"
                       onClick={() => setForm({ ...form, skills: form.skills.filter((_, i) => i !== idx) })}
                     >
                       ×
@@ -363,12 +379,10 @@ export function CvAndDocumentsTab({
                   value={form.newSkillInput}
                   onChange={(e) => setForm({ ...form, newSkillInput: e.target.value })}
                   placeholder="Add skill (e.g. React)"
-                  className="text-xs h-8"
                 />
                 <Button
                   type="button"
                   variant="secondary"
-                  className="h-8 px-3 text-xs"
                   onClick={() => {
                     if (form.newSkillInput.trim()) {
                       setForm({
@@ -385,12 +399,10 @@ export function CvAndDocumentsTab({
             </div>
           </div>
 
-          <div className="pt-2 border-t border-line-200 flex justify-end">
-            <Button
-              onClick={handleConfirmProfile}
-              disabled={confirming}
-              className="bg-primary-600 hover:bg-primary-700 text-white"
-            >
+          <div className="flex justify-end border-t border-line pt-2">
+            {/* No className override: the Button's own `primary` variant IS brand-700, and
+                overriding it was how the two drifted apart in the first place. */}
+            <Button onClick={handleConfirmProfile} disabled={confirming}>
               {confirming ? 'Saving Profile...' : 'Confirm & Apply to Profile'}
             </Button>
           </div>
@@ -399,8 +411,8 @@ export function CvAndDocumentsTab({
 
       {/* Download Original CV Document button */}
       <div className="flex justify-end pt-2">
-        <Button variant="secondary" onClick={handleDownloadCv} className="flex items-center gap-2 text-xs">
-          <svg className="h-4 w-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <Button variant="secondary" onClick={handleDownloadCv} className="gap-2">
+          <svg className="h-4 w-4 text-brand-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
           Download Original CV Document
@@ -451,7 +463,7 @@ export function CandidateSlideOver({
                   <div className="flex flex-wrap items-center gap-3">
                     <SheetTitle>{candidate.candidateName}</SheetTitle>
                     <StatusPill status={candidate.status} />
-                    {candidate.source && <Badge variant="cyan">{candidate.source}</Badge>}
+                    {candidate.source && <Badge variant="secondary">{candidate.source}</Badge>}
 
                     {/* Smart Match Header Badge */}
                     {matchBadgeConfig ? (
@@ -459,9 +471,9 @@ export function CandidateSlideOver({
                         type="button"
                         onClick={() => setActiveTab('ai')}
                         aria-label="View Smart Match Breakdown"
-                        className="inline-flex items-center gap-1 hover:opacity-85 transition-opacity"
+                        className="inline-flex items-center gap-1 transition-opacity hover:opacity-85"
                       >
-                        <Badge variant={matchBadgeConfig.variant} className="cursor-pointer font-bold">
+                        <Badge variant={matchBadgeConfig.variant} className="cursor-pointer">
                           {matchAnalysis?.overallScore}% Match
                         </Badge>
                       </button>
@@ -469,7 +481,7 @@ export function CandidateSlideOver({
                       <button
                         type="button"
                         onClick={() => setActiveTab('ai')}
-                        className="inline-flex items-center gap-1 hover:opacity-85 transition-opacity"
+                        className="inline-flex items-center gap-1 transition-opacity hover:opacity-85"
                       >
                         <Badge variant="primary" className="cursor-pointer">
                           AI Smart Match
@@ -520,41 +532,41 @@ export function CandidateSlideOver({
               {/* Tab 1: Overview */}
               <TabsContent value="overview" className="space-y-6">
                 {/* Contact & Meta Card */}
-                <div className="rounded-md border border-line-200 bg-surface-50 p-4">
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    Candidate Profile Summary
-                  </h3>
-                  <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
+                <div className="rounded-md border border-line bg-canvas p-4">
+                  <div className="mb-3">
+                    <SectionLabel>Candidate Profile Summary</SectionLabel>
+                  </div>
+                  <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
-                      <dt className="text-xs text-ink-500">Full Name</dt>
-                      <dd className="font-semibold text-ink-900">{candidate.candidateName}</dd>
+                      <dt className="text-sm text-ink-600">Full Name</dt>
+                      <dd className="text-base font-medium text-ink-900">{candidate.candidateName}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-ink-500">Email Address</dt>
-                      <dd className="font-medium text-ink-900">{candidate.email || '—'}</dd>
+                      <dt className="text-sm text-ink-600">Email Address</dt>
+                      <dd className="text-base font-medium text-ink-900">{candidate.email || '—'}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-ink-500">Phone Number</dt>
-                      <dd className="font-medium text-ink-900">{candidate.phone || '—'}</dd>
+                      <dt className="text-sm text-ink-600">Phone Number</dt>
+                      <dd className="text-base font-medium text-ink-900">{candidate.phone || '—'}</dd>
                     </div>
                   </dl>
                 </div>
 
                 {/* Cover Note */}
                 <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    Cover Letter / Application Note
-                  </h3>
-                  <div className="rounded-md border border-line-200 bg-surface-0 p-4 text-sm leading-relaxed text-ink-900 whitespace-pre-wrap">
+                  <div className="mb-2">
+                    <SectionLabel>Cover Letter / Application Note</SectionLabel>
+                  </div>
+                  <div className="whitespace-pre-wrap rounded-md border border-line bg-white p-4 text-base leading-6 text-ink-900">
                     {candidate.coverNote || 'No cover note submitted.'}
                   </div>
                 </div>
 
                 {/* Custom Application Form Answers */}
                 <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    Application Form Answers
-                  </h3>
+                  <div className="mb-2">
+                    <SectionLabel>Application Form Answers</SectionLabel>
+                  </div>
                   <CustomAnswersView
                     answersJson={candidate.customFieldsJson}
                     schemaJson={applicationFormFieldsJson}
@@ -569,56 +581,74 @@ export function CandidateSlideOver({
 
               {/* Tab 3: Stage History */}
               <TabsContent value="history" className="space-y-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-500">
-                  Recruitment Stage Timeline
-                </h3>
+                <SectionLabel>Recruitment Stage Timeline</SectionLabel>
                 {stageHistory.length === 0 ? (
-                  <div className="rounded-md border border-line-200 bg-surface-50 p-6 text-center text-sm text-ink-600">
-                    No stage history recorded yet.
-                  </div>
+                  <p className="text-sm text-ink-600">No stage history recorded yet.</p>
                 ) : (
-                  <div className="rounded-md border border-line-200 bg-surface-0 p-4">
-                    <ol className="relative border-l border-line-200 ml-3 space-y-6">
-                      {stageHistory.map((item, idx) => (
-                        <li key={idx} className="ml-6">
-                          <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 ring-4 ring-surface-0 text-primary-700 text-xs font-bold">
-                            {idx + 1}
+                  /* The approval-chain rail (`.rail-step` in index.css), which the kit reuses for
+                     stage history in `board.html` — it encodes sequence, and sequence is what a
+                     stage history IS. The numbered circles it replaces encoded nothing: the
+                     order was already the order, and the numbers competed with the stage names.
+                     The final step is the current stage and gets the filled dot; everything
+                     above it is done and gets a check. */
+                  <div className="rounded-md border border-line bg-white p-4">
+                    {stageHistory.map((item, idx) => {
+                      const isCurrent = idx === stageHistory.length - 1;
+                      return (
+                        <div
+                          key={idx}
+                          className={`rail-step flex gap-2.5 ${isCurrent ? '' : 'is-done pb-3'}`}
+                        >
+                          <span
+                            className={`relative z-10 grid h-[27px] w-[27px] shrink-0 place-items-center rounded-full ${
+                              isCurrent ? 'bg-brand-700' : 'border border-brand-200 bg-brand-50'
+                            }`}
+                          >
+                            {isCurrent ? (
+                              <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                            ) : (
+                              <svg className="h-3 w-3 text-brand-700" viewBox="0 0 12 12" fill="none">
+                                <path
+                                  d="M2.5 6.5l2.5 2.5 4.5-5.5"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            )}
                           </span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-ink-900">
+                          <div className="min-w-0">
+                            <p className={`text-base ${isCurrent ? 'font-medium' : ''}`}>
                               Moved to {item.toStatus}
-                            </span>
-                            {item.fromStatus && (
-                              <span className="text-xs text-ink-400">
-                                (from {item.fromStatus})
+                              {item.fromStatus && (
+                                <span className="text-ink-500"> (from {item.fromStatus})</span>
+                              )}
+                            </p>
+                            <p className="text-sm text-ink-600">
+                              {item.changedByName ? `By ${item.changedByName} · ` : ''}
+                              <span className="font-mono tnum">
+                                {new Date(item.changedAt).toLocaleString()}
                               </span>
+                            </p>
+                            {item.note && (
+                              <p className="mt-1.5 rounded-md border border-line bg-canvas p-2 text-sm text-ink-700">
+                                &ldquo;{item.note}&rdquo;
+                              </p>
                             )}
                           </div>
-                          <p className="mt-0.5 text-xs text-ink-500">
-                            {item.changedByName ? `By ${item.changedByName} · ` : ''}
-                            {new Date(item.changedAt).toLocaleString()}
-                          </p>
-                          {item.note && (
-                            <p className="mt-2 rounded bg-surface-50 p-2 text-xs italic text-ink-700 border border-line-200">
-                              &ldquo;{item.note}&rdquo;
-                            </p>
-                          )}
-                        </li>
-                      ))}
-                    </ol>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </TabsContent>
 
               {/* Tab 4: Scorecard Summaries */}
               <TabsContent value="scorecards" className="space-y-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-500">
-                  Interview Rounds & Panel Scorecards
-                </h3>
+                <SectionLabel>Interview Rounds &amp; Panel Scorecards</SectionLabel>
                 {interviews.length === 0 ? (
-                  <div className="rounded-md border border-line-200 bg-surface-50 p-6 text-center text-sm text-ink-600">
-                    No interview rounds scheduled yet.
-                  </div>
+                  <p className="text-sm text-ink-600">No interview rounds scheduled yet.</p>
                 ) : (
                   <div className="space-y-3">
                     {interviews.map((interview) => {
@@ -627,29 +657,25 @@ export function CandidateSlideOver({
                       return (
                         <div
                           key={interview.id}
-                          className="flex items-center justify-between rounded-md border border-line-200 bg-surface-0 p-4 transition-colors hover:border-primary-600/40"
+                          className="flex items-center justify-between gap-4 rounded-md border border-line bg-white p-4 transition-colors hover:border-line-strong"
                         >
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm text-ink-900">
+                              <span className="text-base font-medium text-ink-900">
                                 Round {interview.round}
                               </span>
                               <StatusPill status={interview.status} />
                             </div>
-                            <p className="mt-1 text-xs text-ink-600">
+                            <p className="mt-1 text-sm text-ink-600">
                               {new Date(interview.scheduledStart).toLocaleString()} · {interview.durationMinutes} mins · {interview.mode}
                             </p>
-                            <p className="mt-1 text-xs text-ink-400">
+                            <p className="mt-1 text-sm text-ink-500">
                               Panel: {interview.participants.map((p) => p.displayName).join(', ')} ({submittedCount}/{interview.participants.length} submitted)
                             </p>
                           </div>
 
                           {onOpenScorecard && (
-                            <Button
-                              variant="secondary"
-                              className="h-8 px-3 text-xs"
-                              onClick={() => onOpenScorecard(interview.id)}
-                            >
+                            <Button variant="secondary" onClick={() => onOpenScorecard(interview.id)}>
                               Open Scorecard →
                             </Button>
                           )}

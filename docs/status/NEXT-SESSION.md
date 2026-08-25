@@ -240,9 +240,62 @@ Verified in the browser on `/requisitions`: h1 18px/600/-0.45px tracking · head
 ink-600 with `text-transform: none` · header row `#F8FAFC` · body cell 14px ink-900 · the migrated
 `StatusPill` rendering warn-700 on warn-50 in situ.
 
-### ← You are here: 3e — `features/` (323) and `frontend/public/app` (17)
+### ✅ 3e(i) — `features/pipeline/` (done 2026-08-25)
 
-**340 compat usages left**: `features` 323 · `public/app` 17. `packages/ui`, `components` and `pages` are all at zero.
+`features/pipeline` is at **0**. Honest repo-wide count 334 → **215**.
+
+**Badge was failing AA and this change fixed it.** The `packages/ui` rebuild checked `StatusPill`
+and never opened `Badge`, so three variants kept a **-500 as text on their own -50 tint** — the
+failure the preset's comment warns about, in the same package. Measured 2026-08-25: `success`
+2.41:1, `warning` 2.07:1, `danger` 3.44:1, all FAIL; on the -700 step, 5.21 / 4.84 / 5.91, all
+PASS. **If you touch a component in `packages/ui`, run the contrast script on it — reading the
+diff did not catch this twice.**
+
+Four things beyond the rename, all read off `design/internal/board.html`:
+
+- **Board columns are white on canvas**, not grey fills holding white cards — the kit's board is
+  cards floating on the page, and a grey column makes the container louder than its contents.
+- **Column counts are `font-mono tnum text-ink-500`, not eight coloured Badges.** A badge is a
+  status; a count is a number that changes on every move.
+- **Loading is a skeleton, empty is a sentence** — and the two terminal columns say what they
+  cost, because "this closes the requisition" is a bad thing to learn by doing.
+- **Stage history is the `.rail-step` rail**, which the kit reuses for exactly this.
+
+`ExecutiveSummaryPanel`'s two hand-rolled toggle groups became one segmented control on the kit's
+detented-filter pattern. They had used **brand for "selected" in one group and ink in the other**
+— and brand is the action colour, so a filter painted brand reads as a button that will go and do
+something.
+
+> ⚠️ **Copy is not tokens.** Four test failures in this step were all me rewording strings a test
+> asserts on ("No contact specified", "Zawgyi → Unicode Normalized", "CV Document Preview", the
+> trailing `!`). Every one was reverted rather than the test edited. **Change presentation; leave
+> the words alone unless the words are the task.** A fifth was a `tnum` span splitting a text node
+> that a regex matched across — wrapping part of a sentence in a span is a functional change.
+
+### ← You are here: 3e(ii) — `features/analytics` (165), `features/interviews` (24), `features/requisitions` (14), `public/app` (12)
+
+**215 compat usages left.** `packages/ui`, `components`, `pages` and `features/pipeline` are at zero.
+
+> ⚠️ **The old exit-condition grep counted build output.** Pointed at `frontend/public` it also
+> reads `.next/` — 78 hits there, **66 of them compiled artifacts**, so the number could never
+> reach zero. The last entry's "340" was wrong for this reason. The preset now carries the
+> corrected command (`--include` filters, `frontend/public/app`); use that one:
+>
+> ```
+> grep -rEo "(primary|success|warning|danger|accent|surface|zinc|cyan|teal)-[0-9]+" \
+>   --include=*.ts --include=*.tsx --include=*.css \
+>   frontend/internal/src frontend/public/app packages/ui/src | wc -l
+> ```
+
+> ⚠️ **`features/requisitions/` (14) has zero importers repo-wide** and carries a test file.
+> Re-verified 2026-08-25. Migrating it means styling dead code — decide whether to delete or wire
+> it up *before* spending the effort.
+
+> ⚠️ **`features/analytics` (165) is charts**, and charts are the one place raw Tailwind ramps are
+> still in use (`indigo`, `sky`, `purple`, `blue`, `emerald`). Those are a categorical series
+> palette, not a token gap — do not just rename them to `brand`/`positive`, which would make
+> adjacent series indistinguishable. Pick the series order deliberately and check it for
+> colour-vision separation.
 
 > ⚠️ **Found while verifying: the shared components are not what most screens actually use.**
 > `frontend/internal/src` hand-rolls **50 `<input>`, 63 `<button>` and 24 `<select>`** elements,

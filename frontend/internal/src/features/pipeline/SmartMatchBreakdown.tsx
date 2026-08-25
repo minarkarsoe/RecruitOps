@@ -91,19 +91,19 @@ export function SmartMatchBreakdown({
   const badgeConfig = analysis ? getMatchBadgeConfig(analysis.recommendation, analysis.overallScore) : null;
 
   return (
-    <div className={`rounded-lg border border-line-200 bg-surface-0 p-5 space-y-5 ${className}`}>
+    <div className={`space-y-5 rounded-lg border border-line bg-white p-5 ${className}`}>
       {/* Header & Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-200 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-ink-900">AI Smart Match Analysis</h3>
             {badgeConfig && (
-              <Badge variant={badgeConfig.variant} className="font-bold text-xs">
+              <Badge variant={badgeConfig.variant}>
                 {analysis?.overallScore}% Match ({badgeConfig.label})
               </Badge>
             )}
           </div>
-          <p className="mt-0.5 text-xs text-ink-500">
+          <p className="mt-0.5 text-sm text-ink-500">
             Powered by Claude AI candidate compatibility scoring & criteria evaluation
           </p>
         </div>
@@ -112,9 +112,9 @@ export function SmartMatchBreakdown({
           onClick={runMatchAnalysis}
           disabled={loading || isApiKeyMissing || !jobPostingId}
           variant="secondary"
-          className="h-8 px-3 text-xs flex items-center gap-1.5"
+          className="gap-1.5"
         >
-          <svg className="h-3.5 w-3.5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-3.5 w-3.5 text-brand-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -130,10 +130,12 @@ export function SmartMatchBreakdown({
       {isApiKeyMissing && (
         <div
           data-testid="smart-match-402-banner"
-          className="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900"
+          /* warn-50/warn-700, not raw Tailwind amber. Same hue family, but amber-500 as text on
+             amber-50 measures 2.07:1 and the token step is the whole point of having tokens. */
+          className="rounded-md border border-warn-100 bg-warn-50 p-4"
         >
           <div className="flex items-start gap-3">
-            <svg className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="mt-0.5 h-5 w-5 shrink-0 text-warn-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -142,8 +144,8 @@ export function SmartMatchBreakdown({
               />
             </svg>
             <div>
-              <h4 className="font-semibold text-sm text-amber-900">AI Features Unconfigured: API key required</h4>
-              <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+              <h4 className="text-base font-semibold text-warn-700">AI Features Unconfigured: API key required</h4>
+              <p className="mt-1 text-sm leading-5 text-ink-700">
                 An AI Provider API Key (Claude) has not been configured for this installation. Candidate Smart Match
                 features are currently disabled. Manual candidate profiling and evaluation remain fully operational.
               </p>
@@ -154,9 +156,9 @@ export function SmartMatchBreakdown({
 
       {/* General Non-402 Error State */}
       {error && !isApiKeyMissing && (
-        <div className="rounded-md border border-danger-200 bg-danger-50 p-4 text-xs text-danger-800 flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-critical-100 bg-critical-50 p-4 text-sm text-critical-700">
           <span>{error.message || 'An error occurred while running candidate match analysis.'}</span>
-          <Button onClick={runMatchAnalysis} variant="secondary" className="h-7 px-2.5 text-xs text-danger-700">
+          <Button onClick={runMatchAnalysis} variant="secondary">
             Retry
           </Button>
         </div>
@@ -182,42 +184,42 @@ export function SmartMatchBreakdown({
       {!loading && analysis && !isApiKeyMissing && (
         <div className="space-y-5">
           {/* Summary Banner */}
-          <div className="rounded-md bg-surface-50 p-4 border border-line-200">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-ink-500">Overall Match Summary</span>
-              <span className="text-sm font-bold text-ink-900">{analysis.overallScore}% Overall Score</span>
+          <div className="rounded-md border border-line bg-canvas p-4">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-2xs font-medium uppercase tracking-wider text-ink-500">Overall Match Summary</span>
+              <span className="font-mono text-sm tnum text-ink-900">{analysis.overallScore}% Overall Score</span>
             </div>
-            <p className="text-sm text-ink-800 leading-relaxed">{analysis.summary}</p>
+            <p className="text-base leading-6 text-ink-800">{analysis.summary}</p>
           </div>
 
           {/* Strengths & Gaps */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* Strengths */}
-            <div className="rounded-md border border-success-200 bg-success-50/40 p-4">
-              <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success-800 mb-2">
-                <svg className="h-4 w-4 text-success-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="rounded-md border border-positive-100 bg-positive-50 p-4">
+              <h4 className="mb-2 flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wider text-positive-700">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 Key Strengths ({analysis.strengths?.length || 0})
               </h4>
               {analysis.strengths && analysis.strengths.length > 0 ? (
-                <ul className="space-y-1.5 text-xs text-ink-800">
+                <ul className="space-y-1.5 text-sm text-ink-800">
                   {analysis.strengths.map((str, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="text-success-600 font-bold">•</span>
+                      <span className="text-positive-700">•</span>
                       <span>{str}</span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-ink-500 italic">No specific strengths identified.</p>
+                <p className="text-sm text-ink-500">No specific strengths identified.</p>
               )}
             </div>
 
             {/* Gaps */}
-            <div className="rounded-md border border-warning-200 bg-warning-50/40 p-4">
-              <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-warning-800 mb-2">
-                <svg className="h-4 w-4 text-warning-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="rounded-md border border-warn-100 bg-warn-50 p-4">
+              <h4 className="mb-2 flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wider text-warn-700">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -228,16 +230,16 @@ export function SmartMatchBreakdown({
                 Identified Gaps ({analysis.gaps?.length || 0})
               </h4>
               {analysis.gaps && analysis.gaps.length > 0 ? (
-                <ul className="space-y-1.5 text-xs text-ink-800">
+                <ul className="space-y-1.5 text-sm text-ink-800">
                   {analysis.gaps.map((gap, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="text-warning-600 font-bold">•</span>
+                      <span className="text-warn-700">•</span>
                       <span>{gap}</span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-ink-500 italic">No critical gaps identified.</p>
+                <p className="text-sm text-ink-500">No critical gaps identified.</p>
               )}
             </div>
           </div>
@@ -245,29 +247,32 @@ export function SmartMatchBreakdown({
           {/* Criteria Breakdown Table */}
           {analysis.criteria && analysis.criteria.length > 0 && (
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-3">
+              <h4 className="mb-3 text-2xs font-medium uppercase tracking-wider text-ink-500">
                 Criteria Compatibility Breakdown
               </h4>
               <div className="space-y-2.5">
                 {analysis.criteria.map((c, idx) => (
-                  <div key={idx} className="rounded-md border border-line-200 bg-surface-50 p-3 text-xs">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="font-semibold text-ink-900">{c.criterion}</span>
+                  <div key={idx} className="rounded-md border border-line bg-canvas p-3">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="text-base font-medium text-ink-900">{c.criterion}</span>
+                      {/* Same four bands as the header badge, same -50/-700 steps as every
+                          other chip. The old -100/-800 pairs were a fifth palette nobody else
+                          used. */}
                       <span
-                        className={`font-bold text-xs px-2 py-0.5 rounded ${
+                        className={`inline-flex h-5 shrink-0 items-center rounded-full px-2 text-2xs font-medium ${
                           c.score >= 80
-                            ? 'bg-success-100 text-success-800'
+                            ? 'bg-positive-50 text-positive-700'
                             : c.score >= 60
-                            ? 'bg-primary-100 text-primary-800'
+                            ? 'bg-brand-50 text-brand-800'
                             : c.score >= 40
-                            ? 'bg-warning-100 text-warning-800'
-                            : 'bg-danger-100 text-danger-800'
+                            ? 'bg-warn-50 text-warn-700'
+                            : 'bg-critical-50 text-critical-700'
                         }`}
                       >
                         {c.score}% Match
                       </span>
                     </div>
-                    <p className="text-ink-600 leading-normal">{c.rationale}</p>
+                    <p className="text-sm leading-5 text-ink-600">{c.rationale}</p>
                   </div>
                 ))}
               </div>
@@ -276,14 +281,14 @@ export function SmartMatchBreakdown({
 
           {/* Suggested Interview Questions */}
           {analysis.suggestedInterviewQuestions && analysis.suggestedInterviewQuestions.length > 0 && (
-            <div className="rounded-md border border-line-200 bg-surface-50 p-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500 mb-2.5">
+            <div className="rounded-md border border-line bg-canvas p-4">
+              <h4 className="mb-2.5 text-2xs font-medium uppercase tracking-wider text-ink-500">
                 Suggested Interview Questions
               </h4>
-              <ol className="list-decimal list-inside space-y-2 text-xs text-ink-800">
+              <ol className="list-inside list-decimal space-y-2 text-base text-ink-800">
                 {analysis.suggestedInterviewQuestions.map((q, idx) => (
-                  <li key={idx} className="leading-relaxed pl-1">
-                    <span className="font-medium">{q}</span>
+                  <li key={idx} className="pl-1 leading-5">
+                    {q}
                   </li>
                 ))}
               </ol>
@@ -293,7 +298,7 @@ export function SmartMatchBreakdown({
       )}
 
       {!loading && !analysis && !error && !isApiKeyMissing && (
-        <div className="py-8 text-center text-xs text-ink-500">
+        <div className="py-8 text-center text-sm text-ink-600">
           {!jobPostingId ? (
             <p>No job posting selected for match analysis.</p>
           ) : (
