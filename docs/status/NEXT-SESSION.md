@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-08-21 · **Backend 612/612 · Frontend 342/342 · typecheck clean**
+**Last updated:** 2026-08-21 · **Backend 612/612 · Frontend 352/352 · typecheck clean**
 · **ADR-0026 is complete** — steps 1–4 built, steps 1–3 security-reviewed · the product sends email
 (Module 3.2 invitations) and no longer keeps a recruiter's fifty CVs in process memory
 · All seven modules have a drawn UI (25 screens)
@@ -65,7 +65,7 @@ candidate told?" is answerable by the database and by nobody using the product.
 | Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested |
 | Delivery (ADR-0004) | ✅ compose prod, `/api/version`, feature flags, sizing guide, runbook · ✅ in-process job runner (ADR-0026) · ⚠️ **every install now needs `Smtp:*` configured** or nothing is delivered |
 | Background jobs (ADR-0026) | ✅ **all four steps built.** Queue + tenant seam + mail worker + SMTP + invitation handler (security-reviewed, nothing found) + bulk CV worker · ⬜ no delivery-log UI · ⬜ Module 4/5/8 handlers · ⬜ step 4 not yet security-reviewed |
-| Tests | ✅ backend **612/612** (62 domain + 550 api) · frontend **342/342** across 43 files |
+| Tests | ✅ backend **612/612** (62 domain + 550 api) · frontend **352/352** across 44 files |
 | Design | ✅ 25 static screens, all seven modules — `design/internal/index.html` |
 
 ## ⚠️ "The stack came up" is not "the screens are correct"
@@ -162,9 +162,32 @@ and one asserting the neutral pill keeps its border). Frontend **344/344**.
 > used `rounded-md` in 157 places, which V1.0 maps to **10px**. The prose was the outlier and is
 > now corrected — the source of truth has to be consistent with itself.
 
-### ← You are here: 3d — the app's own screens
+### ✅ 3d(i) — the login screen, end to end (done 2026-08-21)
 
-**599 compat usages left**: `features` 323 · `pages` 189 · `components` 70 · `public/app` 17.
+The pattern for every screen after it: open `design/internal/login.html`, build against it, then
+**look at the result in a browser** rather than trusting the diff.
+
+What the kit specifies that the shipped page did not have: the logo mark and wordmark, the error
+as a tinted `role="alert"` block instead of loose red text, the password field outlined on
+rejection while the email is not, a spinner in the button, the "no self-signup" line, and — the
+one that is not styling — **the locked state with a real countdown**.
+
+**Two functional defects fixed on the way, both invisible in the source:**
+
+1. **A failed login said "Your session has expired. Please sign in again."** `apiFetch` mapped
+   every 401 to that copy, and the refresh branch excluded `/auth/login` while the fallthrough
+   did not. Someone mistyping a password was sent looking for a problem that did not exist. Now
+   "Email or password is incorrect." — which is also the only thing ADR-0016 permits it to say,
+   since naming the field tells a stranger whether an address belongs to a real employee.
+2. **`Retry-After` was being thrown away.** The 429 carries the lockout in seconds and `ApiError`
+   had nowhere to put it, so no countdown was renderable. `ApiError.retryAfterSeconds` now carries
+   it, and the page counts down from the server's number rather than inventing one.
+
+8 tests added, each mutation-checked. Frontend **352/352**.
+
+### ← You are here: 3d — the rest of the app's screens
+
+**595 compat usages left**: `features` 323 · `pages` 185 · `components` 70 · `public/app` 17.
 
 > ⚠️ **Found while verifying: the shared components are not what most screens actually use.**
 > `frontend/internal/src` hand-rolls **50 `<input>`, 63 `<button>` and 24 `<select>`** elements,
@@ -366,6 +389,16 @@ Learned the expensive way; all of them are load-bearing.
   **empty** migration — which commits perfectly cleanly: entities in code, DbSets registered,
   in-memory tests green, and no tables in any real database. Read the generated `Up()` before
   trusting it. This happened on 2026-08-20 and was caught only by looking.
+- **You cannot override a Tailwind utility by appending another one for the same property.**
+  `border-line` and `border-critical-500` have identical specificity, so the winner is decided by
+  Tailwind's own output order — not by the order they appear in your class string. The login
+  password field's error outline read correctly in the source and rendered the ordinary grey
+  border. Build the class so the losing utility is never emitted, and check it in a browser: a
+  unit test on `className` passes either way unless it also asserts the *absence* of the default.
+- **The Browser pane does not composite, so CSS transitions never advance.** Any property under
+  `transition-colors` reads frozen at its starting value in `getComputedStyle`, which looks
+  exactly like a broken rule. Set `el.style.transition = 'none'`, force a reflow, then read — or
+  measure a freshly created element. Two real-looking "bugs" on 2026-08-21 were this.
 - **A test that sleeps and then asserts on background work is a bet, re-placed every run.** The
   three bulk-upload suites did `await Task.Delay(300)` and then checked whether a `Task.Run` had
   finished; two of them wrapped it in a twenty-round retry loop, which turns a genuine failure

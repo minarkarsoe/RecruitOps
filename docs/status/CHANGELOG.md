@@ -5,6 +5,46 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-21 (latest)
 
+### 🔐 The login screen, rebuilt from the design — and two defects it was hiding
+**Why:** the first screen taken end to end against `design/internal/login.html`, as the pattern
+for the rest. Frontend **352/352** (44 files), typecheck clean.
+
+**Two functional defects, both invisible in the source and found by using the screen:**
+
+1. **A failed login said "Your session has expired. Please sign in again."** `apiFetch` mapped
+   every 401 to that copy — the silent-refresh branch excluded `/auth/login`, the fallthrough did
+   not. Someone who mistyped a password was told their session expired and sent looking for a
+   problem that did not exist. Now "Email or password is incorrect.", which is also the only
+   thing ADR-0016 permits: naming the field would tell a stranger whether an address belongs to a
+   real employee.
+2. **`Retry-After` was being thrown away.** ADR-0016's 429 carries the remaining lockout in
+   seconds; `ApiError` had nowhere to put it, so the countdown the design draws was unrenderable
+   and the page showed a generic error. `ApiError.retryAfterSeconds` now carries it. The screen
+   counts down from the server's number, disables the form while locked, re-enables itself at
+   zero, and falls back to the full 15 minutes only when the header is absent — never a shorter
+   guess, which would send someone back to a door still locked.
+
+**A third defect, introduced during the rebuild and caught only by looking at the browser:** the
+password field's error outline appended `border-critical-500` to a class string that already had
+`border-line`. Both are border-color utilities of equal specificity, so **Tailwind's output order
+decided the winner** and the grey border won. It read correctly in the source and rendered wrong.
+Fixed by building the class so the default is never emitted, and pinned by a test that asserts the
+*absence* of `border-line` — a `toContain` assertion alone would have passed either way.
+
+From the kit and now present: the logo mark and wordmark, the error as a tinted `role="alert"`
+block, the spinner in the button (the one screen where a spinner is right — nothing is arriving
+whose shape could be skeletoned), the "no self-signup" line, and no workspace field, because under
+ADR-0004 the URL already is the company.
+
+8 tests added, each mutation-checked. One of those mutations showed a `setLockedFor(null)` branch
+was **redundant** — removing it changed no test and no behaviour — so it was deleted rather than
+pinned.
+
+> **Measurement note for anyone verifying UI this way:** the Browser pane does not composite, so
+> CSS transitions never advance and `getComputedStyle` returns the *starting* value of anything
+> under `transition-colors`. Two apparent bugs on 2026-08-21 were that. Disable the transition and
+> force a reflow before reading, or measure a freshly created element.
+
 ### 🎨 ADR-0025 step 3c — `packages/ui` rebuilt against the kit
 **Why:** both apps import it, so it is the one place where a fix reaches everything. Frontend
 **344/344**, typecheck clean. **0 compat tokens left in `packages/ui/src`** — 133 migrated across
