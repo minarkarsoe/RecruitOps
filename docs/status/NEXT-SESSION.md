@@ -325,10 +325,39 @@ they get deleted — which is exactly why the question comes before 3e(iii) rath
 > **Decide before migrating `interviews` (24) and `requisitions` (14): wire up or delete.**
 > Styling dead code is the one kind of effort here that cannot pay off either way.
 
-### ← You are here: 3e(iii) — `features/interviews` (24), `features/requisitions` (14), `public/app` (12)
+### ✅ 3e(iii) — `frontend/public/app` (done 2026-08-25)
 
-**55 compat usages left**, of which 5 are comments. `packages/ui`, `components`, `pages`,
-`features/pipeline` and `features/analytics` are at zero — and so is `dark:`, repo-wide.
+The public app is at **0**. Repo-wide 55 → **43**, and every one of those 43 is either a comment
+quoting what was removed or inside the two orphaned feature folders below.
+
+Built against `design/public/job.html` and `apply.html`, which are **not** the internal spec:
+fields are `h-12`/15px against the internal `h-9`/14px, because this form is filled once, by a
+stranger, on a phone. Reaching for the internal `Input` here would be consistency in the wrong
+direction.
+
+**`.tnum` did not exist in the public app** — `ds.css` and the internal `index.css` have it, the
+port to `globals.css` dropped it, so `tnum` on the phone field and the salary figure did nothing.
+Found by grepping the built stylesheet, not by looking. Added, with the mono ligature rule that
+was missing for the same reason.
+
+> ⚠️ **Verified from the built CSS, not a running page.** The job page needs the API and Docker
+> was not up. The form has **never been eyeballed with real data**, and the public app has **no
+> tests at all** — that is the least-covered surface in the repo and a stranger's only view of the
+> product.
+
+> ⚠️ **There is no `app/not-found.tsx`.** `notFound()` fires for an unknown or withdrawn token, so
+> a candidate following a dead link gets Next's built-in 404: no layout, no fonts, no company
+> name. `design/public/` does not draw this screen — it needs designing, not just building.
+
+### ← You are here: 3e(iv) — the last 38, and they are all in dead code
+
+`features/interviews` (24) and `features/requisitions` (14). **Both folders are orphaned** — see
+the table above. Nothing else in either frontend carries a compat token, and `dark:` is at zero
+repo-wide.
+
+**Do not start by migrating them.** Decide first whether `BlindScorecardDrawer`,
+`RequisitionTable` and `RequisitionDrawer` get wired to a route or deleted. Either answer finishes
+step 3; only "restyle them and leave them orphaned" fails to.
 
 > ⚠️ **The old exit-condition grep counted build output.** Pointed at `frontend/public` it also
 > reads `.next/` — 78 hits there, **66 of them compiled artifacts**, so the number could never

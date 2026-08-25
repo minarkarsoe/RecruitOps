@@ -5,6 +5,43 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-25 (latest)
 
+### 🌐 The public job page and application form on the design kit
+**Why:** ADR-0025 step 3e. `frontend/public/app` reaches **0** compat tokens; repo-wide 55 → **43**,
+and all 43 remaining are inside comments quoting what was removed or in the two orphaned feature
+folders. Typecheck clean.
+
+Built against `design/public/job.html` and `apply.html`, which are deliberately **not** the
+internal app's spec: fields are `h-12` and 15px against the internal `h-9`/14px, because this form
+is filled once, by a stranger, usually on a phone. Copying the internal `Input` here would have
+been consistency in the wrong direction.
+
+Also from the kit: the job title is `text-3xl` (24px, down from a hand-written 32px the scale does
+not contain); the meta line became pills, so "Yangon" and "Full-time" stop reading as one
+sentence; the form panel sits on its border rather than a `shadow-card`; the error state is the
+kit's `role="alert"` critical panel instead of a bare red line; and the success state is the kit's
+bordered panel with the message set to a 44-character measure.
+
+**`.tnum` did not exist in the public app.** It is in `ds.css` and in the internal app's
+`index.css`, but the port to `globals.css` dropped it — so `tnum` on the phone field and the
+salary figure, both of which the kit sets that way, silently did nothing. Confirmed by grepping
+the built stylesheet: zero occurrences of `tnum`, and no `font-variant-numeric` anywhere in the
+public bundle. It matters more here than internally, not less — a phone number typed into a
+proportional face makes the field jitter as it is typed. Added, along with the mono
+ligature-suppression rule that was missing for the same reason. Re-verified after rebuild: both
+present.
+
+> ⚠️ **Verified from the built stylesheet, not the running page.** The public job page needs the
+> API to render and Docker is not up locally, so the live check available was: build, then confirm
+> each class emits the intended declaration (`h-12{height:3rem}`, `text-md{font-size:15px}`,
+> `text-3xl{font-size:24px}`, `border-line` → `rgb(226 232 240)`, `bg-brand-700` →
+> `rgb(15 118 110)`, `tnum` → `font-variant-numeric`). **The form has never been eyeballed with
+> real data**, and the public app has no tests at all.
+
+> ⚠️ **Found while verifying: there is no `app/not-found.tsx`.** `page.tsx` calls `notFound()` for
+> an unknown or withdrawn token, so a candidate following a dead link gets Next.js's built-in
+> 404 — no layout, no fonts, no company name, nothing that says which site they are on. Not fixed
+> here: it is a new screen, not a token migration, and `design/public/` does not draw one.
+
 ### 📊 `features/analytics` on the design kit — half the app was rendering in dark mode
 **Why:** ADR-0025 step 3e(ii). Analytics reaches 0 real compat tokens (5 remaining hits are
 comments quoting what was removed); repo-wide 215 → **55**. Frontend **358/358** (six new),

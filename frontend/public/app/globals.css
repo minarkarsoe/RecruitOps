@@ -42,6 +42,24 @@ body {
   color: theme('colors.brand.900');
 }
 
+/* ⚠️ This was missing. `.tnum` is in `ds.css` and in the internal app's `index.css`, but the
+   port to this file dropped it — so `tnum` on the phone field and the salary pill (both of
+   which the kit sets that way in `design/public/apply.html` and `job.html`) silently did
+   nothing here. Confirmed by grepping the built stylesheet: zero occurrences, and no
+   `font-variant-numeric` anywhere in the public bundle.
+
+   It matters more here than in the internal app, not less: a phone number typed into a
+   proportional face has digits of different widths, so the field jitters as it is typed. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* Same reason as the internal app: JetBrains Mono's programming ligatures turn "===" into one
+   glyph, and we use mono for salary figures and reference codes, never for source. */
+.font-mono, code, kbd, pre {
+  font-variant-ligatures: none;
+  -webkit-font-feature-settings: 'liga' 0, 'calt' 0;
+  font-feature-settings: 'liga' 0, 'calt' 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
