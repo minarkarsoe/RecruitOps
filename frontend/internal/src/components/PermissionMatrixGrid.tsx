@@ -101,7 +101,7 @@ export function PermissionMatrixGrid({
         </div>
       )}
 
-      <div className="flex items-center justify-between border-b border-line-200 pb-3">
+      <div className="flex items-center justify-between border-b border-line pb-3">
         <div>
           <h3 className="text-sm font-semibold text-ink-900">Permission Matrix</h3>
           <p className="text-xs text-ink-500">Configure access levels grouped by system module and feature</p>
@@ -111,7 +111,7 @@ export function PermissionMatrixGrid({
             <button
               type="button"
               onClick={handleToggleAllGlobal}
-              className="text-xs font-semibold text-primary-600 hover:text-primary-800"
+              className="text-xs font-semibold text-brand-700 hover:text-brand-800"
             >
               {isAllSelected ? 'Deselect All Permissions' : 'Select All Permissions'}
             </button>
@@ -130,8 +130,8 @@ export function PermissionMatrixGrid({
           const isModAllSelected = modCodes.length > 0 && modSelectedCount === modCodes.length;
 
           return (
-            <div key={mod.module} className="border border-line-200 rounded-lg overflow-hidden bg-white shadow-sm">
-              <div className="bg-surface-50 px-4 py-3 border-b border-line-200 flex items-center justify-between">
+            <div key={mod.module} className="border border-line rounded-lg overflow-hidden bg-white shadow-sm">
+              <div className="bg-canvas px-4 py-3 border-b border-line flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {!isReadOnly && (
                     <input
@@ -139,7 +139,7 @@ export function PermissionMatrixGrid({
                       checked={isModAllSelected}
                       onChange={() => handleToggleModule(mod)}
                       disabled={isReadOnly}
-                      className="h-4 w-4 rounded border-line-300 text-primary-600 focus:ring-primary-500"
+                      className="h-4 w-4 rounded border-line-strong text-brand-700 focus:ring-brand-700"
                     />
                   )}
                   <span className="font-semibold text-ink-900 text-sm capitalize">
@@ -154,7 +154,7 @@ export function PermissionMatrixGrid({
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-line-200 bg-surface-0 text-ink-500 font-medium text-[11px] uppercase tracking-wider">
+                    <tr className="border-b border-line bg-white text-ink-500 font-medium text-2xs uppercase tracking-wider">
                       <th className="py-2.5 px-4 w-1/4">Feature</th>
                       <th className="py-2.5 px-2 text-center w-16">Read</th>
                       <th className="py-2.5 px-2 text-center w-16">Create</th>
@@ -163,7 +163,7 @@ export function PermissionMatrixGrid({
                       <th className="py-2.5 px-4">Special Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-line-100">
+                  <tbody className="divide-y divide-line">
                     {mod.features.map((feat) => {
                       const featCodes = feat.permissions.map((p) => p.code);
                       const isFeatAllSelected = featCodes.length > 0 && featCodes.every((c) => selectedSet.has(c));
@@ -181,7 +181,7 @@ export function PermissionMatrixGrid({
                       });
 
                       return (
-                        <tr key={feat.feature} className="hover:bg-surface-50 transition-colors">
+                        <tr key={feat.feature} className="hover:bg-canvas transition-colors">
                           <td className="py-3 px-4 font-medium text-ink-800">
                             <div className="flex items-center gap-2">
                               {!isReadOnly && (
@@ -190,7 +190,7 @@ export function PermissionMatrixGrid({
                                   checked={isFeatAllSelected}
                                   onChange={() => handleToggleFeature(feat)}
                                   disabled={isReadOnly}
-                                  className="h-3.5 w-3.5 rounded border-line-300 text-primary-600 focus:ring-primary-500"
+                                  className="h-3.5 w-3.5 rounded border-line-strong text-brand-700 focus:ring-brand-700"
                                   title="Toggle feature permissions"
                                 />
                               )}
@@ -212,7 +212,7 @@ export function PermissionMatrixGrid({
                                   checked={isChecked}
                                   onChange={() => handleToggleCode(p.code)}
                                   disabled={isReadOnly}
-                                  className="h-4 w-4 rounded border-line-300 text-primary-600 focus:ring-primary-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                                  className="h-4 w-4 rounded border-line-strong text-brand-700 focus:ring-brand-700 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                                   title={`${p.name} (${p.code})`}
                                 />
                               </td>
@@ -231,16 +231,16 @@ export function PermissionMatrixGrid({
                                       key={p.code}
                                       className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs border ${
                                         isChecked
-                                          ? 'bg-primary-50 border-primary-300 text-primary-800'
-                                          : 'bg-white border-line-200 text-ink-700'
-                                      } ${isReadOnly ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:border-primary-400'}`}
+                                          ? 'bg-brand-50 border-brand-200 text-brand-800'
+                                          : 'bg-white border-line text-ink-700'
+                                      } ${isReadOnly ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:border-brand-200'}`}
                                     >
                                       <input
                                         type="checkbox"
                                         checked={isChecked}
                                         onChange={() => handleToggleCode(p.code)}
                                         disabled={isReadOnly}
-                                        className="h-3.5 w-3.5 rounded border-line-300 text-primary-600 focus:ring-primary-500"
+                                        className="h-3.5 w-3.5 rounded border-line-strong text-brand-700 focus:ring-brand-700"
                                       />
                                       <span className="font-medium">{p.name || p.action}</span>
                                     </label>

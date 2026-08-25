@@ -5,6 +5,43 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-21 (latest)
 
+### 🧭 The app shell on the design kit — and a contrast failure in the kit itself
+**Why:** every screen sits inside it, so after the preset this is the change with the widest
+reach. `components/` is at **0** compat tokens; repo-wide 595 → 525. Frontend **352/352**,
+typecheck clean.
+
+**The nav rail is dark now** — `bg-ink-900`, 224px, per `design/internal/board.html`. That is the
+kit's central layout decision rather than a colour preference: it is the second neutral layer, so
+the content surface reads as the workspace and navigation recedes. A white sidebar beside a white
+content pane makes the two compete, and on a screen that is mostly table it is the table that
+should win.
+
+Also adopted: an icon per nav item, the active item as a filled `bg-white/10` pill — **the
+`border-l-2` is gone**, because a border *and* a fill are two devices saying one thing and on a
+dark rail the border reads as a seam — and the user block in the rail's footer.
+
+**Identity now renders once.** The signed-in name appeared in both the header and the sidebar, and
+a test asserted that duplication (`getAllByText(...).length === 2`). Two avatars on one screen is
+two places to check who you are signed in as, and they can disagree while a session is being
+replaced. The header keeps place, search and the primary action; the rail keeps who you are.
+
+> 🔴 **The kit had a contrast failure, found by measuring instead of trusting it.** Nav group
+> labels were `text-white/40`, which on `ink-900` is **3.81:1** — below AA for 11px text. Raised
+> to `white/50` (5.23:1) in the code **and in all 19 kit screens**: `design/` is the source of
+> truth, so the fix belongs there, not only downstream. Rail contrast now measures: active
+> `white` 17.85 · idle `white/70` 9.10 · role line `white/50` 5.23 · group label `white/50` 5.23 ·
+> avatar white on `brand-700` 5.47.
+
+Two smaller corrections: the meaningless "CRM" badge next to the wordmark is gone, and the
+super-admin 👑 emoji is now a plain "Super admin" role line — an emoji in an enterprise nav is
+decoration standing where a fact belongs.
+
+**Deliberately not changed: the nav group names and membership.** The kit's rail shows "Work" and
+"Configure"; the app has Recruitment / Insights / Team / Governance. Which items sit under which
+heading is product information architecture, not a design-system decision, and renaming the whole
+nav inside a token migration would break tests for reasons unrelated to tokens. Flagged for the
+product owner instead.
+
 ### 🔐 The login screen, rebuilt from the design — and two defects it was hiding
 **Why:** the first screen taken end to end against `design/internal/login.html`, as the pattern
 for the rest. Frontend **352/352** (44 files), typecheck clean.

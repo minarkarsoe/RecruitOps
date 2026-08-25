@@ -185,9 +185,39 @@ one that is not styling — **the locked state with a real countdown**.
 
 8 tests added, each mutation-checked. Frontend **352/352**.
 
-### ← You are here: 3d — the rest of the app's screens
+### ✅ 3d(ii) — the app shell (done 2026-08-21)
 
-**595 compat usages left**: `features` 323 · `pages` 185 · `components` 70 · `public/app` 17.
+`components/` is at **0**. The shell is what every screen sits inside, so this is the change with
+the widest reach after the preset itself.
+
+**The rail is dark now** — `bg-ink-900`, 224px — which is the kit's central layout decision, not a
+colour preference: it is the second neutral layer, so the content surface reads as the workspace
+and navigation recedes. A white sidebar beside a white content pane makes the two compete, and on
+a screen that is mostly table it is the table that should win.
+
+Also from the kit: an icon per nav item, the active item as a filled `bg-white/10` pill (the
+`border-l-2` is gone — a border *and* a fill is two devices saying one thing), and the user block
+in the rail footer.
+
+**Identity now renders once.** It used to appear in both the header and the sidebar, and a test
+asserted that duplication (`getAllByText(...).length === 2`). Two avatars is two places to check
+who you are signed in as, and they can disagree while a session is being replaced.
+
+> 🔴 **A contrast failure in the kit itself, found by measuring rather than trusting it.** The nav
+> group labels are `text-white/40`, which on `ink-900` is **3.81:1** — below AA for 11px text.
+> Raised to `white/50` (5.23:1) in the code **and in all 19 kit screens**, because `design/` is the
+> source of truth and must not carry the defect. Rail contrast now: active `white` 17.85 · idle
+> `white/70` 9.10 · role line `white/50` 5.23 · group label `white/50` 5.23 · avatar white on
+> `brand-700` 5.47.
+
+**What was deliberately NOT changed: the nav group names and membership.** The kit's rail shows
+"Work" and "Configure"; the app has Recruitment / Insights / Team / Governance. Which items live
+under which heading is product information architecture, not a design-system decision — worth
+asking the product owner, not worth deciding inside a token migration.
+
+### ← You are here: 3d — the remaining screens
+
+**525 compat usages left**: `features` 323 · `pages` 185 · `public/app` 17. `packages/ui` and `components` are both at zero.
 
 > ⚠️ **Found while verifying: the shared components are not what most screens actually use.**
 > `frontend/internal/src` hand-rolls **50 `<input>`, 63 `<button>` and 24 `<select>`** elements,

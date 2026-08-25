@@ -102,7 +102,7 @@ export function Breadcrumbs() {
               ) : (
                 <Link
                   to={item.path}
-                  className="text-ink-600 hover:text-primary-600 transition-colors truncate max-w-[150px]"
+                  className="text-ink-600 hover:text-brand-700 transition-colors truncate max-w-[150px]"
                 >
                   {item.label}
                 </Link>

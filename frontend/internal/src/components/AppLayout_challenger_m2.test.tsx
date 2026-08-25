@@ -81,7 +81,7 @@ describe('Milestone 2 Empirical Challenger Test Suite', () => {
   });
 
   describe('2. Active Link Styling in Sidebar', () => {
-    it('applies active styling (bg-primary-100 font-semibold text-primary-700 border-l-2 border-primary-600) to current route link', () => {
+    it('applies active styling (bg-white/10 + font-medium + text-white) to the current route link', () => {
       auth.set({
         accessToken: 'token-super',
         expiresAtUtc: '2099-01-01T00:00:00Z',
@@ -100,15 +100,20 @@ describe('Milestone 2 Empirical Challenger Test Suite', () => {
 
       const reqLink = screen.getByRole('link', { name: 'Requisitions' });
       expect(reqLink).toBeInTheDocument();
-      expect(reqLink.className).toContain('bg-primary-100');
-      expect(reqLink.className).toContain('font-semibold');
-      expect(reqLink.className).toContain('text-primary-700');
-      expect(reqLink.className).toContain('border-l-2');
-      expect(reqLink.className).toContain('border-primary-600');
+      expect(reqLink.className).toContain('bg-white/10');
+      expect(reqLink.className).toContain('font-medium');
+      expect(reqLink.className).toContain('text-white');
+      // No left border any more. The kit marks the active item with a filled `bg-white/10`
+      // pill; a border AND a fill is two devices saying the same thing, and on a dark rail the
+      // border reads as a seam. Asserted as absent so it does not creep back in.
+      expect(reqLink.className).not.toContain('border-l-2');
+      expect(reqLink.className).toContain('bg-white/10');
 
       const postingsLink = screen.getByRole('link', { name: 'Job postings' });
-      expect(postingsLink.className).not.toContain('bg-primary-100');
-      expect(postingsLink.className).toContain('text-ink-600');
+      expect(postingsLink.className).not.toContain('bg-white/10');
+      // `text-white/70` on the dark rail, not `text-ink-600` — the rail is ink-900 now, so an
+      // ink-600 label on it would be unreadable rather than merely quiet.
+      expect(postingsLink.className).toContain('text-white/70');
     });
 
     it('switches active link styling when route changes', () => {
@@ -129,10 +134,10 @@ describe('Milestone 2 Empirical Challenger Test Suite', () => {
       );
 
       const usersLink = screen.getByRole('link', { name: 'Users' });
-      expect(usersLink.className).toContain('bg-primary-100');
+      expect(usersLink.className).toContain('bg-white/10');
 
       const reqLink = screen.getByRole('link', { name: 'Requisitions' });
-      expect(reqLink.className).not.toContain('bg-primary-100');
+      expect(reqLink.className).not.toContain('bg-white/10');
     });
   });
 

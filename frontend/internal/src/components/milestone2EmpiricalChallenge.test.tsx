@@ -248,7 +248,11 @@ describe('Milestone 2 Empirical Stress Testing & Verification', () => {
       expect(screen.queryByText('Recruitment')).not.toBeInTheDocument();
       expect(screen.queryByText('Team')).not.toBeInTheDocument();
       expect(screen.queryByText('Governance')).not.toBeInTheDocument();
-      expect(screen.getAllByText('No Access User').length).toBe(2);
+      // ONE, not two. The signed-in name used to render in both the sidebar and the header,
+      // and this assertion pinned the duplication. ADR-0025's kit puts identity in the nav
+      // rail's footer and nowhere else: two avatars on one screen is two places to check who
+      // you are signed in as, and they can disagree while a session is being replaced.
+      expect(screen.getAllByText('No Access User').length).toBe(1);
     });
   });
 

@@ -30,7 +30,7 @@ import { auth } from '../lib/auth';
 function NoteBody({ html }: { html: string }) {
   return (
     <div
-      className="max-w-[60ch] whitespace-pre-wrap text-[15px] leading-relaxed"
+      className="max-w-[60ch] whitespace-pre-wrap text-md leading-relaxed"
       // eslint-disable-next-line react/no-danger -- server-escaped; see the note above.
       dangerouslySetInnerHTML={{ __html: html }}
     />
@@ -97,22 +97,22 @@ export function ApplicationNotes({
     id ? interviews?.find((i) => i.id === id)?.round : undefined;
 
   if (error && notes === null) {
-    return <p role="alert" className="text-[13px] text-danger-600">{error}</p>;
+    return <p role="alert" className="text-sm text-critical-700">{error}</p>;
   }
-  if (notes === null) return <p className="text-[13px] text-ink-600">Loading notes…</p>;
+  if (notes === null) return <p className="text-sm text-ink-600">Loading notes…</p>;
 
   const visible = pinnedTo ? notes.filter((n) => n.interviewId === pinnedTo) : notes;
 
   return (
-    <div className="mt-3 rounded-sm border border-line-200 p-4">
-      <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+    <div className="mt-3 rounded-md border border-line p-4">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-600">
         Notes · {visible.length}
       </h3>
 
-      {error && <p role="alert" className="mb-2 text-[13px] text-danger-600">{error}</p>}
+      {error && <p role="alert" className="mb-2 text-sm text-critical-700">{error}</p>}
 
       {visible.length === 0 ? (
-        <p className="text-[13px] text-ink-600">Nothing yet.</p>
+        <p className="text-sm text-ink-600">Nothing yet.</p>
       ) : (
         <ul className="space-y-4">
           {visible.map((note) => {
@@ -120,12 +120,12 @@ export function ApplicationNotes({
             return (
               <li key={note.id}>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-[15px] font-semibold">
+                  <span className="text-md font-semibold">
                     {note.authorUserId === myUserId ? 'You' : note.authorName}
                   </span>
-                  <span className="text-[13px] text-ink-400">{timestamp(note.createdAt)}</span>
+                  <span className="text-sm text-ink-400">{timestamp(note.createdAt)}</span>
                   {round !== undefined && (
-                    <span className="text-[13px] text-ink-400">· round {round}</span>
+                    <span className="text-sm text-ink-400">· round {round}</span>
                   )}
                 </div>
 
@@ -135,7 +135,7 @@ export function ApplicationNotes({
                     author can see is a silent no-op by design (ADR-0018), so listing what we
                     hoped for would be a promise the system did not make. */}
                 {(note.mentions?.length ?? 0) > 0 && (
-                  <p className="mt-1 text-[13px] text-ink-400">
+                  <p className="mt-1 text-sm text-ink-400">
                     Mentioned: {note.mentions?.map((m) => m.displayName).join(', ')}
                   </p>
                 )}
@@ -154,7 +154,7 @@ export function ApplicationNotes({
           id={`note-${applicationId}`}
           rows={3}
           placeholder="Add a note. Type @name to mention a colleague."
-          className="w-full rounded-sm border border-line-200 p-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary-600"
+          className="w-full rounded-md border border-line p-3 text-md focus:outline-none focus:ring-2 focus:ring-brand-700"
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
@@ -169,7 +169,7 @@ export function ApplicationNotes({
           {!pinnedTo && interviews && interviews.length > 0 && (
             <select
               aria-label="Pin to a round"
-              className="h-10 rounded-sm border border-line-200 px-3 text-[13px]"
+              className="h-10 rounded-md border border-line px-3 text-sm"
               value={interviewId}
               onChange={(e) => setInterviewId(e.target.value)}
             >
@@ -181,7 +181,7 @@ export function ApplicationNotes({
           )}
         </div>
 
-        <p className="text-[13px] text-ink-400">
+        <p className="text-sm text-ink-400">
           A mention only reaches someone who can already see this candidate — anyone else stays
           plain text.
         </p>
