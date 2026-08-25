@@ -90,6 +90,38 @@ project.**
 
 Each of these is **one session**. Start a new one for each.
 
+### 0. 🔴 ADR-0025 step 3 — put the apps on the design kit's tokens
+
+**Decided 2026-08-21: `design/` is the source of truth for UI** (now written into CLAUDE.md). That
+rule is inert until this lands, because the kit and the running apps do not share a token
+vocabulary — the *class names* differ, so a screen copied from the kit renders unstyled rather
+than off-brand.
+
+| | Design kit (`design/internal/ds.js`, V1.0) | Shipped (`packages/ui/tailwind-preset.js`, Clear Pipeline) |
+|---|---|---|
+| brand | `brand-700` `#0F766E` | `primary-700` `#0B5654` |
+| neutral | `ink-900…400`, `canvas`, `line`/`line-strong` | `ink-900/600/400`, `surface-0/50`, `line-200`, a full `zinc` ramp |
+| status | `positive` `warn` `critical` `info` | `success` `warning` `danger` `info` `accent` |
+| type | Inter + JetBrains Mono, **no display face** | Inter + IBM Plex Mono + Bricolage Grotesque |
+| radius | 6 / 8 / 10 / 12 / 16 / 20 | 8 / 12 / 16 / full |
+
+**Measured 2026-08-21** across `frontend/internal/src`, `frontend/public`, `packages/ui/src`:
+~**1,120** old-token class usages (`primary-` 252, `surface-` 163, `line-200` 196, `zinc-` 147,
+`font-display` 167, `danger-` 119, `success-`/`warning-` 34 each, `accent-` 9) and **zero**
+design-kit tokens.
+
+> 🔴 **And 163 of the classes already in the shipped apps emit no CSS at all.** Verified by
+> building `frontend/internal` and grepping `dist/assets/*.css`: `text-ink-500` (57 uses),
+> `text-ink-700` (39), `text-ink-800` (20), `border-line-300` (28), `bg-surface-100` (13),
+> `line-100` (5), `surface-200` (1) are **ABSENT** from the built stylesheet — the preset defines
+> `ink` at 900/600/400, `surface` at 0/50 and `line` at 200 only. Those elements inherit whatever
+> colour their parent has. This is a live bug, not a migration cost, and the migration fixes it.
+
+Sequence is ADR-0025's own: preset → both frontends → `RecruitOps_Design_System.md` → then step 4
+(`marketing/landing.html`, `DESIGN.md`). Implement against the approved screens, not against a
+find-and-replace of the hexes — the kit changes radii, drops the display face, and re-cuts the
+status vocabulary, so a token rename alone would leave the apps looking like neither system.
+
 ### 1. ✅ ADR-0026 is built — all four steps. What is left is the *screen*.
 
 [ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md) is Accepted and, as of
