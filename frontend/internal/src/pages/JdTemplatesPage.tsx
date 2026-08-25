@@ -42,14 +42,14 @@ export function JdTemplatesPage() {
     }
   }
 
-  const field = 'h-10 w-full rounded-sm border border-line-200 px-3 focus:outline-none focus:ring-2 focus:ring-primary-600 text-[15px]';
+  const field = 'h-10 w-full rounded-md border border-line px-3 focus:outline-none focus:ring-2 focus:ring-brand-700 text-md';
 
   return (
     <>
       <header className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold">JD templates</h1>
-          <p className="mt-1 text-[13px] text-ink-400">
+          <h1 className="text-xl font-semibold tracking-tight">JD templates</h1>
+          <p className="mt-1 text-sm text-ink-400">
             Reusable job description templates to speed up requisition drafting.
           </p>
         </div>
@@ -61,19 +61,19 @@ export function JdTemplatesPage() {
       {/* ── Create form ── */}
       {showForm && (
         <Card>
-          <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+          <h2 className="mb-4 text-base font-semibold">
             New JD template
           </h2>
-          {error && <p role="alert" className="mb-3 text-[13px] text-danger-600">{error}</p>}
+          {error && <p role="alert" className="mb-3 text-sm text-critical-700">{error}</p>}
           <form onSubmit={submit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1 block text-[13px] font-semibold">Template title</label>
+                <label className="mb-1 block text-sm font-semibold">Template title</label>
                 <input required className={field} placeholder="e.g. Software Engineer"
                   value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
               </div>
               <div>
-                <label className="mb-1 block text-[13px] font-semibold">
+                <label className="mb-1 block text-sm font-semibold">
                   Department <span className="font-normal text-ink-400">(empty = all departments)</span>
                 </label>
                 <select className={field}
@@ -88,10 +88,10 @@ export function JdTemplatesPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-[13px] font-semibold">Job description content</label>
+              <label className="mb-1 block text-sm font-semibold">Job description content</label>
               <textarea
                 required rows={10}
-                className="w-full rounded-sm border border-line-200 p-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary-600"
+                className="w-full rounded-md border border-line p-3 text-md focus:outline-none focus:ring-2 focus:ring-brand-700"
                 placeholder="Describe the role, responsibilities, and requirements…"
                 value={form.content}
                 onChange={(e) => setForm({ ...form, content: e.target.value })}
@@ -117,7 +117,7 @@ export function JdTemplatesPage() {
         <Card>
           <div className="py-6 text-center">
             <h3 className="text-base font-semibold">No templates yet</h3>
-            <p className="mt-1 text-[13px] text-ink-600">
+            <p className="mt-1 text-sm text-ink-600">
               Create a template to prefill job descriptions when raising requisitions.
             </p>
           </div>
@@ -130,7 +130,7 @@ export function JdTemplatesPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-semibold">{t.title}</p>
-                  <p className="text-[13px] text-ink-400">
+                  <p className="text-sm text-ink-400">
                     {t.departmentId
                       ? departments.find((d) => d.id === t.departmentId)?.name ?? 'Specific department'
                       : 'All departments'
@@ -140,13 +140,13 @@ export function JdTemplatesPage() {
                 </div>
                 <button
                   onClick={() => setExpanded(expanded === t.id ? null : t.id)}
-                  className="text-[13px] font-semibold text-primary-600 hover:text-primary-700"
+                  className="text-sm font-semibold text-brand-700 hover:text-brand-700"
                 >
                   {expanded === t.id ? 'Hide' : 'Preview'}
                 </button>
               </div>
               {expanded === t.id && (
-                <pre className="mt-3 whitespace-pre-wrap rounded-sm bg-surface-50 p-3 text-[13px] leading-relaxed text-ink-600">
+                <pre className="mt-3 whitespace-pre-wrap rounded-md bg-canvas p-3 text-sm leading-relaxed text-ink-600">
                   {t.content}
                 </pre>
               )}

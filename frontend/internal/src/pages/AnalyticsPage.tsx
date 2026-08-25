@@ -50,12 +50,12 @@ export const AnalyticsPage: React.FC = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6" data-testid="analytics-page-container">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-line dark:border-ink-800 pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+          <h1 className="text-xl font-semibold tracking-tight">
             Reporting &amp; Analytics
           </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+          <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">
             Real-time recruitment metrics, time-to-hire benchmarks, conversion funnels, and custom CSV reporting.
           </p>
         </div>

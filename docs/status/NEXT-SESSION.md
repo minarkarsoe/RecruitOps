@@ -215,9 +215,34 @@ who you are signed in as, and they can disagree while a session is being replace
 under which heading is product information architecture, not a design-system decision — worth
 asking the product owner, not worth deciding inside a token migration.
 
-### ← You are here: 3d — the remaining screens
+### ✅ 3d(iii) — `pages/` (done 2026-08-21)
 
-**525 compat usages left**: `features` 323 · `pages` 185 · `public/app` 17. `packages/ui` and `components` are both at zero.
+`pages/` is at **0**. Repo-wide 525 → 340.
+
+Three things beyond the colour rename, each from the kit rather than from taste:
+
+- **190 hard-coded text sizes are gone.** `text-[13px]`, `text-[15px]`, `text-[11px]` and friends
+  bypassed the V1.0 scale entirely. They map onto it exactly — 13→`text-sm`, 15→`text-md`,
+  11→`text-2xs` — so nothing moved visually and the scale is now real rather than decorative.
+- **Four hand-rolled tables were put on the kit's treatment.** `UsersPage`, `RequisitionsPage`,
+  `InboxPage` and `JobPostingsPage` each wrote their own `<table>` and each had drifted
+  differently — three padding schemes, three type sizes, and all four with the **uppercase
+  micro-caps header** the kit does not use. Now one treatment: `bg-canvas` header row,
+  `px-4 py-2.5 font-medium text-ink-600` cells, no micro-caps.
+- **Section headings and page titles are on the kit's scale.** Section `<h2>`s were 13px grey
+  uppercase micro-caps, which reads as a label for the thing beside it rather than a heading for
+  the block below it; the kit uses `text-base font-semibold` in 19 places and **never** puts
+  uppercase on a heading. Page `<h1>`s went from `text-2xl font-bold` to the kit's in-app title,
+  `text-xl font-semibold tracking-tight`. (The kit's own `text-3xl font-bold` headings are on its
+  *spec* pages — do not copy those into the app.)
+
+Verified in the browser on `/requisitions`: h1 18px/600/-0.45px tracking · header cell 13px/500
+ink-600 with `text-transform: none` · header row `#F8FAFC` · body cell 14px ink-900 · the migrated
+`StatusPill` rendering warn-700 on warn-50 in situ.
+
+### ← You are here: 3e — `features/` (323) and `frontend/public/app` (17)
+
+**340 compat usages left**: `features` 323 · `public/app` 17. `packages/ui`, `components` and `pages` are all at zero.
 
 > ⚠️ **Found while verifying: the shared components are not what most screens actually use.**
 > `frontend/internal/src` hand-rolls **50 `<input>`, 63 `<button>` and 24 `<select>`** elements,

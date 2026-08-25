@@ -5,6 +5,32 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-21 (latest)
 
+### 📄 `pages/` on the design kit
+**Why:** ADR-0025 step 3d continued. `pages/` is at **0** compat tokens; repo-wide 525 → 340.
+Frontend **352/352**, typecheck clean.
+
+Three changes beyond the colour rename, each taken from the kit rather than from taste:
+
+- **190 hard-coded text sizes are gone.** `text-[13px]`, `text-[15px]`, `text-[11px]` and friends
+  bypassed the V1.0 type scale entirely. They map onto it exactly — 13→`text-sm`, 15→`text-md`,
+  11→`text-2xs` — so nothing moved visually, and the scale is now something the app actually uses
+  rather than something the preset merely declares.
+- **Four hand-rolled tables now share one treatment.** `UsersPage`, `RequisitionsPage`,
+  `InboxPage` and `JobPostingsPage` each wrote their own `<table>` and each had drifted
+  differently: three padding schemes, three type sizes, and all four carrying the **uppercase
+  micro-caps header** the kit does not use anywhere. Now `bg-canvas` header row,
+  `px-4 py-2.5 font-medium text-ink-600` cells, no micro-caps.
+- **Headings are on the kit's scale.** Section `<h2>`s were 13px grey uppercase micro-caps — which
+  reads as a label for the thing beside it, not a heading for the block below it. The kit uses
+  `text-base font-semibold` in 19 places and puts uppercase on a heading **nowhere**. Page `<h1>`s
+  moved from `text-2xl font-bold` to the kit's in-app title, `text-xl font-semibold
+  tracking-tight`; its `text-3xl font-bold` headings belong to the kit's own *spec* pages and were
+  deliberately not copied into the app.
+
+Verified in the browser on `/requisitions`: h1 18px/600 with -0.45px tracking · header cell
+13px/500 ink-600 and `text-transform: none` · header row `#F8FAFC` · body cell 14px ink-900 · the
+migrated `StatusPill` rendering warn-700 on warn-50 in situ.
+
 ### 🧭 The app shell on the design kit — and a contrast failure in the kit itself
 **Why:** every screen sits inside it, so after the preset this is the change with the widest
 reach. `components/` is at **0** compat tokens; repo-wide 595 → 525. Frontend **352/352**,

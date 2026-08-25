@@ -39,7 +39,7 @@ function CustomAnswers({
   const labels = new Map(parseFormFields(schemaJson).map((f) => [f.key, f.label]));
 
   return (
-    <dl className="mt-2 grid max-w-[52ch] grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-[13px]">
+    <dl className="mt-2 grid max-w-[52ch] grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-sm">
       {entries.map(([key, value]) => (
         <div key={key} className="contents">
           <dt className="text-ink-400">{labels.get(key) ?? key}</dt>
@@ -118,34 +118,34 @@ export function JobPostingDetailPage() {
       method: 'POST', body: JSON.stringify({ toStatus }),
     }));
 
-  if (error && !posting) return <p role="alert" className="text-danger-600">{error}</p>;
+  if (error && !posting) return <p role="alert" className="text-critical-700">{error}</p>;
   if (!posting) return <p className="text-ink-600">Loading…</p>;
 
   const publicUrl = posting.publicToken
     ? `${window.location.protocol}//${window.location.hostname}:3000/jobs/${posting.publicToken}`
     : null;
 
-  const field = 'h-10 w-full rounded-sm border border-line-200 px-3 focus:outline-none focus:ring-2 focus:ring-primary-600';
+  const field = 'h-10 w-full rounded-md border border-line px-3 focus:outline-none focus:ring-2 focus:ring-brand-700';
 
   return (
     <>
       <header className="mb-6">
-        <Link to="/jobpostings" className="mb-2 inline-block text-[13px] text-primary-600 hover:underline">
+        <Link to="/jobpostings" className="mb-2 inline-block text-sm text-brand-700 hover:underline">
           ← Back to postings
         </Link>
         <div className="flex items-center gap-3">
-          <h1 className="font-display text-2xl font-bold">{posting.title}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{posting.title}</h1>
           <StatusPill status={posting.status} />
         </div>
-        <p className="mt-1 text-[13px] text-ink-600">
+        <p className="mt-1 text-sm text-ink-600">
           {posting.departmentName} ·{' '}
-          <Link to={`/requisitions/${posting.requisitionId}`} className="text-primary-600 hover:underline">
+          <Link to={`/requisitions/${posting.requisitionId}`} className="text-brand-700 hover:underline">
             approved requisition
           </Link>
         </p>
       </header>
 
-      {error && <p role="alert" className="mb-4 text-[15px] text-danger-600">{error}</p>}
+      {error && <p role="alert" className="mb-4 text-md text-critical-700">{error}</p>}
 
       <div className="space-y-6">
         {/* ── Advert ── */}
@@ -162,19 +162,19 @@ export function JobPostingDetailPage() {
               }}
             >
               <div>
-                <label htmlFor="title" className="mb-1 block text-[13px] font-semibold">Title</label>
+                <label htmlFor="title" className="mb-1 block text-sm font-semibold">Title</label>
                 <input id="title" required className={field} value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })} />
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label htmlFor="location" className="mb-1 block text-[13px] font-semibold">Location</label>
+                  <label htmlFor="location" className="mb-1 block text-sm font-semibold">Location</label>
                   <input id="location" className={field} value={form.location ?? ''}
                     onChange={(e) => setForm({ ...form, location: e.target.value })} />
                 </div>
                 <div>
-                  <label htmlFor="type" className="mb-1 block text-[13px] font-semibold">Employment type</label>
+                  <label htmlFor="type" className="mb-1 block text-sm font-semibold">Employment type</label>
                   <select id="type" className={field} value={form.employmentType}
                     onChange={(e) => setForm({ ...form, employmentType: e.target.value as UpdateJobPostingRequest['employmentType'] })}>
                     <option value="FullTime">Full-time</option>
@@ -185,7 +185,7 @@ export function JobPostingDetailPage() {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="headcount" className="mb-1 block text-[13px] font-semibold">Headcount</label>
+                  <label htmlFor="headcount" className="mb-1 block text-sm font-semibold">Headcount</label>
                   <input id="headcount" type="number" min={1} className={field} value={form.headcount}
                     onChange={(e) => setForm({ ...form, headcount: Number(e.target.value) })} />
                 </div>
@@ -193,33 +193,33 @@ export function JobPostingDetailPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="min" className="mb-1 block text-[13px] font-semibold">Salary from</label>
+                  <label htmlFor="min" className="mb-1 block text-sm font-semibold">Salary from</label>
                   <input id="min" type="number" min={0} className={field} value={form.salaryMin ?? ''}
                     onChange={(e) => setForm({ ...form, salaryMin: e.target.value ? Number(e.target.value) : null })} />
                 </div>
                 <div>
-                  <label htmlFor="max" className="mb-1 block text-[13px] font-semibold">Salary to</label>
+                  <label htmlFor="max" className="mb-1 block text-sm font-semibold">Salary to</label>
                   <input id="max" type="number" min={0} className={field} value={form.salaryMax ?? ''}
                     onChange={(e) => setForm({ ...form, salaryMax: e.target.value ? Number(e.target.value) : null })} />
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 text-[15px]">
+              <label className="flex items-center gap-2 text-md">
                 <input type="checkbox" checked={form.showSalary}
                   onChange={(e) => setForm({ ...form, showSalary: e.target.checked })} />
                 Show the salary on the public job page
               </label>
-              <p className="text-[13px] text-ink-400">
+              <p className="text-sm text-ink-400">
                 Off by default — the requisition&apos;s budget is internal, and publishing it
                 would expose the company&apos;s pay bands.
               </p>
 
               <div>
-                <label htmlFor="desc" className="mb-1 block text-[13px] font-semibold">
+                <label htmlFor="desc" className="mb-1 block text-sm font-semibold">
                   Description <span className="font-normal text-ink-400">(candidate-facing)</span>
                 </label>
                 <textarea id="desc" rows={10} required
-                  className="w-full rounded-sm border border-line-200 p-3 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                  className="w-full rounded-md border border-line p-3 focus:outline-none focus:ring-2 focus:ring-brand-700"
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
@@ -237,17 +237,17 @@ export function JobPostingDetailPage() {
           ) : (
             <>
               <div className="mb-4 flex items-start justify-between">
-                <dl className="grid grid-cols-3 gap-4 text-[15px]">
+                <dl className="grid grid-cols-3 gap-4 text-md">
                   <div>
-                    <dt className="text-[13px] text-ink-600">Location</dt>
+                    <dt className="text-sm text-ink-600">Location</dt>
                     <dd>{posting.location ?? '—'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[13px] text-ink-600">Headcount</dt>
+                    <dt className="text-sm text-ink-600">Headcount</dt>
                     <dd className="font-mono">{posting.headcount}</dd>
                   </div>
                   <div>
-                    <dt className="text-[13px] text-ink-600">Salary</dt>
+                    <dt className="text-sm text-ink-600">Salary</dt>
                     <dd className="font-mono">
                       {posting.salaryMin?.toLocaleString() ?? '—'}
                       {posting.showSalary ? '' : ' (internal)'}
@@ -258,19 +258,19 @@ export function JobPostingDetailPage() {
                   <Button variant="secondary" onClick={startEditing}>Edit advert</Button>
                 )}
               </div>
-              <div className="whitespace-pre-wrap text-[15px] leading-relaxed">{posting.description}</div>
+              <div className="whitespace-pre-wrap text-md leading-relaxed">{posting.description}</div>
             </>
           )}
         </Card>
 
         {/* ── Publishing ── */}
         <Card>
-          <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+          <h2 className="mb-3 text-base font-semibold">
             Public link
           </h2>
           {posting.status === 'Draft' && (
             <>
-              <p className="mb-4 text-[15px] text-ink-600">
+              <p className="mb-4 text-md text-ink-600">
                 Publishing creates the shareable job link. The link is minted once and kept —
                 re-publishing later will not invalidate anything already shared.
               </p>
@@ -283,8 +283,8 @@ export function JobPostingDetailPage() {
           )}
           {posting.status === 'Live' && publicUrl && (
             <>
-              <p className="mb-2 text-[15px] text-ink-600">Share this link:</p>
-              <code className="block break-all rounded-sm bg-surface-50 p-3 font-mono text-[13px]">
+              <p className="mb-2 text-md text-ink-600">Share this link:</p>
+              <code className="block break-all rounded-md bg-canvas p-3 font-mono text-sm">
                 {publicUrl}
               </code>
               <div className="mt-4 flex gap-3">
@@ -300,7 +300,7 @@ export function JobPostingDetailPage() {
             </>
           )}
           {posting.status === 'Closed' && (
-            <p className="text-[15px] text-ink-600">
+            <p className="text-md text-ink-600">
               Closed{posting.closedAt ? ` on ${new Date(posting.closedAt).toLocaleDateString()}` : ''}.
               New applications are refused; the ones already received are untouched.
             </p>
@@ -310,7 +310,7 @@ export function JobPostingDetailPage() {
         {/* ── Pipeline ── */}
         <Card>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+            <h2 className="text-base font-semibold">
               Pipeline · {pipeline.length} {pipeline.length === 1 ? 'candidate' : 'candidates'}
             </h2>
             <Button
@@ -318,7 +318,7 @@ export function JobPostingDetailPage() {
               className="flex items-center gap-1.5 text-xs h-8 px-3"
               onClick={() => setIsBulkModalOpen(true)}
             >
-              <svg className="h-4 w-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-4 w-4 text-brand-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
               Bulk Upload CVs
@@ -327,9 +327,9 @@ export function JobPostingDetailPage() {
 
 
           {pipeline.length === 0 ? (
-            <p className="text-[15px] text-ink-600">No applications yet.</p>
+            <p className="text-md text-ink-600">No applications yet.</p>
           ) : (
-            <ul className="divide-y divide-line-200">
+            <ul className="divide-y divide-line">
               {pipeline.map((item) => {
                 const terminal = item.status === 'Hired' || item.status === 'Rejected';
                 const open = expanded.has(item.id);
@@ -338,7 +338,7 @@ export function JobPostingDetailPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-semibold">{item.candidateName}</p>
-                      <p className="text-[13px] text-ink-600">
+                      <p className="text-sm text-ink-600">
                         {item.email ?? item.phone} · applied{' '}
                         {new Date(item.appliedAt).toLocaleDateString()}
                       </p>
@@ -351,7 +351,7 @@ export function JobPostingDetailPage() {
                         schemaJson={posting.applicationFormFieldsJson}
                       />
                       {item.coverNote && (
-                        <p className="mt-1 max-w-[52ch] rounded-sm bg-surface-50 p-2 text-[13px] italic text-ink-600">
+                        <p className="mt-1 max-w-[52ch] rounded-md bg-canvas p-2 text-sm italic text-ink-600">
                           {item.coverNote}
                         </p>
                       )}
@@ -362,7 +362,7 @@ export function JobPostingDetailPage() {
                           and offering it would only produce a confusing error. */}
                       {!terminal && hasPermission(session, 'permission:applications:applications:move_stage') && (
                         <select
-                          className="h-8 rounded-sm border border-line-200 px-2 text-[13px]"
+                          className="h-8 rounded-md border border-line px-2 text-sm"
                           value=""
                           disabled={busy}
                           onChange={(e) => e.target.value && moveStage(item.id, e.target.value as PipelineStatus)}
@@ -378,7 +378,7 @@ export function JobPostingDetailPage() {
                       <button
                         type="button"
                         aria-expanded={open}
-                        className="h-8 rounded-sm border border-line-200 px-2 text-[13px] font-semibold text-primary-600 hover:bg-surface-50"
+                        className="h-8 rounded-md border border-line px-2 text-sm font-semibold text-brand-700 hover:bg-canvas"
                         onClick={() => setExpanded((prev) => {
                           const next = new Set(prev);
                           if (next.has(item.id)) next.delete(item.id);

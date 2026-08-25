@@ -37,7 +37,7 @@ function recommendationLabel(value: HireRecommendation | null): string {
 // so they can be asserted directly rather than only through this page.
 
 const field =
-  'h-10 w-full rounded-sm border border-line-200 px-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary-600';
+  'h-10 w-full rounded-md border border-line px-3 text-md focus:outline-none focus:ring-2 focus:ring-brand-700';
 
 // ---------------------------------------------------------------------------
 
@@ -50,10 +50,10 @@ function RatingInput({ value, onChange }: { value: number | null; onChange: (n: 
           type="button"
           aria-pressed={value === n}
           onClick={() => onChange(n)}
-          className={`h-9 w-9 rounded-sm border text-[15px] font-semibold ${
+          className={`h-9 w-9 rounded-md border text-md font-semibold ${
             value === n
-              ? 'border-primary-600 bg-primary-100 text-primary-700'
-              : 'border-line-200 text-ink-600 hover:bg-surface-50'
+              ? 'border-brand-700 bg-brand-50 text-brand-700'
+              : 'border-line text-ink-600 hover:bg-canvas'
           }`}
         >
           {n}
@@ -71,13 +71,13 @@ function CriterionField({
   onChange: (next: Draft) => void;
 }) {
   return (
-    <div className="border-t border-line-200 pt-4">
-      <p className="text-[15px] font-semibold">
+    <div className="border-t border-line pt-4">
+      <p className="text-md font-semibold">
         {criterion.label}
         {!criterion.isRequired && <span className="ml-2 font-normal text-ink-400">optional</span>}
       </p>
       {criterion.guidance && (
-        <p className="mt-0.5 max-w-[60ch] text-[13px] text-ink-600">{criterion.guidance}</p>
+        <p className="mt-0.5 max-w-[60ch] text-sm text-ink-600">{criterion.guidance}</p>
       )}
 
       <div className="mt-2 space-y-2">
@@ -93,10 +93,10 @@ function CriterionField({
                 type="button"
                 aria-pressed={draft.yesNo === v}
                 onClick={() => onChange({ ...draft, yesNo: v })}
-                className={`h-9 rounded-sm border px-4 text-[15px] font-semibold ${
+                className={`h-9 rounded-md border px-4 text-md font-semibold ${
                   draft.yesNo === v
-                    ? 'border-primary-600 bg-primary-100 text-primary-700'
-                    : 'border-line-200 text-ink-600 hover:bg-surface-50'
+                    ? 'border-brand-700 bg-brand-50 text-brand-700'
+                    : 'border-line text-ink-600 hover:bg-canvas'
                 }`}
               >
                 {v ? 'Yes' : 'No'}
@@ -108,7 +108,7 @@ function CriterionField({
         <textarea
           rows={criterion.type === 'Text' ? 4 : 2}
           placeholder={criterion.type === 'Text' ? 'Your answer' : 'Evidence (optional)'}
-          className="w-full rounded-sm border border-line-200 p-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary-600"
+          className="w-full rounded-md border border-line p-3 text-md focus:outline-none focus:ring-2 focus:ring-brand-700"
           value={draft.comment}
           onChange={(e) => onChange({ ...draft, comment: e.target.value })}
         />
@@ -121,10 +121,10 @@ function CriterionField({
 
 function ScorecardView({ scorecard }: { scorecard: Scorecard }) {
   return (
-    <div className="rounded-sm border border-line-200 p-4">
+    <div className="rounded-md border border-line p-4">
       <div className="flex items-baseline justify-between gap-4">
         <p className="font-semibold">{scorecard.interviewerName}</p>
-        <p className="text-[13px] text-ink-600">
+        <p className="text-sm text-ink-600">
           {scorecard.status === 'Submitted'
             ? `${recommendationLabel(scorecard.recommendation)} · submitted ${
                 scorecard.submittedAt ? new Date(scorecard.submittedAt).toLocaleDateString() : ''
@@ -134,7 +134,7 @@ function ScorecardView({ scorecard }: { scorecard: Scorecard }) {
       </div>
 
       {scorecard.summaryComment && (
-        <p className="mt-2 max-w-[60ch] whitespace-pre-wrap text-[15px]">{scorecard.summaryComment}</p>
+        <p className="mt-2 max-w-[60ch] whitespace-pre-wrap text-md">{scorecard.summaryComment}</p>
       )}
 
       <dl className="mt-3 space-y-2">
@@ -143,8 +143,8 @@ function ScorecardView({ scorecard }: { scorecard: Scorecard }) {
             {/* The label is the one snapshotted when this was written, not the template's
                 current wording — a criterion renamed since must not rewrite what this
                 person was actually asked. */}
-            <dt className="text-[13px] font-semibold text-ink-600">{r.criterionLabel}</dt>
-            <dd className="text-[15px]">
+            <dt className="text-sm font-semibold text-ink-600">{r.criterionLabel}</dt>
+            <dd className="text-md">
               {r.criterionType === 'Rating' && <span className="font-mono">{r.rating ?? '—'}/5</span>}
               {r.criterionType === 'YesNo' && <span>{r.yesNo === null ? '—' : r.yesNo ? 'Yes' : 'No'}</span>}
               {r.comment && (
@@ -230,7 +230,7 @@ export function InterviewDetailPage() {
     }
   }
 
-  if (error && !interview) return <p role="alert" className="text-danger-600">{error}</p>;
+  if (error && !interview) return <p role="alert" className="text-critical-700">{error}</p>;
   if (!interview || !panel) return <p className="text-ink-600">Loading…</p>;
 
   const alreadySubmitted = mine?.scorecard?.status === 'Submitted';
@@ -244,15 +244,15 @@ export function InterviewDetailPage() {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="mb-2 inline-block text-[13px] text-primary-600 hover:underline"
+          className="mb-2 inline-block text-sm text-brand-700 hover:underline"
         >
           ← Back
         </button>
         <div className="flex items-center gap-3">
-          <h1 className="font-display text-2xl font-bold">Round {interview.round}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Round {interview.round}</h1>
           <StatusPill status={interview.status} />
         </div>
-        <p className="mt-1 text-[13px] text-ink-600">
+        <p className="mt-1 text-sm text-ink-600">
           {new Date(interview.scheduledStart).toLocaleString()} · {interview.durationMinutes} min ·{' '}
           {interview.mode}
           {interview.location ? ` · ${interview.location}` : ''}
@@ -260,23 +260,23 @@ export function InterviewDetailPage() {
         </p>
       </header>
 
-      {error && <p role="alert" className="mb-4 text-[15px] text-danger-600">{error}</p>}
-      {saved && <p className="mb-4 text-[15px] text-success-600">{saved}</p>}
+      {error && <p role="alert" className="mb-4 text-md text-critical-700">{error}</p>}
+      {saved && <p className="mb-4 text-md text-positive-700">{saved}</p>}
 
       <div className="space-y-6">
         {/* ── Panel roster ── */}
         <Card>
-          <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+          <h2 className="mb-3 text-base font-semibold">
             Panel
           </h2>
           <ul className="space-y-1.5">
             {interview.participants.map((p) => (
-              <li key={p.userId} className="flex items-center justify-between text-[15px]">
+              <li key={p.userId} className="flex items-center justify-between text-md">
                 <span>{p.displayName}{p.isLead && <span className="text-ink-400"> · lead</span>}</span>
                 {/* Who has finished is visible to the whole panel on purpose: it says
                     nothing about what they wrote, and it is what lets a lead chase the
                     outstanding one. */}
-                <span className="text-[13px] text-ink-600">
+                <span className="text-sm text-ink-600">
                   {p.hasSubmittedScorecard ? 'Scorecard in' : 'Not yet'}
                 </span>
               </li>
@@ -287,25 +287,25 @@ export function InterviewDetailPage() {
         {/* ── My scorecard ── */}
         {mine && (
           <Card>
-            <h2 className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+            <h2 className="mb-1 text-base font-semibold">
               Your evaluation
             </h2>
 
             {mine.criteria.length === 0 ? (
-              <p className="text-[15px] text-ink-600">
+              <p className="text-md text-ink-600">
                 No scorecard template applies to this posting yet, so there are no criteria to
                 fill in. Recruitment staff can set one up under Scorecard templates.
               </p>
             ) : alreadySubmitted && mine.scorecard ? (
               <>
-                <p className="mb-3 text-[15px] text-ink-600">
+                <p className="mb-3 text-md text-ink-600">
                   Submitted — evaluations cannot be changed afterwards, which is what makes the
                   blind rule mean anything.
                 </p>
                 <ScorecardView scorecard={mine.scorecard} />
               </>
             ) : interview.status === 'Cancelled' ? (
-              <p className="text-[15px] text-ink-600">
+              <p className="text-md text-ink-600">
                 This round was cancelled; there is nothing to evaluate.
               </p>
             ) : (
@@ -322,8 +322,8 @@ export function InterviewDetailPage() {
                   />
                 ))}
 
-                <div className="border-t border-line-200 pt-4">
-                  <label htmlFor="rec" className="mb-1 block text-[13px] font-semibold">
+                <div className="border-t border-line pt-4">
+                  <label htmlFor="rec" className="mb-1 block text-sm font-semibold">
                     Overall recommendation
                   </label>
                   <select
@@ -340,26 +340,26 @@ export function InterviewDetailPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="summary" className="mb-1 block text-[13px] font-semibold">
+                  <label htmlFor="summary" className="mb-1 block text-sm font-semibold">
                     Summary
                   </label>
                   <textarea
                     id="summary"
                     rows={4}
-                    className="w-full rounded-sm border border-line-200 p-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary-600"
+                    className="w-full rounded-md border border-line p-3 text-md focus:outline-none focus:ring-2 focus:ring-brand-700"
                     value={summary}
                     onChange={(e) => setSummary(e.target.value)}
                   />
                 </div>
 
-                <p className="text-[13px] text-ink-400">
+                <p className="text-sm text-ink-400">
                   A draft saves whatever is complete: a rating with no score, or a yes/no with
                   no answer, is not stored yet — so a comment written against one is kept only
                   once its answer is given.
                 </p>
 
                 {missingRequired.length > 0 && (
-                  <p className="text-[13px] text-ink-600">
+                  <p className="text-sm text-ink-600">
                     Still needed to submit: {missingRequired.map((c) => c.label).join(', ')}.
                   </p>
                 )}
@@ -392,21 +392,21 @@ export function InterviewDetailPage() {
 
         {/* ── The panel's evaluations ── */}
         <Card>
-          <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+          <h2 className="mb-3 text-base font-semibold">
             Panel evaluations
           </h2>
 
           {/* The blind rule rendered as a state, not an error. A bare "forbidden" would read
               as a bug; naming what is waiting and why makes it a step in the process. */}
           {panel.blindedUntilYouSubmit && panel.hiddenCount > 0 && (
-            <p className="mb-4 rounded-sm bg-warning-100 p-3 text-[15px] text-warning-600">
+            <p className="mb-4 rounded-md bg-warn-50 p-3 text-md text-warn-700">
               {panel.hiddenCount} {panel.hiddenCount === 1 ? 'evaluation is' : 'evaluations are'}{' '}
               waiting for yours. They unlock as soon as you submit — so that what you write is
               yours rather than an echo of theirs.
             </p>
           )}
           {panel.blindedUntilYouSubmit && panel.hiddenCount === 0 && (
-            <p className="mb-4 text-[15px] text-ink-600">
+            <p className="mb-4 text-md text-ink-600">
               Nobody else has submitted yet. Their evaluations will appear here once you have
               submitted yours.
             </p>
@@ -414,7 +414,7 @@ export function InterviewDetailPage() {
 
           {panel.visible.length === 0 ? (
             !panel.blindedUntilYouSubmit && (
-              <p className="text-[15px] text-ink-600">No evaluations submitted yet.</p>
+              <p className="text-md text-ink-600">No evaluations submitted yet.</p>
             )
           ) : (
             <div className="space-y-3">
@@ -425,10 +425,10 @@ export function InterviewDetailPage() {
 
         {/* ── Debrief, pinned to this round ── */}
         <Card>
-          <h2 className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+          <h2 className="mb-1 text-base font-semibold">
             Debrief
           </h2>
-          <p className="mb-2 text-[13px] text-ink-400">
+          <p className="mb-2 text-sm text-ink-400">
             Notes about this round. The candidate&apos;s full thread is on the pipeline board.
           </p>
           {/* Notes are not blinded — they are a conversation, not an independent judgement,
