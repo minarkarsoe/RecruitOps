@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "internal",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:internal"],
+      "port": 5173
+    },
+    {
+      "name": "public",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:public"],
+      "port": 3000
+    }
+  ]
+}

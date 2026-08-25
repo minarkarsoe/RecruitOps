@@ -5,6 +5,49 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-21 (latest)
 
+### 🎨 ADR-0025 step 3a+3b — the apps are on V1.0 tokens
+**Why:** `design/` is now the declared source of truth for UI, and that rule was inert while the
+kit and the apps used different *class names* — a screen copied from the kit rendered unstyled,
+not off-brand. Frontend **342/342**, typecheck clean, both apps build.
+
+`packages/ui/tailwind-preset.js` is now a copy of `design/internal/ds.js` plus a **fenced
+compatibility block** aliasing every old name onto its V1.0 equivalent (`primary→brand`,
+`success→positive`, `warning→warn`, `danger→critical`, `accent→warn`, `surface→canvas/slate`,
+`zinc→slate`, `cyan`/`teal`→brand). So the apps already render V1.0 colours; only the names are
+old, and they migrate an area at a time without the app breaking in between. **The block carries
+its own exit condition** — the grep that has to reach zero is in the file.
+
+Also landed: the V1.0 type scale (`text-base` is 14px, not 16 — that density is why the kit reads
+as an operations tool), radii 6/8/10/12/16/20, and `ds.css`'s base layer in both apps — focus
+ring, `::selection`, `.mm` Burmese line box, `.tnum`, mono ligature suppression, the
+approval-chain rail, skeletons.
+
+**Two live defects fixed on the way, neither of them a migration cost:**
+
+- **163 classes in the shipped apps emitted no CSS at all.** Found by building `frontend/internal`
+  and grepping `dist/assets/*.css`: `text-ink-500` (57 uses), `text-ink-700` (39), `text-ink-800`
+  (20), `border-line-300` (28), `bg-surface-100` (13), `border-line-100` (5), `bg-surface-200` (1)
+  were ABSENT — the old preset defined `ink` at 900/600/400, `surface` at 0/50 and `line` at 200
+  only, so those elements silently inherited their parent's colour. All seven now present.
+- **Bricolage Grotesque and IBM Plex Mono were still downloading** after the "fix". Removing the
+  `@import` from the CSS was not enough: the real request is a `<link>` in
+  `frontend/internal/index.html` and `frontend/public/app/layout.tsx`. Caught by reading
+  `document.fonts` in a browser rather than trusting the diff. Now one request, three families.
+
+Body type was also wrong in a way nobody had measured: `line-height: 1.7` was set globally "for
+Burmese", which made every English row 27px tall. Burmese gets `.mm` instead, and the body is
+14px/20px in the internal app, 15px/22px on the public one.
+
+**Baseline for what remains (source only, `.next`/`dist`/`node_modules` excluded — an earlier
+count of ~1,120 included build artifacts and was wrong): 732 compat usages** — `features` 324,
+`pages` 189, `packages/ui` 116, `components` 86, `public/app` 17.
+
+**Also deleted:** the seven `design-prototypes*` folders (untracked, superseded by `design/`).
+`design-prototypes-7/RESEARCH-competitive-ux-feedback.md` was **not** deleted — it is real
+competitive research with no copy elsewhere, and it moved to
+`docs/product/competitive-ux-research.md`.
+
+
 ### 📦 ADR-0026 step 4 — bulk CV upload comes off the static dictionary
 **Why:** the last of the two job mechanisms ADR-0026 exists to collapse into one. Backend
 **612/612** (62 domain + 550 api), up from 599; **+13 tests**, and the 20 existing API tests pass

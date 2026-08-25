@@ -105,22 +105,65 @@ than off-brand.
 | type | Inter + JetBrains Mono, **no display face** | Inter + IBM Plex Mono + Bricolage Grotesque |
 | radius | 6 / 8 / 10 / 12 / 16 / 20 | 8 / 12 / 16 / full |
 
-**Measured 2026-08-21** across `frontend/internal/src`, `frontend/public`, `packages/ui/src`:
-~**1,120** old-token class usages (`primary-` 252, `surface-` 163, `line-200` 196, `zinc-` 147,
-`font-display` 167, `danger-` 119, `success-`/`warning-` 34 each, `accent-` 9) and **zero**
-design-kit tokens.
+### ✅ 3a — the preset (done 2026-08-21)
 
-> 🔴 **And 163 of the classes already in the shipped apps emit no CSS at all.** Verified by
-> building `frontend/internal` and grepping `dist/assets/*.css`: `text-ink-500` (57 uses),
-> `text-ink-700` (39), `text-ink-800` (20), `border-line-300` (28), `bg-surface-100` (13),
-> `line-100` (5), `surface-200` (1) are **ABSENT** from the built stylesheet — the preset defines
-> `ink` at 900/600/400, `surface` at 0/50 and `line` at 200 only. Those elements inherit whatever
-> colour their parent has. This is a live bug, not a migration cost, and the migration fixes it.
+`packages/ui/tailwind-preset.js` is V1.0: it is now a copy of `design/internal/ds.js` plus a
+**fenced compatibility block** that aliases every old name onto its V1.0 equivalent. So the apps
+are already **on V1.0 colours** — only the class *names* are old, and they can be migrated an area
+at a time without the app being unstyled in between.
 
-Sequence is ADR-0025's own: preset → both frontends → `RecruitOps_Design_System.md` → then step 4
-(`marketing/landing.html`, `DESIGN.md`). Implement against the approved screens, not against a
-find-and-replace of the hexes — the kit changes radii, drops the display face, and re-cuts the
-status vocabulary, so a token rename alone would leave the apps looking like neither system.
+It also **fixed the 163 dead classes**. Before: `text-ink-500` (57 uses), `text-ink-700` (39),
+`text-ink-800` (20), `border-line-300` (28), `bg-surface-100` (13), `border-line-100` (5),
+`bg-surface-200` (1) were **ABSENT** from the built stylesheet — the old preset defined `ink` at
+900/600/400, `surface` at 0/50 and `line` at 200 only, so those elements silently inherited their
+parent's colour. Re-verified after the change: all seven **PRESENT**.
+
+### ✅ 3b — base CSS and fonts (done 2026-08-21)
+
+`frontend/internal/src/index.css` and `frontend/public/app/globals.css` ported from `ds.css`:
+focus ring, `::selection`, `.mm` Burmese line box, `.tnum`, mono ligature suppression, the
+approval-chain rail, skeletons. Body type is **14px/20px** in the internal app (was the browser's
+16px with a global `line-height: 1.7`, which made every English row 27px tall) and 15px/22px on
+the public surface, which is read on a phone.
+
+**Bricolage Grotesque and IBM Plex Mono are gone**, and the `<link>` in `index.html` /
+`layout.tsx` was the real source — the CSS `@import` edit alone had left both faces still
+downloading. Verified in the browser: `document.fonts` now lists Inter, JetBrains Mono and Noto
+Sans Myanmar only, from a single Google Fonts request.
+
+### ← You are here: 3c — migrate the screens off the compat names
+
+**Baseline measured 2026-08-21, source files only** (`.next`, `dist` and `node_modules` excluded —
+an earlier count of "~1,120" included build artifacts and was wrong):
+
+| Area | Usages |
+|---|---|
+| `frontend/internal/src/features` | 324 |
+| `frontend/internal/src/pages` | 189 |
+| `packages/ui/src` | 116 |
+| `frontend/internal/src/components` | 86 |
+| `frontend/public/app` | 17 |
+| **Total** | **732** (706 colour + 26 `font-display`) |
+
+By token: `primary` 219 · `surface` 155 · `zinc` 147 · `danger` 100 · `warning` 29 · `success` 28
+· `teal` 13 · `cyan` 11 · `accent` 4.
+
+**The number that has to reach zero**, and the command that reports it:
+
+```bash
+grep -rEo --include=*.tsx --include=*.ts --include=*.css "(primary|success|warning|danger|accent|surface|zinc|cyan|teal)-[0-9]+|font-display" frontend/internal/src frontend/public/app packages/ui/src | wc -l
+```
+
+Suggested order — `packages/ui/src` first, because both apps import it and `StatusPill` alone
+carries the whole status vocabulary; then `components`, then `pages`, then `features` by module,
+then `frontend/public/app`. **Delete the compat block in the preset when the count is zero.**
+
+⚠️ **Do not do this as a find-and-replace of token names.** Open the matching screen in `design/`
+and build against it: the kit also changes radii, drops the display face and re-cuts the status
+vocabulary, so a rename alone leaves the apps looking like neither system. That is the whole
+reason `design/` is the source of truth.
+
+Then: `RecruitOps_Design_System.md`, and finally step 4 (`marketing/landing.html`, `DESIGN.md`).
 
 ### 1. ✅ ADR-0026 is built — all four steps. What is left is the *screen*.
 

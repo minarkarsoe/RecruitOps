@@ -1,4 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&family=Noto+Sans+Myanmar:wght@400;600;700&display=swap');
+/* Base styles for the internal app, and the few things utilities cannot do.
+   Ported from `design/internal/ds.css` — that file is the source of truth (ADR-0025).
+   Fonts follow V1.0: Inter + JetBrains Mono. Bricolage Grotesque and IBM Plex Mono are gone.
+   The faces are requested by a <link> in index.html, not by @import here — an @import cannot
+   start downloading until this stylesheet has itself arrived, which delays first paint. */
 
 @tailwind base;
 @tailwind components;
@@ -7,11 +11,73 @@
 :root { color-scheme: light; }
 
 body {
-  background: theme('colors.surface.50');
+  background: theme('colors.canvas');
   color: theme('colors.ink.900');
   font-family: theme('fontFamily.sans');
-  /* Burmese-safe line height (design system §1). */
+  /* 14px/20px, not the browser's 16px. This is the product's density — an operations
+     tool that shows a pipeline, not a marketing page. Matches ds.css exactly.
+     ⚠️ The line-height used to be 1.7 globally "for Burmese"; that made every English
+     row 27px tall. Burmese gets its own rule below instead. */
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Burmese needs the taller line box or diacritics clip. Applied per-element rather than
+   globally, so English UI keeps its compact 20px rhythm. */
+.mm {
+  font-family: 'Noto Sans Myanmar', Inter, sans-serif;
   line-height: 1.7;
+}
+
+/* One focus treatment everywhere, and it must not be the browser default. */
+:focus-visible {
+  outline: 2px solid theme('colors.brand.700');
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: theme('colors.brand.100');
+  color: theme('colors.brand.900');
+}
+
+/* Digits that sit in columns must not dance as they change. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* JetBrains Mono ships programming ligatures, so "===" collapses into one glyph and reads
+   as a stray bar in UI text. We use mono for IDs, dates and literal operators, never for
+   source, so ligatures are pure loss here. */
+.font-mono, code, kbd, pre {
+  font-variant-ligatures: none;
+  -webkit-font-feature-settings: 'liga' 0, 'calt' 0;
+  font-feature-settings: 'liga' 0, 'calt' 0;
+}
+
+/* --- Approval chain rail --------------------------------------------------
+   The product's signature device, carried through the rebrand because it survives it:
+   it encodes sequence, and sequence is what Module 1 is about. */
+.rail-step { position: relative; }
+.rail-step::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 28px;
+  bottom: -12px;
+  width: 1px;
+  background: theme('colors.line.DEFAULT');
+}
+.rail-step:last-child::before { display: none; }
+.rail-step.is-done::before { background: theme('colors.brand.200'); }
+
+/* --- Skeleton loading -----------------------------------------------------
+   Skeletons, never a spinner parked in the middle of content: the shape of what is
+   coming is information, a spinner is not. */
+@keyframes ds-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .45 } }
+.skeleton {
+  background: theme('colors.line.DEFAULT');
+  border-radius: 6px;
+  animation: ds-pulse 1.6s cubic-bezier(.4, 0, .6, 1) infinite;
 }
 
 /*
@@ -26,8 +92,8 @@ body {
  */
 .mention {
   font-weight: 600;
-  color: theme('colors.primary.700');
-  background: theme('colors.primary.100');
+  color: theme('colors.brand.700');
+  background: theme('colors.brand.100');
   border-radius: 3px;
   padding: 0 2px;
 }
@@ -35,6 +101,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
