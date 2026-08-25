@@ -11,7 +11,11 @@
 >
 > ✅ **`docker compose up --build` runs** — Postgres + API + both frontends, migrations applying on startup.
 >
-> ✅ **Frontend: 352/352 Vitest passing** across 44 test files, `npm run typecheck` 0 errors across both apps (re-run 2026-08-21 after the login screen was rebuilt against the design kit; `LoginPage.test.tsx` is new).
+> ✅ **Frontend: 358/358 Vitest passing** across 45 test files, `npm run typecheck` 0 errors across both apps, `npm run build` clean (re-run 2026-08-25 after `features/pipeline`, `features/analytics` and `frontend/public/app` were rebuilt against the design kit; `ChartMarks.test.tsx` is new — it pins the charts to one hue, `aria-pressed`, `role="img"` and no `dark:` variants).
+>
+> ⚠️ **The public app (`frontend/public`) has no tests at all.** It is a stranger's only view of
+> the product and the least-covered surface in the repo; its rebuild was verified from the built
+> stylesheet because the job page needs a running API.
 >
 > ✅ **Granular Dynamic RBAC & Permission-Aware UX complete** — `/api/roles`, `/api/permissions`, `/api/users`, `[HasPermission]` policy attribute, User Directory (`/users`), Role Builder (`/roles`), and dynamic permission-aware UI filtering across navigation sidebar and action buttons.
 >

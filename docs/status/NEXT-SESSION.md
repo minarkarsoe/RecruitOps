@@ -1,9 +1,11 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-08-21 · **Backend 612/612 · Frontend 352/352 · typecheck clean**
+**Last updated:** 2026-08-25 · **Backend 612/612 · Frontend 358/358 · typecheck clean · builds clean**
 · **ADR-0026 is complete** — steps 1–4 built, steps 1–3 security-reviewed · the product sends email
 (Module 3.2 invitations) and no longer keeps a recruiter's fifty CVs in process memory
 · All seven modules have a drawn UI (25 screens)
+· **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
+are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
 > deliberately short-lived — one feature each — because conversation history is re-sent on
@@ -349,15 +351,24 @@ was missing for the same reason.
 > a candidate following a dead link gets Next's built-in 404: no layout, no fonts, no company
 > name. `design/public/` does not draw this screen — it needs designing, not just building.
 
-### ← You are here: 3e(iv) — the last 38, and they are all in dead code
+### ⏸ 3e(iv) — the last 38, PARKED by the product owner (2026-08-25)
 
 `features/interviews` (24) and `features/requisitions` (14). **Both folders are orphaned** — see
 the table above. Nothing else in either frontend carries a compat token, and `dark:` is at zero
 repo-wide.
 
-**Do not start by migrating them.** Decide first whether `BlindScorecardDrawer`,
-`RequisitionTable` and `RequisitionDrawer` get wired to a route or deleted. Either answer finishes
-step 3; only "restyle them and leave them orphaned" fails to.
+**The owner was asked and chose to leave them as they are for now, and to revisit later.** So:
+
+- **Do not migrate, delete, or wire up these two folders** without asking again. Leaving them
+  untouched is the current decision, not an oversight.
+- **The compat block stays in `packages/ui/tailwind-preset.js`** until they are resolved. Its exit
+  condition is a count of zero and the count is 43 — 5 comments plus these 38. Deleting the block
+  early would leave both folders rendering unstyled, which is worse than leaving them off-brand.
+- Everything that reaches a screen **is** on V1.0. The remaining 38 are the only exception, and
+  they are invisible to a user because the code is unreachable.
+
+Whoever picks this up: the question is still "wire up or delete", not "which classes". Restyling
+them while they stay orphaned is the one option that finishes nothing.
 
 > ⚠️ **The old exit-condition grep counted build output.** Pointed at `frontend/public` it also
 > reads `.next/` — 78 hits there, **66 of them compiled artifacts**, so the number could never
