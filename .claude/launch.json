@@ -12,6 +12,13 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:public"],
       "port": 3000
+    },
+    {
+      "// marketing": "Static server for marketing/landing.html, which is a single self-contained file with no build step. Vite is already a workspace dependency and is used here only as a static file server — no new package, no config file.",
+      "name": "marketing",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--no-install", "vite", "marketing", "--port", "4180", "--strictPort"],
+      "port": 4180
     }
   ]
 }

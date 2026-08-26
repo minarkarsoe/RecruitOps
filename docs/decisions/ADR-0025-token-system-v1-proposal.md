@@ -102,6 +102,29 @@ The rebrand is **not** executed by editing the preset first. Order:
 4. `marketing/landing.html` and `DESIGN.md` move last, since the landing page is already
    shipped and reviewed and has no dependents.
 
+> **Step 4 done for the landing page — 2026-08-26.** `marketing/landing.html` and `DESIGN.md`
+> are on V1.0. 235 class occurrences and 30 hexes moved; the page's structure, copy and motion
+> are untouched, so the finish review still stands. Verified in the browser: **198 rendered text
+> nodes measured against their actual painted backgrounds, 0 below the AA floor**, and all 37
+> distinct token utilities confirmed to emit real CSS.
+>
+> Three notes for whoever reads this next:
+>
+> - **The `accent` / `warning` conflict this ADR worried about was not real.** The Context
+>   section above objected that V1.0 "removes the amber reservation" by listing both an emerald
+>   status colour and an amber warning colour, turning a reserved signal into an ordinary palette
+>   entry. Measured at migration time, Clear Pipeline's `accent` and `warning` families had
+>   **identical hexes at every step** (`-700 #8A5A08`, `-600 #C97A0A`, `-100 #FCF0DC`; only
+>   `accent` carried a `-500`). The reservation was already a convention, not a colour. Merging
+>   them into `warn` cost a name and nothing else. The objection was right about the risk and
+>   wrong about the mechanism.
+> - **One rule died.** The marketing surface's *page-scale radii* extension (20px poster
+>   containers above the app's 16px ceiling) is gone: V1.0's re-cut ramp puts `xl` at 16px, so
+>   marketing and app containers are now the same radius. Recorded in `DESIGN.md`.
+> - **`RecruitOps_Design_System.md` is still on Clear Pipeline** — 27 references, and its title
+>   is "Clear Pipeline". That file belongs to **step 3**, not step 4, and step 3 was closed
+>   without it. Step 4 does not close it and this note does not either.
+
 Rebranding the preset before the screens exist would mean redesigning against a moving target,
 and would break both running frontends for no delivered benefit.
 

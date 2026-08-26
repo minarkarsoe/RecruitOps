@@ -5,6 +5,58 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🎨 The marketing landing page moves to V1.0 — ADR-0025 step 4, partly done
+
+**Why:** `marketing/landing.html` was the **last surface still running "Clear Pipeline"**, and
+it is the one surface the public sees. The real hazard was not that its colours were off-brand
+but that its **class names no longer existed anywhere else in the repo** — `primary-*`,
+`surface-*`, `success/warning/danger/accent`. A component lifted from the product into this page
+rendered *unstyled*, not merely wrong, which is exactly the trap CLAUDE.md warns about.
+
+235 class occurrences and 30 raw hexes moved. Structure, copy, composition and motion are
+**unchanged** — the finish review that approved them still stands.
+
+Two changes are substantive rather than renames:
+
+- **The display face is gone.** V1.0 has none, so Bricolage Grotesque goes and Inter carries the
+  56px hero on -0.04em tracking. This costs the page real character; the cost was accepted in
+  ADR-0025 rather than discovered here, because the alternative was a third font stack living
+  only on the marketing surface.
+- **`accent` merged into `warn`.** Their hexes were **already identical** in Clear Pipeline
+  (`-700 #8A5A08`, `-600 #C97A0A`, `-100 #FCF0DC`), so this cost a name, not a colour. The amber
+  reservation is now a discipline rather than a naming distinction — easier to break, so it is
+  written down in `DESIGN.md` instead of being assumed from the palette.
+
+**Colour was verified by computation, not by eye**, and the strongest check was done in the
+browser: **every rendered text node measured against its actual painted background — 198 nodes,
+0 below the WCAG AA floor.** Also confirmed live: all **37** distinct token utilities emit real
+CSS (the exact failure this migration existed to prevent), both JS-driven widgets round-trip
+their computed colours, and the page stays light under `prefers-color-scheme: dark`.
+
+**One mark was deliberately not translated step-for-step.** The dot inside the pending pill would
+have gone from 2.97:1 to **2.07:1** under a literal mapping — the only element the migration
+would have made worse. It is `warn-700` now, matching its own label, at 4.84:1. Two other pairs
+moved and are recorded rather than hidden: the sovereignty field's body text 10.77 → **7.52**
+(V1.0's `brand-900` is much lighter than `#052A29`), and the primary button label 6.07 → **5.47**
+(`#0F766E` is V1.0's specified accent). Both clear the floor.
+
+`DESIGN.md` — the landing page's own design record — was rewritten **from the retokened
+artifact**, including its machine-readable frontmatter. One rule in it genuinely died: the
+*marketing radius extension*. V1.0 re-cut the ramp (`xl` 20→16, `lg` 16→12, `md` 12→10), so
+poster containers now sit at the same 16px the app's largest container uses.
+
+**Found, pre-existing, NOT fixed here:** the page **overflows horizontally at narrow widths** —
+measured at a 440px viewport, `scrollWidth` **602 before** the retokening and **601 after**, so
+it is not a regression. Both sources are identified and it is filed as its own change. It was
+never caught because the original finish review never rendered anything below 505px.
+
+**Still stale after this:** `RecruitOps_Design_System.md` carries **27** Clear Pipeline
+references and is titled after it. That is the *app's* design doc, not the landing page's, and
+ADR-0025 assigned it to **step 3** — so step 4 is not the thing that closes it.
+
+Touched `marketing/landing.html`, `DESIGN.md`, `.claude/launch.json` (a static-server entry for
+the marketing folder, using the existing Vite dependency — no new package).
+
 ### 🔓 `X-Tenant-Id` is read by the backend now — super-admins only
 **Why:** the security review found the SPA had been sending this header on every request since the
 super-admin switcher was built, and **no backend code read it**. Good news at the time (no

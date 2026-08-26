@@ -1,54 +1,54 @@
 ---
 name: RecruitOps — Marketing Register
-description: The marketing voice of "Clear Pipeline" — the same audit-grade tokens as the product, spoken at poster scale.
+description: The marketing register of RecruitOps V1.0 — the same audit-grade tokens as the product, spoken at poster scale.
 colors:
-  ink-900: "#16232B"
-  ink-800: "#1F2B32"
-  ink-700: "#2F3D46"
-  ink-600: "#4A5B66"
-  ink-400: "#8A99A3"
-  line-200: "#E3E9EC"
-  line-300: "#C2D0D6"
-  surface-0: "#FFFFFF"
-  surface-50: "#F6F9F9"
-  primary-900: "#052A29"
-  primary-800: "#08403E"
-  primary-700: "#0B5654"
-  primary-600: "#0E6E6B"
-  primary-500: "#149B97"
-  primary-200: "#B8E0DE"
-  primary-100: "#DCEFEE"
-  primary-50: "#F0F9F9"
-  accent-700: "#8A5A08"
-  accent-500: "#F2A33C"
-  accent-100: "#FCF0DC"
-  success-700: "#146B43"
-  success-600: "#1E8E5A"
-  success-100: "#E2F4EA"
-  warning-700: "#8A5A08"
-  warning-600: "#C97A0A"
-  warning-100: "#FCF0DC"
-  danger-700: "#A63423"
-  danger-600: "#C94430"
-  danger-100: "#FBE8E4"
-  info-700: "#22528F"
-  info-600: "#2E6ECF"
-  info-100: "#E6EEFB"
+  ink-900: "#0F172A"
+  ink-800: "#1E293B"
+  ink-700: "#334155"
+  ink-600: "#475569"
+  ink-500: "#64748B"
+  ink-400: "#94A3B8"
+  canvas: "#F8FAFC"
+  line: "#E2E8F0"
+  line-strong: "#CBD5E1"
+  brand-900: "#134E4A"
+  brand-800: "#115E59"
+  brand-700: "#0F766E"
+  brand-600: "#0D9488"
+  brand-200: "#99F6E4"
+  brand-100: "#CCFBF1"
+  brand-50: "#F0FDFA"
+  positive-700: "#047857"
+  positive-500: "#10B981"
+  positive-100: "#D1FAE5"
+  positive-50: "#ECFDF5"
+  warn-700: "#B45309"
+  warn-500: "#F59E0B"
+  warn-100: "#FEF3C7"
+  warn-50: "#FFFBEB"
+  critical-700: "#B91C1C"
+  critical-500: "#EF4444"
+  critical-100: "#FEE2E2"
+  critical-50: "#FEF2F2"
+  info-700: "#1D4ED8"
+  info-500: "#3B82F6"
+  info-100: "#DBEAFE"
+  info-50: "#EFF6FF"
 typography:
   display:
-    fontFamily: "Bricolage Grotesque, Inter, Noto Sans Myanmar, sans-serif"
+    fontFamily: "Inter, Noto Sans Myanmar, system-ui, sans-serif"
     fontSize: "56px"
     fontWeight: 700
     lineHeight: 1.05
     letterSpacing: "-0.04em"
   headline:
-    fontFamily: "Bricolage Grotesque, Inter, Noto Sans Myanmar, sans-serif"
+    fontFamily: "Inter, Noto Sans Myanmar, system-ui, sans-serif"
     fontSize: "40px"
     fontWeight: 700
     lineHeight: 1.1
     letterSpacing: "-0.04em"
   title:
-    fontFamily: "Bricolage Grotesque, Inter, Noto Sans Myanmar, sans-serif"
+    fontFamily: "Inter, Noto Sans Myanmar, system-ui, sans-serif"
     fontSize: "22px"
     fontWeight: 600
     lineHeight: 1.3
@@ -69,7 +69,7 @@ typography:
     fontWeight: 400
     lineHeight: 1.6
   data:
-    fontFamily: "IBM Plex Mono, ui-monospace, SFMono-Regular, monospace"
+    fontFamily: "JetBrains Mono, ui-monospace, SFMono-Regular, monospace"
     fontSize: "12px"
     fontWeight: 500
     lineHeight: 1.5
@@ -80,11 +80,13 @@ typography:
     fontWeight: 400
     lineHeight: 1.75
 rounded:
-  sm: "8px"
-  md: "12px"
-  lg: "16px"
-  xl: "20px"
-  full: "999px"
+  sm: "6px"
+  DEFAULT: "8px"
+  md: "10px"
+  lg: "12px"
+  xl: "16px"
+  2xl: "20px"
+  full: "9999px"
 spacing:
   hairline: "1px"
   xs: "4px"
@@ -97,55 +99,55 @@ spacing:
   section-wide: "112px"
 components:
   button-primary:
-    backgroundColor: "{colors.primary-600}"
-    textColor: "{colors.surface-0}"
+    backgroundColor: "{colors.brand-700}"
+    textColor: "{colors.white}"
     rounded: "{rounded.md}"
     padding: "0 24px"
     height: "48px"
     typography: "{typography.body}"
   button-primary-hover:
-    backgroundColor: "{colors.primary-700}"
-    textColor: "{colors.surface-0}"
+    backgroundColor: "{colors.brand-800}"
+    textColor: "{colors.white}"
   button-secondary:
-    backgroundColor: "{colors.surface-0}"
+    backgroundColor: "{colors.white}"
     textColor: "{colors.ink-900}"
     rounded: "{rounded.md}"
     padding: "0 24px"
     height: "48px"
     typography: "{typography.body}"
   button-inverse:
-    backgroundColor: "{colors.surface-0}"
-    textColor: "{colors.primary-900}"
+    backgroundColor: "{colors.white}"
+    textColor: "{colors.brand-900}"
     rounded: "{rounded.md}"
     padding: "0 24px"
     height: "48px"
     typography: "{typography.body}"
   card:
-    backgroundColor: "{colors.surface-0}"
+    backgroundColor: "{colors.white}"
     textColor: "{colors.ink-600}"
     rounded: "{rounded.xl}"
     padding: "32px"
   pill-status:
-    backgroundColor: "{colors.warning-100}"
-    textColor: "{colors.warning-700}"
+    backgroundColor: "{colors.warn-50}"
+    textColor: "{colors.warn-700}"
     rounded: "{rounded.full}"
     padding: "0 10px"
     height: "24px"
     typography: "{typography.data}"
   chip-outline:
-    backgroundColor: "{colors.surface-50}"
+    backgroundColor: "{colors.canvas}"
     textColor: "{colors.ink-600}"
     rounded: "{rounded.full}"
     padding: "0 12px"
     height: "28px"
     typography: "{typography.small}"
   rail-node-done:
-    backgroundColor: "{colors.primary-100}"
-    textColor: "{colors.primary-700}"
+    backgroundColor: "{colors.brand-50}"
+    textColor: "{colors.brand-800}"
     rounded: "{rounded.full}"
     size: "31px"
   rail-node-waiting:
-    backgroundColor: "{colors.surface-0}"
+    backgroundColor: "{colors.white}"
     textColor: "{colors.ink-400}"
     rounded: "{rounded.full}"
     size: "31px"
@@ -157,34 +159,52 @@ components:
 
 **Creative North Star: "The Record, Enlarged"**
 
-This is not a new world. It is the marketing register of **"Clear Pipeline"** — the shipped
-RecruitOps design system documented in `RecruitOps_Design_System.md`, whose token source of
-truth is `packages/ui/tailwind-preset.js` and whose consumers are `frontend/internal` and
-`frontend/public` (ADR-0012). The landing page was built by inheriting that system rather than
-forking a marketing identity, and every colour, family and radius below traces back to the
-preset. When the preset changes, this file is downstream of it, not beside it.
+> ⚠️ **Retokened 2026-08-26 (ADR-0025 step 4).** This document was written against
+> **"Clear Pipeline"**, and the landing page it describes has since moved to **V1.0**. The
+> page's structure, copy, composition and motion are unchanged — the finish review that
+> approved them still stands, and every layout, grid and behaviour rule below is as verified as
+> it was. What changed is the token vocabulary, so **colour, type and radius values here were
+> rewritten from the retokened artifact**, not from intent. Two changes are substantive rather
+> than renames: V1.0 has **no display face**, so Bricolage Grotesque is gone and Inter carries
+> the hero; and `accent` **merged into** `warn`, which cost a name but not a colour — the two
+> families were already the same hexes. One rule below genuinely died with the move and is
+> marked where it stood: the marketing radius extension.
+
+This is not a new world. It is the marketing register of **RecruitOps V1.0** (ADR-0025) — the
+shipped design system whose direction of truth is `design/internal/ds.js`, mirrored into
+`packages/ui/tailwind-preset.js` and consumed by `frontend/internal` and `frontend/public`
+(ADR-0012). The landing page was built by inheriting that system rather than forking a
+marketing identity, and every colour, family and radius below traces back to the kit. When the
+kit changes, this file is downstream of it, not beside it — which is exactly what happened on
+2026-08-26.
 
 The register is louder, not different. The product's own claim — *every decision has a record* —
 is argued visually by enlarging the product's own artifacts: an approval chain, a status pill, a
 mono requisition id, a hairline rail. Nothing decorative is introduced to sell it. The page's
 argument structure is one artifact replaced per section, and its materials are ink on a cool
 paper ground, teal carrying every act of authority, and amber held back for the single moment a
-human is being asked to look. Surfaces are border-first: a card sits on a 1px `line-200` rule,
+human is being asked to look. Surfaces are border-first: a card sits on a 1px `line` rule,
 not on a shadow. Figures are always monospaced and tabular, because a number you cannot line up
 is a number you cannot audit.
 
-Four things the marketing surface is licensed to do that the app is not, and they are the whole
-extension: **full-bleed saturated colour fields** (the deep-teal sovereignty section, the
-`ink-900` closing call — the app forbids saturated page backgrounds); **page-scale radii** (20px
-on poster containers, above the app's 16px ceiling); **a frosted sticky navigation** (the app's
-system says no glassmorphism — here it is a specific behaviour over scrolling content, not
-ornament); and **a display scale reaching 56px**, where the app's ramp tops out at 32px. Outside
-those four, the app's rules bind here unchanged.
+**Three** things the marketing surface is licensed to do that the app is not, and they are the
+whole extension: **full-bleed saturated colour fields** (the deep-teal sovereignty section, the
+`ink-900` closing call — the app forbids saturated page backgrounds); **a frosted sticky
+navigation** (the app's system says no glassmorphism — here it is a specific behaviour over
+scrolling content, not ornament); and **a display scale reaching 56px**, where the app's ramp
+tops out at 24px. Outside those three, the app's rules bind here unchanged.
+
+> **This list was four until 2026-08-26.** The fourth was *page-scale radii* — 20px poster
+> containers against the app's 16px ceiling. V1.0 re-cut the whole radius ramp (`xl` 20→16,
+> `lg` 16→12, `md` 12→10) and added a `2xl` at 20px that this page does not use, so poster
+> containers now sit at `rounded-xl` **16px** — the same value the app's largest container
+> uses. The marketing radius extension no longer exists. Do not reintroduce it to recover the
+> old silhouette; the page was re-reviewed at 16px and reads correctly.
 
 **Key Characteristics:**
 - Border-first surfaces; hairline rules do the structural work that shadows do elsewhere
 - Asymmetric 12-column splits (5/7, 7/5, 6/6, 4/8) — never a row of identical tiles
-- Every figure in IBM Plex Mono with tabular numerals
+- Every figure in JetBrains Mono with tabular numerals
 - Teal for authority, amber for attention, and nothing else saturated
 - One authored motion moment on the whole page; no scroll-reveal anywhere
 - Bilingual by construction: Burmese is a peer rendering, never a translation footnote
@@ -195,68 +215,91 @@ A cool, low-saturation ground carrying exactly two voices: a deep teal that mean
 an amber that means look here.
 
 ### Primary
-- **Governance Teal** (`primary-600`): every act of authority — primary buttons, links on hover,
-  focus rings, the caret, the completed-node check, the logo mark. It is the only colour allowed
-  to fill a button on a light ground.
-- **Deep Pipeline** (`primary-900` / `primary-800` / `primary-700`): the full-bleed sovereignty
-  field and its interior rules. `primary-900` is a page background; `primary-800` is its border
-  and node fill; `primary-700` is the dark rail's connector and the light-ground hover.
-- **Teal Tints** (`primary-200` / `primary-100` / `primary-50`): completed rail nodes, the
-  highlighted Enterprise column, the "You" row in the panel widget, selection highlight.
-- **Signal Teal** (`primary-500`): reserved for hover on the inverse-ground CTA, where
-  `primary-700` would go backwards against a dark field.
+- **Governance Teal** (`brand-700`, `#0F766E`): every act of authority — primary buttons, links
+  on hover, focus rings, the caret, the completed-node check, the logo mark. It is the only
+  colour allowed to fill a button on a light ground. Measured 5.47:1 with white on it, 5.47:1
+  as text on white and 5.23:1 as text on `canvas`.
+- **Deep Pipeline** (`brand-900` / `brand-800`): the full-bleed sovereignty field and its
+  interior rules. `brand-900` is the page background; `brand-800` is its border and node fill;
+  `brand-700` is the dark rail's connector and the light-ground hover target.
+- **Teal Tints** (`brand-200` / `brand-100` / `brand-50`): completed rail nodes, the highlighted
+  Enterprise column, the "You" row in the panel widget, selection highlight. Text on `brand-50`
+  is `brand-800` (7.27:1) — the kit's own pill pattern.
+- **Signal Teal** (`brand-600`): reserved for hover on the inverse-ground CTA, where `brand-800`
+  would go backwards against a dark field. This is the one hover on the page that goes *lighter*.
 
 ### Secondary
-- **Threshold Amber** (`accent-500`, tint `accent-100`, text `accent-700`): attention and
-  threshold breach only. It appears as a fill in exactly one place on the page — the third node
-  of the logo mark — and as a tinted note in exactly one place: the hero's salary-band breach.
+- **Threshold Amber** (`warn-500`, tint `warn-50`, text `warn-700`): attention and threshold
+  breach only. It appears as a fill in exactly one place on the page — the third node of the
+  logo mark — and as a tinted note in exactly one place: the hero's salary-band breach.
 
 ### Neutral
 - **Ink** (`ink-900` through `ink-600`): `ink-900` is body text, headings, and the closing
   section's full-bleed ground; `ink-800` and `ink-700` are its interior rules and secondary body;
   `ink-600` carries every piece of meta text, caption and secondary paragraph on light grounds.
-- **Fog** (`ink-400`): non-text only — the waiting-node dot, the scrollbar hover thumb, and
-  footer body against `ink-900` where it clears contrast as inverse text.
-- **Rule** (`line-200` / `line-300`): `line-200` is every border, divider, table rule and the
-  drawn spreadsheet grid; `line-300` is the heavier hollow-node and index-circle stroke.
-- **Paper** (`surface-50`) and **Panel** (`surface-0`): the page ground and the card ground. A
-  section alternates between them to mark a change of subject without introducing a third value.
+- **Fog** (`ink-400`): non-text on light grounds — the waiting-node dot and the scrollbar hover
+  thumb — but a legitimate text colour against `ink-900`, where it measures 6.96:1 as inverse
+  footer and CTA body.
+- **Rule** (`line` / `line-strong`): `line` is every border, divider, table rule and the drawn
+  spreadsheet grid; `line-strong` is the heavier hollow-node and index-circle stroke. Note the
+  names carry no numeric step — `line` and `line-strong` do not exist in V1.0.
+- **Paper** (`canvas`) and **Panel** (white): the page ground and the card ground. A section
+  alternates between them to mark a change of subject without introducing a third value.
 
 ### Tertiary
-- **Status families** (`success` / `warning` / `danger` / `info`): used only inside pills, chips
-  and small indicators, exactly as in the app. Each family is a `-600` fill, a `-700`
-  text-on-tint, and a `-100` tint.
+- **Status families** (`positive` / `warn` / `critical` / `info`): used only inside pills, chips
+  and small indicators, exactly as in the app. Each family is a `-500` fill, a `-700`
+  text-on-tint, and `-50`/`-100` tints. These are the same four families `StatusPill` ships, so
+  a pill drawn here and a pill drawn in the product are the same object.
 
 ### Named Rules
 
-**The Seven-Hundred Rule.** Text on a `-100` tint uses the `-700` step of *its own family*,
-never `-600`. This is measured, not assumed: on 2026-08-17 the old `-600`-on-`-100` pairs were
-found at 2.97 (warning), 3.62 (success), 4.08 (danger) and 4.23 (info) against a 4.5:1 floor.
-The `-700` steps exist because of that measurement. Do not reintroduce the retired rule.
+**The Seven-Hundred Rule.** Text on a `-50`/`-100` tint uses the `-700` step of *its own family*,
+never `-500`. This is measured, not assumed. It was first forced on 2026-08-17, when the old
+`-600`-on-`-100` pairs were found at 2.97 (warning), 3.62 (success), 4.08 (danger) and 4.23
+(info) against a 4.5:1 floor. It survives V1.0 unchanged, and was re-measured on the new steps
+on 2026-08-26: **warn 4.84, positive 5.21, critical 5.91, info 6.16** on their `-50` fills. Do
+not reintroduce the retired rule.
 
-**The Reserved Amber Rule.** `accent-500` means *a human should look at this* — a breached
+**The Reserved Amber Rule.** `warn-500` means *a human should look at this* — a breached
 threshold, an approval waiting on someone. It is spent on one element per page. If a second
 amber appears, the first one has stopped meaning anything.
+> Clear Pipeline expressed this with two names, `accent` and `warning`, whose hexes were
+> **already identical**. V1.0 has one `warn` family, so the reservation is now a discipline
+> rather than a naming distinction. That makes it easier to break, not harder — which is why
+> the rule is stated here rather than assumed from the palette.
 
-**The Not-A-Text-Colour Rule.** `ink-400` is not a text colour on light grounds (2.77:1 on
-`surface-50`). Meta text is `ink-600`.
+**The Not-A-Text-Colour Rule.** `ink-400` is not a text colour on light grounds (2.45:1 on
+`canvas`, slightly worse than the 2.77:1 it measured under Clear Pipeline). Meta text on light
+is `ink-600`. Against `ink-900` it is a different question and a legitimate one: 6.96:1.
 
 **The Two-Field Rule.** Full-bleed saturated colour is a marketing privilege and it is spent
 twice: once on the deep-teal sovereignty section, once on the `ink-900` close. A third field
 would turn a structural beat into wallpaper, and none of it is permitted on app surfaces.
+> V1.0's `brand-900` (`#134E4A`) is markedly lighter than Clear Pipeline's `#052A29`, so the
+> sovereignty field reads as a saturated teal rather than a near-black one. Body text on it
+> moved from 10.77:1 to **7.52:1** — still comfortably over the floor, and the section still
+> carries. Recorded because it is the largest single visual change of the retokening.
 
 ## Typography
 
-**Display Font:** Bricolage Grotesque (with Inter, then Noto Sans Myanmar)
-**Body Font:** Inter (with Noto Sans Myanmar, system-ui)
-**Label/Mono Font:** IBM Plex Mono (with ui-monospace, SFMono-Regular)
+**One Font:** Inter (with Noto Sans Myanmar, system-ui) — headings, body and labels alike
+**Label/Mono Font:** JetBrains Mono (with ui-monospace, SFMono-Regular)
 **Burmese:** Noto Sans Myanmar, reached through the stack and forced by the `.mm` class
 
-**Character:** Bricolage Grotesque has enough irregularity to feel authored rather than
-defaulted, and at 700 with -0.04em tracking it reads as a statement rather than a header. Inter
-does all the arguing underneath it at a generous 1.65–1.7 line-height, which is a Burmese
-requirement before it is a taste. IBM Plex Mono is not decoration: it marks the values that
-belong to the record.
+**Character:** V1.0 has **no display face** — one family carries everything, on the reasoning
+that a display font in a UI label is a product-slop tell. So the hero is Inter at 700 pulled to
+-0.04em, which reads as deliberate rather than defaulted only *because* of the tracking; at
+default tracking a 56px Inter headline looks like an unstyled document. Inter then does all the
+arguing underneath at a generous 1.65–1.7 line-height, which is a Burmese requirement before it
+is a taste. JetBrains Mono is not decoration: it marks the values that belong to the record.
+
+> **Recorded honestly:** Clear Pipeline set headlines in Bricolage Grotesque, which had enough
+> irregularity to feel authored. Dropping it costs this page real character, and that cost was
+> accepted in ADR-0025 rather than discovered here — the alternative was a third font stack
+> living only on the marketing surface, which is the fork this whole system exists to prevent.
+> The `letterSpacing` extension in the page's own config is what carries the hero without it,
+> and it is the one token this file adds that `ds.js` does not have.
 
 ### Hierarchy
 - **Display** (700, 40px → 52px → 56px across sm/lg, 1.05, -0.04em): the hero claim only. One
@@ -281,7 +324,7 @@ full-bleed field runs shorter at 54ch, and rail body at 62ch, because a wide mea
 saturated ground is unreadable before it is ugly.
 
 **The Every-Figure-Is-Mono Rule.** Any number a reader might check — a count, a percentage, a
-date, a score, an id — is IBM Plex Mono with `font-variant-numeric: tabular-nums`. Prose numbers
+date, a score, an id — is JetBrains Mono with `font-variant-numeric: tabular-nums`. Prose numbers
 that are merely rhetorical stay in Inter.
 
 **The Sentence-Case Rule.** Sentence case everywhere. The system carries no ALL-CAPS role on
@@ -301,13 +344,13 @@ refuse; when a section needs several items, they get different sizes and differe
 shapes.
 
 **Vertical rhythm.** Sections run 80px of padding, opening to 112px at `lg`. The hero runs
-64/80 opening to 96/112. Section boundaries are a 1px `line-200` rule or a change of ground
-(`surface-50` ↔ `surface-0` ↔ a full-bleed field) — never both at once.
+64/80 opening to 96/112. Section boundaries are a 1px `line` rule or a change of ground
+(`canvas` ↔ white ↔ a full-bleed field) — never both at once.
 
 **Spacing scale.** 4px base: 4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 · 80 · 112. Card padding is 24px
 rising to 32px at `sm`. Grid gutters between cards are 24px. Inline gaps are 8–14px.
 
-**The hairline-gap grid.** Statistic and definition grids are built as a `line-200` background
+**The hairline-gap grid.** Statistic and definition grids are built as a `line` background
 showing through 1px gaps between white cells, so the divider is the gap itself. This is how the
 page draws a table without table borders.
 
@@ -322,39 +365,54 @@ lands under it.
 ## Elevation & Depth
 
 Depth is carried by **borders and ground changes, not shadows**. Every card, panel, chip and
-table sits on a 1px `line-200` rule against a `surface-0` or `surface-50` ground; a card that
+table sits on a 1px `line` rule against a white or `canvas` ground; a card that
 needs to read as raised gets a different ground, not a bigger shadow. Overlap — the hero's
 spreadsheet sitting above and behind the requisition record — does the one piece of genuine
 z-work on the page.
 
 ### Shadow Vocabulary
-- **Card** (`box-shadow: 0 1px 2px rgba(22,35,43,0.06)`): a hairline seat under a primary button
-  or a selected tour step. It is a contact shadow, not a lift.
-- **Pop** (`box-shadow: 0 8px 24px rgba(22,35,43,0.12)`): transient overlays only — on this page,
-  the skip link when focused.
-- **Lift** (`box-shadow: 0 24px 60px -18px rgba(22,35,43,0.28)`): the marketing-only poster tier.
-  Reserved for the single hero artifact that the page's whole argument resolves into. One
-  element, one page.
+
+V1.0 ships **three** tiers and this page uses two of them. Clear Pipeline's `pop` and `lift`
+have no V1.0 equivalent and both collapsed into `overlay`.
+
+- **sm** (`0 1px 2px 0 rgba(15,23,42,.05)`): the selected tour step's contact seat.
+- **Card** (`0 1px 3px 0 rgba(15,23,42,.07), 0 1px 2px -1px rgba(15,23,42,.05)`): a hairline
+  seat under a primary button. It is a contact shadow, not a lift.
+- **Overlay** (`0 10px 30px -8px rgba(15,23,42,.20), 0 4px 10px -4px rgba(15,23,42,.10)`):
+  anything that genuinely floats — the focused skip link, and the single hero artifact that the
+  page's whole argument resolves into.
 
 ### Named Rules
 
-**The One Lift Rule.** `shadow-lift` exists to separate the hero record from the artifact
-dissolving behind it. A second element carrying it makes neither of them the subject.
+**The One Overlay Rule.** On this page `shadow-overlay` does the job `shadow-overlay` used to: it
+separates the hero record from the artifact dissolving behind it. A second element carrying it
+in the page body makes neither of them the subject. (The skip link is exempt — it is a transient
+overlay that is invisible until focused.)
+> Clear Pipeline's `lift` was `0 24px 60px -18px` at 28% — a far deeper poster shadow than
+> `overlay`. The hero record therefore sits closer to the page than it used to. Verified on
+> 2026-08-26 that the overlap still reads: the record's z-order over the dissolving spreadsheet
+> is carried by the mask and the stacking order, with the shadow as reinforcement rather than
+> the mechanism.
 
-**The Border-First Rule.** If a surface needs definition, give it a `line-200` border and a
-ground. Reach for a shadow only when something genuinely floats over scrolling content.
+**The Border-First Rule.** If a surface needs definition, give it a `line` border and a ground.
+Reach for a shadow only when something genuinely floats over scrolling content.
 
 ## Shapes
 
-Rounded, but never soft. Radii step with scale rather than with importance: 8px on inputs,
-pills-that-are-not-pills and small inline notes; 12px on buttons, inner cards and the mobile
-nav; 16px on grouped panels and the tour step list; **20px on poster-scale containers** — the
-hero record, the section cards, the tier table shell — which is the marketing extension above
-the app's 16px ceiling; and fully round (999px) on status pills, chips, rail nodes, the language
-toggle and the numeric step indices.
+Rounded, but never soft. Radii step with scale rather than with importance: 8px (`rounded`) on
+small inline notes; **10px (`rounded-md`) on buttons**, inner cards and the mobile nav; 12px
+(`rounded-lg`) on grouped panels and the tour step list; **16px (`rounded-xl`) on poster-scale
+containers** — the hero record, the section cards, the tier table shell; and fully round on
+status pills, chips, rail nodes, the language toggle and the numeric step indices.
+
+> Every number in that sentence moved on 2026-08-26. V1.0 re-cut the ramp — `md` 12→10, `lg`
+> 16→12, `xl` 20→16 — so the page is uniformly a little tighter than the build the finish
+> review saw. `rounded-full` resolves to 9999px (Tailwind's default) rather than the 999px
+> Clear Pipeline declared; no visible difference at these sizes. `2xl` (20px) exists in V1.0
+> but this page does not use it.
 
 Two recurring silhouettes define the page. The **bordered card with a tinted foot**: a white
-body carrying the claim, and a `surface-50` compartment below a `line-200` rule carrying the
+body carrying the claim, and a `canvas` compartment below a `line` rule carrying the
 evidence — a status flow, a widget, a bilingual pair. And the **hairline rail**: a 1px vertical
 connector running between 31px round nodes, the same geometry on light and dark grounds.
 
@@ -366,17 +424,17 @@ minus icons with screen-reader text, not ✓ and ✗ characters.
 
 ### Buttons
 - **Shape:** Gently rounded (12px), 48px tall at page scale, 40–44px inside widgets and nav.
-- **Primary:** `primary-600` fill, white text, 15px/600, 24px horizontal padding, `shadow-card`.
-- **Hover / Focus:** background to `primary-700` on light grounds and `primary-500` on dark
-  grounds, over a 150ms colour transition. Focus is the global 2px `primary-600` ring at 3px
+- **Primary:** `brand-700` fill, white text, 15px/600, 24px horizontal padding, `shadow-card`.
+- **Hover / Focus:** background to `brand-800` on light grounds and `brand-600` on dark
+  grounds, over a 150ms colour transition. Focus is the global 2px `brand-700` ring at 3px
   offset — never a background change alone.
-- **Secondary:** white fill, `line-200` border, `ink-900` text; border moves to `primary-200` on
-  hover. Optional trailing Lucide icon in `primary-600`.
-- **Inverse:** on a `primary-900` field, a white fill with `primary-900` text; its sibling is a
+- **Secondary:** white fill, `line` border, `ink-900` text; border moves to `brand-200` on
+  hover. Optional trailing Lucide icon in `brand-700`.
+- **Inverse:** on a `brand-900` field, a white fill with `brand-900` text; its sibling is a
   bordered ghost with `ink-700` border and white text.
 
 ### Chips
-- **Style:** Fully round, 28px tall, `surface-50` fill with a `line-200` border and `ink-600`
+- **Style:** Fully round, 28px tall, `canvas` fill with a `line` border and `ink-600`
   text for neutral facts (industries, technical labels); mono 12px when the content is a token,
   count or system value.
 - **State:** Chips on this surface are static labels, not filters. A chip that carries a status
@@ -391,16 +449,16 @@ minus icons with screen-reader text, not ✓ and ✗ characters.
 
 ### Cards / Containers
 - **Corner Style:** 20px at section scale, 12–16px for nested compartments.
-- **Background:** `surface-0` body; `surface-50` for the evidence foot below a `line-200` rule.
+- **Background:** white body; `canvas` for the evidence foot below a `line` rule.
 - **Shadow Strategy:** none by default — see Elevation & Depth. The hero record is the exception.
-- **Border:** 1px `line-200` on light grounds, `primary-800` on the deep-teal field.
+- **Border:** 1px `line` on light grounds, `brand-800` on the deep-teal field.
 - **Internal Padding:** 24px, rising to 32px at `sm`. Never nested cards more than one deep.
 
 ### Navigation
-- **Style:** Sticky, 64px, frosted — `rgba(246,249,249,.78)` under `saturate(1.6) blur(14px)` —
-  with a `line-200` bottom rule. This is the page's only backdrop filter, justified by content
+- **Style:** Sticky, 64px, frosted — `rgba(248,250,252,.78)` under `saturate(1.6) blur(14px)` —
+  with a `line` bottom rule. This is the page's only backdrop filter, justified by content
   scrolling beneath it.
-- **Links:** 15px `ink-600`, moving to `primary-700` on hover, colour transition only. No
+- **Links:** 15px `ink-600`, moving to `brand-800` on hover, colour transition only. No
   underline, no active-state indicator.
 - **Right cluster:** an EN/MM language toggle in a fully round bordered group, then the primary
   CTA. Below `lg` the links collapse into a bordered icon button opening a white panel that
@@ -408,37 +466,39 @@ minus icons with screen-reader text, not ✓ and ✗ characters.
 
 ### Governance Rail — signature component
 The page's defining device, and the same one the product's design system documents as the
-Approval Chain Rail. A 1px `line-200` connector runs from each node down to the next, suppressed
-on the last; a completed node switches its connector to `primary-200`. Nodes are 31px circles:
-**done** is `primary-100` with a `primary-200` border and a `primary-700` check; **waiting** is
-white with a `line-300` border and an `ink-400` dot. Each node carries a name, a role and a mono
-timestamp, and a threshold breach hangs off its node as an `accent-100` note bordered in
-25%-opacity `accent-500`.
+Approval Chain Rail. A 1px `line` connector runs from each node down to the next, suppressed
+on the last; a completed node switches its connector to `brand-200`. Nodes are 31px circles:
+**done** is `brand-50` with a `brand-200` border and a `brand-800` check; **waiting** is
+white with a `line-strong` border and an `ink-400` dot. Each node carries a name, a role and a mono
+timestamp, and a threshold breach hangs off its node as an `warn-50` note bordered in
+25%-opacity `warn-500`.
 
-A `rail-dark` variant reuses the identical geometry on the `primary-900` field with a
-`primary-700` connector and `primary-800` node fills. It is used there deliberately: those items
+A `rail-dark` variant reuses the identical geometry on the `brand-900` field with a
+`brand-800` connector and `brand-800` node fills. It is used there deliberately: those items
 are sequential guarantees about one record's life, and rendering them as a rail rather than four
 tiles is the claim.
 
-**A rejected round is preserved beside its revision, never over it** — dimmed to `surface-50`
+**A rejected round is preserved beside its revision, never over it** — dimmed to `canvas`
 with its rejection comment intact. Never collapse history to a count.
 
 ### Interactive Demonstrations
 Two widgets let a reader operate the product's actual rules rather than read about them: the
 blind-panel scorecard (scores blurred at 7px under `[data-locked="true"]`, revealing on submit,
-with the pill moving warning → success) and the five-step workflow tour (a `role="tablist"` of
+with the pill moving warn → positive) and the five-step workflow tour (a `role="tablist"` of
 bordered steps with full arrow/Home/End keyboard support; the selected step turns white with a
-`primary-200` border, `shadow-card`, and a `primary-600` index disc). Selection is signalled by
+`brand-200` border, `shadow-card`, and a `brand-700` index disc). Selection is signalled by
 ground, border and index fill together — never by colour alone.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** take every token from `packages/ui/tailwind-preset.js`. This surface is a register of
-  "Clear Pipeline", not a second identity; a colour that is not in the preset is a fork.
+- **Do** take every token from `design/internal/ds.js` (mirrored in
+  `packages/ui/tailwind-preset.js`). This surface is a register of **V1.0**, not a second
+  identity; a colour that is not in the kit is a fork. The page's own inline config is a *copy*
+  of `ds.js` and says so — when they disagree, the kit is right and the page is stale.
 - **Do** put `-700` text on a `-100` tint, from the same family (The Seven-Hundred Rule).
-- **Do** set every checkable figure in IBM Plex Mono with `.tnum`.
-- **Do** define surfaces with a 1px `line-200` border and a ground change (The Border-First Rule).
+- **Do** set every checkable figure in JetBrains Mono with `.tnum`.
+- **Do** define surfaces with a 1px `line` border and a ground change (The Border-First Rule).
 - **Do** split the 12-column grid asymmetrically, and differently in each section.
 - **Do** cap body copy at 68ch, 54ch for a dominant claim on a saturated field.
 - **Do** theme the browser's own surfaces — selection, caret, focus ring, scrollbar,
@@ -480,3 +540,28 @@ approval.** Nothing below 505px was ever rendered or reviewed — Chrome on Wind
 the rules above are verified at those two widths and unverified below 505px. The mechanical
 detector ran once in DEGRADED mode (`htmlparser2`, `css-select`, `css-tree`, `domutils` absent);
 its findings are an undercount, not a clean bill.
+
+#### Re-verification after the V1.0 retokening (2026-08-26)
+
+Colour was re-verified **completely and by computation**; layout was **not re-reviewed**, on the
+grounds that no structural class changed.
+
+- **Every rendered text node measured against its actual painted background, in the browser:**
+  198 nodes, **0 below the WCAG AA floor** (4.5:1, or 3:1 where the computed size and weight
+  qualify as large text). This is stronger than the pair table that preceded it, because it
+  measures what the page actually paints rather than what it was intended to paint.
+- **All 37 distinct token utilities confirmed to emit real CSS.** This was the specific failure
+  the retokening existed to prevent — a renamed class silently producing nothing.
+- **Both JS-driven components round-tripped** with their computed colours read back: the blind
+  panel (`warn-50/warn-700` → `positive-50/positive-700` → back) and the EN/MM toggle.
+- **`prefers-color-scheme: dark` emulated:** the page stays light (`#F8FAFC` ground, `#0F172A`
+  ink). Zero `dark:` utilities in the file, and `darkMode: 'class'` is set so a future stray one
+  is inert.
+- **One mark was deliberately not translated step-for-step.** The dot inside the pending pill
+  would have gone from 2.97:1 to 2.07:1 under a literal mapping — the only element the migration
+  would have made worse. It is `warn-700`, matching its own label, at 4.84:1.
+
+**Known defect, pre-existing and NOT introduced here:** the page overflows horizontally at
+narrow widths — measured at a 440px viewport, `scrollWidth` 602 before the retokening and 601
+after. It is filed separately with both sources identified. Do not read the "ship" verdict above
+as covering it; it was never caught because nothing below 505px was ever reviewed.

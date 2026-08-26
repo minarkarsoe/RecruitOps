@@ -430,7 +430,8 @@ and build against it: the kit also changes radii, drops the display face and re-
 vocabulary, so a rename alone leaves the apps looking like neither system. That is the whole
 reason `design/` is the source of truth.
 
-Then: `RecruitOps_Design_System.md`, and finally step 4 (`marketing/landing.html`, `DESIGN.md`).
+Then: `RecruitOps_Design_System.md` — **still outstanding, and now the only one.** Step 4
+(`marketing/landing.html`, `DESIGN.md`) was completed on 2026-08-26; see §3.
 
 ### 1. ✅ ADR-0026 is built — all four steps. What is left is the *screen*.
 
@@ -537,15 +538,29 @@ What is left is step 4 — the surfaces that *describe* the design system rather
 they now describe a system the code no longer runs. Measured 2026-08-25, counting
 `primary-*` / `Bricolage` / `IBM Plex` / `#0B5654` / "Clear Pipeline":
 
-| File | Stale references |
-|---|---|
-| `marketing/landing.html` | **65** |
-| `DESIGN.md` | **47** |
-| `RecruitOps_Design_System.md` | **16** |
+| File | Stale references | State |
+|---|---|---|
+| `marketing/landing.html` | ~~65~~ | ✅ **done 2026-08-26** — on V1.0, 0 stale names |
+| `DESIGN.md` | ~~47~~ | ✅ **done 2026-08-26** — rewritten from the retokened artifact |
+| `RecruitOps_Design_System.md` | **27** *(re-counted 2026-08-26)* | ❌ still Clear Pipeline |
 
-`marketing/landing.html` is the one that matters most: it is public, and it shows a product in
-colours the product no longer has. Sequence from the ADR: `RecruitOps_Design_System.md` →
-`marketing/landing.html` and `DESIGN.md` last.
+**Only `RecruitOps_Design_System.md` is left**, and note two things about it:
+
+- It is **27** references, not 16. The old figure came from a narrower pattern; the file is also
+  *titled* `# RecruitOps Design System — "Clear Pipeline"`, and its colour table, type table and
+  every component spec still name Clear Pipeline tokens.
+- It belongs to **step 3, not step 4**. The ADR's step 3 is "move
+  `packages/ui/tailwind-preset.js`, the two frontends, **and `RecruitOps_Design_System.md`** onto
+  V1.0". Step 3 was closed without it. So this is a step-3 loose end wearing a step-4 label, and
+  it is the *product's* design doc — the one an engineer reads before building a screen. It is
+  now the last place in the repo that will tell you to use `primary-600`.
+
+⚠️ **Separately, and not a design-system problem:** `marketing/landing.html` **overflows
+horizontally at narrow widths**. Measured live at a 440px viewport: `scrollWidth` 602 before the
+retokening, 601 after — so it predates the V1.0 work and is not a regression from it. The primary
+source is the tier table's `overflow-x-auto` wrapper leaking width through its `relative`
+parent up to `<main>` (~152px); a second ~9px source remains after that. It has never been caught
+because the page's finish review never rendered anything below 505px. Filed as its own change.
 
 ### 4. Answer the five questions the design kit surfaced
 All five are recorded in FEATURE-STATUS under Known gaps, and three are business decisions
