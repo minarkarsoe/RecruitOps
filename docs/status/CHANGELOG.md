@@ -5,6 +5,59 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-25 (latest)
 
+### 📬 The delivery log — the outbox finally has a reader
+**Why:** ADR-0026 shipped the write side on 2026-08-20 and **nothing rendered it**. A `Failed`
+invitation — wrong address, dead relay — was recorded faithfully and shown to nobody, so "was this
+candidate told?" was answerable only from a psql prompt. That was half of what the ADR was written
+to fix. Backend **623/623** (+11), frontend **368/368** (+10), typecheck clean.
+
+`GET /api/delivery` → `IDeliveryLogService` → `/delivery`, built from the Delivery log section of
+`design/internal/channels.html`. No migration, no new permission, no new package.
+
+**The whole risk is one indirection.** Every other candidate-facing service reaches a department
+off a row it already holds — an application has a posting, a posting has a department.
+`OutboundMessage` has neither; it has `SubjectType` + `SubjectId`, and a department is four joins
+away through it. ADR-0003's filter is therefore hand-written, and it **fails closed**: a row whose
+subject cannot be resolved is hidden from a department-scoped user rather than shown. A scoped
+user's log going quiet when a new kind ships is a missing row, which gets reported; the other way
+round is every Hiring Manager silently gaining the company's outbox, which does not.
+
+> ⚠️ **A mutation survived the first ten tests.** Flipping that filter from fail-closed to
+> fail-open passed all of them, because no test produced a row the log could not resolve — the
+> fail-closed comment was an unverified claim until
+> `A_Message_Whose_Subject_Cannot_Be_Resolved_Is_Hidden_From_A_Scoped_User` was added. All 21 tests
+> (11 API + 10 component) were then proved against a mutation.
+
+Design decisions worth stating:
+
+- **`Suppressed` is neutral, not red.** An opt-out honoured, or an invitation dropped because the
+  round was cancelled, is the system doing the right thing. ADR-0026 made it a first-class status
+  precisely so this screen would not colour it as an error — rendering a correct outcome in red is
+  how recruiters learn to ignore the colour that means something.
+- **A failure row says what to do next**, per the design: `"Failed" alone makes a recruiter open a
+  support ticket`. The reason comes from the handler, which already writes for a human, so nothing
+  in the UI invents wording.
+- **A terminal row never promises a retry.** The server strips `NextAttemptAt` from anything that
+  is not `Pending` — it is a leftover from the last claim, not a plan.
+- **No retry button**, deliberately: the worker already retries with backoff to the attempt cap,
+  and a button that re-queues a row a human is looking at would race it for that row.
+- **No new permission.** `Policies.InternalUser` + explicit scoping, exactly like
+  `InterviewsController`. That policy already excludes `Interviewer` — a panel member's legitimate
+  reach is one application, not the outbox — while `Approver` is in it and is refused by the
+  service, because ADR-0018 makes that a candidate-data decision rather than a routing one.
+- **`PayloadJson` never crosses the wire.** It holds render inputs and, for an offer, a salary.
+  A test asserts on the raw response body so that adding it later fails on the server.
+
+> 🟠 **Not security-reviewed.** This is a read endpoint over candidate data with a hand-written
+> department filter, and CLAUDE.md requires the pass. It should be reviewed together with ADR-0026
+> step 4, which is also outstanding — one is the writer, the other the reader.
+
+> ⚠️ **Verified by tests and by computed styles, not against live data.** Docker was not running,
+> so the page has never been seen with real messages. The V1.0 pairs were measured in the browser:
+> Delivered `#047857` on `#ECFDF5`, Failed `#B91C1C` on `#FEF2F2`, Not sent `#475569` on `#F8FAFC`
+> with a `line` border; header row canvas, `th` 13px/500 ink-600; `tnum` → `tabular-nums`; `.mm` →
+> Noto Sans Myanmar at 23.8px.
+
 ### 🌐 The public job page and application form on the design kit
 **Why:** ADR-0025 step 3e. `frontend/public/app` reaches **0** compat tokens; repo-wide 55 → **43**,
 and all 43 remaining are inside comments quoting what was removed or in the two orphaned feature

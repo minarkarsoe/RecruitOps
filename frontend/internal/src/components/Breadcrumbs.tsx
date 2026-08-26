@@ -17,6 +17,8 @@ const ROUTE_LABELS: Record<string, string> = {
   departments: 'Departments',
   users: 'Users',
   roles: 'Role Builder',
+  // The fallback would capitalise this to "Delivery", which is not what the screen is called.
+  delivery: 'Delivery Log',
   edit: 'Edit',
 };
 

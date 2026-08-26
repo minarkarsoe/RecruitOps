@@ -440,15 +440,16 @@ Then: `RecruitOps_Design_System.md`, and finally step 4 (`marketing/landing.html
 new NuGet package. (The ADR originally specified `FOR UPDATE SKIP LOCKED`; see its 2026-08-20
 amendment for what that trade narrowed.)
 
-**Two things it did NOT finish, and the first one is now the top item in this file:**
+**One thing it did NOT finish, and it is now the top item in this file:**
 
-- 🔴 **Nothing renders `OutboundMessages`.** A `Failed` invitation — wrong address, dead relay —
-  is recorded faithfully and shown to nobody, so "was this candidate told?" is answerable only by
-  someone with a psql prompt. That is half of what the ADR was written to fix, still missing.
-  `design/internal/channels.html` already draws the delivery log; it needs an endpoint and a page.
-- 🟠 **Step 4 has not been security-reviewed.** Steps 1–3 have. Step 4 added a second worker that
-  reads and writes candidate data with no user behind it, and a new object-storage key format.
-  CLAUDE.md requires the pass.
+- ✅ ~~Nothing renders `OutboundMessages`.~~ **Built 2026-08-25** — `GET /api/delivery` +
+  `/delivery`, from the Delivery log section of `design/internal/channels.html`. 11 API tests,
+  10 component tests, all mutation-proven. See the entry below.
+- 🟠 **Step 4 has not been security-reviewed, and now neither has the delivery log.** Steps 1–3
+  have. Step 4 added a second worker that reads and writes candidate data with no user behind it,
+  plus a new object-storage key format; the delivery log added a **read endpoint over candidate
+  data whose department filter is hand-written** (see below). CLAUDE.md requires the pass on both,
+  and they should be reviewed together — one is the writer, the other the reader.
 
 **Read §4 of the ADR before writing any handler or worker.** A background job has no
 `HttpContext`, so `CurrentTenant.TenantId` is `Guid.Empty`, every global query filter matches
@@ -477,8 +478,36 @@ How it was built, each step a session:
    tests pass unchanged against the new implementation. Their `Task.Delay(300)`-and-hope polling
    was replaced by `BulkResumeQueue.DrainAsync`. **Not security-reviewed.**
 
-← **you are here: the delivery-log screen, then the step-4 security review.** See the two bullets
-above the step list.
+5. ✅ **The delivery log, done 2026-08-25.** `IDeliveryLogService` + `DeliveryController` +
+   `DeliveryLogPage`, built from `design/internal/channels.html`. No migration, no new permission,
+   no new package. Backend **623/623**, frontend **368/368**.
+
+   **The whole risk in it is one indirection, and it is worth knowing before you touch the file.**
+   Every other candidate-facing service reaches a department off a row it already holds — an
+   application has a posting, a posting has a department. `OutboundMessage` has neither: it has
+   `SubjectType` + `SubjectId`, a deliberately loose pointer, and a department is four joins away
+   through it. So ADR-0003's filter is hand-written here, and it **fails closed**: a row whose
+   subject cannot be resolved to a department is hidden from a department-scoped user rather than
+   shown. The cost is that a scoped user's log goes quiet when a new kind ships without its join;
+   the alternative is that every Hiring Manager silently gains the company's outbox the first time
+   somebody forgets one. A missing row gets reported. A leak does not.
+
+   > ⚠️ **A mutation survived the first ten tests.** Flipping that filter from fail-closed to
+   > fail-open passed everything, because no test produced a row the log could not resolve.
+   > `A_Message_Whose_Subject_Cannot_Be_Resolved_Is_Hidden_From_A_Scoped_User` exists because of
+   > it. **If you add an `OutboundMessageKind`, add its subject join to `DeliveryLogService` and a
+   > case to that test**, or scoped users simply stop seeing that kind.
+
+   Authorization is `Policies.InternalUser` + explicit scoping in the service, exactly like
+   `InterviewsController` — no new permission was invented. Note what that policy already does:
+   `Interviewer` is not in it, so a panel member never reaches the log (their legitimate reach is
+   one application, not the outbox), while `Approver` is in it and is turned away by the service
+   instead, because ADR-0018 makes that a candidate-data decision rather than a routing one.
+
+   There is deliberately **no retry button**: the worker already retries with backoff to the
+   attempt cap, and a button that re-queues a row a human is looking at would race it for that row.
+
+← **you are here: the step-4 + delivery-log security review.** See the 🟠 bullet above.
 
 ### 2. Frontend tests for Modules 1–2's largest untested logic
 Still open. The harness is proven and the suite is at 342, but these two components have no

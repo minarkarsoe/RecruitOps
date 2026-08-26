@@ -79,6 +79,10 @@ const icons = {
         stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </>
   ),
+  delivery: (
+    <path d="M2.5 4.5h11a1 1 0 011 1v5a1 1 0 01-1 1h-11a1 1 0 01-1-1v-5a1 1 0 011-1zM2.8 5l5.2 3.6L13.2 5"
+      stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  ),
 };
 
 function Icon({ children, active }: { children: JSX.Element; active: boolean }) {
@@ -122,6 +126,13 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
         { to: '/inbox', label: 'Inbox', permission: 'permission:requisitions:requisitions:approve', icon: icons.inbox },
         { to: '/jdtemplates', label: 'JD templates', permission: 'permission:requisitions:requisitions:read', icon: icons.templates },
         { to: '/scorecardtemplates', label: 'Scorecard templates', permission: 'permission:scorecards:scorecards:manage_templates', icon: icons.templates },
+        // ADR-0026's delivery log. Gated on `applications:read` rather than on a permission of
+        // its own, and the mapping is the point: the log is a list of what we told applicants
+        // about their applications, and the set of people holding that permission — Admin,
+        // HR Director, Recruiter, Hiring Manager — is exactly the set the endpoint serves.
+        // Notably it excludes Interviewer and Approver, both of whom the API also refuses, so
+        // the rail never shows a link that 403s.
+        { to: '/delivery', label: 'Delivery log', permission: 'permission:applications:applications:read', icon: icons.delivery },
       ],
     },
     {
