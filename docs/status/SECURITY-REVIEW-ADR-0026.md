@@ -126,6 +126,18 @@ security-wise — there is no header-based tenant override to abuse — but it m
 tenant switcher **does not actually switch tenants**. That is a functional gap, filed here only
 because it looks like a security control and is not one.
 
+> **Resolved 2026-08-26 — and it is now a security control, so read this.** The header is honoured,
+> **only** for a caller whose signed token carries `is_super_admin`; `CurrentTenant` resolves it
+> ahead of the tenant claim for that one case and ignores it entirely for everyone else. The old
+> guarantee ("the claim always wins, so no authenticated request can be redirected") no longer
+> holds as written. The replacement is: **a request can be redirected at another company's data if
+> and only if the token says super-admin.**
+>
+> If you are reviewing a change to `CurrentTenant`, `CurrentUser.IsSuperAdminPrincipal`, or
+> `SuperAdminTenantOverrideMiddleware`, treat it as tenant-isolation code. `CurrentTenantResolutionTests`
+> and `TenantOverrideTests` pin both directions; removing the gate fails four of them, which was
+> verified by mutation rather than assumed.
+
 **`Roles.cs` is missing `Interviewer`**, though its own comment says it "must match
 `RecruitOps.Domain.Enums.UserRole`" and `RbacSeedData` seeds that role. The practical effect today
 is that `Interviewer` appears in no policy and so reaches no policy-gated endpoint — which is

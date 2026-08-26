@@ -74,6 +74,21 @@ async function performSilentRefresh(refreshToken: string): Promise<LoginResponse
  * base URL is fine — unlike the public Next.js app, whose Server Components have
  * no origin and need an absolute URL.
  */
+/**
+ * The super-admin tenant override, as a header — or nothing at all.
+ *
+ * `activeTenantId` is only populated for super-admins (see `auth.set`), so this is empty for
+ * every ordinary user. Written once and shared by all four call sites below: four copies of a
+ * header that steers which company's data comes back is four places for one of them to keep
+ * sending it after the others stop.
+ *
+ * The server honours it only for a token carrying `is_super_admin`, so this is a convenience,
+ * never a permission.
+ */
+export function tenantHeader(session: { activeTenantId?: string } | null): Record<string, string> {
+  return session?.activeTenantId ? { 'X-Tenant-Id': session.activeTenantId } : {};
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   let session = auth.get();
 
@@ -82,7 +97,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     headers: {
       'Content-Type': 'application/json',
       ...(session ? { Authorization: `Bearer ${session.accessToken}` } : {}),
-      ...(session?.activeTenantId ? { 'X-Tenant-Id': session.activeTenantId } : {}),
+      ...tenantHeader(session),
       ...(init?.headers ?? {}),
     },
   });
@@ -96,9 +111,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${refreshed.accessToken}`,
-          ...(refreshed.activeTenantId ?? session.activeTenantId
-            ? { 'X-Tenant-Id': refreshed.activeTenantId ?? session.activeTenantId }
-            : {}),
+          ...tenantHeader(refreshed.activeTenantId ? refreshed : session),
           ...(init?.headers ?? {}),
         },
       });
@@ -140,7 +153,7 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
     method: 'POST',
     headers: {
       ...(session ? { Authorization: `Bearer ${session.accessToken}` } : {}),
-      ...(session?.activeTenantId ? { 'X-Tenant-Id': session.activeTenantId } : {}),
+      ...tenantHeader(session),
     },
     body: formData,
   });
@@ -152,9 +165,7 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
         method: 'POST',
         headers: {
           Authorization: `Bearer ${refreshed.accessToken}`,
-          ...(refreshed.activeTenantId ?? session.activeTenantId
-            ? { 'X-Tenant-Id': refreshed.activeTenantId ?? session.activeTenantId }
-            : {}),
+          ...tenantHeader(refreshed.activeTenantId ? refreshed : session),
         },
         body: formData,
       });

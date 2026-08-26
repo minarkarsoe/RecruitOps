@@ -246,7 +246,10 @@ describe('Milestone 2 Empirical Challenger Test Suite', () => {
       });
 
       const { rerender } = render(<TenantSwitcherBar />);
-      expect(screen.getByText(/Super-Admin Context/i)).toBeInTheDocument();
+      // Copy changed with the 2026-08-26 rewrite: the banner reads "Super admin" now, and the
+      // crown emoji is gone — an emoji badge in an enterprise nav is decoration where a fact
+      // belongs. What this test is actually about is that the bar appears at all.
+      expect(screen.getByText('Super admin')).toBeInTheDocument();
 
       // Regular Recruiter
       auth.set({
@@ -260,7 +263,7 @@ describe('Milestone 2 Empirical Challenger Test Suite', () => {
       });
 
       rerender(<TenantSwitcherBar />);
-      expect(screen.queryByText(/Super-Admin Context/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('Super admin')).not.toBeInTheDocument();
     });
   });
 });

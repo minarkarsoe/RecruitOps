@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-08-26 · **Backend 625/625 · Frontend 368/368 · typecheck clean · builds clean**
+**Last updated:** 2026-08-26 · **Backend 644/644 · Frontend 375/375 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
@@ -64,10 +64,10 @@ suppressed message reaches the recruiter instead of only the database.
 | Modules 4, 6, 8 | ⬜ code · ✅ spec + design (13 screens drawn 2026-08-18) |
 | Module 7 — Settings | 🚧 RBAC ✅ · integrations ⬜ |
 | Auth | ✅ JWT, dynamic RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |
-| Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested |
+| Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested · **super-admin `X-Tenant-Id` switching (2026-08-26)** — honoured only for a token carrying `is_super_admin`; see the warning in SECURITY-REVIEW-ADR-0026.md before touching `CurrentTenant` |
 | Delivery (ADR-0004) | ✅ compose prod, `/api/version`, feature flags, sizing guide, runbook · ✅ in-process job runner (ADR-0026) · ⚠️ **every install now needs `Smtp:*` configured** or nothing is delivered |
 | Background jobs (ADR-0026) | ✅ **complete and security-reviewed.** Queue + tenant seam + mail worker + SMTP + invitation handler + bulk CV worker + **delivery log** (`GET /api/delivery`, `/delivery`) · review 2026-08-26 found one HIGH in step 4, fixed · ⬜ Module 4/5/8 handlers |
-| Tests | ✅ backend **625/625** (62 domain + 563 api) · frontend **368/368** across 46 files |
+| Tests | ✅ backend **644/644** (62 domain + 582 api) · frontend **375/375** across 46 files |
 | Design | ✅ 25 static screens, all seven modules — `design/internal/index.html` |
 
 ## ⚠️ "The stack came up" is not "the screens are correct"

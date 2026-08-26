@@ -1,5 +1,5 @@
 import { auth } from '../../lib/auth';
-import { apiFetch, ApiError } from '../../lib/api';
+import { apiFetch, ApiError, tenantHeader } from '../../lib/api';
 import type {
   KpiMetricsDto,
   TimeToHireAnalyticsDto,
@@ -41,7 +41,7 @@ export const analyticsApi = {
     const res = await fetch(url, {
       headers: {
         ...(session ? { Authorization: `Bearer ${session.accessToken}` } : {}),
-        ...(session?.activeTenantId ? { 'X-Tenant-Id': session.activeTenantId } : {}),
+        ...tenantHeader(session),
       },
     });
 

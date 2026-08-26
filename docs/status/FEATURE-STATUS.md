@@ -6,12 +6,12 @@
 > HTML + Tailwind CDN, not a route in either app. Visual system recorded in `DESIGN.md`,
 > product truth in `PRODUCT.md` (both at repo root). No backend or frontend code was touched.
 
-> ✅ **Backend: 625/625 green** (62 domain + 563 api), re-run 2026-08-26 after the ADR-0026 security review — which found and fixed a HIGH: an Approver could bulk-upload CVs into any posting in the tenant, and read the batch back ([SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md)). Covers Module 1 end to end, login
+> ✅ **Backend: 644/644 green** (62 domain + 582 api), re-run 2026-08-26. That day's ADR-0026 security review found and fixed a HIGH — an Approver could bulk-upload CVs into any posting in the tenant, and read the batch back ([SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md)) — and its `X-Tenant-Id` observation was then closed by wiring the header up for super-admins only (+19 tests). Covers Module 1 end to end, login
 > throttling, department administration, Module 2 requisitions/postings/pipeline/CV ingestion/Full-Text search, Module 3 interviews/scorecards/notes, Module 5 Reporting & Analytics, Module 7 Dynamic RBAC & User Management, and Delivery Prerequisites (`/api/version`, Feature Flags, Healthchecks).
 >
 > ✅ **`docker compose up --build` runs** — Postgres + API + both frontends, migrations applying on startup.
 >
-> ✅ **Frontend: 368/368 Vitest passing** across 46 test files, `npm run typecheck` 0 errors across both apps, `npm run build` clean (re-run 2026-08-25 after `features/pipeline`, `features/analytics` and `frontend/public/app` were rebuilt against the design kit; `ChartMarks.test.tsx` and `DeliveryLogPage.test.tsx` are new — the first pins the charts to one hue, `aria-pressed`, `role="img"` and no `dark:` variants; the second pins the delivery log's failure reason, its neutral treatment of `Suppressed`, and that filtering reaches the server rather than the browser).
+> ✅ **Frontend: 375/375 Vitest passing** across 46 test files, `npm run typecheck` 0 errors across both apps, `npm run build` clean (re-run 2026-08-25 after `features/pipeline`, `features/analytics` and `frontend/public/app` were rebuilt against the design kit; `ChartMarks.test.tsx` and `DeliveryLogPage.test.tsx` are new — the first pins the charts to one hue, `aria-pressed`, `role="img"` and no `dark:` variants; the second pins the delivery log's failure reason, its neutral treatment of `Suppressed`, and that filtering reaches the server rather than the browser).
 >
 > ⚠️ **The public app (`frontend/public`) has no tests at all.** It is a stranger's only view of
 > the product and the least-covered surface in the repo; its rebuild was verified from the built

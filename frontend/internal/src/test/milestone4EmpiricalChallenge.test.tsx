@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PermissionMatrixGrid } from '../components/PermissionMatrixGrid';
 import { RolesPage } from '../pages/RolesPage';
@@ -393,7 +393,37 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
    * 3. SUPER-ADMIN TENANT SWITCHER & X-TENANT-ID HEADER
    * ---------------------------------------------------------------- */
   describe('Super-Admin Tenant Switcher & X-Tenant-Id Request Headers', () => {
-    it('updates session active tenant when switching context in TenantSwitcherBar', () => {
+    // Real GUIDs, because a tenant id IS a Company.Id. The four hard-coded strings this file used
+    // to assert on (`tenant-stark`, `tenant-acme-corp`, …) could never have been real companies.
+    const SUPER_TENANT_A = '11111111-1111-1111-1111-111111111111';
+    const SUPER_TENANT_B = '22222222-2222-2222-2222-222222222222';
+
+    /** The switcher fetches GET /api/tenants through the real `api`, so stub the transport
+     *  rather than the module — the header test below needs the genuine article. */
+    function stubTenantFetch(rows: unknown[]) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(rows)),
+        })
+      );
+    }
+
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('updates session active tenant when switching to a company the server lists', async () => {
+      // ⚠️ Rewritten 2026-08-26. This used to click "Stark Industries" and assert the session
+      // held `tenant-stark` — one of four hard-coded names in the component. A tenant id is a
+      // `Company.Id`, i.e. a GUID, so none of those four could ever be a real company, and the
+      // switcher could not switch to any of them once the server started reading X-Tenant-Id.
+      // The list now comes from GET /api/tenants.
+      stubTenantFetch([
+        { id: SUPER_TENANT_A, name: 'Alpha Company', code: 'alpha', isActive: true },
+        { id: SUPER_TENANT_B, name: 'Bravo Company', code: 'bravo', isActive: true },
+      ]);
+
       auth.set({
         accessToken: 'token-super',
         expiresAtUtc: '2099-01-01T00:00:00Z',
@@ -401,23 +431,28 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         displayName: 'Global Super Admin',
         userId: 'usr-super',
         isSuperAdmin: true,
-        activeTenantId: 'tenant-default',
-        activeTenantName: 'Default Tenant',
+        tenantId: SUPER_TENANT_A,
         permissions: [],
       });
 
       const handleTenantChange = vi.fn();
       render(<TenantSwitcherBar onTenantChange={handleTenantChange} />);
 
-      fireEvent.click(screen.getByText('Switch Tenant Context ▾'));
-      fireEvent.click(screen.getByText('Stark Industries'));
+      fireEvent.click(screen.getByRole('button', { name: 'Switch company' }));
+      fireEvent.click(await screen.findByText('Bravo Company'));
 
-      expect(handleTenantChange).toHaveBeenCalledWith('tenant-stark', 'Stark Industries');
-      expect(auth.get()?.activeTenantId).toBe('tenant-stark');
-      expect(auth.get()?.activeTenantName).toBe('Stark Industries');
+      expect(handleTenantChange).toHaveBeenCalledWith(SUPER_TENANT_B, 'Bravo Company');
+      expect(auth.get()?.activeTenantId).toBe(SUPER_TENANT_B);
+      expect(auth.get()?.activeTenantName).toBe('Bravo Company');
     });
 
-    it('allows setting custom tenant ID in TenantSwitcherBar form', () => {
+    it('offers no free-text tenant box, because the list is now complete', async () => {
+      // The "Custom Tenant ID" input existed to work around a fake list — with four invented
+      // companies on offer, typing an id was the only way to reach a real one. GET /api/tenants
+      // returns every active company, so a hand-typed GUID can only ever name something already
+      // on the list. What it could still do is send an id the server rejects with a 400.
+      stubTenantFetch([{ id: SUPER_TENANT_A, name: 'Alpha Company', code: 'alpha', isActive: true }]);
+
       auth.set({
         accessToken: 'token-super',
         expiresAtUtc: '2099-01-01T00:00:00Z',
@@ -425,22 +460,16 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         displayName: 'Global Super Admin',
         userId: 'usr-super',
         isSuperAdmin: true,
+        tenantId: SUPER_TENANT_A,
         permissions: [],
       });
 
-      const handleTenantChange = vi.fn();
-      render(<TenantSwitcherBar onTenantChange={handleTenantChange} />);
+      render(<TenantSwitcherBar />);
+      fireEvent.click(screen.getByRole('button', { name: 'Switch company' }));
+      await screen.findByRole('group', { name: 'Companies in this database' });
 
-      fireEvent.click(screen.getByText('Switch Tenant Context ▾'));
-
-      const customInput = screen.getByPlaceholderText('e.g. tenant-999');
-      fireEvent.change(customInput, { target: { value: 'tenant-custom-99' } });
-
-      const setBtn = screen.getByRole('button', { name: 'Set' });
-      fireEvent.click(setBtn);
-
-      expect(handleTenantChange).toHaveBeenCalledWith('tenant-custom-99', 'Tenant (tenant-custom-99)');
-      expect(auth.get()?.activeTenantId).toBe('tenant-custom-99');
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Set' })).not.toBeInTheDocument();
     });
 
     it('sends X-Tenant-Id header in fetch calls when activeTenantId is set in session', async () => {
@@ -458,8 +487,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         displayName: 'Super Admin',
         userId: 'usr-super',
         isSuperAdmin: true,
-        activeTenantId: 'tenant-acme-corp',
-        activeTenantName: 'Acme Corp',
+        tenantId: SUPER_TENANT_B,
         permissions: [],
       });
 
@@ -470,7 +498,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: 'Bearer token-super-xyz',
-            'X-Tenant-Id': 'tenant-acme-corp',
+            'X-Tenant-Id': SUPER_TENANT_B,
           }),
         })
       );

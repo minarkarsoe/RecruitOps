@@ -5,6 +5,53 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🔓 `X-Tenant-Id` is read by the backend now — super-admins only
+**Why:** the security review found the SPA had been sending this header on every request since the
+super-admin switcher was built, and **no backend code read it**. Good news at the time (no
+header-based tenant override to abuse) but it meant the switcher did not switch. Backend
+**644/644** (+19), frontend **375/375** (+7), typecheck clean, builds clean.
+
+This deliberately opens a hole in tenant isolation for exactly one role, so the guard is the whole
+feature:
+
+```
+1. X-Tenant-Id  — honoured ONLY when the caller's signed token says is_super_admin
+2. the tenant_id claim   — final for everyone else
+3. the ambient tenant    — background workers only (ADR-0026 §4)
+```
+
+`CurrentTenant`'s doc comment used to say the claim being read first is what stops an
+authenticated request being redirected at another company. That sentence is now: **a request can
+be redirected if and only if the caller's token carries `is_super_admin`.** Nine unit tests and
+eight integration tests pin it, and the one that matters —
+`An_Ordinary_Admin_Sending_The_Header_Still_Sees_Only_Their_Own_Company` — issues the identical
+request minus the claim and asserts the other company's rows do not come back. Removing the gate
+fails four tests across both files.
+
+Three things beyond the resolver:
+
+- **The switcher offered four companies that could not exist.** `tenant-default`, `tenant-acme`,
+  `tenant-globex`, `tenant-stark` — hard-coded strings, while a tenant id is a `Company.Id`, i.e. a
+  GUID. Every one would have failed to parse the moment the server started reading the header. It
+  now lists real companies from **`GET /api/tenants`** (super-admin only, 404 to everyone else so
+  a 403 does not confirm the list exists). The free-text "custom tenant ID" box is gone with it:
+  it existed to work around a fake list, and the real list is complete.
+- **Ordinary users no longer send the header at all.** `activeTenantId` is only populated for
+  super-admins now. The server gates on the token either way, but there is no reason for an
+  ordinary user to send a tenant id, and "harmless header nobody reads" is exactly how it went
+  unnoticed that nothing read it. A super-admin's choice now also survives a token refresh, and
+  does not leak into a different super-admin's session.
+- **An unknown tenant is a 400, not an empty app.** A middleware validates the override once per
+  request. It is kept out of the resolution path on purpose: resolution decides *who may*, from
+  the signed token, with no database call — so a bug in the validator can only turn a request into
+  a 400, never widen access.
+
+`IsSuperAdmin` is now one static predicate on `CurrentUser`, called by both it and `CurrentTenant`.
+It was briefly injected as `ICurrentUser` instead, which broke 42 worker tests: `CurrentTenant` is
+resolved in background scopes that have no user, and those tests deliberately use the real
+implementation rather than a stand-in. Requiring an HTTP-shaped service to answer a question a job
+never asks was the wrong shape; one rule in one place, reachable from both, is the right one.
+
 ### 🔒 Security review of ADR-0026 — an Approver could put candidates in any pipeline
 **Why:** CLAUDE.md requires a review on anything touching authorization, and two surfaces were
 outstanding — ADR-0026 step 4 and the delivery log. Full report:

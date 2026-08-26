@@ -212,6 +212,12 @@ app.UseCors(DevCors);
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Order matters: this reads context.User, so it must sit after UseAuthentication(). It only
+// validates a super-admin's X-Tenant-Id override — who may impersonate is decided in
+// CurrentTenant, from the signed token, with no database call.
+app.UseSuperAdminTenantOverride();
+
 app.MapControllers();
 
 // Apply pending migrations before serving traffic (ADR-0004: unattended installs).

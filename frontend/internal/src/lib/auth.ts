@@ -55,6 +55,23 @@ export const auth = {
 
   set(response: LoginResponse): Session {
     const current = auth.get();
+    const isSuper = response.isSuperAdmin || response.role === 'SuperAdmin';
+
+    // ⚠️ Only a super-admin carries a tenant override, and this is why.
+    //
+    // `activeTenantId` becomes the `X-Tenant-Id` header, which the API honours **only** for
+    // super-admins (see CurrentTenant). Setting it for everyone — which is what this did until
+    // 2026-08-26 — meant every signed-in user's every request carried a header naming a tenant.
+    // It was harmless while nothing read the header and stayed harmless once something did,
+    // because the server gates on the token rather than on the header. But "every user sends a
+    // tenant id the server is trusted to ignore" is one careless commit away from a breach, and
+    // there is no reason for an ordinary user to send it at all: their tenant is in their token.
+    //
+    // The override survives a token refresh (same user only), so a super-admin looking at another
+    // company does not get silently bounced home when their access token rotates.
+    const keptOverride =
+      isSuper && current?.userId === response.userId ? current.activeTenantId : undefined;
+
     const session: Session = {
       accessToken: response.accessToken,
       expiresAtUtc: response.expiresAtUtc,
@@ -63,9 +80,13 @@ export const auth = {
       role: response.role,
       displayName: response.displayName,
       userId: response.userId,
-      isSuperAdmin: response.isSuperAdmin || response.role === 'SuperAdmin',
-      activeTenantId: response.activeTenantId ?? response.tenantId ?? current?.activeTenantId,
-      activeTenantName: response.activeTenantName ?? current?.activeTenantName,
+      isSuperAdmin: isSuper,
+      activeTenantId: isSuper
+        ? keptOverride ?? response.activeTenantId ?? response.tenantId
+        : undefined,
+      activeTenantName: isSuper
+        ? (keptOverride ? current?.activeTenantName : response.activeTenantName)
+        : undefined,
       permissions: response.permissions,
     };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
