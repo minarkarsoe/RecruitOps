@@ -1,5 +1,7 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using RecruitOps.Application.DTOs;
 using Xunit;
 
@@ -93,6 +95,54 @@ public class ApproverReachTests : IClassFixture<CustomWebAppFactory>
 
         Assert.Equal(HttpStatusCode.NotFound, pipeline.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, history.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_Approver_Cannot_Bulk_Upload_CVs_Into_A_Posting()
+    {
+        // ⚠️ This shipped broken and was found by the 2026-08-26 security review. `POST
+        // /api/jobpostings/{id}/resumes/bulk` as the Finance approver, against a Sales posting,
+        // returned **200 OK** with a batch id — the third instance of the same mistake
+        // (`CanAccessAsync` alone), in a class written after ADR-0018 was already documented.
+        //
+        // The write half is the serious one: creating Candidate and JobApplication rows in a
+        // department the caller has no relationship with is not a read leak, it is data injected
+        // into somebody else's pipeline by a role whose whole remit is signing off headcount.
+        var (postingId, _) = await _scenario.ApplicationAsync("Approver Reach F");
+
+        var content = new MultipartFormDataContent();
+        var file = new ByteArrayContent(Encoding.UTF8.GetBytes("%PDF-1.4 not a real CV"));
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        content.Add(file, "files", "Candidate.pdf");
+
+        var upload = await _scenario.FinanceApprover()
+            .PostAsync($"/api/jobpostings/{postingId}/resumes/bulk", content);
+
+        Assert.Equal(HttpStatusCode.NotFound, upload.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_Approver_Cannot_Read_A_Bulk_Upload_Batch()
+    {
+        // The read half of the same hole. The batch summary carries CV filenames — which are
+        // very often the candidate's name — plus the candidate and application ids each file
+        // produced, so it is a candidate list by another route.
+        var (postingId, _) = await _scenario.ApplicationAsync("Approver Reach G");
+
+        var content = new MultipartFormDataContent();
+        var file = new ByteArrayContent(Encoding.UTF8.GetBytes("%PDF-1.4 not a real CV"));
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        content.Add(file, "files", "Candidate.pdf");
+
+        var upload = await _scenario.Recruiter()
+            .PostAsync($"/api/jobpostings/{postingId}/resumes/bulk", content);
+        upload.EnsureSuccessStatusCode();
+        var batch = (await upload.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>())!;
+
+        var read = await _scenario.FinanceApprover()
+            .GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batch.BatchId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, read.StatusCode);
     }
 
     [Fact]

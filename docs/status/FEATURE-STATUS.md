@@ -6,7 +6,7 @@
 > HTML + Tailwind CDN, not a route in either app. Visual system recorded in `DESIGN.md`,
 > product truth in `PRODUCT.md` (both at repo root). No backend or frontend code was touched.
 
-> ✅ **Backend: 623/623 green** (62 domain + 561 api), re-run 2026-08-25 after the ADR-0026 delivery log — `GET /api/delivery` (+11 tests, every one proved against a mutation). Covers Module 1 end to end, login
+> ✅ **Backend: 625/625 green** (62 domain + 563 api), re-run 2026-08-26 after the ADR-0026 security review — which found and fixed a HIGH: an Approver could bulk-upload CVs into any posting in the tenant, and read the batch back ([SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md)). Covers Module 1 end to end, login
 > throttling, department administration, Module 2 requisitions/postings/pipeline/CV ingestion/Full-Text search, Module 3 interviews/scorecards/notes, Module 5 Reporting & Analytics, Module 7 Dynamic RBAC & User Management, and Delivery Prerequisites (`/api/version`, Feature Flags, Healthchecks).
 >
 > ✅ **`docker compose up --build` runs** — Postgres + API + both frontends, migrations applying on startup.

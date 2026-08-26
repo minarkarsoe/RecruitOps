@@ -1,8 +1,9 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-08-25 · **Backend 612/612 · Frontend 358/358 · typecheck clean · builds clean**
-· **ADR-0026 is complete** — steps 1–4 built, steps 1–3 security-reviewed · the product sends email
-(Module 3.2 invitations) and no longer keeps a recruiter's fifty CVs in process memory
+**Last updated:** 2026-08-26 · **Backend 625/625 · Frontend 368/368 · typecheck clean · builds clean**
+· **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
+reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
+pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
 · All seven modules have a drawn UI (25 screens)
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
@@ -47,11 +48,10 @@ Hiring Manager raises a requisition
   → Admin manages users, custom roles, feature flags, /api/version
 ```
 
-**Where it stops.** One message leaves the building — the interview invitation. Everything else
-a candidate should hear about (an offer, a reminder, a rejection) still has no handler, and
-**nothing in the UI shows whether a message actually arrived**: the delivery log is drawn in
-`design/internal/channels.html` and reads from a table no screen queries yet. So "was this
-candidate told?" is answerable by the database and by nobody using the product.
+**Where it stops.** One message leaves the building — the interview invitation. Everything else a
+candidate should hear about (an offer, a reminder, a rejection) still has no handler. **Whether it
+arrived is now visible**: the delivery log shipped 2026-08-25 (`/delivery`), so a failed or
+suppressed message reaches the recruiter instead of only the database.
 
 ## What's built
 
@@ -66,8 +66,8 @@ candidate told?" is answerable by the database and by nobody using the product.
 | Auth | ✅ JWT, dynamic RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |
 | Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested |
 | Delivery (ADR-0004) | ✅ compose prod, `/api/version`, feature flags, sizing guide, runbook · ✅ in-process job runner (ADR-0026) · ⚠️ **every install now needs `Smtp:*` configured** or nothing is delivered |
-| Background jobs (ADR-0026) | ✅ **all four steps built.** Queue + tenant seam + mail worker + SMTP + invitation handler (security-reviewed, nothing found) + bulk CV worker · ⬜ no delivery-log UI · ⬜ Module 4/5/8 handlers · ⬜ step 4 not yet security-reviewed |
-| Tests | ✅ backend **612/612** (62 domain + 550 api) · frontend **352/352** across 44 files |
+| Background jobs (ADR-0026) | ✅ **complete and security-reviewed.** Queue + tenant seam + mail worker + SMTP + invitation handler + bulk CV worker + **delivery log** (`GET /api/delivery`, `/delivery`) · review 2026-08-26 found one HIGH in step 4, fixed · ⬜ Module 4/5/8 handlers |
+| Tests | ✅ backend **625/625** (62 domain + 563 api) · frontend **368/368** across 46 files |
 | Design | ✅ 25 static screens, all seven modules — `design/internal/index.html` |
 
 ## ⚠️ "The stack came up" is not "the screens are correct"
@@ -445,11 +445,17 @@ amendment for what that trade narrowed.)
 - ✅ ~~Nothing renders `OutboundMessages`.~~ **Built 2026-08-25** — `GET /api/delivery` +
   `/delivery`, from the Delivery log section of `design/internal/channels.html`. 11 API tests,
   10 component tests, all mutation-proven. See the entry below.
-- 🟠 **Step 4 has not been security-reviewed, and now neither has the delivery log.** Steps 1–3
-  have. Step 4 added a second worker that reads and writes candidate data with no user behind it,
-  plus a new object-storage key format; the delivery log added a **read endpoint over candidate
-  data whose department filter is hand-written** (see below). CLAUDE.md requires the pass on both,
-  and they should be reviewed together — one is the writer, the other the reader.
+- ✅ ~~Step 4 has not been security-reviewed.~~ **Done 2026-08-26**, together with the delivery
+  log — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md). **One HIGH finding, fixed:**
+  an Approver could POST 50 CVs into any posting in the tenant and read the batch back, because
+  `BulkResumeService` gated on `CanAccessAsync` alone. Reproduced against the running API (200 OK),
+  fixed, and pinned by two mutation-proved tests in `ApproverReachTests`.
+
+  > ⚠️ **That was the third instance of one mistake.** `IDepartmentAccess.CanAccessAsync` answers
+  > "does this role work across departments" — which an Approver does — and is almost never the
+  > whole question for candidate data. The report's recommendation is still open: make the
+  > candidate-facing helper the only exported way to ask, so the next service cannot get half of
+  > the rule. It changes a shared interface, so it wants its own change.
 
 **Read §4 of the ADR before writing any handler or worker.** A background job has no
 `HttpContext`, so `CurrentTenant.TenantId` is `Guid.Empty`, every global query filter matches
@@ -507,7 +513,7 @@ How it was built, each step a session:
    There is deliberately **no retry button**: the worker already retries with backoff to the
    attempt cap, and a button that re-queues a row a human is looking at would race it for that row.
 
-← **you are here: the step-4 + delivery-log security review.** See the 🟠 bullet above.
+← **you are here: nothing outstanding in ADR-0026.** The open follow-up is the `IDepartmentAccess` refactor the security review recommends — see the bullet above.
 
 ### 2. Frontend tests for Modules 1–2's largest untested logic
 Still open. The harness is proven and the suite is at 342, but these two components have no

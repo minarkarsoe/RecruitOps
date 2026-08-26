@@ -3,7 +3,43 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-08-25 (latest)
+## 2026-08-26 (latest)
+
+### 🔒 Security review of ADR-0026 — an Approver could put candidates in any pipeline
+**Why:** CLAUDE.md requires a review on anything touching authorization, and two surfaces were
+outstanding — ADR-0026 step 4 and the delivery log. Full report:
+[SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md). Backend **625/625** (+2).
+
+**One HIGH finding, reproduced against the running API and fixed here.** `BulkResumeService`
+gated both entry points on `IDepartmentAccess.CanAccessAsync` **alone**. That call answers "does
+this role work across departments", and an Approver does — ADR-0003 leaves them un-scoped on
+purpose so a Finance approver can see a Sales headcount request. Asked about a *candidate*, the
+same `true` grants everything. Confirmed 2026-08-26 as the seeded Finance approver against a Sales
+posting:
+
+```
+POST /api/jobpostings/{sales-posting}/resumes/bulk   →   200 OK   {"batchId":"b8f8eafd-…"}
+```
+
+So an Approver could **inject up to 50 CVs into any posting in the tenant** — each becoming a real
+Candidate and JobApplication, indistinguishable from a recruiter's — and read the batch back, which
+returns CV filenames (usually the candidate's name) plus candidate and application ids.
+
+The write half is the serious one: not a leak, but data put into someone else's pipeline by a role
+whose entire remit is approving headcount.
+
+**This is the third instance of one mistake**, and the corrected version was sitting in
+`PipelineService.CanReachCandidatesInAsync` with the reasoning written out. Fixed the same way —
+one door for both rules — and pinned by two tests in `ApproverReachTests`, both proved against a
+mutation. The report argues the real fix is to stop exporting `CanAccessAsync` as something a
+candidate-facing service may call at all.
+
+Everything else examined held up: no raw SQL anywhere; the resume download is keyed by application
+id and served as an attachment; tenant resolution reads the request claim first and wins; both
+workers follow ADR-0026 §4 exactly; refresh tokens rotate with reuse detection; the permission
+handler treats denied as final. Two non-security observations are recorded in the report — notably
+that **`X-Tenant-Id` is sent by the SPA and read by nothing**, so the super-admin tenant switcher
+does not actually switch.
 
 ### 📬 The delivery log — the outbox finally has a reader
 **Why:** ADR-0026 shipped the write side on 2026-08-20 and **nothing rendered it**. A `Failed`

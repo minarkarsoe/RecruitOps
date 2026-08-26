@@ -75,10 +75,10 @@ public class BulkResumeService : IBulkResumeService
             return null;
         }
 
-        // ADR-0003 — department scoping, applied explicitly, on the way in. This is the ONLY
-        // place it can be applied for this feature: the worker runs with no user, so it cannot
-        // ask "may they reach it" later (ADR-0026 §4).
-        if (!await _access.CanAccessAsync(posting.DepartmentId, ct))
+        // ADR-0003 + ADR-0018, applied explicitly, on the way in. This is the ONLY place they
+        // can be applied for this feature: the worker runs with no user, so it cannot ask "may
+        // they reach it" later (ADR-0026 §4).
+        if (!await CanReachCandidatesInAsync(posting.DepartmentId, ct))
         {
             _logger.LogWarning(
                 "Department access denied for posting {JobPostingId}, department {DepartmentId}.",
@@ -123,7 +123,7 @@ public class BulkResumeService : IBulkResumeService
             .FirstOrDefaultAsync(p => p.Id == jobPostingId, ct);
 
         if (posting is null) return null;
-        if (!await _access.CanAccessAsync(posting.DepartmentId, ct)) return null;
+        if (!await CanReachCandidatesInAsync(posting.DepartmentId, ct)) return null;
 
         var batch = await _db.BulkUploadBatches.AsNoTracking()
             .FirstOrDefaultAsync(b => b.Id == batchId && b.JobPostingId == jobPostingId, ct);
@@ -139,6 +139,25 @@ public class BulkResumeService : IBulkResumeService
 
         return Summarise(batch, rows);
     }
+
+    /// <summary>Department scoping (ADR-0003) <b>plus</b> the candidate-data exclusion
+    /// (ADR-0018), through one door so neither entry point can get only half of it.
+    ///
+    /// <para>⚠️ <b>This class shipped with only half.</b> Both entry points called
+    /// <c>CanAccessAsync</c> on its own, which answers "does this role work across departments" —
+    /// and an Approver does, on the requisition axis, which is what ADR-0003 was arguing about.
+    /// Asked about a <i>candidate</i>, that same <c>true</c> let an Approver POST fifty CVs into
+    /// any posting in the company and read the batch back. Confirmed against the running API on
+    /// 2026-08-26: <c>POST /api/jobpostings/{id}/resumes/bulk</c> as the Finance approver, against
+    /// a Sales posting, returned <b>200 OK</b> with a batch id.</para>
+    ///
+    /// <para>The bug is the one ADR-0018 was written about, reintroduced in newer code with the
+    /// corrected version sitting in <c>PipelineService.CanReachCandidatesInAsync</c> — which is
+    /// the argument for this being a shared helper rather than a rule each service remembers.</para>
+    /// </summary>
+    private async Task<bool> CanReachCandidatesInAsync(Guid departmentId, CancellationToken ct)
+        => !_currentUser.IsExcludedFromCandidateData
+           && await _access.CanAccessAsync(departmentId, ct);
 
     // ---------------------------------------------------------------- enqueue helpers
 
