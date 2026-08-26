@@ -493,11 +493,23 @@ Pattern to copy: `src/lib/scorecard.test.ts` for pure rules,
 `src/pages/InterviewDetailPage.test.tsx` for a page with `vi.mock('../lib/api')`.
 **Prove each new test fails before you believe it passes.**
 
-### 3. Finish ADR-0025 — move the code onto the V1.0 tokens
-The 25 design screens are on V1.0; `packages/ui/tailwind-preset.js` and both frontends are
-still on the Clear Pipeline preset. **Two token systems running in parallel is the exact
-condition ADR-0025 was written to end**, and it now exists again in the other direction.
-Sequence from the ADR: preset → both frontends → `RecruitOps_Design_System.md` →
+### 3. Finish ADR-0025 — step 4, the documents and the marketing page
+
+**Step 3 is done for everything that reaches a screen** (see §0 above); this entry used to say
+"both frontends are still on the Clear Pipeline preset" and that has been false since 2026-08-25.
+
+What is left is step 4 — the surfaces that *describe* the design system rather than use it, and
+they now describe a system the code no longer runs. Measured 2026-08-25, counting
+`primary-*` / `Bricolage` / `IBM Plex` / `#0B5654` / "Clear Pipeline":
+
+| File | Stale references |
+|---|---|
+| `marketing/landing.html` | **65** |
+| `DESIGN.md` | **47** |
+| `RecruitOps_Design_System.md` | **16** |
+
+`marketing/landing.html` is the one that matters most: it is public, and it shows a product in
+colours the product no longer has. Sequence from the ADR: `RecruitOps_Design_System.md` →
 `marketing/landing.html` and `DESIGN.md` last.
 
 ### 4. Answer the five questions the design kit surfaced
@@ -514,8 +526,20 @@ rather than engineering ones:
 - **Age/gender filtering** is unconfirmed for this market.
 
 ### 5. Smaller, whenever
-- **Delete or wire up `frontend/internal/src/features/requisitions/`** — zero importers
-  repo-wide, five files, and a test that passes while proving nothing about the shipped app.
+- **Delete or wire up the orphaned feature folders** — `features/requisitions/`,
+  `features/interviews/`, and four of the five files in `features/pipeline/`. Zero importers
+  repo-wide; tests that pass while proving nothing about the shipped app. Re-measured 2026-08-25,
+  and it is wider than this entry used to claim — the table in §0 lists every one.
+  **Parked by the product owner on 2026-08-25**; ask before acting on it.
+- **`frontend/public` has no `app/not-found.tsx`** — a candidate following a withdrawn job link
+  gets Next.js's built-in 404: no layout, no fonts, no company name. `design/public/` does not
+  draw this screen, so it needs designing before building.
+- **`frontend/public` has no tests at all** — a stranger's only view of the product is the
+  least-covered surface in the repo.
+- **`Badge` still carries `gold` / `silver` / `bronze`** — agency-era `ClientTier`, removed by
+  ADR-0001. No screen renders them; three test files hold them alive.
+- **`ExecutiveSummaryPanel` offers a "Client Portal" audience** and the API takes
+  `audience: 'internal' | 'client'`. Agency-era vocabulary in a shipped contract (ADR-0001).
 - Re-run Module 5's metrics against the **new** definitions once Module 4 exists; the shipped
   ones end at a different event.
 - Fix or delete the CI `Test counts` summary step — it reports a number nobody should trust.
