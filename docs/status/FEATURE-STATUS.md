@@ -1,13 +1,21 @@
 # Feature Status
 
-**Last updated:** 2026-08-13 (Delivery Readiness & Feature Flags complete — 507/507 backend tests + 318/318 frontend tests green, 0 typecheck errors) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
+**Last updated:** 2026-08-18 (**status re-derived from the code, not from the previous version of this file** — the module table below was wrong about four modules; see the note under it. Suites re-run the same day: **backend 527/527**, frontend 342/342, typecheck clean. Also: **UI/UX design kit complete — 25 static screens across all seven modules**, in `design/internal/` and `design/public/`, indexed at `design/internal/index.html`; five spec gaps it surfaced are logged under Known gaps) · Previously 2026-08-17 (marketing landing page added; design system pivoted off the agency model and its contrast failures fixed — frontend now **342/342 Vitest green**, 43 files, 0 typecheck errors) · Previously 2026-08-13 (Delivery Readiness & Feature Flags complete — 507/507 backend tests + 318/318 frontend tests green, 0 typecheck errors) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
 
-> ✅ **Backend: 507/507 green** (51 domain + 456 api). Covers Module 1 end to end, login
+> 🎨 **Marketing surface (2026-08-17):** `marketing/landing.html` — standalone single-file
+> HTML + Tailwind CDN, not a route in either app. Visual system recorded in `DESIGN.md`,
+> product truth in `PRODUCT.md` (both at repo root). No backend or frontend code was touched.
+
+> ✅ **Backend: 625/625 green** (62 domain + 563 api), re-run 2026-08-26 after the ADR-0026 security review — which found and fixed a HIGH: an Approver could bulk-upload CVs into any posting in the tenant, and read the batch back ([SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md)). Covers Module 1 end to end, login
 > throttling, department administration, Module 2 requisitions/postings/pipeline/CV ingestion/Full-Text search, Module 3 interviews/scorecards/notes, Module 5 Reporting & Analytics, Module 7 Dynamic RBAC & User Management, and Delivery Prerequisites (`/api/version`, Feature Flags, Healthchecks).
 >
 > ✅ **`docker compose up --build` runs** — Postgres + API + both frontends, migrations applying on startup.
 >
-> ✅ **Frontend: 318/318 Vitest passing** across 39 test files, `npm run typecheck` 0 errors across both apps.
+> ✅ **Frontend: 368/368 Vitest passing** across 46 test files, `npm run typecheck` 0 errors across both apps, `npm run build` clean (re-run 2026-08-25 after `features/pipeline`, `features/analytics` and `frontend/public/app` were rebuilt against the design kit; `ChartMarks.test.tsx` and `DeliveryLogPage.test.tsx` are new — the first pins the charts to one hue, `aria-pressed`, `role="img"` and no `dark:` variants; the second pins the delivery log's failure reason, its neutral treatment of `Suppressed`, and that filtering reaches the server rather than the browser).
+>
+> ⚠️ **The public app (`frontend/public`) has no tests at all.** It is a stranger's only view of
+> the product and the least-covered surface in the repo; its rebuild was verified from the built
+> stylesheet because the job page needs a running API.
 >
 > ✅ **Granular Dynamic RBAC & Permission-Aware UX complete** — `/api/roles`, `/api/permissions`, `/api/users`, `[HasPermission]` policy attribute, User Directory (`/users`), Role Builder (`/roles`), and dynamic permission-aware UI filtering across navigation sidebar and action buttons.
 >
@@ -28,28 +36,58 @@
 | — | Foundation (scaffold, layering, CI-less tooling) | ✅ | Structure per CLAUDE.md |
 | — | Multi-tenancy | ✅ | Query filters + claim-based resolver, isolation-tested |
 | 1 | Job Requisition & Approval | ✅ API + UI | ⭐ MVP · full loop drivable from the browser: chain config → requisition → submit → sequential approve/reject → cancel. |
-| 2 | ATS & Sourcing | 🚧 | ⭐ MVP · **2.1/2.2/2.5/2.7 built** (posting → public page + custom form → application → pipeline). 2.3 OCR, 2.4 Smart Match, 2.6 search not started. |
-| 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). 3.1 calendar / 3.2 invitations deferred to Module 7 — no email sender or calendar client exists. |
-| 4 | Offer & Pre-boarding | ⬜ | Deferred (post-MVP) |
-| 5 | Reporting & Analytics | ⬜ | ⭐ MVP · build last · blocked on stage history (Module 2) |
-| 6 | Planning & Budgeting | ⬜ | Deferred (post-MVP) |
-| 7 | Settings & Integrations | ✅ | Dynamic RBAC, Authorization Engine, Roles & Permissions Management, User Directory & Role Builder UI, Permission-Aware UX ✅; integrations ⬜ |
-| 8 | Multi-Channel Sourcing (bots) | ⬜ | First post-MVP; contracted in Mid-Tier (ADR-0014) |
+| 2 | ATS & Sourcing | ✅ API + UI | ⭐ MVP · **2.1–2.7 all built.** Posting → public page + custom form → application → pipeline; bulk CV ingestion with local extraction (`BulkResumeService` + `BulkResumeWorker`, `DocumentExtraction/`) — **rewritten 2026-08-21 onto ADR-0026's durable queue**, so a batch survives a restart and the uploaded bytes live in object storage rather than in process memory; AI profiling behind a key (`AiIntegrationService`); trigram search (`SearchService`, `AddPgTrgmAndSearchIndexes`). Remaining: file-upload field type (waits on ADR-0013) and the merge-two-existing-candidates UI. |
+| 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). **3.2 invitations built 2026-08-20** — scheduling and rescheduling queue a candidate email through the ADR-0026 outbox, sent by the worker over SMTP; cancelling suppresses a queued one. 3.1 calendar free/busy still deferred — no calendar client exists. **The delivery log landed 2026-08-25** (`GET /api/delivery`, `/delivery`), so a failed or suppressed invitation is now visible to the recruiter instead of only to the database. ⚠️ Three behaviours have never been eyeballed — see the warning below the table. |
+| 4 | Offer & Pre-boarding | ⬜ code · ✅ spec + design | Post-MVP. Scope rewritten 2026-08-18; 4 screens drawn. **No longer blocked** — `IEmailSender` and the outbox exist; 4.1/4.2/4.3 each need a handler and an enqueue call. |
+| 5 | Reporting & Analytics | ✅ API + UI | ⭐ MVP · `AnalyticsController` + `AnalyticsService` + `AnalyticsPage.tsx`, built on Module 2's stage history. ⚠️ The 2026-08-18 spec re-defines both Time-to-* clocks to end at *offer accepted*, so **the shipped metrics do not match the current spec** and neither is computable until Module 4 exists. Scheduled report *delivery* is unblocked — `IEmailSender` exists — but needs a `ScheduledReport` handler and attachment support, which `EmailMessage` does not have yet. |
+| 6 | Planning & Budgeting | ⬜ code · ✅ spec + design | Post-MVP. Needs `Requisition → HeadcountPlan` decided first, or its headline number is uncomputable. |
+| 7 | Settings & Integrations | 🚧 | 7.1 RBAC ✅ (authorization engine, roles & permissions, User Directory, Role Builder UI, permission-aware UX). 7.2 HRMS / 7.3 mail & calendar / 7.4 retention ⬜ — all four screens drawn. |
+| 8 | Multi-Channel Sourcing (bots) | ⬜ code · ✅ design | First post-MVP; contracted in Mid-Tier (ADR-0014). ⚠️ May be unbuildable on-premise — see Known gaps. |
+
+> ⚠️ **This table was materially wrong until 2026-08-18** and is worth a note, because the
+> failure mode repeats. It listed Module 5 as not started, and 2.3 / 2.4 / 2.6 as not started,
+> while `AnalyticsController`, `SearchController`, `BulkResumeService` and
+> `MyanmarScriptNormalizer` were all in the tree and covered by passing tests. `NEXT-SESSION.md`
+> said the opposite of this file. Two status docs disagreeing with each other and with the code
+> is how a session gets sent to rebuild something that already ships. **Re-derive this table
+> from the code, not from the previous version of the table.**
 
 ## Delivery readiness (ADR-0004)
 
-Per-company install, subdomain routing. **None of the operational prerequisites exist yet:**
+Per-company install, subdomain routing. **Most prerequisites now exist — one real gap left**
+(verified against the code 2026-08-18, not carried forward from a previous note):
 
 | Item | Status |
 |---|---|
-| Docker/Compose packaging | ✅ **verified running** |
-| Feature-flag mechanism (add-on gating) | ⬜ |
-| Background job runner (bulk CV processing) | ⬜ |
+| Docker/Compose packaging | ✅ **verified running** — `docker-compose.yml` + `docker-compose.prod.yml` |
+| Feature-flag mechanism (add-on gating) | ✅ **done** — `FeatureFlagService`, `[FeatureGate]` |
+| Background job runner (bulk CV processing) | ✅ **done 2026-08-21** — `BulkResumeWorker` on ADR-0026's durable queue; see the block below for what it replaced |
 | Automated EF migrations on startup | ✅ **done** — `InitialCreate` generated |
-| `/api/version` + customer/version registry | ⬜ |
+| `/api/version` + customer/version registry | ✅ **done** — `VersionController`; registry still manual |
 | Support policy (latest, latest-1) | ⬜ |
-| Server sizing guide | ⬜ |
-| Backup/restore + upgrade runbooks | ⬜ |
+| Server sizing guide | ✅ **done** — `docs/architecture/server-sizing-guide.md` |
+| Backup/restore + upgrade runbooks | ✅ **done** — `docs/architecture/deployment-runbook.md` |
+
+✅ **Bulk CV upload was rewritten onto ADR-0026 on 2026-08-21.** It is kept here as a record of
+what was wrong, because the entry sat at "asynchronous ✅" for weeks while it was none of these
+things.
+
+`BulkResumeService` used to hold batches in `private static readonly ConcurrentDictionary<Guid,
+BatchStateHolder> Batches` — **including the raw uploaded file bytes** — and launch
+`_ = Task.Run(() => ProcessBatchAsync(batchId))`. Nothing was written to the database.
+
+| What was wrong | What it is now |
+|---|---|
+| A restart **lost the batch outright**, so `GetBatchStatusAsync` returned null and the recruiter's 50 files 404'd with no way to tell whether any candidate was created | `BulkUploadBatch` + `BulkUploadFile` rows, written before the response returns. A claim only pushes a due time forward, so a process that dies mid-batch leaves work that becomes due again by itself |
+| Fifty CVs of several MB each sat in RAM per concurrent upload, which the sizing guide did not account for | Bytes go to object storage at upload (ADR-0013); the row keeps a key. The same object later becomes the application's résumé — uploaded once, referenced, never copied |
+| An exception inside `Task.Run` was unobserved: no handler, no retry | Retry with exponential backoff and an attempt cap of 3, plus the between-claim-and-record wrapper the 2026-08-20 security review forced onto the mail worker |
+| Two replicas would not see each other's batches | The queue is a table, so they would. It is still one worker per ADR-0004 |
+| The candidate lookup used `IgnoreQueryFilters()` with a hand-written `c.TenantId == …` predicate | Ordinary filtered queries. The worker enters the tenant; there is no predicate left to forget (ADR-0026 §4) |
+
+ADR-0008 required this to be asynchronous; what shipped was the *shape* of asynchronous, not the
+thing. Replaced, not extended, by
+[ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md) — leaving it would have
+meant two job mechanisms, which is the outcome the ADR exists to prevent.
 
 ## Built in detail
 
@@ -447,6 +485,17 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 
 | Issue | Severity | Where |
 |---|---|---|
+| **Design-system tint pills fail WCAG AA** | ✅ **fixed 2026-08-17** | `-700` text-on-tint steps added to `packages/ui/tailwind-preset.js` (success `#146B43`, warning/accent `#8A5A08`, danger `#A63423`, info `#22528F`); `StatusPill` moved onto them and off `ink-400`. Pinned by 6 new cases in `signatureComponents.test.tsx`, **proved to fail first** by mutating two style entries |
+| **Design system doc never pivoted (agency-era)** | ✅ **fixed 2026-08-17** | `RecruitOps_Design_System.md` rewritten for the in-house product. `ClientPortalCard`, `ClientFeedbackBar` and `ExpiryAttentionCard` deleted with their exports; `ExtendedStatusVocabulary` removed from `StatusPill`; `PipelineStageRail` defaults corrected to the real funnel |
+| **No email sender and no job scheduler — now blocking 3 modules** | 🟠 High | Neither exists in the codebase. Already blocked Module 3 interview invitations; the 2026-08-18 scope revision adds Module 4 (`Remind Candidate`, `Send to Candidate`, IT/Admin handoff notifications) and Module 5 (`Schedule Email` for recurring reports). This is one shared capability, not four features — decide the provider and the job runner once, before any of the three modules starts |
+| **Module 4 & 5 scope revised, specs ahead of code** | 🟡 Medium | Rewritten 2026-08-18 from sales requirement PDFs. Module 4 gains a second approval chain, an `OfferStatus` enum whose `Rejected` collides with `PipelineStatus.Rejected`, and HRMS API sync (QHRM/BetterHR/GlobalTA/CityHR — treat as ADR-0007 extension point, not core). Module 5 re-defines both Time-to-* clocks to end at *offer accepted*, so **neither metric is computable until Module 4 ships**, and adds a Recruiter Leaderboard that ranks named staff. See the module docs for the open questions |
+| **Two token systems are now written down** | 🟡 Medium | A "RecruitOps V1.0" spec (slate `#0F172A` / emerald `#10B981` / Plus Jakarta Sans) was supplied 2026-08-17 and captured as [ADR-0025](../decisions/ADR-0025-token-system-v1-proposal.md), **Proposed, not adopted — no code implements it**. It conflicts with the shipped Clear Pipeline preset on ink, primary, attention colour, alert, border, display face, radius and elevation, and it drops the amber reservation. Adopt it, reconcile it, or mark it Rejected — leaving two systems written down is the exact condition that produced the agency-era design-doc rot |
+| **The threshold-based extra approver is drawn but not modelled** | 🟠 High | Three design screens (`requisition-detail`, `requisition-new`, `offer-create`) show an approver *"added by threshold rule"*. `ApprovalChain` stores `Name`, `DepartmentId?` and `IsActive` — **no condition, no amount, no operator**, and `grep -i threshold` finds nothing in Domain, Application or Module 1's doc. Either the entity gains condition fields or those three screens are describing a feature that does not exist. Surfaced on `design/internal/settings-org.html`, where an admin would look for the switch |
+| **An approval step names a person, not a role** | 🟡 Medium | `ApprovalChainStep.ApproverUserId` is a user id. Disabling a user on the Users screen therefore stalls every requisition waiting at their step, indefinitely and silently — nothing in the data links the two actions. The disable flow needs to name the chains it breaks before the admin confirms. Drawn as the "broken chain" state on `design/internal/settings-org.html` |
+| **Module 8 may be unbuildable on-premise** | 🟠 High | Viber, Telegram and Facebook deliver by webhook; an on-prem install behind a corporate firewall has no publicly reachable endpoint. The module doc records this; nothing decides it. Three exits — publish an endpoint through the DMZ, sell sourcing channels as hosted-tier only, or outbound polling (Telegram supports it, Facebook does not). This is the module positioned as the **primary competitive differentiator**, so the answer is commercial as much as technical. `design/internal/channels.html` is drawn blocked-first for this reason |
+| **Module 6 needs `Requisition → HeadcountPlan` decided first** | 🟡 Medium | "Are we over headcount?" is the question Module 6 exists to answer and it is uncomputable without that relationship, which the module doc lists as open. Without it the headcount table is hand-typed and stale within a week. Visible on `design/internal/planning-budget.html` — Credit Risk at −2 against plan is the case the screen is built around |
+| **Age/gender filtering is unconfirmed for this market** | 🟡 Medium | Module 2.6 lists filtering by age and gender with data-protection implications not yet confirmed as lawful or intended. `design/internal/talent-pool.html` holds both behind a click with the question attached rather than placing them in the filter row. Resolve to: keep, gate behind a permission, or drop |
+| **99.9% SLA is claimed publicly but recorded nowhere** | 🟡 Medium | `marketing/landing.html` states a 99.9% Enterprise uptime SLA on the product owner's authorisation (2026-08-17). No ADR, no commercial terms, and ADR-0004's operational prerequisites (sizing guide, runbooks, `/api/version`) are still open. Write the ADR before the page goes live |
 | `System.Security.Cryptography.Xml` CVE-2026-33116 | ✅ **fixed** | Pinned to 10.0.6 in Infrastructure + Api.Tests (10.0.0–10.0.5 are also vulnerable) |
 
 
@@ -480,10 +529,35 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 
 | No `package-lock.json` at the workspace root | 🟢 Low | A root `package-lock.json` now exists (2026-07-28). Remaining work: switch the frontend images to `npm ci` |
 | Frontend images never built; only type-checked | ✅ **fixed** | `docker compose up --build` builds and serves both apps (2026-07-29) |
-| No feature-flag mechanism (needed for add-ons, ADR-0007) | 🟡 Medium | Cheap now, invasive later |
+| No feature-flag mechanism (needed for add-ons, ADR-0007) | ✅ **fixed** | `IFeatureFlagService` + `[FeatureGate]`; `FeatureGate.test.tsx` on the client |
 | PDF/OCR library licences not yet reviewed | 🟡 Medium | Copyleft would be disqualifying |
-| Zawgyi→Unicode normalization not implemented | 🔴 High | Affects MVP Phase 1, not just OCR (ADR-0009) |
-| No .NET client for `myanmar-tools` — integration undecided | 🟡 Medium | Resolve before Module 2 ingest |
+| Zawgyi→Unicode normalization not implemented | ✅ **fixed** | `MyanmarScriptNormalizer` + `IMyanmarScriptNormalizer`, applied at ingest across CV extraction, search and `JobApplication`. This row sat at 🔴 High for days after the code landed |
+| No .NET client for `myanmar-tools` — integration undecided | ✅ **resolved** | Superseded by `MyanmarScriptNormalizer` — no external client was needed |
 | Burmese OCR accuracy unverified | 🟡 Medium | Deferred; evaluation plan in ADR-0009 |
-| Burmese keyword search needs trigram/segmentation | 🟡 Medium | Module 2.6; default Postgres FTS won't work |
-| No `/api/version`, sizing guide, or upgrade runbook | 🟡 Medium | Required before first install |
+| Burmese keyword search needs trigram/segmentation | ✅ **fixed** | `AddPgTrgmAndSearchIndexes` migration + `SearchService`. Still unverified against a corpus of real Burmese CVs — trigram *runs*, but nobody has measured whether its results are good |
+| No `/api/version`, sizing guide, or upgrade runbook | ✅ **fixed** | `VersionController`, `docs/architecture/server-sizing-guide.md`, `docs/architecture/deployment-runbook.md`. The customer/version *registry* is still a manual list |
+| Migration `AddOutboundDeliveryAndScheduledJobs` | ✅ applies on startup | `20260820072400`. Creates `OutboundMessages` and `ScheduledJobs` with three indexes and three check constraints. **Nobody runs `dotnet ef database update` in this project** — Postgres only exists in Docker, and `DatabaseStartup.MigrateAsync` applies pending migrations when the API container starts. Rebuilding the stack is the whole procedure |
+| Two migrations directories exist | 🟢 Low | `backend/src/Infrastructure/Migrations/` is canonical (holds every migration and the snapshot). `backend/src/Infrastructure/Persistence/Migrations/` holds one stray duplicate of `AddPgTrgmAndSearchIndexes`. Harmless today, confusing the first time someone adds a migration to the wrong one |
+| `ITenantScoped` doc comment still says "agency" | 🟢 Low | `backend/src/Domain/Common/ITenantScoped.cs` — "belongs to a single tenant (agency)". Missed by the 2026-07-27 pivot; a tenant is a **company** |
+| **No email sender anywhere in the codebase** | ✅ **built 2026-08-20** | `IEmailSender` + `SmtpEmailSender` (`System.Net.Mail`, no new package), wired to the ADR-0026 outbox and driven by the worker. The first handler, `InterviewInvitationHandler`, ships with it. What this unblocked: Module 3.2 (**done**), Module 4.1/4.2/4.3, Module 5.3, Module 8 — each now needs a handler, not a capability. See the four rows below for what the adapter cannot do |
+| SMTP adapter: no XOAUTH2, no implicit TLS | 🟠 High | `System.Net.Mail.SmtpClient` speaks STARTTLS on 587 and username/password only. **Microsoft 365 and Google Workspace both require XOAUTH2** — and `design/internal/settings-integrations.html` draws all three as first-class choices, so today two of those three tiles cannot be honoured. A relay offering only implicit TLS on 465 also cannot be used. Both are fixed by MailKit; that is a package decision ADR-0026 deliberately did not take, not an oversight to patch quietly |
+| Candidate-facing email is English only | 🟡 Medium | `InterviewInvitationHandler` renders one language. `design/internal/postings.html` offers a per-posting language choice (Burmese / English / Both) that has **no backing field**, so there is nothing to render from. A Yangon field role advertised in Burmese currently gets its interview invitation in English |
+| Nobody is told when a message reaches `Failed` | 🟠 High | The row records it and `design/internal/channels.html` draws the delivery log, but **no UI reads `OutboundMessages` yet**. So "the candidate was never told" is currently discoverable only by querying the database — which is the failure mode ADR-0026 exists to remove. The outbox is only half the answer without the screen |
+| Sender identity is still `noreply@` | 🟡 Medium | One company-wide `Smtp:FromAddress`. A candidate replying to an interview invitation — which the body explicitly invites them to do — replies into a mailbox nobody may be reading. ADR-0026 lists sending as the acting recruiter (via Microsoft 365 delegated permission) as an open question; it is now a live one, because invitations are actually going out |
+| Migration `AddBulkUploadPersistence` | ✅ applies on startup | `20260821…`. Creates `BulkUploadBatches` and `BulkUploadFiles` with three indexes. Additive — no existing table is touched, and there is nothing to back-fill because the state it replaces only ever existed in memory |
+| Two `IBulkResumeService` interfaces existed | ✅ **deleted 2026-08-21** | An identical copy lived in `Application.Common.Interfaces` and was registered in DI alongside the real one. Nothing consumed it. Removed with the rewrite rather than carried forward |
+| Migration `AddCompanyTimeZone` | ✅ applies on startup | `20260820081448`. Adds nullable `Companies.TimeZoneId` (IANA, e.g. `Asia/Yangon`). Needed because Npgsql stores `DateTimeOffset` as `timestamptz` and normalises to UTC — the instant survives a round-trip and the recruiter's *o'clock* does not, and "09:00" is the one thing a candidate acts on. Null falls back to UTC and the email labels itself UTC rather than lying |
+| **`ICurrentTenant` is now settable** | ✅ **security-reviewed 2026-08-20 — no tenant-isolation finding** | Reviewed against `a2de09c`. Verified: an ambient tenant cannot redirect an authenticated request (middleware order checked, `EnterTenant` called from exactly one place); a scope carries at most one tenant and `CurrentTenant` resolves the same instance the worker set; the cross-tenant claim is contained and the claimed entity is never reattached to a later scope; `PublicJobService` is unaffected. The review found **one Low robustness defect, now fixed** — see the row below | ADR-0026 §4. `IAmbientTenantScope` lets the delivery worker establish a tenant with no HTTP request, so handlers query with filters on. The safety property is ordering: the request claim is read first and wins, making an ambient tenant inert inside a request — asserted by `CurrentTenantResolutionTests`, and a failure there is a security finding. `EnterTenant` refuses a second call so a recycled scope crashes rather than reading cross-tenant |
+| Step 3 (invitations + SMTP) | ✅ **security-reviewed 2026-08-20 — nothing found** | Reviewed against `b7f65d3`. Six claims put up to be **disproved**, all held: (1) no path reads across tenants — the unfiltered `Companies` lookup is safe because `message.TenantId` itself comes from a tenant-filtered re-read, so it cannot diverge from the scope's tenant; (2) `Recipient` has exactly one write site and neither request DTO carries an address field, so nobody can have another candidate's details mailed to an address they control; (3) the absent department scoping is sound because `SubjectId` is only ever set inside an authorised write, so the handler's FK chain is the chain that was authorised — and `RescheduleAsync` re-reads the application only *after* `LoadWritableAsync`; (4) header injection blocked — the reviewer tested `MailAddress` against four CRLF variants directly rather than trusting the read, all rejected; (5) no credential or candidate data in any log or payload, nothing real committed to either `appsettings`; (6) the worker change is inside `ConfigureTestServices` and `Program.cs` still registers the real hosted service |
+| A slow relay throttles a company's own queue | 🟢 Low | Raised by that review. A pass drains its batch sequentially, so its worst case is `BatchSize × Smtp:TimeoutSeconds` — 20 × 30 s = **10 minutes** against a 5-minute visibility timeout. **No duplicate sends today**: one worker, and passes never overlap. It is a throughput ceiling for one company with a degraded relay, and it becomes a duplicate-send bug the moment anyone runs two replicas — the **fourth** thing on that list. Recorded in `OutboundDeliveryOptions.BatchSize`; bounded parallelism is a product call, not a fix |
+| A failure between claiming and recording dodged the attempt cap | ✅ **fixed 2026-08-20** | Found by the security review. Anything thrown between claiming a message and `Record()` escaped to the pass-level catch, so the row's cap was never checked: it could be reclaimed every visibility window **forever** — the exact poison message the cap exists to stop, dodging the cap — and it abandoned the rest of that pass's batch. Now wrapped: the failure is a counted, capped retry, and the batch continues. Two tests, proved to fail first |
+| Claim is EF-level, not `FOR UPDATE SKIP LOCKED` | 🟡 Medium | ADR-0026 §3 promised `SKIP LOCKED`; the implementation reads then updates through EF. Crash safety is unchanged, but **two workers could claim the same batch and send twice**. Fine on one instance (ADR-0004). The list of things riding on "one replica" changed on 2026-08-21: the bulk dictionary **came off it** (it is a table now), so what is left is `LoginThrottle` (ADR-0016), this EF-level claim, and the pass-duration point in the row above — **two workers, not three**, plus one tuning invariant. Audit them together before any customer gets a second replica, not after |
+| Dead code: `frontend/internal/src/features/requisitions/` | 🟡 Medium | Zero importers repo-wide (verified 2026-08-18, LSP + grep). Five files including `requisitions.test.tsx`, which passes and proves nothing about the shipped app. Delete it, or wire it up |
+| ADR-0025 step 3 | 🚧 **3a–3c done 2026-08-21, 3d next** | The preset **is** V1.0 — a copy of `design/internal/ds.js` plus a fenced compat block, so both apps already render V1.0 colours and only the class *names* are old. Base CSS and fonts ported from `ds.css`. `packages/ui/src` is fully migrated (**0 left**), built against `components.html` and verified by computed style in a browser. `packages/ui/src`, `components/` and `pages/` are all at **0**, and `LoginPage` is rebuilt against its kit screen — all verified by computed style in a browser. Remaining: **340** — `features` 323, `public/app` 17. Delete the compat block when that reaches zero; the command is in NEXT-SESSION §0 |
+| A failed login said "your session has expired" | ✅ **fixed 2026-08-21** | `apiFetch` mapped every 401 to that copy; the refresh branch excluded `/auth/login` but the fallthrough did not. Someone mistyping a password was told their session had expired and sent looking for a problem that did not exist. Now "Email or password is incorrect." — also the only thing ADR-0016 permits, since naming the field reveals whether an address belongs to a real employee |
+| `Retry-After` was discarded, so the lockout had no countdown | ✅ **fixed 2026-08-21** | ADR-0016's 429 carries the remaining lock in seconds and `ApiError` had nowhere to put it, so the UI could not render the countdown the design draws. `ApiError.retryAfterSeconds` now carries it; the login screen counts down from the server's number and falls back to the full 15 minutes only when the header is absent — never a shorter guess |
+| Kit nav labels failed contrast at `white/40` | ✅ **fixed 2026-08-21** | The design kit's own nav group labels were `text-white/40`, which on `ink-900` measures **3.81:1** — below AA for 11px text. Raised to `white/50` (5.23:1) in the code and in all 19 kit screens; `design/` is the source of truth and must not carry the defect. Found by measuring the dark rail rather than assuming a design file is right |
+| Most screens hand-roll their controls | 🟠 High | Found 2026-08-21 while verifying the `packages/ui` migration: `frontend/internal/src` contains **50 raw `<input>`, 63 raw `<button>`, 24 raw `<select>`**, against 24 files importing `Button` and 9 importing `Input`. The login field is 40px/r6 — not the `Input` component. So a shared-component fix reaches a minority of the surface, and every rebrand costs the same again. Per-screen decision during 3d: adopt the shared component or restyle the local one |
+| **163 shipped classes emitted no CSS** | ✅ **fixed 2026-08-21** | Found by building `frontend/internal` and grepping `dist/assets/*.css`: `text-ink-500` (57 uses), `text-ink-700` (39), `text-ink-800` (20), `border-line-300` (28), `bg-surface-100` (13), `border-line-100` (5), `bg-surface-200` (1) were **ABSENT** — the old preset defined `ink` at 900/600/400, `surface` at 0/50, `line` at 200 only, so those elements silently inherited their parent's colour. The V1.0 preset defines every step; re-verified in the build, all seven now PRESENT. It had been shipping that way |
+| Fonts: Bricolage + IBM Plex were still downloading | ✅ **fixed 2026-08-21** | V1.0 drops both. Editing the `@import` in `index.css` was not enough — the real request is a `<link>` in `frontend/internal/index.html` and `frontend/public/app/layout.tsx`, so both faces kept loading after the "fix". Caught by reading `document.fonts` in the browser rather than trusting the diff. Now one request, three families: Inter, JetBrains Mono, Noto Sans Myanmar |
+| Build warning `CS8604` in `ApplicationFormSchema.cs:102` | 🟢 Low | Possible null reference argument to `HashSet<string>.Add`. Nullable reference types are enabled, so this is a real path the compiler cannot prove safe |

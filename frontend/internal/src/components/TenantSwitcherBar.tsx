@@ -45,12 +45,12 @@ export function TenantSwitcherBar({ onTenantChange }: TenantSwitcherBarProps) {
   return (
     <div className="bg-amber-50 border-b border-amber-300 px-4 py-2 text-xs flex items-center justify-between text-amber-950 font-medium">
       <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded bg-amber-600 text-white text-[11px] uppercase tracking-wide">
+        <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded bg-amber-600 text-white text-2xs uppercase tracking-wide">
           👑 Super-Admin Context
         </span>
         <span>
           Viewing Tenant: <strong className="font-semibold text-amber-900">{currentTenantName}</strong>{' '}
-          <span className="text-amber-700 text-[11px]">({currentTenantId})</span>
+          <span className="text-amber-700 text-2xs">({currentTenantId})</span>
         </span>
       </div>
 
@@ -64,7 +64,7 @@ export function TenantSwitcherBar({ onTenantChange }: TenantSwitcherBarProps) {
 
         {isOpen && (
           <div className="absolute right-0 mt-1 w-64 rounded-md bg-white p-2 shadow-lg ring-1 ring-black ring-opacity-5 z-50 text-ink-900">
-            <div className="px-2 py-1 text-[11px] font-semibold text-ink-500 uppercase tracking-wider border-b border-line-200">
+            <div className="px-2 py-1 text-2xs font-semibold text-ink-500 uppercase tracking-wider border-b border-line">
               Select Tenant Context
             </div>
             <div className="py-1 max-h-48 overflow-y-auto">
@@ -74,24 +74,24 @@ export function TenantSwitcherBar({ onTenantChange }: TenantSwitcherBarProps) {
                   onClick={() => handleSelectTenant(t.id, t.name)}
                   className={`w-full text-left px-2 py-1.5 text-xs rounded flex justify-between items-center ${
                     currentTenantId === t.id
-                      ? 'bg-primary-50 text-primary-700 font-semibold'
-                      : 'hover:bg-surface-100 text-ink-800'
+                      ? 'bg-brand-50 text-brand-700 font-semibold'
+                      : 'hover:bg-canvas text-ink-800'
                   }`}
                 >
                   <span>{t.name}</span>
-                  <span className="text-[10px] text-ink-400 font-mono">{t.code}</span>
+                  <span className="text-2xs text-ink-400 font-mono">{t.code}</span>
                 </button>
               ))}
             </div>
-            <form onSubmit={handleCustomSubmit} className="border-t border-line-200 pt-2 mt-1">
-              <label className="block text-[11px] text-ink-600 mb-1">Custom Tenant ID:</label>
+            <form onSubmit={handleCustomSubmit} className="border-t border-line pt-2 mt-1">
+              <label className="block text-2xs text-ink-600 mb-1">Custom Tenant ID:</label>
               <div className="flex gap-1">
                 <input
                   type="text"
                   value={customTenantId}
                   onChange={(e) => setCustomTenantId(e.target.value)}
                   placeholder="e.g. tenant-999"
-                  className="w-full text-xs px-2 py-1 border border-line-300 rounded"
+                  className="w-full text-xs px-2 py-1 border border-line-strong rounded"
                 />
                 <button
                   type="submit"

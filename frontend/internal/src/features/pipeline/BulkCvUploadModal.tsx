@@ -129,20 +129,24 @@ export function BulkCvUploadModal({
     }
   };
 
+  // Queued is neutral because "waiting" is not a state worth a colour, and Processing and
+  // Success were previously two different brand tints (`cyan` and `teal`) that resolve to the
+  // same hex — so "in progress" and "done" were indistinguishable on the one screen where the
+  // difference is the whole point. Success is positive, and only Success is.
   const renderBadge = (status: BulkFileStatus) => {
     switch (status) {
       case 'Queued':
-        return <Badge variant="zinc">Queued</Badge>;
+        return <Badge variant="secondary" size="sm">Queued</Badge>;
       case 'Processing':
-        return <Badge variant="cyan">Processing...</Badge>;
+        return <Badge variant="info" size="sm">Processing...</Badge>;
       case 'Success':
-        return <Badge variant="teal">Success</Badge>;
+        return <Badge variant="success" size="sm">Success</Badge>;
       case 'Skipped':
-        return <Badge variant="warning">Skipped</Badge>;
+        return <Badge variant="warning" size="sm">Skipped</Badge>;
       case 'Failed':
-        return <Badge variant="danger">Failed</Badge>;
+        return <Badge variant="danger" size="sm">Failed</Badge>;
       default:
-        return <Badge variant="zinc">{status}</Badge>;
+        return <Badge variant="secondary" size="sm">{status}</Badge>;
     }
   };
 
@@ -150,14 +154,16 @@ export function BulkCvUploadModal({
     <Dialog isOpen={isOpen} onClose={onClose} size="xl">
       <DialogHeader>
         <DialogTitle>Bulk Upload CV Documents</DialogTitle>
-        <p className="text-xs text-ink-500 mt-1">
+        <p className="mt-1 text-sm text-ink-600">
           Upload up to 50 CV files (.pdf, .docx, .png, .jpg) for automated extraction and pipeline creation.
         </p>
       </DialogHeader>
 
       <DialogBody className="space-y-4">
         {error && (
-          <div className="rounded-md bg-danger-50 p-3 text-xs text-danger-700 font-medium">{error}</div>
+          <div className="rounded-md border border-critical-100 bg-critical-50 p-3 text-sm text-critical-700">
+            {error}
+          </div>
         )}
 
         {!batchId ? (
@@ -165,7 +171,7 @@ export function BulkCvUploadModal({
             {/* File Selection Dropzone */}
             <div
               className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
-                dragActive ? 'border-primary-500 bg-primary-50/50' : 'border-line-300 bg-surface-50 hover:border-primary-400'
+                dragActive ? 'border-brand-700 bg-brand-50' : 'border-line-strong bg-canvas hover:border-brand-600'
               }`}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -190,10 +196,10 @@ export function BulkCvUploadModal({
                 <svg className="h-10 w-10 text-ink-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
                 </svg>
-                <span className="text-sm font-semibold text-primary-600 hover:underline">
+                <span className="text-base font-medium text-brand-700 hover:underline">
                   Click to select up to 50 CV files
                 </span>
-                <span className="block mt-1 text-xs text-ink-500">
+                <span className="mt-1 block text-sm text-ink-500">
                   Or drag and drop files directly into this area
                 </span>
               </label>
@@ -203,22 +209,27 @@ export function BulkCvUploadModal({
             {selectedFiles.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-ink-700">
+                  {/* One text node on purpose. A `tnum` span around the count would split it,
+                      and the count sits in a sentence rather than a column — tabular figures
+                      earn their keep in a table, not here. */}
+                  <span className="text-sm tnum text-ink-600">
                     Selected Files ({selectedFiles.length} / 50)
                   </span>
                   <button
                     type="button"
-                    className="text-xs text-danger-600 hover:underline"
+                    className="text-sm text-critical-700 hover:underline"
                     onClick={() => setSelectedFiles([])}
                   >
                     Clear all
                   </button>
                 </div>
-                <div className="max-h-48 overflow-y-auto rounded-md border border-line-200 divide-y divide-line-100 bg-surface-0">
+                <div className="max-h-48 divide-y divide-line overflow-y-auto rounded-md border border-line bg-white">
                   {selectedFiles.map((file, idx) => (
-                    <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs">
-                      <span className="font-medium text-ink-900 truncate max-w-xs">{file.name}</span>
-                      <span className="text-ink-500">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                    <div key={idx} className="flex items-center justify-between px-3 py-2">
+                      <span className="max-w-xs truncate text-base text-ink-900">{file.name}</span>
+                      <span className="font-mono text-sm tnum text-ink-500">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -228,17 +239,17 @@ export function BulkCvUploadModal({
         ) : (
           /* Live Batch Progress View */
           <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs font-semibold text-ink-700">
+            <div className="flex items-center justify-between text-base text-ink-700">
               <span>Batch Status: {batchStatus?.status || 'Processing...'}</span>
-              <span>
+              <span className="font-mono text-sm tnum">
                 {batchStatus?.processedCount ?? 0} / {batchStatus?.totalFiles ?? selectedFiles.length} Processed
               </span>
             </div>
 
             {/* Progress Bar */}
-            <div className="w-full bg-line-200 h-2.5 rounded-full overflow-hidden">
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-line">
               <div
-                className="bg-primary-600 h-2.5 rounded-full transition-all duration-300"
+                className="h-2.5 rounded-full bg-brand-700 transition-all duration-300"
                 style={{
                   width: `${
                     batchStatus && batchStatus.totalFiles > 0
@@ -250,19 +261,19 @@ export function BulkCvUploadModal({
             </div>
 
             {/* Per-File Progress List */}
-            <div className="max-h-64 overflow-y-auto rounded-md border border-line-200 divide-y divide-line-100 bg-surface-0">
+            <div className="max-h-64 divide-y divide-line overflow-y-auto rounded-md border border-line bg-white">
               {batchStatus?.files.map((fileItem, idx) => (
-                <div key={idx} className="flex items-center justify-between px-3 py-2 text-xs">
-                  <div className="flex flex-col">
-                    <span className="font-medium text-ink-900 truncate max-w-xs">{fileItem.fileName}</span>
+                <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-base text-ink-900">{fileItem.fileName}</span>
                     {fileItem.candidateName && (
-                      <span className="text-[11px] text-ink-500">Candidate: {fileItem.candidateName}</span>
+                      <span className="text-sm text-ink-500">Candidate: {fileItem.candidateName}</span>
                     )}
                     {fileItem.errorMessage && (
-                      <span className="text-[11px] text-danger-600">{fileItem.errorMessage}</span>
+                      <span className="text-sm text-critical-700">{fileItem.errorMessage}</span>
                     )}
                   </div>
-                  <div>{renderBadge(fileItem.status)}</div>
+                  <div className="shrink-0">{renderBadge(fileItem.status)}</div>
                 </div>
               ))}
             </div>
@@ -276,20 +287,12 @@ export function BulkCvUploadModal({
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              onClick={handleStartBulkUpload}
-              disabled={selectedFiles.length === 0 || uploading}
-              className="bg-primary-600 text-white hover:bg-primary-700"
-            >
+            <Button onClick={handleStartBulkUpload} disabled={selectedFiles.length === 0 || uploading}>
               {uploading ? 'Starting Batch...' : `Start Bulk Upload (${selectedFiles.length})`}
             </Button>
           </>
         ) : (
-          <Button
-            onClick={onClose}
-            disabled={uploading}
-            className="bg-primary-600 text-white hover:bg-primary-700"
-          >
+          <Button onClick={onClose} disabled={uploading}>
             {uploading ? 'Processing in Background...' : 'Close & Refresh Pipeline'}
           </Button>
         )}

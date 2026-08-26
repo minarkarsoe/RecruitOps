@@ -17,6 +17,7 @@ import { DepartmentsPage } from './pages/DepartmentsPage';
 import { UsersPage } from './pages/UsersPage';
 import { RolesPage } from './pages/RolesPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
+import { DeliveryLogPage } from './pages/DeliveryLogPage';
 
 export function App() {
   return (
@@ -73,6 +74,12 @@ export function App() {
           />
           {/* Module 5 — Reporting & Analytics */}
           <Route path="/analytics" element={<AnalyticsPage />} />
+
+          {/* ADR-0026 — the delivery log. No <RequirePermission> wrapper: reach here is not a
+              permission but a role-and-department question, and it is answered server-side
+              (ADR-0003 / ADR-0018). An Approver gets an empty log rather than a 403, which is
+              correct — they are allowed to ask, and the answer is nothing. */}
+          <Route path="/delivery" element={<DeliveryLogPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/requisitions" replace />} />

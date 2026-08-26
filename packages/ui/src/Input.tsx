@@ -46,12 +46,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             disabled={disabled}
-            className={`h-10 w-full rounded-sm border bg-surface-0 text-[15px] text-ink-900 placeholder-ink-400 transition-colors focus:outline-none focus:ring-2 disabled:bg-surface-50 disabled:cursor-not-allowed ${
+            className={`h-9 w-full rounded-md border bg-white text-base text-ink-900 placeholder:text-ink-400 transition focus:outline-none focus:ring-2 disabled:bg-canvas disabled:text-ink-400 disabled:cursor-not-allowed ${
               leftIcon ? 'pl-9' : 'px-3'
             } ${rightIcon ? 'pr-9' : 'px-3'} ${
               error
-                ? 'border-danger-600 focus:border-danger-600 focus:ring-danger-600'
-                : 'border-line-200 focus:border-primary-600 focus:ring-primary-600'
+                ? 'border-critical-500 focus:border-critical-500 focus:ring-critical-500/20'
+                : 'border-line focus:border-brand-700 focus:ring-brand-700/20'
             } ${className}`}
             {...props}
           />
@@ -62,9 +62,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {error ? (
-          <p className="mt-1.5 text-xs text-danger-600 font-medium">{error}</p>
+          <p className="mt-1.5 text-sm text-critical-700">{error}</p>
         ) : helperText ? (
-          <p className="mt-1.5 text-xs text-ink-600">{helperText}</p>
+          <p className="mt-1.5 text-sm text-ink-500">{helperText}</p>
         ) : null}
       </div>
     );

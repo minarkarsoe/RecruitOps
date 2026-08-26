@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Plan &amp; budget</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 6 — STRATEGIC RECRUITMENT PLANNING & BUDGETING.
+  Not started. The differentiator for HR Directors, and the thing that replaces the
+  agency model's contract/tier concept.
+
+  Entities it is drawn against:
+    RecruitmentPlan { FiscalYear, Status }
+    HeadcountPlan   { Department, PlannedHeadcount, BudgetedSalary }
+    BudgetLine      { Category, PlannedAmount }
+    BudgetSpend     { Amount, linked to a requisition/job where applicable }
+    PlanApproval    — REUSES Module 1's approval chain. Build once, apply twice.
+
+  The screen exists to answer one question the rest of the product cannot:
+  ARE WE OVER HEADCOUNT? That answer requires Requisition → HeadcountPlan to be a
+  real relationship, which the module doc lists as an open question and asks to be
+  decided early. Every "remaining" number below depends on it, so the dependency is
+  stated on screen rather than assumed — if that link is never built, this screen
+  degrades to a spreadsheet with extra steps and nobody will know why.
+
+  Also unresolved and marked where they bite: fiscal-year start month, single vs
+  multi-currency, whether a mid-year re-forecast needs re-approval, and whether
+  spend is typed in by a human or pulled from a finance system.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="postings.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Postings</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Insight</p>
+      <a href="analytics-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Analytics</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Plan &amp; budget</a>
+      <a href="report-builder.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Reports</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">KM</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">Daw Khin Mya</span>
+          <span class="block text-2xs text-white/50 truncate">HR Director</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Plan &amp; budget</h1>
+      <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm"><option>FY 2027</option><option>FY 2026 (current)</option><option>FY 2025</option></select>
+      <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Pending approval</span>
+      <span class="ml-auto inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Not started</span>
+    </header>
+
+    <div class="flex-1 min-h-0 overflow-auto">
+      <div class="max-w-[1060px] px-6 py-8">
+
+        <!-- ================================================== APPROVAL -->
+        <div class="rounded-lg border border-line bg-white overflow-hidden">
+          <div class="px-5 py-4 border-b border-line">
+            <p class="text-lg font-semibold tracking-tight">FY 2027 plan · with Management</p>
+            <p class="mt-1 text-sm text-ink-600">Submitted 12 Aug by Daw Khin Mya · 42 planned hires · 1.86 bn MMK</p>
+          </div>
+          <div class="px-5 py-4">
+            <ul class="space-y-3">
+              <li class="rail-step is-done flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-positive-100 text-positive-700 grid place-items-center shrink-0 z-10">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none"><path d="m3 7.4 2.6 2.6L11 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+                <div class="min-w-0 pb-1">
+                  <p class="text-base font-medium">Head of Finance</p>
+                  <p class="text-sm text-ink-600">Daw Nilar Htun · approved 13 Aug</p>
+                </div>
+              </li>
+              <li class="rail-step flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-warn-100 text-warn-700 grid place-items-center shrink-0 z-10">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.2" stroke="currentColor" stroke-width="1.4"/><path d="M7 4.2V7l1.9 1.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                </span>
+                <div class="min-w-0 pb-1">
+                  <p class="text-base font-medium">Chief Financial Officer</p>
+                  <p class="text-sm text-ink-600">U Zaw Latt · waiting since 13 Aug</p>
+                </div>
+              </li>
+              <li class="rail-step flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-canvas border border-line text-ink-500 grid place-items-center text-sm font-semibold tnum shrink-0 z-10">3</span>
+                <div class="min-w-0">
+                  <p class="text-base font-medium text-ink-600">Chief Executive</p>
+                  <p class="text-sm text-ink-500">Not yet asked</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div class="px-5 py-3.5 border-t border-line bg-canvas">
+            <p class="text-sm text-ink-700 max-w-[80ch]">
+              <span class="font-medium text-ink-900">This is Module 1's approval chain, unchanged.</span>
+              Same rail, same sequential rule, same senior-approves-forward behaviour, same record of
+              who actually decided. A plan is a bigger number than a requisition, not a different
+              kind of decision — a second approval mechanism would be a second set of bugs and a
+              second thing to explain to an auditor.
+            </p>
+          </div>
+        </div>
+
+        <!-- ================================================= HEADCOUNT -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">Headcount plan</h2>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[74ch]">
+          Planned hires per department for the year, and — the part no other screen can show —
+          how much of each plan has already been consumed by requisitions actually raised.
+        </p>
+
+        <div class="mt-4 overflow-x-auto rounded-lg border border-line">
+          <table class="w-full min-w-[900px] bg-white text-base">
+            <thead>
+              <tr class="bg-canvas border-b border-line text-left text-sm">
+                <th class="px-5 py-2.5 font-medium text-ink-600">Department</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600 text-right">Planned</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600 text-right">Raised</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600 text-right">Hired</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600 text-right">Remaining</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600 text-right">Budgeted salary / month</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-line">
+                <td class="px-5 py-3 font-medium">Retail Operations</td>
+                <td class="px-5 py-3 text-right font-mono tnum">18</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">11</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">7</td>
+                <td class="px-5 py-3 text-right font-mono tnum font-medium">7</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">5,400,000</td>
+              </tr>
+              <tr class="border-b border-line">
+                <td class="px-5 py-3 font-medium">Technology</td>
+                <td class="px-5 py-3 text-right font-mono tnum">9</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">6</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">3</td>
+                <td class="px-5 py-3 text-right font-mono tnum font-medium">3</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">10,800,000</td>
+              </tr>
+              <tr class="border-b border-line bg-critical-50">
+                <td class="px-5 py-3 font-medium text-critical-700">Credit Risk</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-critical-700">6</td>
+                <td class="px-5 py-3 text-right font-mono tnum font-medium text-critical-700">8</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-critical-700">4</td>
+                <td class="px-5 py-3 text-right">
+                  <span class="font-mono tnum font-semibold text-critical-700">−2</span>
+                  <span class="block text-xs text-critical-700">Over plan</span>
+                </td>
+                <td class="px-5 py-3 text-right font-mono tnum text-critical-700">4,200,000</td>
+              </tr>
+              <tr class="border-b border-line">
+                <td class="px-5 py-3 font-medium">Collections</td>
+                <td class="px-5 py-3 text-right font-mono tnum">6</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">2</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">1</td>
+                <td class="px-5 py-3 text-right font-mono tnum font-medium">4</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">1,920,000</td>
+              </tr>
+              <tr>
+                <td class="px-5 py-3 font-medium">Finance</td>
+                <td class="px-5 py-3 text-right font-mono tnum">3</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">1</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">1</td>
+                <td class="px-5 py-3 text-right font-mono tnum font-medium">2</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-600">2,250,000</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="bg-canvas border-t-2 border-line-strong">
+                <td class="px-5 py-3 font-semibold">Total</td>
+                <td class="px-5 py-3 text-right font-mono tnum font-semibold">42</td>
+                <td class="px-5 py-3 text-right font-mono tnum font-semibold">28</td>
+                <td class="px-5 py-3 text-right font-mono tnum font-semibold">16</td>
+                <td class="px-5 py-3 text-right font-mono tnum font-semibold">14</td>
+                <td class="px-5 py-3 text-right font-mono tnum font-semibold">24,570,000</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="mt-4 grid lg:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-critical-100 bg-white p-5">
+            <p class="text-base font-semibold text-critical-700">“−2” is the whole point of this module</p>
+            <p class="mt-1.5 text-sm text-ink-600">
+              Credit Risk has raised eight requisitions against a plan of six. Nobody approved that
+              as an exception — it happened one requisition at a time, and every individual approval
+              was reasonable. Only a screen that holds the year in view can see it, which is why the
+              row is coloured rather than left as a number the reader has to subtract themselves.
+            </p>
+          </div>
+          <div class="rounded-lg border border-warn-100 bg-warn-50 p-5">
+            <p class="text-base font-semibold text-warn-700">Every number in the “Raised” column depends on a link that does not exist yet</p>
+            <p class="mt-1.5 text-sm text-warn-700">
+              Counting requisitions against a plan needs
+              <code class="font-mono text-xs">Requisition → HeadcountPlan</code>, which the module
+              doc lists as an open question and asks to be settled early. Without it these columns
+              can only be typed in by hand, and a hand-typed “Raised” is wrong within a week.
+              <strong class="font-semibold">Decide the relationship before building this table.</strong>
+            </p>
+          </div>
+        </div>
+
+        <!-- ==================================================== BUDGET -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">Budget tracking</h2>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[74ch]">
+          How much of the approved budget is already gone. Real time, in the sense that it updates
+          when a spend is recorded — see the note on where spend comes from.
+        </p>
+
+        <div class="mt-4 grid sm:grid-cols-3 gap-4">
+          <div class="rounded-lg border border-line bg-white p-5">
+            <p class="text-sm text-ink-600">Approved budget</p>
+            <p class="mt-1.5 text-3xl font-semibold tracking-tight tnum">1.86<span class="text-xl font-medium text-ink-600"> bn</span></p>
+            <p class="mt-1 text-sm text-ink-600">MMK · FY 2026</p>
+          </div>
+          <div class="rounded-lg border border-line bg-white p-5">
+            <p class="text-sm text-ink-600">Spent to date</p>
+            <p class="mt-1.5 text-3xl font-semibold tracking-tight tnum">1.21<span class="text-xl font-medium text-ink-600"> bn</span></p>
+            <p class="mt-1 text-sm text-ink-600">65% · month 9 of 12</p>
+          </div>
+          <div class="rounded-lg border border-line bg-white p-5">
+            <p class="text-sm text-ink-600">Remaining</p>
+            <p class="mt-1.5 text-3xl font-semibold tracking-tight tnum">0.65<span class="text-xl font-medium text-ink-600"> bn</span></p>
+            <p class="mt-1 text-sm text-positive-700">Tracking under — 75% of the year elapsed</p>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-lg border border-line bg-white overflow-hidden">
+          <div class="px-5 py-4 border-b border-line">
+            <p class="text-base font-semibold">Spend against plan, by category</p>
+            <p class="mt-1 text-sm text-ink-600">Bar length is the planned amount; the filled part is spent.</p>
+          </div>
+          <div class="px-5 py-5 space-y-4">
+
+            <div>
+              <div class="flex items-baseline justify-between gap-3 text-sm">
+                <p class="font-medium text-ink-900">Job advertising</p>
+                <p class="font-mono tnum text-ink-600">412 M of 520 M</p>
+              </div>
+              <div class="mt-1.5 h-3 rounded-full bg-canvas border border-line overflow-hidden">
+                <div class="h-full bg-brand-600" style="width:79%"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-baseline justify-between gap-3 text-sm">
+                <p class="font-medium text-ink-900">Recruitment agency fees</p>
+                <p class="font-mono tnum text-ink-600">508 M of 620 M</p>
+              </div>
+              <div class="mt-1.5 h-3 rounded-full bg-canvas border border-line overflow-hidden">
+                <div class="h-full bg-brand-600" style="width:82%"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-baseline justify-between gap-3 text-sm">
+                <p class="font-medium text-ink-900">Career fairs &amp; events</p>
+                <p class="font-mono tnum text-ink-600">96 M of 320 M</p>
+              </div>
+              <div class="mt-1.5 h-3 rounded-full bg-canvas border border-line overflow-hidden">
+                <div class="h-full bg-brand-600" style="width:30%"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-baseline justify-between gap-3 text-sm">
+                <p class="font-medium text-ink-900">Tooling &amp; assessments</p>
+                <p class="font-mono tnum text-ink-600">194 M of 400 M</p>
+              </div>
+              <div class="mt-1.5 h-3 rounded-full bg-canvas border border-line overflow-hidden">
+                <div class="h-full bg-brand-600" style="width:49%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="px-5 py-4 border-t border-line bg-canvas">
+            <p class="text-sm text-ink-700 max-w-[80ch]">
+              One hue, because this is one measure at four magnitudes — not four categories that
+              need telling apart. Colouring each bar differently would imply a comparison between
+              categories that the chart is not making.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-4 grid lg:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-line bg-white p-5">
+            <p class="text-base font-semibold">Agency fees, in an in-house product</p>
+            <p class="mt-1.5 text-sm text-ink-600">
+              It looks like a leftover from the agency era and it is not — it is in the module's own
+              category list. A company that runs its own talent team still uses an agency for the
+              occasional hard role, and the money is exactly what a budget screen is for. Reading it
+              beside the cost of doing it in-house is the argument the HR Director takes to the CFO.
+            </p>
+          </div>
+          <div class="rounded-lg border border-warn-100 bg-warn-50 p-5">
+            <p class="text-base font-semibold text-warn-700">Where does a spend row come from?</p>
+            <p class="mt-1.5 text-sm text-warn-700">
+              Unresolved in the module doc: typed in by a recruiter, or pulled from a finance system.
+              It changes this screen completely. Typed in, it needs an entry form, an approval and
+              an audit trail, and it will drift from the general ledger. Pulled, it needs a finance
+              integration nobody has scoped, and this screen becomes read-only.
+              <strong class="font-semibold">Drawn read-only</strong>, which is the honest state until
+              somebody decides — a data-entry form would be the more expensive guess.
+            </p>
+          </div>
+        </div>
+
+        <!-- ============================================ OPEN QUESTIONS -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">What this screen cannot decide</h2>
+        <div class="mt-4 grid md:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-line bg-white p-5">
+            <p class="text-base font-semibold">When does the year start?</p>
+            <p class="mt-1.5 text-sm text-ink-600">
+              Myanmar's public-sector fiscal year has moved more than once, and a bank may not use
+              the calendar year either. “FY 2027” in the header is a label over an assumption. If the
+              start month is configurable, every month bucket, every “month 9 of 12” and every
+              year-on-year comparison in Module 5 depends on that setting.
+            </p>
+          </div>
+          <div class="rounded-lg border border-line bg-white p-5">
+            <p class="text-base font-semibold">One currency, or more?</p>
+            <p class="mt-1.5 text-sm text-ink-600">
+              Everything here is MMK. A bank hiring an expatriate specialist, or paying an overseas
+              job board in USD, breaks that quietly — totals become meaningless without a rate and a
+              date. Cheap to decide now, expensive after the first plan is approved.
+            </p>
+          </div>
+          <div class="rounded-lg border border-line bg-white p-5">
+            <p class="text-base font-semibold">Can a plan be re-forecast mid-year?</p>
+            <p class="mt-1.5 text-sm text-ink-600">
+              Credit Risk is already two over. The realistic response is a revision, and a revision
+              of an approved number has to go back through the chain — otherwise “approved plan”
+              means the version nobody is working to. Module 1's revise-and-resubmit rounds are the
+              obvious shape, and are not drawn here because the question is open.
+            </p>
+          </div>
+          <div class="rounded-lg border border-line bg-white p-5">
+            <p class="text-base font-semibold">Does the plan block a requisition?</p>
+            <p class="mt-1.5 text-sm text-ink-600">
+              The eighth Credit Risk requisition was approved against a plan of six. Should the
+              seventh have been refused, warned about, or routed to an extra approver? All three are
+              defensible; only the first is a product that says no to its own users, and that has to
+              be an explicit choice rather than a side effect of adding a column.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

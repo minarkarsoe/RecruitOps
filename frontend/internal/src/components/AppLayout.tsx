@@ -156,7 +156,7 @@ export function AppLayout() {
     .map(({ permission: _, ...item }) => item);
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface-50">
+    <div className="min-h-screen flex flex-col bg-canvas">
       {/* SuperAdmin tenant switcher banner */}
       <TenantSwitcherBar />
 

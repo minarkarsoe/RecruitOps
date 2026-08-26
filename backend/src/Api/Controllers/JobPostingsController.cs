@@ -4,6 +4,8 @@ using RecruitOps.Api.Auth;
 using RecruitOps.Application.Common;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Application.Interfaces;
+using Microsoft.Extensions.Options;
+using RecruitOps.Infrastructure.Services.Delivery;
 
 namespace RecruitOps.Api.Controllers;
 
@@ -20,17 +22,20 @@ public class JobPostingsController : ControllerBase
     private readonly IPipelineService _pipeline;
     private readonly IBulkResumeService _bulkResumeService;
     private readonly ICurrentUser _currentUser;
+    private readonly BulkResumeOptions _bulkOptions;
 
     public JobPostingsController(
         IJobPostingService postings,
         IPipelineService pipeline,
         IBulkResumeService bulkResumeService,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        IOptions<BulkResumeOptions> bulkOptions)
     {
         _postings = postings;
         _pipeline = pipeline;
         _bulkResumeService = bulkResumeService;
         _currentUser = currentUser;
+        _bulkOptions = bulkOptions.Value;
     }
 
     [HttpGet]
@@ -136,12 +141,15 @@ public class JobPostingsController : ControllerBase
             });
         }
 
-        if (files.Count > 50)
+        // Read from configuration rather than written here as well: the service enforces the
+        // per-file size limit from the same options object, and two copies of a limit are two
+        // limits that can disagree.
+        if (files.Count > _bulkOptions.MaxFilesPerBatch)
         {
             return BadRequest(new ProblemDetails
             {
                 Title = "Batch Limit Exceeded",
-                Detail = "Batch size exceeds maximum limit of 50 files."
+                Detail = $"Batch size exceeds maximum limit of {_bulkOptions.MaxFilesPerBatch} files."
             });
         }
 

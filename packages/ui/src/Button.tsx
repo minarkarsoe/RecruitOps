@@ -1,13 +1,22 @@
 import type { ButtonHTMLAttributes } from 'react';
 
-// Design system §5.1. One primary button per view.
+// V1.0 (ADR-0025), built against `design/internal/components.html` → "Buttons".
+//
+// One primary per view. Height 36, radius 8, 14px medium — not 15px semibold: at this density
+// a heavier label makes every toolbar shout. Labels name the outcome ("Submit requisition",
+// never "Submit"), which is a call-site rule this component cannot enforce.
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
+// The kit spells out hover AND active for the primary and secondary variants. Active matters
+// more than it looks: on a touch screen there is no hover, so press feedback is the only
+// confirmation the tap landed.
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-primary-600 text-white hover:bg-primary-700',
-  secondary: 'bg-surface-0 text-ink-900 border border-line-200 hover:bg-surface-50',
-  ghost: 'bg-transparent text-primary-600 hover:bg-primary-100',
-  danger: 'bg-danger-600 text-white hover:opacity-90',
+  primary: 'bg-brand-700 text-white hover:bg-brand-800 active:bg-brand-900',
+  secondary: 'bg-white text-ink-900 border border-line hover:border-line-strong active:bg-canvas',
+  ghost: 'bg-transparent text-brand-700 hover:bg-white',
+  // critical-500 rather than -700 as the resting fill: a Reject button that is already at its
+  // darkest has nowhere to go on hover, and this is a control people want confirmation from.
+  danger: 'bg-critical-500 text-white hover:bg-critical-700',
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -17,9 +26,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export function Button({ variant = 'primary', className = '', ...props }: ButtonProps) {
   return (
     <button
-      className={`inline-flex h-10 items-center justify-center rounded-md px-4 text-[15px] font-semibold
-        transition-colors disabled:cursor-not-allowed disabled:opacity-50
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600
+      className={`inline-flex h-9 items-center justify-center rounded-md px-3.5 text-base font-medium
+        transition-colors disabled:cursor-not-allowed disabled:bg-ink-400/40 disabled:text-white
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-700 focus-visible:ring-offset-2
         ${VARIANTS[variant]} ${className}`}
       {...props}
     />

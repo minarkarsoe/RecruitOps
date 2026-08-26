@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Identity;
 using RecruitOps.Domain.Entities;
 using RecruitOps.Domain.Enums;
 using RecruitOps.Infrastructure.Persistence;
+using RecruitOps.Infrastructure.Services.Delivery;
 
 namespace RecruitOps.Api.Tests;
 
@@ -82,6 +83,14 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 // the shipped value so the default is covered too.
                 ["AI:Claude:EnableFallback"] = EnableAiFallback ? "true" : "false",
                 ["AI:Gemini:EnableFallback"] = EnableAiFallback ? "true" : "false",
+
+                // No transport, deliberately. The test host runs as Development, so without
+                // these it would inherit appsettings.Development.json's pickup directory and
+                // start writing .eml files into the test output. Empty is also the state worth
+                // exercising: an install with no mail server must fail visibly, not silently.
+                ["Smtp:Host"] = "",
+                ["Smtp:PickupDirectory"] = "",
+                ["Smtp:FromAddress"] = "",
             }));
 
         builder.ConfigureTestServices(services =>
@@ -105,6 +114,21 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
             foreach (var d in toRemove) services.Remove(d);
 
             services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase(_databaseName, Root));
+
+            // Take both background workers off their timers (ADR-0026 §3).
+            //
+            // WebApplicationFactory starts hosted services, so these would be polling every few
+            // seconds throughout the suite — claiming rows out from under the test that just wrote
+            // them, and turning any assertion on a queued row into a race that fails occasionally
+            // on a slow machine. They stay registered as plain singletons so a test can drive a
+            // pass deliberately with RunOnceAsync(). See BulkResumeQueue for the helper.
+            var hostedWorkers = services
+                .Where(d => d.ImplementationType == typeof(OutboundMessageWorker)
+                            || d.ImplementationType == typeof(BulkResumeWorker))
+                .ToList();
+            foreach (var d in hostedWorkers) services.Remove(d);
+            services.AddSingleton<OutboundMessageWorker>();
+            services.AddSingleton<BulkResumeWorker>();
 
             // Replace IFileStorage with InMemoryFileStorage so integration tests run completely offline without S3/MinIO
             var storageDescriptors = services.Where(d => d.ServiceType == typeof(RecruitOps.Application.Interfaces.IFileStorage)).ToList();
@@ -130,8 +154,17 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
             // The public job page shows the company name, and it resolves the company from
             // the posting's tenant id — so the tenant must be a real Company row, not just
             // a GUID that appears in claims.
-            db.Companies.Add(new Company { Id = TenantA, Name = "Alpha Company", Slug = "alpha" });
-            db.Companies.Add(new Company { Id = TenantB, Name = "Bravo Company", Slug = "bravo" });
+            // TimeZoneId is set because candidate-facing mail renders the interview slot in it
+            // (ADR-0026). A null here would let an invitation go out in UTC and the tests would
+            // still pass — which is the exact failure the field exists to prevent.
+            db.Companies.Add(new Company
+            {
+                Id = TenantA, Name = "Alpha Company", Slug = "alpha", TimeZoneId = "Asia/Yangon",
+            });
+            db.Companies.Add(new Company
+            {
+                Id = TenantB, Name = "Bravo Company", Slug = "bravo", TimeZoneId = "Asia/Yangon",
+            });
 
             db.Departments.Add(new Department { Id = SalesDepartmentId, TenantId = TenantA, Name = "Alpha Sales", Code = "ALPHA-SALES" });
             db.Departments.Add(new Department { Id = FinanceDepartmentId, TenantId = TenantA, Name = "Alpha Finance", Code = "ALPHA-FIN" });

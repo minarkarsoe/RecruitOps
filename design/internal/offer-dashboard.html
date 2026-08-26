@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Offer dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 4.1 — OFFER DASHBOARD.
+  One thing this screen has to get right that the spec warns about: `Rejected` now means
+  two different things in the product — an offer the candidate turned down, and a
+  candidate rejected from the pipeline. Same word, different enum. The offer pill is
+  therefore always read in an Offer column, never mixed into a pipeline list, and the
+  detail row spells out who did the rejecting.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">
+        Inbox <span class="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-warn-500 text-ink-900 text-2xs font-semibold tnum">3</span>
+      </a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="interview.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Interviews</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Insight</p>
+      <a href="analytics-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Analytics</a>
+      <a href="report-builder.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Reports</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">TW</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">U Thura Win</span>
+          <span class="block text-2xs text-white/50 truncate">Recruiter</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Offers</h1>
+      <div class="ml-auto flex items-center gap-2">
+        <button class="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M8 3.5v9M3.5 8h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          Create offer
+        </button>
+      </div>
+    </header>
+
+    <!-- Detented filters: discrete labelled positions, consistent with the board. -->
+    <div class="h-12 shrink-0 bg-white border-b border-line flex items-center gap-3 px-6 overflow-x-auto">
+      <div class="flex items-center rounded-md border border-line p-0.5 shrink-0">
+        <button class="h-7 px-2.5 rounded text-sm font-medium bg-ink-900 text-white">All</button>
+        <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">Awaiting approval</button>
+        <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">With candidate</button>
+        <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">Closed</button>
+      </div>
+      <span class="w-px h-5 bg-line shrink-0"></span>
+      <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm shrink-0">
+        <option>All departments</option><option>Credit Risk</option><option>Retail Operations</option>
+      </select>
+      <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm shrink-0">
+        <option>Last 90 days</option><option>This quarter</option><option>This year</option>
+      </select>
+      <span class="ml-auto text-sm text-ink-600 shrink-0 tnum">6 offers</span>
+    </div>
+
+    <div class="flex-1 min-h-0 overflow-auto">
+      <table class="w-full min-w-[1000px] bg-white text-base">
+        <thead class="sticky top-0">
+          <tr class="bg-canvas border-b border-line text-left text-sm">
+            <th class="px-5 py-2.5 font-medium text-ink-600">Candidate</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Position</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Department</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600 text-right">Offered salary</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Sent</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Offer status</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600"></th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <!-- Pending Approval: the state the new requirement added, and the reason it exists. -->
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">Ma Ei Thandar Kyaw</span>
+              <span class="block font-mono text-xs text-ink-600 tnum">OFR-2026-0042</span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Senior Credit Analyst</td>
+            <td class="px-5 py-3 text-ink-600">Credit Risk</td>
+            <td class="px-5 py-3 text-right font-mono tnum">480,000</td>
+            <td class="px-5 py-3 text-ink-600">—</td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Pending Approval
+              </span>
+              <span class="block mt-1 text-xs text-warn-700">18% over band · with CHRO</span>
+            </td>
+            <td class="px-5 py-3 text-right">
+              <a href="offer-create.html" class="text-sm font-medium text-brand-700 hover:text-brand-800">Open</a>
+            </td>
+          </tr>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">U Kyaw Swar Lin</span>
+              <span class="block font-mono text-xs text-ink-600 tnum">OFR-2026-0041</span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Branch Operations Officer</td>
+            <td class="px-5 py-3 text-ink-600">Retail Operations</td>
+            <td class="px-5 py-3 text-right font-mono tnum">390,000</td>
+            <td class="px-5 py-3 font-mono text-sm tnum text-ink-600">16 Aug</td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-info-50 text-info-700 text-xs font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Viewed
+              </span>
+              <span class="block mt-1 text-xs text-ink-600">Opened 17 Aug · not signed</span>
+            </td>
+            <td class="px-5 py-3 text-right">
+              <!-- Remind is offered only where it is meaningful: viewed but unsigned. -->
+              <button class="inline-flex items-center h-8 px-3 rounded-md border border-line bg-white hover:border-line-strong text-sm font-medium transition-colors">Remind</button>
+            </td>
+          </tr>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">Daw Nway Nway Oo</span>
+              <span class="block font-mono text-xs text-ink-600 tnum">OFR-2026-0040</span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Treasury Dealer</td>
+            <td class="px-5 py-3 text-ink-600">Treasury</td>
+            <td class="px-5 py-3 text-right font-mono tnum">520,000</td>
+            <td class="px-5 py-3 font-mono text-sm tnum text-ink-600">11 Aug</td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Accepted
+              </span>
+              <span class="block mt-1 text-xs text-ink-600">Signed 13 Aug · joining 1 Oct</span>
+            </td>
+            <td class="px-5 py-3 text-right">
+              <a href="preboarding-review.html" class="text-sm font-medium text-brand-700 hover:text-brand-800">Pre-boarding</a>
+            </td>
+          </tr>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">U Myo Set Paing</span>
+              <span class="block font-mono text-xs text-ink-600 tnum">OFR-2026-0039</span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Credit Analyst</td>
+            <td class="px-5 py-3 text-ink-600">Credit Risk</td>
+            <td class="px-5 py-3 text-right font-mono tnum">310,000</td>
+            <td class="px-5 py-3 font-mono text-sm tnum text-ink-600">5 Aug</td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-critical-50 text-critical-700 text-xs font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Rejected
+              </span>
+              <!-- Spelling out the actor is what keeps this apart from a pipeline rejection. -->
+              <span class="block mt-1 text-xs text-critical-700">Declined by candidate · 8 Aug</span>
+            </td>
+            <td class="px-5 py-3 text-right">
+              <a href="#" class="text-sm font-medium text-brand-700 hover:text-brand-800">Open</a>
+            </td>
+          </tr>
+
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">Daw Sandar Myint</span>
+              <span class="block font-mono text-xs text-ink-600 tnum">OFR-2026-0038</span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Credit Analyst</td>
+            <td class="px-5 py-3 text-ink-600">Credit Risk</td>
+            <td class="px-5 py-3 text-right font-mono tnum">300,000</td>
+            <td class="px-5 py-3 font-mono text-sm tnum text-ink-600">28 Jul</td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Expired
+              </span>
+              <span class="block mt-1 text-xs text-ink-600">Link stopped working 11 Aug</span>
+            </td>
+            <td class="px-5 py-3 text-right">
+              <a href="#" class="text-sm font-medium text-brand-700 hover:text-brand-800">Re-issue</a>
+            </td>
+          </tr>
+
+          <tr class="hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">U Aung Kaung Myat</span>
+              <span class="block font-mono text-xs text-ink-600 tnum">OFR-2026-0043</span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Credit Analyst</td>
+            <td class="px-5 py-3 text-ink-600">Credit Risk</td>
+            <td class="px-5 py-3 text-right font-mono tnum">—</td>
+            <td class="px-5 py-3 text-ink-600">—</td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Draft
+              </span>
+            </td>
+            <td class="px-5 py-3 text-right">
+              <a href="offer-create.html" class="text-sm font-medium text-brand-700 hover:text-brand-800">Continue</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- What a hiring manager sees instead. Same screen, different truth. -->
+      <div class="m-6 rounded-lg border border-line border-dashed bg-white/60 p-5">
+        <p class="spec-label">the same screen for a Hiring Manager</p>
+        <p class="mt-2 text-sm text-ink-600 max-w-[68ch]">
+          View-only, their own department only, and the <span class="font-medium text-ink-900">Offered salary
+          column is absent entirely</span> when the company has salary hidden for that role — not blurred, not
+          dashed. A column that is present but obscured tells them a number exists and invites asking for it.
+        </p>
+        <div class="mt-3 overflow-x-auto rounded-md border border-line">
+          <table class="w-full min-w-[620px] bg-white text-base">
+            <thead>
+              <tr class="bg-canvas border-b border-line text-left text-sm">
+                <th class="px-4 py-2 font-medium text-ink-600">Candidate</th>
+                <th class="px-4 py-2 font-medium text-ink-600">Position</th>
+                <th class="px-4 py-2 font-medium text-ink-600">Offer status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-line">
+                <td class="px-4 py-2.5 font-medium">Ma Ei Thandar Kyaw</td>
+                <td class="px-4 py-2.5 text-ink-600">Senior Credit Analyst</td>
+                <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>In progress</span></td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2.5 font-medium">Daw Nway Nway Oo</td>
+                <td class="px-4 py-2.5 text-ink-600">Treasury Dealer</td>
+                <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Accepted</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="mt-2 text-sm text-ink-600">
+          Intermediate states collapse to <span class="font-medium text-ink-900">In progress</span>: the
+          requirement grants them Accepted/Rejected, and “Pending Approval” would leak that a salary
+          negotiation is happening above them.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

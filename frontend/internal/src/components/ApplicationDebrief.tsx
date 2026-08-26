@@ -59,7 +59,7 @@ function formatSlot(iso: string, minutes: number): string {
 }
 
 const field =
-  'h-10 w-full rounded-sm border border-line-200 px-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary-600';
+  'h-10 w-full rounded-md border border-line px-3 text-md focus:outline-none focus:ring-2 focus:ring-brand-700';
 
 // ---------------------------------------------------------------------------
 
@@ -90,20 +90,20 @@ function PanelPicker({
 
   return (
     <div>
-      <p className="mb-1 text-[13px] font-semibold">Panel</p>
-      <div className="max-h-56 overflow-y-auto rounded-sm border border-line-200 p-2">
+      <p className="mb-1 text-sm font-semibold">Panel</p>
+      <div className="max-h-56 overflow-y-auto rounded-md border border-line p-2">
         {users.length === 0 ? (
-          <p className="p-2 text-[13px] text-ink-400">No users to choose from.</p>
+          <p className="p-2 text-sm text-ink-400">No users to choose from.</p>
         ) : (
           users.map((u) => (
-            <label key={u.id} className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-[15px] hover:bg-surface-50">
+            <label key={u.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-md hover:bg-canvas">
               <input
                 type="checkbox"
                 checked={selected.includes(u.id)}
                 onChange={() => toggle(u.id)}
               />
               <span className="flex-1">{u.displayName}</span>
-              <span className="text-[13px] text-ink-400">{u.role}</span>
+              <span className="text-sm text-ink-400">{u.role}</span>
             </label>
           ))
         )}
@@ -111,7 +111,7 @@ function PanelPicker({
 
       {selected.length > 0 && (
         <div className="mt-2">
-          <label htmlFor="lead" className="mb-1 block text-[13px] font-semibold">
+          <label htmlFor="lead" className="mb-1 block text-sm font-semibold">
             Lead <span className="font-normal text-ink-400">(optional)</span>
           </label>
           <select
@@ -128,7 +128,7 @@ function PanelPicker({
         </div>
       )}
 
-      <p className="mt-1 text-[13px] text-ink-400">
+      <p className="mt-1 text-sm text-ink-400">
         Panel members can read this one application and write their own scorecard — nothing
         else, and nothing in their department.
       </p>
@@ -174,7 +174,7 @@ function ScheduleForm({
 
   return (
     <form
-      className="space-y-4 rounded-sm border border-line-200 bg-surface-50 p-4"
+      className="space-y-4 rounded-md border border-line bg-canvas p-4"
       onSubmit={(e) => {
         e.preventDefault();
         onSubmit({
@@ -190,7 +190,7 @@ function ScheduleForm({
     >
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label htmlFor="start" className="mb-1 block text-[13px] font-semibold">Starts</label>
+          <label htmlFor="start" className="mb-1 block text-sm font-semibold">Starts</label>
           <input
             id="start" type="datetime-local" required className={field}
             value={form.scheduledStart}
@@ -198,7 +198,7 @@ function ScheduleForm({
           />
         </div>
         <div>
-          <label htmlFor="duration" className="mb-1 block text-[13px] font-semibold">Minutes</label>
+          <label htmlFor="duration" className="mb-1 block text-sm font-semibold">Minutes</label>
           <input
             id="duration" type="number" min={5} max={480} required className={field}
             value={form.durationMinutes}
@@ -206,7 +206,7 @@ function ScheduleForm({
           />
         </div>
         <div>
-          <label htmlFor="mode" className="mb-1 block text-[13px] font-semibold">Mode</label>
+          <label htmlFor="mode" className="mb-1 block text-sm font-semibold">Mode</label>
           <select
             id="mode" className={field} value={form.mode}
             onChange={(e) => setForm({ ...form, mode: e.target.value as InterviewMode })}
@@ -217,7 +217,7 @@ function ScheduleForm({
       </div>
 
       <div>
-        <label htmlFor="location" className="mb-1 block text-[13px] font-semibold">
+        <label htmlFor="location" className="mb-1 block text-sm font-semibold">
           {locationLabel(form.mode)}
         </label>
         <input
@@ -227,12 +227,12 @@ function ScheduleForm({
       </div>
 
       <div>
-        <label htmlFor="agenda" className="mb-1 block text-[13px] font-semibold">
+        <label htmlFor="agenda" className="mb-1 block text-sm font-semibold">
           Agenda <span className="font-normal text-ink-400">(shown to the panel)</span>
         </label>
         <textarea
           id="agenda" rows={3}
-          className="w-full rounded-sm border border-line-200 p-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary-600"
+          className="w-full rounded-md border border-line p-3 text-md focus:outline-none focus:ring-2 focus:ring-brand-700"
           value={form.agenda}
           onChange={(e) => setForm({ ...form, agenda: e.target.value })}
         />
@@ -246,7 +246,7 @@ function ScheduleForm({
         onLeadChange={(id) => setForm({ ...form, leadUserId: id })}
       />
 
-      <p className="text-[13px] text-ink-600">
+      <p className="text-sm text-ink-600">
         Scheduling also moves this candidate to <strong>Interview</strong> and records the move
         in the stage history.
       </p>
@@ -301,13 +301,13 @@ function InterviewRow({
             <span className="font-semibold">Round {interview.round}</span>
             <StatusPill status={interview.status} />
           </div>
-          <p className="mt-0.5 text-[13px] text-ink-600">
+          <p className="mt-0.5 text-sm text-ink-600">
             {formatSlot(interview.scheduledStart, interview.durationMinutes)} ·{' '}
             {MODES.find((m) => m.value === interview.mode)?.label}
             {interview.location ? ` · ${interview.location}` : ''}
           </p>
 
-          <p className="mt-1 text-[13px] text-ink-600">
+          <p className="mt-1 text-sm text-ink-600">
             {interview.participants.map((p) => p.displayName + (p.isLead ? ' (lead)' : '')).join(', ')}
             {' — '}
             <span className="text-ink-400">
@@ -316,13 +316,13 @@ function InterviewRow({
           </p>
 
           {interview.agenda && (
-            <p className="mt-2 max-w-[60ch] whitespace-pre-wrap rounded-sm bg-surface-50 p-2 text-[13px] text-ink-600">
+            <p className="mt-2 max-w-[60ch] whitespace-pre-wrap rounded-md bg-canvas p-2 text-sm text-ink-600">
               {interview.agenda}
             </p>
           )}
 
           {interview.status === 'Cancelled' && interview.cancellationReason && (
-            <p className="mt-2 text-[13px] text-ink-600">
+            <p className="mt-2 text-sm text-ink-600">
               Cancelled — {interview.cancellationReason}
             </p>
           )}
@@ -334,7 +334,7 @@ function InterviewRow({
               scorecard someone had already started. */}
           <Link
             to={`/interviews/${interview.id}`}
-            className="text-[13px] font-semibold text-primary-600 hover:underline"
+            className="text-sm font-semibold text-brand-700 hover:underline"
           >
             Scorecards →
           </Link>
@@ -370,7 +370,7 @@ function InterviewRow({
 
       {canManage && editing === 'slot' && (
         <form
-          className="mt-3 space-y-3 rounded-sm border border-line-200 bg-surface-50 p-4"
+          className="mt-3 space-y-3 rounded-md border border-line bg-canvas p-4"
           onSubmit={(e) => {
             e.preventDefault();
             onReschedule(interview.id, {
@@ -385,21 +385,21 @@ function InterviewRow({
         >
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="mb-1 block text-[13px] font-semibold">Starts</label>
+              <label className="mb-1 block text-sm font-semibold">Starts</label>
               <input
                 type="datetime-local" required className={field} value={slot.scheduledStart}
                 onChange={(e) => setSlot({ ...slot, scheduledStart: e.target.value })}
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-semibold">Minutes</label>
+              <label className="mb-1 block text-sm font-semibold">Minutes</label>
               <input
                 type="number" min={5} max={480} required className={field} value={slot.durationMinutes}
                 onChange={(e) => setSlot({ ...slot, durationMinutes: Number(e.target.value) })}
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-semibold">Mode</label>
+              <label className="mb-1 block text-sm font-semibold">Mode</label>
               <select
                 className={field} value={slot.mode}
                 onChange={(e) => setSlot({ ...slot, mode: e.target.value as InterviewMode })}
@@ -409,7 +409,7 @@ function InterviewRow({
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-[13px] font-semibold">{locationLabel(slot.mode)}</label>
+            <label className="mb-1 block text-sm font-semibold">{locationLabel(slot.mode)}</label>
             <input
               className={field} value={slot.location}
               onChange={(e) => setSlot({ ...slot, location: e.target.value })}
@@ -427,7 +427,7 @@ function InterviewRow({
 
       {canManage && editing === 'panel' && (
         <form
-          className="mt-3 space-y-3 rounded-sm border border-line-200 bg-surface-50 p-4"
+          className="mt-3 space-y-3 rounded-md border border-line bg-canvas p-4"
           onSubmit={(e) => {
             e.preventDefault();
             onSetPanel(interview.id, panel, lead);
@@ -441,7 +441,7 @@ function InterviewRow({
             onChange={setPanel}
             onLeadChange={setLead}
           />
-          <p className="text-[13px] text-ink-600">
+          <p className="text-sm text-ink-600">
             Someone who has already started a scorecard cannot be removed — their evaluation
             exists and dropping them would orphan it.
           </p>
@@ -506,15 +506,15 @@ export function ApplicationDebrief({
   }
 
   if (error && interviews === null) {
-    return <p role="alert" className="text-[13px] text-danger-600">{error}</p>;
+    return <p role="alert" className="text-sm text-critical-700">{error}</p>;
   }
-  if (interviews === null) return <p className="text-[13px] text-ink-600">Loading interviews…</p>;
+  if (interviews === null) return <p className="text-sm text-ink-600">Loading interviews…</p>;
 
   return (
     <>
-    <div className="mt-3 rounded-sm border border-line-200 p-4">
+    <div className="mt-3 rounded-md border border-line p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-ink-600">
           Interviews · {interviews.length}
         </h3>
         {canManage && !scheduling && (
@@ -524,7 +524,7 @@ export function ApplicationDebrief({
         )}
       </div>
 
-      {error && <p role="alert" className="mt-2 text-[13px] text-danger-600">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-critical-700">{error}</p>}
 
       {scheduling && (
         <div className="mt-4">
@@ -543,9 +543,9 @@ export function ApplicationDebrief({
       )}
 
       {interviews.length === 0 && !scheduling ? (
-        <p className="mt-2 text-[13px] text-ink-600">No rounds scheduled.</p>
+        <p className="mt-2 text-sm text-ink-600">No rounds scheduled.</p>
       ) : (
-        <ul className="divide-y divide-line-200">
+        <ul className="divide-y divide-line">
           {interviews.map((iv) => (
             <InterviewRow
               key={iv.id}

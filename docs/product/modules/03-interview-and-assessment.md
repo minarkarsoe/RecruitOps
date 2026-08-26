@@ -1,7 +1,7 @@
 # Module 3 — Interview & Assessment
 
-**Status:** 🚧 3.3 + 3.4 built; 3.1/3.2 blocked on Module 7 · **Priority:** High — the
-recruiter↔manager collaboration core.
+**Status:** 🚧 3.2 (candidate invitations) + 3.3 + 3.4 built; 3.1 still blocked on Module 7 ·
+**Priority:** High — the recruiter↔manager collaboration core.
 
 Design decisions are recorded in
 [ADR-0017](../../decisions/ADR-0017-interview-and-assessment.md).
@@ -19,11 +19,29 @@ Connects to the **Hiring Manager's calendar** so free slots can be picked and bo
 > **Not built.** No calendar client exists in this codebase and Module 7 owns integrations.
 > What *is* built is manual scheduling: a recruiter fixes the slot, mode and location/link.
 
-### 3.2 Automated Invitations & Reminders ⬜ blocked
+### 3.2 Automated Invitations & Reminders 🚧 candidate invitations built
 Email invitations and reminders sent automatically to both the **candidate** and the **manager**.
 
-> **Not built.** No email sender exists. `NotificationLog` is deliberately absent until one
-> does — see ADR-0017 follow-ups.
+> **Built 2026-08-20 — the candidate half.** Scheduling a round writes the invitation in the same
+> transaction as the interview (ADR-0026 §2), and the delivery worker sends it over SMTP. The body
+> is rendered at send time, not at enqueue, which is what gives the rest of the behaviour for
+> free: rescheduling before it goes changes the time in the message that is already queued;
+> rescheduling after it has gone sends a second message that reads as a change; cancelling the
+> round suppresses a queued invitation; and a slot that has already passed is suppressed rather
+> than sent.
+>
+> The interview time is rendered in `Company.TimeZoneId` — added for this, because Postgres
+> normalises `timestamptz` to UTC and the recruiter's *o'clock* does not survive the round-trip.
+>
+> **Still missing, and each is a separate piece of work:**
+> - **The panel is not emailed.** Interviewers see the round in the app and nowhere else.
+> - **No reminders.** The recurrence mechanism exists (`ScheduledJob`), nothing uses it.
+> - **`NotificationLog` was never needed.** `OutboundMessage` (ADR-0026) is that table, and it
+>   is shared across every module rather than being Module 3's own. **But no screen reads it**,
+>   so a failed invitation is recorded and shown to nobody — `design/internal/channels.html`
+>   draws the log that closes this.
+> - **English only.** The per-posting language choice in `design/internal/postings.html` has no
+>   backing field.
 
 ### 3.3 Standardized Scorecards ✅
 Managers score and evaluate **directly in the system** during the interview, against a
@@ -49,7 +67,8 @@ side conversations in chat/email.
 - `ScorecardTemplate`, `ScorecardCriterion` — the configurable criteria set ✅
 - `Scorecard`, `ScorecardResponse` — per-interviewer evaluation ✅
 - `Note`, `NoteMention` — collaborative comments with @mentions ✅
-- `NotificationLog` — invitations/reminders sent ⬜ deferred with 3.2
+- ~~`NotificationLog` — invitations/reminders sent~~ — **superseded**: `OutboundMessage`
+  (ADR-0026) is the delivery record, shared by every module rather than owned by this one ✅
 
 ## Resolved questions
 

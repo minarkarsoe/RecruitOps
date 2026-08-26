@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Interview &amp; blind scorecard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  INTERVIEW & BLIND SCORECARD.
+  The blind rule has three renderings and each says something different:
+    hiddenCount > 0  → name what is withheld ("2 evaluations hidden")
+    hiddenCount == 0 → say nobody has submitted yet. "0 evaluations are waiting
+                       for yours" is not a sentence.
+    not blinded      → show the scores with no notice at all
+  Withheld scores are ABSENT, never blurred: a blur implies the value is present
+  and merely obscured, and the server does not send it at all.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">
+        Inbox <span class="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-warn-500 text-ink-900 text-2xs font-semibold tnum">3</span>
+      </a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Postings</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Interviews</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">KZ</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">U Kyaw Zin Latt</span>
+          <span class="block text-2xs text-white/50 truncate">Panel member</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="shrink-0 bg-white border-b border-line">
+      <div class="flex items-center gap-3 px-6 h-12 text-sm text-ink-600 border-b border-line">
+        <a href="board.html" class="hover:text-ink-900 transition-colors">Board</a>
+        <span class="text-ink-400">/</span>
+        <span>Ma Ei Thandar Kyaw</span>
+        <span class="text-ink-400">/</span>
+        <span class="text-ink-900">Round 2</span>
+      </div>
+      <div class="flex items-start gap-4 px-6 py-4">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <h1 class="text-2xl font-semibold tracking-tight">Panel interview · Round 2</h1>
+            <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-info-50 text-info-700 text-xs font-medium">
+              <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Scheduled
+            </span>
+          </div>
+          <p class="mt-1 text-base text-ink-600">
+            Ma Ei Thandar Kyaw · Senior Credit Analyst ·
+            <span class="font-mono text-sm tnum">19 Aug · 10:00</span> · Meeting room 4
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex-1 min-h-0 overflow-y-auto">
+      <div class="max-w-[1100px] mx-auto px-6 py-6 grid lg:grid-cols-12 gap-6 items-start">
+
+        <!-- ============ YOUR SCORECARD ============ -->
+        <div class="lg:col-span-7 space-y-4">
+          <section class="rounded-lg border border-line bg-white">
+            <header class="px-5 h-12 flex items-center gap-2 border-b border-line">
+              <h2 class="text-base font-semibold">Your scorecard</h2>
+              <span class="inline-flex items-center h-5 px-2 rounded-full bg-canvas border border-line text-2xs text-ink-600">Draft · saves as you go</span>
+            </header>
+
+            <div class="p-5 space-y-5">
+              <div>
+                <div class="flex items-baseline justify-between gap-4">
+                  <p class="text-base font-medium">Credit analysis depth</p>
+                  <span class="spec-label">1–5</span>
+                </div>
+                <div class="mt-2 flex items-center gap-1.5" role="radiogroup" aria-label="Credit analysis depth">
+                  <button class="w-10 h-9 rounded-md border border-line bg-white text-base text-ink-600 hover:border-line-strong transition-colors">1</button>
+                  <button class="w-10 h-9 rounded-md border border-line bg-white text-base text-ink-600 hover:border-line-strong transition-colors">2</button>
+                  <button class="w-10 h-9 rounded-md border border-line bg-white text-base text-ink-600 hover:border-line-strong transition-colors">3</button>
+                  <button class="w-10 h-9 rounded-md border-2 border-brand-700 bg-brand-50 text-base font-medium text-brand-800">4</button>
+                  <button class="w-10 h-9 rounded-md border border-line bg-white text-base text-ink-600 hover:border-line-strong transition-colors">5</button>
+                </div>
+                <textarea rows="2" class="mt-2.5 w-full px-3 py-2 rounded-md border border-line bg-white text-base placeholder:text-ink-400 focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition" placeholder="What did you see? (optional)">Walked through an IFRS 9 staging decision unprompted.</textarea>
+              </div>
+
+              <div class="border-t border-line pt-5">
+                <div class="flex items-baseline justify-between gap-4">
+                  <p class="text-base font-medium">Communication in English &amp; Myanmar</p>
+                  <span class="spec-label">1–5</span>
+                </div>
+                <div class="mt-2 flex items-center gap-1.5" role="radiogroup" aria-label="Communication">
+                  <button class="w-10 h-9 rounded-md border border-line bg-white text-base text-ink-600 hover:border-line-strong transition-colors">1</button>
+                  <button class="w-10 h-9 rounded-md border border-line bg-white text-base text-ink-600 hover:border-line-strong transition-colors">2</button>
+                  <button class="w-10 h-9 rounded-md border-2 border-brand-700 bg-brand-50 text-base font-medium text-brand-800">3</button>
+                  <button class="w-10 h-9 rounded-md border border-line bg-white text-base text-ink-600 hover:border-line-strong transition-colors">4</button>
+                  <button class="w-10 h-9 rounded-md border border-line bg-white text-base text-ink-600 hover:border-line-strong transition-colors">5</button>
+                </div>
+              </div>
+
+              <div class="border-t border-line pt-5">
+                <p class="text-base font-medium">Recommendation</p>
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                  <button class="h-9 px-3.5 rounded-md border border-line bg-white text-base text-ink-600 hover:border-line-strong transition-colors">Strong no</button>
+                  <button class="h-9 px-3.5 rounded-md border border-line bg-white text-base text-ink-600 hover:border-line-strong transition-colors">No</button>
+                  <button class="h-9 px-3.5 rounded-md border-2 border-brand-700 bg-brand-50 text-base font-medium text-brand-800">Yes</button>
+                  <button class="h-9 px-3.5 rounded-md border border-line bg-white text-base text-ink-600 hover:border-line-strong transition-colors">Strong yes</button>
+                </div>
+              </div>
+            </div>
+
+            <footer class="px-5 py-4 border-t border-line bg-canvas flex items-center gap-3">
+              <button id="submitBtn" class="inline-flex items-center h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Submit evaluation</button>
+              <p class="text-sm text-ink-600">
+                Submitting is <span class="font-medium text-ink-900">final</span> and reveals the panel.
+              </p>
+            </footer>
+          </section>
+
+          <!-- Debrief notes. Mentions resolve server-side and only for people who could
+               already reach this application. -->
+          <section class="rounded-lg border border-line bg-white">
+            <header class="px-5 h-12 flex items-center border-b border-line">
+              <h2 class="text-base font-semibold">Debrief</h2>
+              <span class="ml-auto spec-label">visible to the panel</span>
+            </header>
+            <div class="p-5 space-y-4">
+              <article class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-canvas border border-line grid place-items-center text-2xs font-semibold shrink-0">TW</span>
+                <div class="min-w-0">
+                  <p class="text-sm"><span class="font-medium">U Thura Win</span> <span class="text-ink-500 font-mono tnum">16 Aug · 15:02</span></p>
+                  <p class="mt-1 text-base leading-6">
+                    Reference check came back clean.
+                    <span class="font-medium text-brand-800 bg-brand-50 rounded px-1">@Daw Hnin Ei Khaing</span>
+                    can you confirm the grade band before we move to offer?
+                  </p>
+                </div>
+              </article>
+              <div class="flex gap-3">
+                <span class="w-7 h-7 rounded-full bg-brand-700 text-white grid place-items-center text-2xs font-semibold shrink-0">KZ</span>
+                <input class="flex-1 h-9 px-3 rounded-md border border-line bg-white text-base placeholder:text-ink-400 focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition" placeholder="Add a note — @ to mention" />
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ============ PANEL ============ -->
+        <div class="lg:col-span-5 space-y-4">
+          <section id="panel" data-state="blind" class="rounded-lg border border-line bg-white">
+            <header class="px-5 h-12 flex items-center gap-2 border-b border-line">
+              <h2 class="text-base font-semibold">Panel</h2>
+              <span id="panelBadge" class="ml-auto inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium">
+                <svg class="w-3 h-3" viewBox="0 0 12 12" fill="none"><rect x="2.5" y="5" width="7" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/><path d="M4 5V3.5a2 2 0 014 0V5" stroke="currentColor" stroke-width="1.3"/></svg>
+                2 evaluations hidden
+              </span>
+            </header>
+
+            <!-- Withheld evaluations are ABSENT. No blurred number, no placeholder score:
+                 the server never sent one, and pretending otherwise would imply the value
+                 is sitting there behind a filter. -->
+            <ul id="panelList" class="p-3 space-y-2">
+              <li class="flex items-center gap-3 rounded-md border border-line bg-white px-3.5 py-2.5">
+                <span class="w-7 h-7 rounded-full bg-canvas border border-line grid place-items-center text-2xs font-semibold shrink-0">HE</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-base font-medium truncate">Daw Hnin Ei Khaing</span>
+                  <span class="block text-sm text-ink-600">Department Head</span>
+                </span>
+                <span class="text-sm text-ink-500 shrink-0" data-score="4.2">Submitted</span>
+              </li>
+              <li class="flex items-center gap-3 rounded-md border border-line bg-white px-3.5 py-2.5">
+                <span class="w-7 h-7 rounded-full bg-canvas border border-line grid place-items-center text-2xs font-semibold shrink-0">TW</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-base font-medium truncate">U Thura Win</span>
+                  <span class="block text-sm text-ink-600">Recruiter</span>
+                </span>
+                <span class="text-sm text-ink-500 shrink-0" data-score="3.6">Submitted</span>
+              </li>
+              <li class="flex items-center gap-3 rounded-md border border-brand-200 bg-brand-50 px-3.5 py-2.5">
+                <span class="w-7 h-7 rounded-full bg-brand-700 text-white grid place-items-center text-2xs font-semibold shrink-0">KZ</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-base font-medium text-brand-900 truncate">You</span>
+                  <span class="block text-sm text-brand-800">Finance Controller</span>
+                </span>
+                <span id="yourState" class="text-sm font-medium text-brand-800 shrink-0">Not submitted</span>
+              </li>
+            </ul>
+
+            <p id="panelNote" class="px-5 pb-4 text-sm text-ink-600">
+              You will see the other two evaluations, including any that disagree with yours,
+              the moment your own is in.
+            </p>
+          </section>
+
+          <!-- The other two renderings of the same rule, so the spec is unambiguous. -->
+          <section class="rounded-lg border border-line border-dashed bg-white/60 p-5">
+            <p class="spec-label">the same component, other states</p>
+            <div class="mt-3 space-y-3">
+              <div class="rounded-md border border-line bg-white p-3">
+                <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-xs font-medium text-ink-600">Nobody has submitted yet</span>
+                <p class="mt-2 text-sm text-ink-600">
+                  <code class="font-mono text-xs">hiddenCount === 0</code> — say this, never
+                  “0 evaluations are waiting for yours”.
+                </p>
+              </div>
+              <div class="rounded-md border border-line bg-white p-3">
+                <p class="text-sm text-ink-600">
+                  A recruiter who is <span class="font-medium text-ink-900">not on the panel</span>
+                  sees submitted scores immediately, with no banner at all — they were never
+                  under the blind rule.
+                </p>
+              </div>
+              <div class="rounded-md border border-line bg-white p-3">
+                <p class="text-sm text-ink-600">
+                  Someone who was not in the room gets a read-only view with
+                  <span class="font-medium text-ink-900">no form</span>. Offering one would be a
+                  button that can only fail.
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Submitting reveals the panel. Irreversible in the product; this demo resets.
+  (function () {
+    var btn = document.getElementById('submitBtn');
+    var panel = document.getElementById('panel');
+    var badge = document.getElementById('panelBadge');
+    var note = document.getElementById('panelNote');
+    var yourState = document.getElementById('yourState');
+    var scores = document.querySelectorAll('#panelList [data-score]');
+
+    btn.addEventListener('click', function () {
+      var blind = panel.dataset.state === 'blind';
+      panel.dataset.state = blind ? 'open' : 'blind';
+
+      scores.forEach(function (el) {
+        el.textContent = blind ? el.dataset.score : 'Submitted';
+        el.className = blind
+          ? 'text-base font-medium font-mono tnum shrink-0'
+          : 'text-sm text-ink-500 shrink-0';
+      });
+
+      yourState.textContent = blind ? '4.0' : 'Not submitted';
+      yourState.className = blind
+        ? 'text-base font-medium font-mono tnum text-brand-800 shrink-0'
+        : 'text-sm font-medium text-brand-800 shrink-0';
+
+      badge.className = blind
+        ? 'ml-auto inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium'
+        : 'ml-auto inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium';
+      badge.textContent = blind ? 'Panel revealed' : '2 evaluations hidden';
+
+      note.textContent = blind
+        ? 'Your evaluation is recorded and cannot be edited. Disagreement is kept, not averaged away.'
+        : 'You will see the other two evaluations, including any that disagree with yours, the moment your own is in.';
+
+      btn.textContent = blind ? 'Reset the demonstration' : 'Submit evaluation';
+    });
+  })();
+</script>
+</body>
+</html>

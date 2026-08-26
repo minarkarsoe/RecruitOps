@@ -3,6 +3,53 @@ import { Badge, Button, SkeletonCard, SkeletonText } from '@recruitops/ui';
 import type { ExecutiveSummaryResult } from '@recruitops/types';
 import { aiApi, ApiError } from '../../lib/api';
 
+/**
+ * The kit's detented filter group (`design/internal/board.html` toolbar): one bordered track,
+ * the active segment filled `bg-ink-900`, the rest quiet text.
+ *
+ * It replaces two hand-rolled groups of butt-joined bordered buttons. Those had the active
+ * segment in brand and ink respectively — two different meanings for "this one is selected" on
+ * one row — and the shared borders doubled to 2px between segments, so the track was unevenly
+ * ruled. The kit uses ink for selection precisely because brand is the *action* colour: a
+ * filter is not an action, and painting it brand made "Bilingual" look like a button that
+ * would go and do something.
+ *
+ * `aria-pressed` is what makes the group readable to a screen reader — without it the selected
+ * segment is a colour and nothing else.
+ */
+function Segmented<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div className="flex shrink-0 items-center rounded-md border border-line p-0.5" role="group" aria-label={label}>
+      {options.map((option) => {
+        const isActive = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={isActive}
+            onClick={() => onChange(option.value)}
+            className={`h-7 rounded px-2.5 text-sm transition-colors ${
+              isActive ? 'bg-ink-900 font-medium text-white' : 'text-ink-600 hover:text-ink-900'
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export interface ExecutiveSummaryPanelProps {
   candidateId: string;
   jobPostingId?: string;
@@ -106,25 +153,21 @@ export function ExecutiveSummaryPanel({
   };
 
   return (
-    <div className={`rounded-lg border border-line-200 bg-surface-0 p-5 space-y-5 ${className}`}>
+    <div className={`space-y-5 rounded-lg border border-line bg-white p-5 ${className}`}>
       {/* Panel Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-200 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-ink-900">Executive Candidate Summary</h3>
-            {summaryResult?.isBilingual && <Badge variant="cyan">Burmese Enabled</Badge>}
+            {summaryResult?.isBilingual && <Badge variant="primary">Burmese Enabled</Badge>}
           </div>
-          <p className="mt-0.5 text-xs text-ink-500">
+          <p className="mt-0.5 text-sm text-ink-500">
             Powered by Gemini AI candidate profiling and localization
           </p>
         </div>
 
         {/* Action button */}
-        <Button
-          onClick={generateSummary}
-          disabled={loading || isApiKeyMissing}
-          className="bg-primary-600 hover:bg-primary-700 text-white h-8 px-3 text-xs flex items-center gap-1.5"
-        >
+        <Button onClick={generateSummary} disabled={loading || isApiKeyMissing} className="gap-1.5">
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
@@ -133,74 +176,32 @@ export function ExecutiveSummaryPanel({
       </div>
 
       {/* Controls toolbar: Language toggle group & Audience selector */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-surface-50 p-3 border border-line-200">
-        {/* Language Toggle Button Group */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-ink-700">Language:</span>
-          <div className="inline-flex rounded-md shadow-xs" role="group">
-            <button
-              type="button"
-              onClick={() => setLanguage('en')}
-              className={`px-3 py-1 text-xs font-medium rounded-l-md border ${
-                language === 'en'
-                  ? 'bg-primary-600 text-white border-primary-600'
-                  : 'bg-surface-0 text-ink-700 border-line-300 hover:bg-surface-100'
-              }`}
-            >
-              EN (English)
-            </button>
-            <button
-              type="button"
-              onClick={() => setLanguage('my')}
-              className={`px-3 py-1 text-xs font-medium border-t border-b ${
-                language === 'my'
-                  ? 'bg-primary-600 text-white border-primary-600'
-                  : 'bg-surface-0 text-ink-700 border-line-300 hover:bg-surface-100'
-              }`}
-            >
-              MY (Burmese)
-            </button>
-            <button
-              type="button"
-              onClick={() => setLanguage('bilingual')}
-              className={`px-3 py-1 text-xs font-medium rounded-r-md border ${
-                language === 'bilingual'
-                  ? 'bg-primary-600 text-white border-primary-600'
-                  : 'bg-surface-0 text-ink-700 border-line-300 hover:bg-surface-100'
-              }`}
-            >
-              Bilingual
-            </button>
-          </div>
+          <span className="text-sm text-ink-500">Language</span>
+          <Segmented
+            label="Summary language"
+            value={language}
+            onChange={setLanguage}
+            options={[
+              { value: 'en', label: 'EN (English)' },
+              { value: 'my', label: 'MY (Burmese)' },
+              { value: 'bilingual', label: 'Bilingual' },
+            ]}
+          />
         </div>
 
-        {/* Audience Toggle */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-ink-700">Audience:</span>
-          <div className="inline-flex rounded-md shadow-xs" role="group">
-            <button
-              type="button"
-              onClick={() => setAudience('internal')}
-              className={`px-2.5 py-1 text-xs font-medium rounded-l-md border ${
-                audience === 'internal'
-                  ? 'bg-ink-800 text-white border-ink-800'
-                  : 'bg-surface-0 text-ink-700 border-line-300 hover:bg-surface-100'
-              }`}
-            >
-              Internal Recruiter
-            </button>
-            <button
-              type="button"
-              onClick={() => setAudience('client')}
-              className={`px-2.5 py-1 text-xs font-medium rounded-r-md border ${
-                audience === 'client'
-                  ? 'bg-ink-800 text-white border-ink-800'
-                  : 'bg-surface-0 text-ink-700 border-line-300 hover:bg-surface-100'
-              }`}
-            >
-              Client Portal
-            </button>
-          </div>
+          <span className="text-sm text-ink-500">Audience</span>
+          <Segmented
+            label="Summary audience"
+            value={audience}
+            onChange={setAudience}
+            options={[
+              { value: 'internal', label: 'Internal Recruiter' },
+              { value: 'client', label: 'Client Portal' },
+            ]}
+          />
         </div>
       </div>
 
@@ -208,10 +209,10 @@ export function ExecutiveSummaryPanel({
       {isApiKeyMissing && (
         <div
           data-testid="executive-summary-402-banner"
-          className="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900"
+          className="rounded-md border border-warn-100 bg-warn-50 p-4"
         >
           <div className="flex items-start gap-3">
-            <svg className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="mt-0.5 h-5 w-5 shrink-0 text-warn-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -220,8 +221,8 @@ export function ExecutiveSummaryPanel({
               />
             </svg>
             <div>
-              <h4 className="font-semibold text-sm text-amber-900">AI Features Unconfigured: API key required</h4>
-              <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+              <h4 className="text-base font-semibold text-warn-700">AI Features Unconfigured: API key required</h4>
+              <p className="mt-1 text-sm leading-5 text-ink-700">
                 An AI Provider API Key (Gemini) has not been configured for this installation. Executive Summary
                 generation is currently disabled.
               </p>
@@ -232,9 +233,9 @@ export function ExecutiveSummaryPanel({
 
       {/* Non-402 Error Banner */}
       {error && !isApiKeyMissing && (
-        <div className="rounded-md border border-danger-200 bg-danger-50 p-4 text-xs text-danger-800 flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-critical-100 bg-critical-50 p-4 text-sm text-critical-700">
           <span>{error.message || 'Failed to generate AI executive summary.'}</span>
-          <Button onClick={generateSummary} variant="secondary" className="h-7 px-2.5 text-xs text-danger-700">
+          <Button onClick={generateSummary} variant="secondary">
             Retry
           </Button>
         </div>
@@ -254,7 +255,7 @@ export function ExecutiveSummaryPanel({
         <div className="space-y-5">
           {/* Quick Actions toolbar (Copy & Export) */}
           <div className="flex items-center justify-end gap-2 pt-1">
-            <Button onClick={handleCopy} variant="secondary" className="h-7 px-2.5 text-xs flex items-center gap-1">
+            <Button onClick={handleCopy} variant="secondary" className="gap-1.5">
               <svg className="h-3.5 w-3.5 text-ink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -266,7 +267,7 @@ export function ExecutiveSummaryPanel({
               {copied ? 'Copied!' : 'Copy Summary'}
             </Button>
 
-            <Button onClick={handleExport} variant="secondary" className="h-7 px-2.5 text-xs flex items-center gap-1">
+            <Button onClick={handleExport} variant="secondary" className="gap-1.5">
               <svg className="h-3.5 w-3.5 text-ink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -280,23 +281,28 @@ export function ExecutiveSummaryPanel({
           </div>
 
           {/* Headline Banner */}
-          <div className="rounded-md border-l-4 border-primary-600 bg-primary-50/50 p-4">
-            <h4 className="text-sm font-bold text-ink-900">{summaryResult.headline}</h4>
+          <div className="rounded-md border-l-2 border-brand-700 bg-brand-50 p-4">
+            <h4 className="text-base font-semibold text-ink-900">{summaryResult.headline}</h4>
           </div>
 
-          {/* Summary Text */}
-          <div className="rounded-md border border-line-200 bg-surface-50 p-4 text-xs text-ink-800 leading-relaxed whitespace-pre-wrap">
+          {/* Summary Text. `.mm` because this panel renders Burmese whenever the language
+              toggle is on MY or Bilingual, and Burmese diacritics clip at the 20px line box. */}
+          <div
+            className={`whitespace-pre-wrap rounded-md border border-line bg-canvas p-4 text-base text-ink-800 ${
+              language === 'en' ? 'leading-6' : 'mm'
+            }`}
+          >
             {summaryResult.summary}
           </div>
 
           {/* Key Strengths */}
           {summaryResult.keyStrengths && summaryResult.keyStrengths.length > 0 && (
-            <div className="rounded-md border border-line-200 bg-surface-50 p-4 space-y-2">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500">Key Qualifications & Strengths</h4>
-              <ul className="space-y-1.5 text-xs text-ink-800">
+            <div className="space-y-2 rounded-md border border-line bg-canvas p-4">
+              <h4 className="text-2xs font-medium uppercase tracking-wider text-ink-500">Key Qualifications &amp; Strengths</h4>
+              <ul className="space-y-1.5 text-base text-ink-800">
                 {summaryResult.keyStrengths.map((st, idx) => (
                   <li key={idx} className="flex items-start gap-2">
-                    <span className="text-primary-600 font-bold">•</span>
+                    <span className="text-brand-700">•</span>
                     <span>{st}</span>
                   </li>
                 ))}
@@ -306,12 +312,12 @@ export function ExecutiveSummaryPanel({
 
           {/* Suggested Questions */}
           {summaryResult.suggestedInterviewQuestions && summaryResult.suggestedInterviewQuestions.length > 0 && (
-            <div className="rounded-md border border-line-200 bg-surface-50 p-4 space-y-2">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-ink-500">Suggested Interview Questions</h4>
-              <ol className="list-decimal list-inside space-y-1.5 text-xs text-ink-800">
+            <div className="space-y-2 rounded-md border border-line bg-canvas p-4">
+              <h4 className="text-2xs font-medium uppercase tracking-wider text-ink-500">Suggested Interview Questions</h4>
+              <ol className="list-inside list-decimal space-y-1.5 text-base text-ink-800">
                 {summaryResult.suggestedInterviewQuestions.map((q, idx) => (
-                  <li key={idx} className="leading-relaxed pl-1">
-                    <span>{q}</span>
+                  <li key={idx} className="pl-1 leading-5">
+                    {q}
                   </li>
                 ))}
               </ol>
@@ -321,7 +327,7 @@ export function ExecutiveSummaryPanel({
       )}
 
       {!loading && !summaryResult && !error && !isApiKeyMissing && (
-        <div className="py-8 text-center text-xs text-ink-500">
+        <div className="py-8 text-center text-sm text-ink-600">
           Click &quot;Generate AI Summary&quot; to synthesize candidate qualifications using Gemini AI.
         </div>
       )}

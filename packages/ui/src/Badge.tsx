@@ -24,26 +24,42 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   children: React.ReactNode;
 }
 
+// Every tinted variant is a -700 (or -800) step on its own -50 tint, which is the kit's rule:
+// "Text on a -50/-100 tint always uses the -700 step."
+//
+// ⚠️ This file previously shipped `success`, `warning` and `danger` as a -500 on a -50 tint —
+// the exact failure that rule exists to prevent, and it survived the packages/ui rebuild because
+// the rebuild checked StatusPill and not Badge. Measured 2026-08-25 with the same script:
+//
+//     positive-500 on positive-50   2.41:1  FAIL   →  positive-700   5.21:1  PASS
+//     warn-500     on warn-50       2.07:1  FAIL   →  warn-700       4.84:1  PASS
+//     critical-500 on critical-50   3.44:1  FAIL   →  critical-700   5.91:1  PASS
+//     brand-800    on brand-50                        7.27:1  PASS  (the kit's own chip)
+//
+// A -500 on white would have passed; on its own tint it never does. The colours were right and
+// the STEPS were wrong, which is precisely why this needs measuring rather than reviewing.
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  default: 'bg-surface-50 text-ink-900 border border-line-200',
-  primary: 'bg-primary-100 text-primary-700',
-  secondary: 'bg-surface-50 text-ink-600 border border-line-200',
-  cyan: 'bg-primary-100 text-primary-700',
-  teal: 'bg-primary-100 text-primary-700',
-  zinc: 'bg-surface-50 text-ink-600 border border-line-200',
-  success: 'bg-success-100 text-success-600',
-  warning: 'bg-warning-100 text-warning-600',
-  danger: 'bg-danger-100 text-danger-600',
-  info: 'bg-info-100 text-info-600',
-  // Client tier badges (design system §5.3)
+  default: 'bg-canvas text-ink-600 border border-line',
+  primary: 'bg-brand-50 text-brand-800',
+  secondary: 'bg-canvas text-ink-600 border border-line',
+  cyan: 'bg-brand-50 text-brand-800',
+  teal: 'bg-brand-50 text-brand-800',
+  zinc: 'bg-canvas text-ink-600 border border-line',
+  success: 'bg-positive-50 text-positive-700',
+  warning: 'bg-warn-50 text-warn-700',
+  danger: 'bg-critical-50 text-critical-700',
+  info: 'bg-info-50 text-info-700',
+  // ⚠️ STALE — `ClientTier` was an agency-era concept, removed by ADR-0001. No screen renders
+  // these; only three test files reference them. Left in place because deleting them is a
+  // migration change, not a design-token one — see docs/status/MIGRATION-PLAN.md.
   gold: 'bg-[#FBF3E1] text-[#B58226] border border-[#F2DBA8]',
   silver: 'bg-[#EFF2F5] text-[#5A6872] border border-[#D3DBE2]',
   bronze: 'bg-[#F6ECE3] text-[#8C5B32] border border-[#E8D3C3]',
 };
 
 const SIZE_CLASSES: Record<BadgeSize, string> = {
-  sm: 'h-5 px-2 text-[11px] font-medium gap-1',
-  md: 'h-6 px-2.5 text-[13px] font-semibold gap-1.5',
+  sm: 'h-5 px-2 text-2xs font-medium gap-1',
+  md: 'h-6 px-2.5 text-xs font-medium gap-1.5',
 };
 
 export function Badge({

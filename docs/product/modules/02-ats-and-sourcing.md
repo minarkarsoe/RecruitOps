@@ -106,6 +106,19 @@ Constraints carried forward: bulk upload must be **asynchronous** (50 files = ba
 job, and the Success/Skipped/Canceled pop-up is the job result); PDF/OCR library licences
 must be permissive (this is closed-source commercial software).
 
+> **"Asynchronous" was satisfied twice, and the first time did not count.** The original
+> implementation was `_ = Task.Run(...)` over a static in-memory dictionary — the *shape* of a
+> background job with none of the properties one is for. A restart erased the batch outright and
+> the recruiter's fifty files answered 404. Rewritten 2026-08-21 onto
+> [ADR-0026](../../decisions/ADR-0026-outbound-delivery-and-background-jobs.md): a
+> `BulkUploadBatch` row plus one `BulkUploadFile` per CV, bytes in object storage, drained by a
+> worker with retry, backoff and an attempt cap. The pop-up's Success / Skipped / Failed now comes
+> from those rows, so it survives whatever happens to the process.
+>
+> **`Skipped` still has no producer.** Nothing in the pipeline decides a CV is correctly not
+> processed, so that third state is reserved rather than reached. Worth deciding what should
+> produce it — a duplicate CV of an existing application is the obvious candidate.
+
 **Myanmar script — see [ADR-0009](../../decisions/ADR-0009-myanmar-script-handling.md).**
 Two separate issues: (a) **Zawgyi→Unicode normalization at ingest is mandatory and lands in
 the MVP** — a Word/PDF authored in Zawgyi extracts as garbage even with no OCR involved;

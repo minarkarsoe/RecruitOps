@@ -18,10 +18,15 @@ function makeOkFetch(body: unknown) {
   });
 }
 
+// A real Response always has `headers`, so the double must too — `apiFetch` reads
+// `Retry-After` off every failure to carry a lockout countdown (ADR-0016). A double that
+// omits it made this test fail with a TypeError instead of the ApiError it asserts, which
+// is the double being wrong rather than the code.
 function makeErrorFetch(status: number, detail: string) {
   return vi.fn().mockResolvedValue({
     ok: false,
     status,
+    headers: new Headers(),
     text: async () => JSON.stringify({ detail }),
     json: async () => ({ detail }),
   });

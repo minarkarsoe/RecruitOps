@@ -10,7 +10,10 @@ using RecruitOps.Domain.Entities;
 using RecruitOps.Infrastructure.Options;
 using RecruitOps.Infrastructure.Persistence;
 using RecruitOps.Infrastructure.Services;
+using RecruitOps.Infrastructure.Services.Delivery;
+using RecruitOps.Infrastructure.Services.Delivery.Handlers;
 using RecruitOps.Infrastructure.Services.FileStorage;
+using RecruitOps.Infrastructure.Tenancy;
 using RecruitOps.Infrastructure.Services.MyanmarScript;
 
 using RecruitOps.Infrastructure.Services.DocumentExtraction;
@@ -51,6 +54,28 @@ public static class DependencyInjection
         services.AddSingleton<ILoginThrottle, LoginThrottle>();
 
         services.AddScoped<IDepartmentService, DepartmentService>();
+
+        // Outbound delivery & background jobs (ADR-0026).
+        // Scoped, and unset in a request scope: CurrentTenant reads the JWT claim first and only
+        // consults this when there is none, so entering a tenant mid-request is inert. The
+        // delivery worker is what actually uses it, one scope per message.
+        services.AddScoped<IAmbientTenantScope, AmbientTenantScope>();
+        services.Configure<OutboundDeliveryOptions>(config.GetSection(OutboundDeliveryOptions.SectionName));
+
+        // SMTP is the floor, not a fallback (ADR-0026 §1): it is the only transport that works in
+        // every deployment we sell, including an on-premise install with no outbound internet.
+        // Any provider adapter added later is registered alongside, never instead.
+        services.Configure<SmtpOptions>(config.GetSection(SmtpOptions.SectionName));
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
+
+        // The second queue on the same mechanism (Module 2.3). Its own options because extracting
+        // text from a scanned PDF and sending an email have opposite characters — see the class.
+        services.Configure<BulkResumeOptions>(config.GetSection(BulkResumeOptions.SectionName));
+
+        // One handler per OutboundMessageKind, resolved by the worker inside the message's own
+        // tenant scope. Registered as IOutboundMessageHandler (plural resolution) — a Kind with no
+        // handler retries rather than failing, so a missing line here is loud but not destructive.
+        services.AddScoped<IOutboundMessageHandler, InterviewInvitationHandler>();
 
         // Module 1 + department scoping (ADR-0003)
         services.AddScoped<IDepartmentAccess, DepartmentAccess>();
@@ -107,14 +132,22 @@ public static class DependencyInjection
         // Document Text Extraction & Resume Storage (Module 2 / Milestone 1 & 2)
         services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
         services.AddScoped<IResumeService, ResumeService>();
+        // Module 2.3 — bulk CV upload, on ADR-0026's durable queue rather than a static
+        // dictionary. There used to be a second, identical IBulkResumeService interface in
+        // Application.Common.Interfaces registered alongside this one; nothing consumed it, so it
+        // was deleted with the rewrite rather than carried forward.
         services.AddScoped<IBulkResumeService, BulkResumeService>();
-        services.AddScoped<Application.Common.Interfaces.IBulkResumeService, BulkResumeService>();
 
         // Module 5 — Reporting & Analytics
         services.AddScoped<IAnalyticsService, AnalyticsService>();
 
         // Module 2 / Milestone 1 — Full-text Search Service
         services.AddScoped<ISearchService, SearchService>();
+
+        // ADR-0026 — the read side of the outbox. Scoped, and it takes ICurrentUser +
+        // IDepartmentAccess for the reason spelled out in DeliveryLogService: this table reaches
+        // a department only through SubjectType/SubjectId, so ADR-0003 has to be applied by hand.
+        services.AddScoped<IDeliveryLogService, DeliveryLogService>();
 
         return services;
     }

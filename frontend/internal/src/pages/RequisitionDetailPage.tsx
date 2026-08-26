@@ -7,12 +7,12 @@ import { auth, hasPermission } from '../lib/auth';
 
 function decisionBadge(decision: ApprovalStep['decision']) {
   const styles = {
-    Waiting: 'bg-warning-100 text-warning-600',
-    Approved: 'bg-success-100 text-success-600',
-    Rejected: 'bg-danger-100 text-danger-600',
+    Waiting: 'bg-warn-50 text-warn-700',
+    Approved: 'bg-positive-50 text-positive-700',
+    Rejected: 'bg-critical-50 text-critical-700',
   };
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-semibold ${styles[decision]}`}>
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${styles[decision]}`}>
       {decision}
     </span>
   );
@@ -141,52 +141,52 @@ export function RequisitionDetailPage() {
     isOwnerOrCompanyWide &&
     hasPermission(session, 'permission:requisitions:requisitions:update');
 
-  if (error && !item) return <p role="alert" className="text-danger-600">{error}</p>;
+  if (error && !item) return <p role="alert" className="text-critical-700">{error}</p>;
   if (!item) return <p className="text-ink-600">Loading…</p>;
 
   return (
     <>
       <header className="mb-6">
-        <Link to="/requisitions" className="mb-2 inline-block text-[13px] text-primary-600 hover:underline">
+        <Link to="/requisitions" className="mb-2 inline-block text-sm text-brand-700 hover:underline">
           ← Back to requisitions
         </Link>
         <div className="flex items-center gap-3">
-          <h1 className="font-display text-2xl font-bold">{item.title}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{item.title}</h1>
           <StatusPill status={item.status} />
           {canEdit && (
             <Link
               to={`/requisitions/${item.id}/edit`}
-              className="ml-auto text-[13px] font-semibold text-primary-600 hover:underline"
+              className="ml-auto text-sm font-semibold text-brand-700 hover:underline"
             >
               Edit draft
             </Link>
           )}
         </div>
-        <p className="mt-1 text-[13px] text-ink-600">{item.departmentName}</p>
+        <p className="mt-1 text-sm text-ink-600">{item.departmentName}</p>
       </header>
 
-      {error && <p role="alert" className="mb-4 text-[15px] text-danger-600">{error}</p>}
+      {error && <p role="alert" className="mb-4 text-md text-critical-700">{error}</p>}
 
       <div className="space-y-6">
         {/* ── Core details ── */}
         <Card>
-          <dl className="grid grid-cols-2 gap-4 text-[15px]">
+          <dl className="grid grid-cols-2 gap-4 text-md">
             <div>
-              <dt className="text-[13px] text-ink-600">Headcount</dt>
+              <dt className="text-sm text-ink-600">Headcount</dt>
               <dd className="font-mono">{item.headcount}</dd>
             </div>
             <div>
-              <dt className="text-[13px] text-ink-600">Salary budget</dt>
+              <dt className="text-sm text-ink-600">Salary budget</dt>
               <dd className="font-mono">
                 {item.salaryBudget != null ? item.salaryBudget.toLocaleString() : '—'}
               </dd>
             </div>
             <div>
-              <dt className="text-[13px] text-ink-600">Submitted</dt>
+              <dt className="text-sm text-ink-600">Submitted</dt>
               <dd>{item.submittedAt ? new Date(item.submittedAt).toLocaleDateString() : '—'}</dd>
             </div>
             <div>
-              <dt className="text-[13px] text-ink-600">Decided</dt>
+              <dt className="text-sm text-ink-600">Decided</dt>
               <dd>{item.decidedAt ? new Date(item.decidedAt).toLocaleDateString() : '—'}</dd>
             </div>
           </dl>
@@ -194,10 +194,10 @@ export function RequisitionDetailPage() {
 
         {/* ── Job description ── */}
         <Card>
-          <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+          <h2 className="mb-3 text-base font-semibold">
             Job description
           </h2>
-          <div className="whitespace-pre-wrap text-[15px] leading-relaxed">
+          <div className="whitespace-pre-wrap text-md leading-relaxed">
             {item.jobDescription}
           </div>
         </Card>
@@ -205,7 +205,7 @@ export function RequisitionDetailPage() {
         {/* ── Approval timeline ── */}
         {item.approvals.length > 0 && (
           <Card>
-            <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+            <h2 className="mb-4 text-base font-semibold">
               Approval timeline
             </h2>
             {/* Grouped by round: a resubmission after a rejection opens a new round beside
@@ -214,7 +214,7 @@ export function RequisitionDetailPage() {
             {rounds.map(({ round, steps }) => (
               <section key={round} className={round === currentRound ? '' : 'opacity-70'}>
                 {rounds.length > 1 && (
-                  <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-ink-400">
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">
                     Attempt {round}
                     {round === currentRound ? ' — current' : ' — superseded'}
                   </h3>
@@ -224,7 +224,7 @@ export function RequisitionDetailPage() {
                     // Keyed on round AND sequence: sequences repeat across rounds, so
                     // sequence alone collides once a requisition has been resubmitted.
                     <li key={`${step.round}-${step.sequence}`} className="flex items-start gap-4">
-                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-50 text-[12px] font-bold text-ink-600">
+                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-canvas text-xs font-bold text-ink-600">
                         {step.sequence}
                       </span>
                       <div className="flex-1">
@@ -233,17 +233,17 @@ export function RequisitionDetailPage() {
                           {decisionBadge(step.decision)}
                         </div>
                         {step.decidedByUserId && (
-                          <p className="mt-0.5 text-[12px] font-medium text-ink-600">
+                          <p className="mt-0.5 text-xs font-medium text-ink-600">
                             Approved by {deciderLabel(step, steps)} on behalf of {step.label}
                           </p>
                         )}
                         {step.decidedAt && (
-                          <p className="mt-0.5 text-[12px] text-ink-400">
+                          <p className="mt-0.5 text-xs text-ink-400">
                             {new Date(step.decidedAt).toLocaleString()}
                           </p>
                         )}
                         {step.comment && (
-                          <p className="mt-1 rounded-sm bg-surface-50 p-2 text-[13px] italic text-ink-600">
+                          <p className="mt-1 rounded-md bg-canvas p-2 text-sm italic text-ink-600">
                             "{step.comment}"
                           </p>
                         )}
@@ -259,10 +259,10 @@ export function RequisitionDetailPage() {
         {/* ── Actions ── */}
         {item.status === 'Draft' && hasPermission(session, 'permission:requisitions:requisitions:update') && (
           <Card>
-            <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+            <h2 className="mb-3 text-base font-semibold">
               Submit for approval
             </h2>
-            <p className="mb-4 text-[15px] text-ink-600">
+            <p className="mb-4 text-md text-ink-600">
               This routes the requisition through your company's approval chain.
             </p>
             <Button onClick={submit} disabled={busy}>
@@ -273,11 +273,11 @@ export function RequisitionDetailPage() {
 
         {canDecide && (
           <Card>
-            <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+            <h2 className="mb-3 text-base font-semibold">
               Decision — {myStep?.label ?? 'pending'}
             </h2>
             {stepsClosedOnBehalf.length > 0 ? (
-              <p className="mb-4 rounded-sm bg-warning-100 p-3 text-[13px] text-ink-600">
+              <p className="mb-4 rounded-md bg-warn-50 p-3 text-sm text-ink-600">
                 This is not your turn yet — it is waiting on{' '}
                 <strong>{stepsClosedOnBehalf.map(s => s.label).join(', ')}</strong>. Approving
                 closes {stepsClosedOnBehalf.length === 1 ? 'that step' : 'those steps'} as well as
@@ -287,17 +287,17 @@ export function RequisitionDetailPage() {
                 they ever saw it.
               </p>
             ) : (
-              <p className="mb-4 text-[13px] text-ink-600">
+              <p className="mb-4 text-sm text-ink-600">
                 Only the named approver for this step, or a more senior one, may decide. The
                 backend enforces this.
               </p>
             )}
-            <label htmlFor="comment" className="mb-1 block text-[13px] font-semibold">
+            <label htmlFor="comment" className="mb-1 block text-sm font-semibold">
               Comment <span className="font-normal text-ink-400">(optional)</span>
             </label>
             <textarea
               id="comment" rows={3} value={comment} onChange={(e) => setComment(e.target.value)}
-              className="mb-4 w-full rounded-sm border border-line-200 p-3 focus:outline-none focus:ring-2 focus:ring-primary-600"
+              className="mb-4 w-full rounded-md border border-line p-3 focus:outline-none focus:ring-2 focus:ring-brand-700"
             />
             <div className="flex gap-3">
               <Button onClick={() => decide(true)} disabled={busy}>
@@ -314,10 +314,10 @@ export function RequisitionDetailPage() {
 
         {canRevise && (
           <Card>
-            <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+            <h2 className="mb-3 text-base font-semibold">
               Revise and resubmit
             </h2>
-            <p className="mb-4 text-[15px] text-ink-600">
+            <p className="mb-4 text-md text-ink-600">
               Returns this to Draft so you can address the feedback above and submit it again.
               The rejection stays on the record — resubmitting starts a fresh round of approvals
               beside it, not over it.
@@ -330,10 +330,10 @@ export function RequisitionDetailPage() {
 
         {canCancel && (
           <Card>
-            <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+            <h2 className="mb-3 text-base font-semibold">
               Withdraw
             </h2>
-            <p className="mb-4 text-[15px] text-ink-600">
+            <p className="mb-4 text-md text-ink-600">
               Cancels this requisition. Approval steps already recorded are kept for the audit
               trail, and it disappears from approvers' inboxes.
             </p>

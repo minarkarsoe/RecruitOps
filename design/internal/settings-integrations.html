@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Integrations &amp; data policy</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 7.2 / 7.3 / 7.4 — INTEGRATIONS AND DATA POLICY.
+
+  NOTHING ON THIS SCREEN IS BUILT. Module 7 records RBAC as built and integrations
+  as not started, so every card here carries a real status and none of them says
+  "Connected" without saying it is a mock.
+
+  Two things this screen must not do, both of which a normal integrations page does
+  by default:
+
+  · It must not show a plain "paste your API key" field. Module 7 states credentials
+    are never stored in the database in plaintext, and where they DO live is still an
+    open ADR question. The field is therefore write-only and says so.
+
+  · It must not present retention as a harmless preference. A retention policy is a
+    scheduled deletion of candidate records, and the open question in the module doc
+    is who is accountable when a company configures a period shorter than the law
+    allows. The system cannot answer that, so the screen says the system cannot.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="postings.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Postings</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Insight</p>
+      <a href="analytics-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Analytics</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Administer</p>
+      <a href="users-roles.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Users &amp; roles</a>
+      <a href="settings-org.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Departments &amp; approvals</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Integrations</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">KM</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">Daw Khin Mya</span>
+          <span class="block text-2xs text-white/50 truncate">Admin</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Integrations &amp; data policy</h1>
+      <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium">
+        <span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>On-premise install
+      </span>
+    </header>
+
+    <div class="flex-1 min-h-0 overflow-auto">
+      <div class="max-w-[980px] px-6 py-8">
+
+        <div class="rounded-lg border border-warn-100 bg-warn-50 p-5">
+          <p class="text-base font-semibold text-warn-700">None of this is built</p>
+          <p class="mt-1.5 text-sm text-warn-700 max-w-[74ch]">
+            Module 7 records RBAC as shipped and integrations as not started. This screen is drawn
+            so the shape can be argued about before anyone writes a connector, and so the two
+            unanswered questions in the module doc — where credentials live, and who owns a
+            retention decision — are visible in the place they will be decided.
+          </p>
+        </div>
+
+        <!-- ================================================ 7.3 EMAIL -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">Email &amp; calendar</h2>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[74ch]">
+          Module 3 cannot send an interview invitation and Module 4 cannot send an offer without
+          one of these. Everything below them in the product waits on this row.
+        </p>
+
+        <div class="mt-4 space-y-3">
+
+          <div class="rounded-lg border border-line bg-white p-5">
+            <div class="flex items-start gap-4 flex-wrap">
+              <div class="w-10 h-10 rounded-md bg-info-50 grid place-items-center shrink-0">
+                <svg class="w-5 h-5 text-info-700" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2.5" y="4.5" width="15" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="m3 6 7 5 7-5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2.5 flex-wrap">
+                  <p class="text-lg font-semibold tracking-tight">Microsoft 365</p>
+                  <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Not connected</span>
+                </div>
+                <p class="mt-1.5 text-base text-ink-600 max-w-[62ch]">Sends interview invitations from the interviewer's own calendar, and reads free/busy so the panel picker stops offering slots people are already in.</p>
+                <p class="mt-2 text-sm text-ink-600">Needs: an Entra ID app registration with <code class="font-mono text-xs">Calendars.ReadWrite</code> and <code class="font-mono text-xs">Mail.Send</code>, consented by a tenant admin.</p>
+              </div>
+              <button class="h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors shrink-0">Connect</button>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-line bg-white p-5">
+            <div class="flex items-start gap-4 flex-wrap">
+              <div class="w-10 h-10 rounded-md bg-canvas border border-line grid place-items-center shrink-0">
+                <svg class="w-5 h-5 text-ink-500" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="3" y="4.5" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M3 8h14M7 3v3M13 3v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2.5 flex-wrap">
+                  <p class="text-lg font-semibold tracking-tight">Google Workspace</p>
+                  <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Not connected</span>
+                </div>
+                <p class="mt-1.5 text-base text-ink-600 max-w-[62ch]">The same job through Calendar and Gmail, for companies not on Microsoft.</p>
+              </div>
+              <button class="h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors shrink-0">Connect</button>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-line bg-white p-5">
+            <div class="flex items-start gap-4 flex-wrap">
+              <div class="w-10 h-10 rounded-md bg-canvas border border-line grid place-items-center shrink-0">
+                <svg class="w-5 h-5 text-ink-500" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 6h12M4 10h12M4 14h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2.5 flex-wrap">
+                  <p class="text-lg font-semibold tracking-tight">Plain SMTP</p>
+                  <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Not connected</span>
+                </div>
+                <p class="mt-1.5 text-base text-ink-600 max-w-[62ch]">
+                  Mail only, no calendar. The fallback for an air-gapped install with its own mail
+                  relay — which is a real customer shape under ADR-0004, so it is a first-class
+                  option here rather than a hidden advanced setting.
+                </p>
+              </div>
+              <button class="h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors shrink-0">Configure</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================= 7.2 HRMS -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">HRMS &amp; payroll</h2>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[74ch]">
+          Module 4 ends when a candidate accepts. The employee record starts somewhere else, and
+          this is the seam. The sales requirement names four systems in this market.
+        </p>
+
+        <div class="mt-4 rounded-lg border border-line bg-white overflow-hidden">
+          <div class="px-5 py-4 border-b border-line">
+            <div class="flex items-start gap-4 flex-wrap">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2.5 flex-wrap">
+                  <p class="text-lg font-semibold tracking-tight">QHRM</p>
+                  <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Not connected</span>
+                </div>
+                <p class="mt-1.5 text-base text-ink-600">Also listed by sales: BetterHR, GlobalTA, CityHR.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-5 py-4 border-b border-line space-y-4">
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-ink-700">Base URL</label>
+                <input placeholder="https://hr.yomabank.internal/api" class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-white text-base placeholder:text-ink-400 outline-none focus:border-brand-700 transition-colors" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-ink-700">Direction</label>
+                <select class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-white text-base outline-none">
+                  <option>Push on hire — we write to the HRMS</option>
+                  <option>Pull employees — we read from the HRMS</option>
+                  <option>Both</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-ink-700">API credential</label>
+              <div class="mt-1.5 flex gap-2 flex-wrap">
+                <input type="password" placeholder="Paste, then save" class="flex-1 min-w-[220px] h-10 px-3 rounded-md border border-line bg-white text-base placeholder:text-ink-400 outline-none focus:border-brand-700 transition-colors" />
+                <button class="h-10 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Save credential</button>
+              </div>
+              <p class="mt-2 text-sm text-ink-600 max-w-[70ch]">
+                Write-only. Once saved it is never displayed again, not even to an admin —
+                a field that can show a secret back is a field that can leak one over a shoulder or
+                into a screenshot. Replacing it is the only edit.
+              </p>
+            </div>
+
+            <div class="rounded-md border border-warn-100 bg-warn-50 px-3.5 py-3">
+              <p class="text-sm font-medium text-warn-700">Where this value is stored is an open decision</p>
+              <p class="mt-1 text-sm text-warn-700">
+                Module 7 says credentials never sit in the database in plaintext, and lists key
+                vault versus encrypted column as needing an ADR. The two answers behave differently
+                on this screen: a vault install would show a vault reference here instead of a
+                text field, and an offline install may have no vault at all.
+                <strong class="font-semibold">Do not build this field until that is decided.</strong>
+              </p>
+            </div>
+          </div>
+
+          <div class="px-5 py-4 bg-canvas">
+            <p class="text-sm font-medium">One question sales has not answered</p>
+            <p class="mt-1 text-sm text-ink-600 max-w-[74ch]">
+              On “hired”, is the employee record created in the HRMS automatically? If yes, this
+              integration writes to the customer's payroll system of record, and a mis-mapped field
+              becomes someone's wrong salary. That deserves a dry-run mode and a preview of the
+              payload before the first live write — neither of which is drawn, because the direction
+              is not settled.
+            </p>
+          </div>
+        </div>
+
+        <!-- =========================================== 7.4 DATA POLICY -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">Data retention &amp; recovery</h2>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[74ch]">
+          Per-company, in line with that company's SLA. This is the section that deletes things,
+          so it is the one drawn most carefully.
+        </p>
+
+        <div class="mt-4 rounded-lg border border-line bg-white overflow-hidden">
+          <div class="px-5 py-4 border-b border-line">
+            <p class="text-base font-semibold">Retention policy</p>
+            <p class="mt-1 text-sm text-ink-600">Records older than the period are purged on a schedule. Purge is permanent.</p>
+          </div>
+
+          <table class="w-full min-w-[560px] text-base">
+            <thead>
+              <tr class="bg-canvas border-b border-line text-left text-sm">
+                <th class="px-5 py-2.5 font-medium text-ink-600">Record type</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Keep for</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Then</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600 text-right">Affected today</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-line">
+                <td class="px-5 py-3">
+                  <span class="font-medium">Rejected candidates</span>
+                  <span class="block text-sm text-ink-600">Profile, CV file, extracted text</span>
+                </td>
+                <td class="px-5 py-3">
+                  <select class="h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none"><option>2 years</option><option>1 year</option><option>5 years</option><option>Forever</option></select>
+                </td>
+                <td class="px-5 py-3">
+                  <select class="h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none"><option>Anonymise</option><option>Delete</option></select>
+                </td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-700">1,204</td>
+              </tr>
+              <tr class="border-b border-line">
+                <td class="px-5 py-3">
+                  <span class="font-medium">Interview feedback</span>
+                  <span class="block text-sm text-ink-600">Scorecards and debrief notes</span>
+                </td>
+                <td class="px-5 py-3">
+                  <select class="h-9 px-2.5 rounded-md border border-line bg-white text-base outline-none"><option>5 years</option><option>2 years</option><option>Forever</option></select>
+                </td>
+                <td class="px-5 py-3"><span class="text-ink-600">Delete</span></td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-700">0</td>
+              </tr>
+              <tr class="border-b border-line">
+                <td class="px-5 py-3">
+                  <span class="font-medium">Approval records</span>
+                  <span class="block text-sm text-ink-600">Who approved what, and when</span>
+                </td>
+                <td class="px-5 py-3"><span class="inline-flex items-center h-7 px-2.5 rounded-md bg-canvas border border-line text-sm text-ink-600">Forever</span></td>
+                <td class="px-5 py-3 text-ink-500">—</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-500">—</td>
+              </tr>
+              <tr>
+                <td class="px-5 py-3">
+                  <span class="font-medium">Audit log</span>
+                  <span class="block text-sm text-ink-600">Sign-ins, permission changes, exports</span>
+                </td>
+                <td class="px-5 py-3"><span class="inline-flex items-center h-7 px-2.5 rounded-md bg-canvas border border-line text-sm text-ink-600">Forever</span></td>
+                <td class="px-5 py-3 text-ink-500">—</td>
+                <td class="px-5 py-3 text-right font-mono tnum text-ink-500">—</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="px-5 py-4 border-t border-line bg-canvas">
+            <p class="text-sm text-ink-700 max-w-[74ch]">
+              <span class="font-medium text-ink-900">Two rows have no control, and that is the design.</span>
+              Approval records and the audit log are the product's evidence that a decision happened.
+              A configurable retention on them would make the guarantee conditional on a dropdown,
+              so they are stated as permanent rather than offered as a choice.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-4 grid lg:grid-cols-2 gap-4 items-start">
+
+          <div class="rounded-lg border border-critical-100 bg-white overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-critical-100 bg-critical-50">
+              <p class="text-base font-medium text-critical-700">Apply retention change?</p>
+            </div>
+            <div class="px-5 py-4">
+              <p class="text-base">Shortening rejected-candidate retention from 5 years to 2 years will permanently remove:</p>
+              <ul class="mt-3 space-y-1.5 text-base">
+                <li class="flex items-baseline gap-2.5"><span class="font-mono tnum font-medium text-critical-700">1,204</span><span class="text-ink-700">candidate profiles</span></li>
+                <li class="flex items-baseline gap-2.5"><span class="font-mono tnum font-medium text-critical-700">1,188</span><span class="text-ink-700">CV files</span></li>
+                <li class="flex items-baseline gap-2.5"><span class="font-mono tnum font-medium text-critical-700">96</span><span class="text-ink-700">of them applied to more than one job</span></li>
+              </ul>
+              <p class="mt-3.5 text-sm text-ink-600">Stage history is kept — Module 5's charts are built on it and cannot be rebuilt afterwards.</p>
+              <label class="mt-4 block">
+                <span class="text-sm font-medium text-ink-700">Type <span class="font-mono text-xs bg-canvas border border-line rounded px-1.5 py-0.5">PURGE 1204</span> to confirm</span>
+                <input class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-white text-base font-mono outline-none focus:border-critical-500 transition-colors" />
+              </label>
+            </div>
+            <div class="px-5 py-3.5 border-t border-line flex items-center justify-end gap-2.5">
+              <button class="h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Cancel</button>
+              <button disabled class="h-9 px-3.5 rounded-md bg-critical-500/40 text-white text-base font-medium cursor-not-allowed">Apply and purge</button>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="rounded-lg border border-warn-100 bg-warn-50 p-5">
+              <p class="text-base font-semibold text-warn-700">The system does not know your legal minimum</p>
+              <p class="mt-1.5 text-sm text-warn-700">
+                Module 7 asks who is accountable when a company sets a period shorter than the law
+                allows. The honest answer a screen can give is that the software has no view: it
+                enforces the number it is given. So the confirmation counts real rows and makes the
+                admin type the count, rather than implying a validated “safe” range that does not exist.
+              </p>
+            </div>
+            <div class="rounded-lg border border-line bg-white p-5">
+              <p class="text-base font-semibold">Recovery objectives</p>
+              <div class="mt-3 grid grid-cols-2 gap-3">
+                <div class="rounded-md border border-line bg-canvas px-3.5 py-3">
+                  <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">RPO</p>
+                  <p class="mt-1 text-xl font-semibold tnum">24 h</p>
+                  <p class="mt-0.5 text-sm text-ink-600">Nightly backup</p>
+                </div>
+                <div class="rounded-md border border-line bg-canvas px-3.5 py-3">
+                  <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">RTO</p>
+                  <p class="mt-1 text-xl font-semibold tnum">8 h</p>
+                  <p class="mt-0.5 text-sm text-ink-600">Restore target</p>
+                </div>
+              </div>
+              <p class="mt-3 text-sm text-ink-600">
+                Read-only here. These are contract terms, not preferences — an admin who could
+                edit them would be editing an SLA from inside the product.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================================================== M8 NOTE -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">Sourcing channels</h2>
+        <div class="mt-4 rounded-lg border border-line bg-white p-5">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div class="min-w-0">
+              <p class="text-base font-semibold">Viber, Telegram and Facebook are configured elsewhere</p>
+              <p class="mt-1.5 text-base text-ink-600 max-w-[62ch]">
+                They are a sourcing surface with their own inbox and their own failure modes, not a
+                settings row. This page links to them rather than duplicating the switch.
+              </p>
+            </div>
+            <a href="channels.html" class="h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors inline-flex items-center shrink-0">Open channels</a>
+          </div>
+          <div class="mt-4 rounded-md border border-warn-100 bg-warn-50 px-3.5 py-3">
+            <p class="text-sm font-medium text-warn-700">This install may not be able to run them at all</p>
+            <p class="mt-1 text-sm text-warn-700">
+              Module 8 requires a publicly reachable webhook endpoint. This is an on-premise
+              deployment behind a corporate firewall, so the platforms cannot call in. That is a
+              deployment fact, and the channels screen states it there rather than letting an admin
+              connect a bot that will never receive a message.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

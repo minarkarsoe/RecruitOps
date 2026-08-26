@@ -3,19 +3,30 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using RecruitOps.Application.DTOs;
+using RecruitOps.Application.Interfaces;
+using RecruitOps.Domain.Enums;
+using RecruitOps.Infrastructure.Persistence;
 using Xunit;
 
 namespace RecruitOps.Api.Tests;
 
 public class BulkResumeUploadTests : IClassFixture<CustomWebAppFactory>
 {
+    private readonly CustomWebAppFactory _factory;
     private readonly Module3Scenario _scenario;
 
     public BulkResumeUploadTests(CustomWebAppFactory factory)
     {
+        _factory = factory;
         _scenario = new Module3Scenario(factory);
     }
+
+    /// <summary>Runs the bulk queue to completion. Replaces the Task.Delay this suite used to
+    /// bet on — see BulkResumeQueue.</summary>
+    private Task<int> DrainAsync() => BulkResumeQueue.DrainAsync(_factory);
 
     private HttpClient Recruiter() => _scenario.Recruiter();
     private HttpClient FinanceManager() => _scenario.FinanceManager();
@@ -60,6 +71,60 @@ public class BulkResumeUploadTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal(3, result.TotalFiles);
     }
 
+    /// <summary>The property the whole rewrite exists for, asserted through the API.
+    ///
+    /// <para>Before ADR-0026 this batch lived in a <c>static ConcurrentDictionary</c> — the bytes
+    /// included — so a restart did not make it stale, it erased it, and these three CVs answered
+    /// 404 with no way to learn whether any candidate had been created. Nothing is processed here
+    /// on purpose: what is checked is that the batch is <b>already durable while still Queued</b>,
+    /// and that the bytes are in object storage rather than in this process.</para></summary>
+    [Fact]
+    public async Task A_Queued_Batch_Is_Already_On_Disk_Before_Anything_Processes_It()
+    {
+        var (postingId, _) = await _scenario.ApplicationAsync("Durable While Queued");
+        var client = Recruiter();
+
+        using var content = new MultipartFormDataContent();
+        for (int i = 1; i <= 3; i++)
+        {
+            var fc = new ByteArrayContent(CreateSampleDocx($"Durable {i}\nEmail: durable{i}@example.com"));
+            fc.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            content.Add(fc, "files", $"durable_{i}.docx");
+        }
+
+        var response = await client.PostAsync($"/api/jobpostings/{postingId}/resumes/bulk", content);
+        var batch = await response.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>();
+        Assert.NotNull(batch);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var rows = db.BulkUploadFiles.IgnoreQueryFilters()
+            .Where(f => f.BulkUploadBatchId == batch.BatchId)
+            .OrderBy(f => f.Ordinal)
+            .ToList();
+
+        Assert.Equal(3, rows.Count);
+        Assert.All(rows, r => Assert.Equal(BulkFileStatus.Queued, r.Status));
+
+        // Every one of them points at bytes that are in object storage, not in this process.
+        var storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
+        foreach (var row in rows)
+        {
+            Assert.NotEmpty(row.StorageKey);
+            Assert.True(await storage.ExistsAsync(row.StorageKey));
+        }
+
+        // And the recruiter can still be told what is happening — the answer comes from the
+        // database, so it survives whatever happens to the process next.
+        var status = await client.GetFromJsonAsync<BulkBatchStatusDto>(
+            $"/api/jobpostings/{postingId}/resumes/bulk/{batch.BatchId}");
+
+        Assert.Equal("Queued", status!.Status);
+        Assert.Equal(3, status.TotalFiles);
+        Assert.Equal(0, status.ProcessedFiles);
+    }
+
     [Fact]
     public async Task GetBatchStatus_ReturnsPerFileProgressSummary()
     {
@@ -76,8 +141,7 @@ public class BulkResumeUploadTests : IClassFixture<CustomWebAppFactory>
         var batchResponse = await response.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>();
         Assert.NotNull(batchResponse);
 
-        // Wait brief moment for background processing
-        await Task.Delay(300);
+        await DrainAsync();
 
         var statusResponse = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batchResponse.BatchId}");
         Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
@@ -153,7 +217,7 @@ public class BulkResumeUploadTests : IClassFixture<CustomWebAppFactory>
         var response = await client.PostAsync($"/api/jobpostings/{postingId}/resumes/bulk", content);
         var batchRes = await response.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>();
 
-        await Task.Delay(400);
+        await DrainAsync();
 
         var statusRes = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batchRes!.BatchId}");
         var status = await statusRes.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
@@ -186,7 +250,7 @@ public class BulkResumeUploadTests : IClassFixture<CustomWebAppFactory>
         var response = await client.PostAsync($"/api/jobpostings/{postingId}/resumes/bulk", content);
         var batchRes = await response.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>();
 
-        await Task.Delay(500);
+        await DrainAsync();
 
         var statusRes = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batchRes!.BatchId}");
         var status = await statusRes.Content.ReadFromJsonAsync<BulkBatchStatusDto>();
@@ -212,7 +276,7 @@ public class BulkResumeUploadTests : IClassFixture<CustomWebAppFactory>
         var response = await client.PostAsync($"/api/jobpostings/{postingId}/resumes/bulk", content);
         var batchRes = await response.Content.ReadFromJsonAsync<BulkUploadBatchResponseDto>();
 
-        await Task.Delay(300);
+        await DrainAsync();
 
         var statusRes = await client.GetAsync($"/api/jobpostings/{postingId}/resumes/bulk/{batchRes!.BatchId}");
         var status = await statusRes.Content.ReadFromJsonAsync<BulkBatchStatusDto>();

@@ -1,4 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&family=Noto+Sans+Myanmar:wght@400;600;700&display=swap');
+/* Base styles for the public app. Ported from `design/internal/ds.css` (ADR-0025);
+   fonts follow V1.0 — Inter + JetBrains Mono, no Bricolage Grotesque, no IBM Plex Mono.
+
+   ⚠️ This surface is read on a phone, in Burmese, over a slow connection — see
+   `design/public/`. Keep it lighter than the internal app's, not heavier.
+   The faces are requested by a <link> in app/layout.tsx, not by @import here: an @import
+   cannot start downloading until this stylesheet has arrived, which delays first paint. */
 
 @tailwind base;
 @tailwind components;
@@ -7,12 +13,57 @@
 :root { color-scheme: light; }
 
 body {
-  background: theme('colors.surface.50');
+  background: theme('colors.canvas');
   color: theme('colors.ink.900');
   font-family: theme('fontFamily.sans');
-  line-height: 1.7; /* Burmese-safe (design system §1) */
+  /* 15px here, not the internal app's 14px: this is read by a candidate on a phone,
+     often outdoors, not by a recruiter at a desk. The kit's public screens are set
+     one step up for that reason. */
+  font-size: 15px;
+  line-height: 22px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Burmese needs the taller line box or diacritics clip. Per-element, so English keeps
+   its rhythm — and on this surface Burmese is first-class, not an afterthought. */
+.mm {
+  font-family: 'Noto Sans Myanmar', Inter, sans-serif;
+  line-height: 1.7;
+}
+
+:focus-visible {
+  outline: 2px solid theme('colors.brand.700');
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: theme('colors.brand.100');
+  color: theme('colors.brand.900');
+}
+
+/* ⚠️ This was missing. `.tnum` is in `ds.css` and in the internal app's `index.css`, but the
+   port to this file dropped it — so `tnum` on the phone field and the salary pill (both of
+   which the kit sets that way in `design/public/apply.html` and `job.html`) silently did
+   nothing here. Confirmed by grepping the built stylesheet: zero occurrences, and no
+   `font-variant-numeric` anywhere in the public bundle.
+
+   It matters more here than in the internal app, not less: a phone number typed into a
+   proportional face has digits of different widths, so the field jitters as it is typed. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* Same reason as the internal app: JetBrains Mono's programming ligatures turn "===" into one
+   glyph, and we use mono for salary figures and reference codes, never for source. */
+.font-mono, code, kbd, pre {
+  font-variant-ligatures: none;
+  -webkit-font-feature-settings: 'liga' 0, 'calt' 0;
+  font-feature-settings: 'liga' 0, 'calt' 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

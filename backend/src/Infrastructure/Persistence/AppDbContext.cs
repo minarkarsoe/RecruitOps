@@ -44,6 +44,12 @@ public class AppDbContext : DbContext
     public DbSet<Note> Notes => Set<Note>();
     public DbSet<NoteMention> NoteMentions => Set<NoteMention>();
 
+    // Outbound delivery and background jobs (ADR-0026).
+    public DbSet<OutboundMessage> OutboundMessages => Set<OutboundMessage>();
+    public DbSet<ScheduledJob> ScheduledJobs => Set<ScheduledJob>();
+    public DbSet<BulkUploadBatch> BulkUploadBatches => Set<BulkUploadBatch>();
+    public DbSet<BulkUploadFile> BulkUploadFiles => Set<BulkUploadFile>();
+
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         StampTenantAndTimestamps();
@@ -94,6 +100,8 @@ public class AppDbContext : DbContext
             e.Property(x => x.Slug).IsRequired().HasMaxLength(63); // DNS label limit
             e.HasIndex(x => x.Slug).IsUnique();                     // subdomain routing
             e.Property(x => x.LogoUrl).HasMaxLength(500);
+            // IANA zone id, e.g. "Asia/Yangon". 100 is well past the longest one there is.
+            e.Property(x => x.TimeZoneId).HasMaxLength(100);
         });
 
         // ---------- Department ----------
@@ -444,6 +452,83 @@ public class AppDbContext : DbContext
              .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // ---------- OutboundMessage (ADR-0026) ----------
+        builder.Entity<OutboundMessage>(e =>
+        {
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            // 320 = the practical maximum for an email address (64 local + @ + 255 domain).
+            e.Property(x => x.Recipient).IsRequired().HasMaxLength(320);
+            e.Property(x => x.SubjectType).HasMaxLength(40);
+            e.Property(x => x.PayloadJson).HasColumnType("jsonb");
+            // Written for a recruiter to read in the delivery log, so it needs room for a
+            // sentence — but capped, because it can carry a provider's error text.
+            e.Property(x => x.LastError).HasMaxLength(2000);
+
+            // The worker's claim query: due Pending rows, oldest first. Ordered so the index
+            // serves the ORDER BY as well as the WHERE.
+            // ⚠️ That query must run with IgnoreQueryFilters() — the worker has no HTTP request,
+            // so TenantId is Guid.Empty and the filter below would match nothing. See the
+            // remarks on OutboundMessage.
+            e.HasIndex(x => new { x.Status, x.NextAttemptAt });
+
+            // "What have we sent this candidate about this offer?" — the delivery log's filter.
+            e.HasIndex(x => new { x.TenantId, x.SubjectType, x.SubjectId });
+        });
+
+        // ---------- ScheduledJob (ADR-0026) ----------
+        builder.Entity<ScheduledJob>(e =>
+        {
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Recurrence).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.PayloadJson).HasColumnType("jsonb");
+            // IANA ids are short; "America/Argentina/ComodRivadavia" is the longest at 32.
+            e.Property(x => x.TimeZoneId).IsRequired().HasMaxLength(64);
+
+            // Ranges enforced in the schema rather than only in a service, because these are
+            // the fields a future admin UI, an import script and a seed all write independently.
+            e.ToTable(t =>
+            {
+                t.HasCheckConstraint("ck_scheduled_job_time_of_day",
+                    "\"TimeOfDayMinutes\" >= 0 AND \"TimeOfDayMinutes\" <= 1439");
+                t.HasCheckConstraint("ck_scheduled_job_day_of_week",
+                    "\"DayOfWeek\" IS NULL OR (\"DayOfWeek\" >= 0 AND \"DayOfWeek\" <= 6)");
+                // 28, not 31 — see the remarks on ScheduledJob.DayOfMonth.
+                t.HasCheckConstraint("ck_scheduled_job_day_of_month",
+                    "\"DayOfMonth\" IS NULL OR (\"DayOfMonth\" >= 1 AND \"DayOfMonth\" <= 28)");
+            });
+
+            // Same shape as the message claim: due active jobs. Also runs with
+            // IgnoreQueryFilters() in the worker, for the same reason.
+            e.HasIndex(x => new { x.IsActive, x.NextRunAt });
+        });
+
+        // ---------- Bulk CV upload (Module 2.3, ADR-0026) ----------
+        builder.Entity<BulkUploadBatch>(e =>
+        {
+            // "Show me this posting's recent uploads", newest first.
+            e.HasIndex(x => new { x.TenantId, x.JobPostingId, x.CreatedAt });
+        });
+
+        builder.Entity<BulkUploadFile>(e =>
+        {
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            // Windows caps a path segment at 255; a longer name than that never reached us.
+            e.Property(x => x.FileName).IsRequired().HasMaxLength(255);
+            e.Property(x => x.ContentType).HasMaxLength(255);
+            e.Property(x => x.StorageKey).HasMaxLength(1024);
+            // Room for a sentence a recruiter can act on, capped because it can carry an
+            // extraction library's error text.
+            e.Property(x => x.LastError).HasMaxLength(2000);
+
+            // The worker's claim query: due Queued rows, oldest first.
+            // ⚠️ Runs with IgnoreQueryFilters() for the same reason as OutboundMessage below.
+            e.HasIndex(x => new { x.Status, x.NextAttemptAt });
+
+            // The status endpoint reads one batch in upload order.
+            e.HasIndex(x => new { x.BulkUploadBatchId, x.Ordinal });
+        });
+
         // ---------- Tenant query filters ----------
         // Each company has its own database (ADR-0004), so these are a dormant safety
         // net against misconfiguration — NOT the primary isolation boundary. The
@@ -477,6 +562,15 @@ public class AppDbContext : DbContext
         builder.Entity<NoteMention>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<Role>().HasQueryFilter(e => e.TenantId == null || e.TenantId == _tenant.TenantId);
         builder.Entity<RefreshToken>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        // ⚠️ These four are filtered like everything else, and the background workers MUST read
+        // them with IgnoreQueryFilters(): they run outside any request, so _tenant.TenantId is
+        // Guid.Empty and the queues would silently never drain. A worker re-establishes the
+        // tenant for the processing scope from the claimed row, so the work itself keeps the
+        // filter on (ADR-0026 §4). The claim query is the only place allowed to bypass it.
+        builder.Entity<OutboundMessage>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<ScheduledJob>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<BulkUploadBatch>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<BulkUploadFile>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
 
         base.OnModelCreating(builder);
     }

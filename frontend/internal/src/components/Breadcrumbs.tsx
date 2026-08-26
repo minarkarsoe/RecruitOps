@@ -17,6 +17,8 @@ const ROUTE_LABELS: Record<string, string> = {
   departments: 'Departments',
   users: 'Users',
   roles: 'Role Builder',
+  // The fallback would capitalise this to "Delivery", which is not what the screen is called.
+  delivery: 'Delivery Log',
   edit: 'Edit',
 };
 
@@ -102,7 +104,7 @@ export function Breadcrumbs() {
               ) : (
                 <Link
                   to={item.path}
-                  className="text-ink-600 hover:text-primary-600 transition-colors truncate max-w-[150px]"
+                  className="text-ink-600 hover:text-brand-700 transition-colors truncate max-w-[150px]"
                 >
                   {item.label}
                 </Link>

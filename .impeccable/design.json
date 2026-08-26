@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-17T00:00:00Z",
+  "title": "Design System: RecruitOps — Marketing Register",
+  "extensions": {
+    "colorMeta": {
+      "primary-600": {
+        "role": "primary",
+        "displayName": "Governance Teal",
+        "canonical": "#0E6E6B",
+        "tonalRamp": ["#052A29", "#08403E", "#0B5654", "#0E6E6B", "#149B97", "#B8E0DE", "#DCEFEE", "#F0F9F9"]
+      },
+      "primary-900": {
+        "role": "primary",
+        "displayName": "Deep Pipeline",
+        "canonical": "#052A29",
+        "tonalRamp": ["#052A29", "#08403E", "#0B5654", "#0E6E6B", "#149B97", "#B8E0DE", "#DCEFEE", "#F0F9F9"]
+      },
+      "accent-500": {
+        "role": "secondary",
+        "displayName": "Threshold Amber",
+        "canonical": "#F2A33C",
+        "tonalRamp": ["#3D2703", "#5C3A05", "#8A5A08", "#C97A0A", "#F2A33C", "#F7C382", "#FCF0DC", "#FEF9F0"]
+      },
+      "ink-900": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#16232B",
+        "tonalRamp": ["#0F181E", "#16232B", "#1F2B32", "#2F3D46", "#4A5B66", "#687A85", "#8A99A3", "#C2D0D6"]
+      },
+      "surface-50": {
+        "role": "neutral",
+        "displayName": "Cool Paper",
+        "canonical": "#F6F9F9",
+        "tonalRamp": ["#16232B", "#2F3D46", "#4A5B66", "#8A99A3", "#C2D0D6", "#E3E9EC", "#F6F9F9", "#FFFFFF"]
+      },
+      "line-200": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#E3E9EC",
+        "tonalRamp": ["#16232B", "#2F3D46", "#4A5B66", "#687A85", "#8A99A3", "#C2D0D6", "#E3E9EC", "#F6F9F9"]
+      },
+      "success-600": {
+        "role": "tertiary",
+        "displayName": "Approved Green",
+        "canonical": "#1E8E5A",
+        "tonalRamp": ["#082A1A", "#0D4429", "#146B43", "#1E8E5A", "#3FB47C", "#7FD0A8", "#E2F4EA", "#F4FBF7"]
+      },
+      "warning-600": {
+        "role": "tertiary",
+        "displayName": "Pending Ochre",
+        "canonical": "#C97A0A",
+        "tonalRamp": ["#3D2703", "#5C3A05", "#8A5A08", "#C97A0A", "#F2A33C", "#F7C382", "#FCF0DC", "#FEF9F0"]
+      },
+      "danger-600": {
+        "role": "tertiary",
+        "displayName": "Rejected Clay",
+        "canonical": "#C94430",
+        "tonalRamp": ["#3A140D", "#5E2116", "#A63423", "#C94430", "#E0715F", "#EFA294", "#FBE8E4", "#FEF5F3"]
+      },
+      "info-600": {
+        "role": "tertiary",
+        "displayName": "Applied Blue",
+        "canonical": "#2E6ECF",
+        "tonalRamp": ["#0E2244", "#163663", "#22528F", "#2E6ECF", "#6295E0", "#9BBCEE", "#E6EEFB", "#F4F8FE"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The hero claim only. One per page, 40/52/56px across breakpoints." },
+      "headline": { "displayName": "Headline", "purpose": "Section openers, 32px rising to 40px." },
+      "title": { "displayName": "Title", "purpose": "Card titles, rail node names, statistic values." },
+      "lead": { "displayName": "Lead", "purpose": "The paragraph under a headline. Capped at 68ch." },
+      "body": { "displayName": "Body", "purpose": "Card and FAQ prose." },
+      "small": { "displayName": "Small", "purpose": "Meta, captions, provenance and helper lines." },
+      "data": { "displayName": "Data", "purpose": "Every checkable figure: ids, timestamps, counts, percentages, permission codes. Always tabular." },
+      "burmese": { "displayName": "Burmese", "purpose": "Noto Sans Myanmar at 1.75 line-height. A peer rendering, never a translation footnote." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 1px 2px rgba(22,35,43,0.06)", "purpose": "Hairline contact seat under a primary button or selected tour step." },
+      { "name": "pop", "value": "0 8px 24px rgba(22,35,43,0.12)", "purpose": "Transient overlays only — on this page, the focused skip link." },
+      { "name": "lift", "value": "0 24px 60px -18px rgba(22,35,43,0.28)", "purpose": "Marketing-only poster tier. Reserved for the single hero artifact the page resolves into. One element, one page." }
+    ],
+    "motion": [
+      { "name": "ease-authored", "value": "cubic-bezier(.16,1,.3,1)", "purpose": "The only easing on the page, used by the dissolve, the node stamps and the rail draw." },
+      { "name": "sheet-dissolve", "value": "1500ms cubic-bezier(.16,1,.3,1) 750ms both; mask-position 100% 100% -> 0% 0%", "purpose": "The one authored moment: a masked diagonal sweep dissolving the spreadsheet into the live record." },
+      { "name": "sheet-dissolve-down", "value": "same timing; mask-position 0% 100% -> 0% 0% under @media (max-width: 767px)", "purpose": "The same moment re-arranged, running downward when the sheet stacks above the record. Not a second effect." },
+      { "name": "stamp-in", "value": "620ms cubic-bezier(.16,1,.3,1) both; opacity 0 -> 1, translateY(6px) scale(.985) -> none", "purpose": "Approval nodes stamping in one at a time." },
+      { "name": "stagger", "value": "1150 / 1400 / 1650 / 1900 / 2150ms", "purpose": "The d1-d5 delay ladder sequencing the stamps." },
+      { "name": "transition-state", "value": "150ms colour transition", "purpose": "Default for hover and selection state changes." },
+      { "name": "reduced-motion", "value": "all animation and transition durations forced to .01ms; scroll-behavior auto", "purpose": "prefers-reduced-motion collapses the entire authored moment." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ],
+    "browserSurfaces": [
+      { "name": "selection", "value": "::selection { background: #DCEFEE; color: #052A29; }" },
+      { "name": "caret", "value": "caret-color: #0E6E6B" },
+      { "name": "focus-ring", "value": ":focus-visible { outline: 2px solid #0E6E6B; outline-offset: 3px; border-radius: 4px; }" },
+      { "name": "scrollbar", "value": "scrollbar-width: thin; thumb #C2D0D6 (hover #8A99A3), 999px radius, 3px #F6F9F9 border, transparent track" },
+      { "name": "link-underline", "value": "text-underline-offset: 3px" },
+      { "name": "tabular-numerals", "value": ".tnum { font-variant-numeric: tabular-nums; }" }
+    ],
+    "provenance": {
+      "inheritsFrom": "packages/ui/tailwind-preset.js — the 'Clear Pipeline' token source of truth consumed by frontend/internal and frontend/public (ADR-0012)",
+      "systemDoc": "RecruitOps_Design_System.md",
+      "register": "marketing",
+      "sanctionedExtensions": [
+        "Page-scale radii: 20px poster containers, above the app's 16px ceiling",
+        "Full-bleed saturated colour fields, which the app forbids as page backgrounds",
+        "A frosted sticky navigation, where the app's system says no glassmorphism",
+        "A display scale reaching 56px, where the app's ramp tops out at 32px"
+      ],
+      "verificationScope": "Finish review closed ship on desktop 1440 and narrow 505 CSS px evidence in .impeccable/review/. NOT a whole-surface approval: nothing below 505px was ever rendered or reviewed, because Chrome on Windows enforces a ~500px minimum window width and --force-device-scale-factor does not reduce layout width.",
+      "detectorCaveat": "The mechanical detector ran once in DEGRADED mode (htmlparser2, css-select, css-tree, domutils absent), so its findings are an undercount. Two findings were consciously declined: overused-font: Inter (the inherited body face; changing it forks the design system) and codex-grid-background (the gradient draws a literal spreadsheet cell grid, which the rule exempts as a measurement surface).",
+      "notCanonized": "The hero's 'Pending approval · round 2' pill pairs warning-100 tint with accent-700 text. The two hexes are identical (#8A5A08), so it is legible, but the cross-family pairing is a build artefact and is NOT the rule. The rule is -700 text on its own family's -100 tint."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single act of authority on a light ground. Teal fill, hairline contact shadow.",
+      "html": "<a class=\"ds-btn-primary\" href=\"#\">Request an enterprise pilot</a>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 48px; padding: 0 24px; border-radius: 12px; background: #0E6E6B; color: #FFFFFF; font-family: Inter, system-ui, sans-serif; font-size: 15px; font-weight: 600; text-decoration: none; box-shadow: 0 1px 2px rgba(22,35,43,0.06); transition: background-color 150ms ease-out; } .ds-btn-primary:hover { background: #0B5654; } .ds-btn-primary:focus-visible { outline: 2px solid #0E6E6B; outline-offset: 3px; } .ds-btn-primary:active { background: #08403E; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The second action beside a primary. White, border-first, with an optional trailing drawn icon.",
+      "html": "<a class=\"ds-btn-secondary\" href=\"#\">Explore the workflow tour<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"#0E6E6B\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7 7l10 10\"/><path d=\"M17 7v10H7\"/></svg></a>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 24px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E3E9EC; color: #16232B; font-family: Inter, system-ui, sans-serif; font-size: 15px; font-weight: 600; text-decoration: none; transition: border-color 150ms ease-out; } .ds-btn-secondary:hover { border-color: #B8E0DE; } .ds-btn-secondary:focus-visible { outline: 2px solid #0E6E6B; outline-offset: 3px; }"
+    },
+    {
+      "name": "Inverse Button",
+      "kind": "button",
+      "refersTo": "button-inverse",
+      "description": "The primary action on a full-bleed deep-teal field, where a teal fill would disappear.",
+      "html": "<a class=\"ds-btn-inverse\" href=\"#\">Talk to us about deployment</a>",
+      "css": ".ds-btn-inverse { display: inline-flex; align-items: center; justify-content: center; height: 48px; padding: 0 24px; border-radius: 12px; background: #FFFFFF; color: #052A29; font-family: Inter, system-ui, sans-serif; font-size: 15px; font-weight: 600; text-decoration: none; transition: background-color 150ms ease-out; } .ds-btn-inverse:hover { background: #F0F9F9; } .ds-btn-inverse:focus-visible { outline: 2px solid #FFFFFF; outline-offset: 3px; }"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "pill-status",
+      "description": "The product's signature indicator. Tint fill, -700 text from the same family, 6px dot. The label is always a backend enum.",
+      "html": "<span class=\"ds-pill ds-pill-warning\"><span class=\"ds-pill-dot\"></span>Pending approval · round 2</span> <span class=\"ds-pill ds-pill-success\"><span class=\"ds-pill-dot\"></span>Approved</span>",
+      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; font-family: Inter, system-ui, sans-serif; font-size: 12px; font-weight: 600; } .ds-pill-dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; } .ds-pill-warning { background: #FCF0DC; color: #8A5A08; } .ds-pill-success { background: #E2F4EA; color: #146B43; } .ds-pill-danger { background: #FBE8E4; color: #A63423; } .ds-pill-info { background: #E6EEFB; color: #22528F; }"
+    },
+    {
+      "name": "Outline Chip",
+      "kind": "chip",
+      "refersTo": "chip-outline",
+      "description": "A static neutral fact — industry, technical label, count. Mono when the content is a system value.",
+      "html": "<span class=\"ds-chip\">Banking &amp; finance</span> <span class=\"ds-chip ds-chip-mono\">142 CVs matched</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 999px; background: #F6F9F9; border: 1px solid #E3E9EC; color: #4A5B66; font-family: Inter, system-ui, sans-serif; font-size: 13px; } .ds-chip-mono { background: #FFFFFF; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Bordered Card with Tinted Foot",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The page's recurring silhouette: a white body carrying the claim, and a paper-toned compartment below a hairline rule carrying the evidence.",
+      "html": "<article class=\"ds-card\"><div class=\"ds-card-body\"><h3 class=\"ds-card-title\">Requisition &amp; headcount governance</h3><p class=\"ds-card-text\">The chain is copied onto the requisition the moment it is submitted, so editing the template later cannot rewrite a decision already made.</p></div><div class=\"ds-card-foot\"><p class=\"ds-card-meta\">A senior approver can close every step at or below their own position in one action, but may only reject their own.</p></div></article>",
+      "css": ".ds-card { border: 1px solid #E3E9EC; border-radius: 20px; background: #FFFFFF; overflow: hidden; } .ds-card-body { padding: 32px; } .ds-card-title { margin: 0; font-family: 'Bricolage Grotesque', Inter, sans-serif; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: #16232B; } .ds-card-text { margin: 12px 0 0; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.65; color: #4A5B66; max-width: 68ch; } .ds-card-foot { border-top: 1px solid #E3E9EC; background: #F6F9F9; padding: 32px; } .ds-card-meta { margin: 0; font-family: Inter, system-ui, sans-serif; font-size: 13px; line-height: 1.6; color: #4A5B66; }"
+    },
+    {
+      "name": "Governance Rail",
+      "kind": "custom",
+      "refersTo": "rail-node-done",
+      "description": "The signature device. A hairline connector between 31px node discs carrying an approval chain; a threshold breach hangs off its own node in amber.",
+      "html": "<div class=\"ds-rail\"><div class=\"ds-rail-node ds-is-done\"><span class=\"ds-node ds-node-done\"><svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"#0B5654\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6L9 17l-5-5\"/></svg></span><div class=\"ds-node-body\"><p class=\"ds-node-name\">U Kyaw Zin Latt <span class=\"ds-node-role\">Finance Controller</span></p><p class=\"ds-node-meta\">Approved <span class=\"ds-mono\">15 Aug · 16:40</span></p><div class=\"ds-breach\">Salary band exceeded by <span class=\"ds-mono ds-strong\">18%</span>. Chain extended to CHRO automatically.</div></div></div><div class=\"ds-rail-node\"><span class=\"ds-node ds-node-wait\"><span class=\"ds-node-dot\"></span></span><div class=\"ds-node-body\"><p class=\"ds-node-name\">Daw Moe Moe Aung <span class=\"ds-node-role\">Chief HR Officer</span></p><p class=\"ds-node-meta\">Waiting · added by threshold rule</p></div></div></div>",
+      "css": ".ds-rail { font-family: Inter, system-ui, sans-serif; } .ds-rail-node { position: relative; display: flex; gap: 14px; padding-bottom: 20px; } .ds-rail-node::before { content: ''; position: absolute; left: 15px; top: 32px; bottom: -14px; width: 1px; background: #E3E9EC; } .ds-rail-node:last-child::before { display: none; } .ds-rail-node.ds-is-done::before { background: #B8E0DE; } .ds-node { position: relative; z-index: 1; flex-shrink: 0; width: 31px; height: 31px; border-radius: 999px; display: grid; place-items: center; } .ds-node-done { background: #DCEFEE; border: 1px solid #B8E0DE; } .ds-node-wait { background: #FFFFFF; border: 1px solid #C2D0D6; } .ds-node-dot { width: 6px; height: 6px; border-radius: 999px; background: #8A99A3; } .ds-node-name { margin: 0; font-size: 14px; font-weight: 600; color: #16232B; } .ds-node-role { font-size: 13px; font-weight: 400; color: #4A5B66; } .ds-node-meta { margin: 2px 0 0; font-size: 13px; color: #4A5B66; } .ds-mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; } .ds-strong { font-weight: 600; } .ds-breach { margin-top: 8px; display: inline-block; background: #FCF0DC; border: 1px solid rgba(242,163,60,0.25); border-radius: 12px; padding: 6px 10px; font-size: 12px; line-height: 1.5; color: #8A5A08; }"
+    },
+    {
+      "name": "Frosted Navigation",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Sticky 64px header, translucent over scrolling content. The page's only backdrop filter.",
+      "html": "<header class=\"ds-nav\"><a class=\"ds-nav-brand\" href=\"#\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\" fill=\"none\"><rect x=\"1\" y=\"1\" width=\"24\" height=\"24\" rx=\"7\" fill=\"#0E6E6B\"/><circle cx=\"9\" cy=\"7.5\" r=\"2.1\" fill=\"#FFFFFF\"/><circle cx=\"9\" cy=\"13\" r=\"2.1\" fill=\"#FFFFFF\"/><circle cx=\"9\" cy=\"18.5\" r=\"2.1\" fill=\"#F2A33C\"/><path d=\"M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6\" stroke=\"#B8E0DE\" stroke-width=\"1.4\" stroke-linecap=\"round\"/></svg><span>RecruitOps</span></a><nav class=\"ds-nav-links\"><a href=\"#\">Governance</a><a href=\"#\">Workflow</a><a href=\"#\">Security</a></nav><div class=\"ds-lang\"><button class=\"ds-lang-btn ds-on\" aria-pressed=\"true\">EN</button><button class=\"ds-lang-btn\" aria-pressed=\"false\">MM</button></div></header>",
+      "css": ".ds-nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; height: 64px; padding: 0 24px; background: rgba(246,249,249,.78); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px); border-bottom: 1px solid #E3E9EC; } .ds-nav-brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-family: 'Bricolage Grotesque', Inter, sans-serif; font-size: 19px; font-weight: 700; letter-spacing: -0.03em; color: #16232B; } .ds-nav-links { display: flex; align-items: center; gap: 32px; } .ds-nav-links a { font-family: Inter, system-ui, sans-serif; font-size: 15px; color: #4A5B66; text-decoration: none; transition: color 150ms ease-out; } .ds-nav-links a:hover { color: #0B5654; } .ds-nav-links a:focus-visible { outline: 2px solid #0E6E6B; outline-offset: 3px; border-radius: 4px; } .ds-lang { display: inline-flex; align-items: center; padding: 2px; border: 1px solid #E3E9EC; border-radius: 999px; background: #FFFFFF; } .ds-lang-btn { border: 0; cursor: pointer; padding: 4px 10px; border-radius: 999px; background: transparent; color: #4A5B66; font-family: Inter, system-ui, sans-serif; font-size: 12px; font-weight: 600; transition: background-color 150ms ease-out, color 150ms ease-out; } .ds-lang-btn:hover { color: #16232B; } .ds-lang-btn.ds-on { background: #0E6E6B; color: #FFFFFF; }"
+    },
+    {
+      "name": "Tour Step (Tablist Item)",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "A keyboard-driven step selector. Selection is signalled by ground, border and index fill together — never by colour alone.",
+      "html": "<div role=\"tablist\" class=\"ds-tour\"><button class=\"ds-tour-step\" role=\"tab\" aria-selected=\"true\"><span class=\"ds-tour-index\">1</span><span class=\"ds-tour-label\">Requisition raised</span></button><button class=\"ds-tour-step\" role=\"tab\" aria-selected=\"false\"><span class=\"ds-tour-index\">2</span><span class=\"ds-tour-label\">Approved and advertised</span></button></div>",
+      "css": ".ds-tour { display: flex; flex-direction: column; gap: 8px; } .ds-tour-step { display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer; padding: 14px 16px; border-radius: 16px; border: 1px solid #E3E9EC; background: #F6F9F9; transition: background-color 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out; } .ds-tour-step:hover { border-color: #C2D0D6; } .ds-tour-step:focus-visible { outline: 2px solid #0E6E6B; outline-offset: 3px; } .ds-tour-step[aria-selected=\"true\"] { background: #FFFFFF; border-color: #B8E0DE; box-shadow: 0 1px 2px rgba(22,35,43,.06); } .ds-tour-index { flex-shrink: 0; width: 28px; height: 28px; border-radius: 999px; border: 1px solid #C2D0D6; display: grid; place-items: center; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; font-weight: 600; color: #4A5B66; font-variant-numeric: tabular-nums; transition: background-color 150ms ease-out, color 150ms ease-out; } .ds-tour-step[aria-selected=\"true\"] .ds-tour-index { background: #0E6E6B; border-color: #0E6E6B; color: #FFFFFF; } .ds-tour-label { font-family: Inter, system-ui, sans-serif; font-size: 15px; font-weight: 600; color: #16232B; }"
+    },
+    {
+      "name": "Hairline-Gap Statistic Grid",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "A table drawn without table borders: a rule-coloured background showing through 1px gaps between white cells.",
+      "html": "<dl class=\"ds-statgrid\"><div class=\"ds-stat\"><dt>Database isolation</dt><dd>One per company</dd></div><div class=\"ds-stat\"><dt>Enterprise uptime SLA</dt><dd class=\"ds-tnum\">99.9%</dd></div><div class=\"ds-stat\"><dt>Permission controls</dt><dd><span class=\"ds-tnum\">37</span> across 10 modules</dd></div></dl>",
+      "css": ".ds-statgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 0; background: #E3E9EC; border: 1px solid #E3E9EC; border-radius: 16px; overflow: hidden; } .ds-stat { background: #FFFFFF; padding: 16px 20px; } .ds-stat dt { font-family: Inter, system-ui, sans-serif; font-size: 13px; color: #4A5B66; } .ds-stat dd { margin: 4px 0 0; font-family: 'Bricolage Grotesque', Inter, sans-serif; font-size: 19px; font-weight: 600; letter-spacing: -0.02em; color: #16232B; } .ds-tnum { font-variant-numeric: tabular-nums; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Record, Enlarged",
+    "overview": "This is not a new world. It is the marketing register of \"Clear Pipeline\" — the shipped RecruitOps design system documented in RecruitOps_Design_System.md, whose token source of truth is packages/ui/tailwind-preset.js and whose consumers are frontend/internal and frontend/public (ADR-0012). The landing page was built by inheriting that system rather than forking a marketing identity, and every colour, family and radius traces back to the preset. When the preset changes, this file is downstream of it, not beside it.\n\nThe register is louder, not different. The product's own claim — every decision has a record — is argued visually by enlarging the product's own artifacts: an approval chain, a status pill, a mono requisition id, a hairline rail. Nothing decorative is introduced to sell it. The page's argument structure is one artifact replaced per section, and its materials are ink on a cool paper ground, teal carrying every act of authority, and amber held back for the single moment a human is being asked to look. Surfaces are border-first: a card sits on a 1px line-200 rule, not on a shadow. Figures are always monospaced and tabular, because a number you cannot line up is a number you cannot audit.\n\nFour things the marketing surface is licensed to do that the app is not, and they are the whole extension: full-bleed saturated colour fields (the app forbids saturated page backgrounds); page-scale radii at 20px, above the app's 16px ceiling; a frosted sticky navigation, where the app's system says no glassmorphism; and a display scale reaching 56px, where the app's ramp tops out at 32px. Outside those four, the app's rules bind here unchanged.",
+    "keyCharacteristics": [
+      "Border-first surfaces; hairline rules do the structural work that shadows do elsewhere",
+      "Asymmetric 12-column splits (5/7, 7/5, 6/6, 4/8) — never a row of identical tiles",
+      "Every figure in IBM Plex Mono with tabular numerals",
+      "Teal for authority, amber for attention, and nothing else saturated",
+      "One authored motion moment on the whole page; no scroll-reveal anywhere",
+      "Bilingual by construction: Burmese is a peer rendering, never a translation footnote"
+    ],
+    "rules": [
+      { "name": "The Seven-Hundred Rule", "body": "Text on a -100 tint uses the -700 step of its own family, never -600. This is measured, not assumed: on 2026-08-17 the old -600-on--100 pairs were found at 2.97 (warning), 3.62 (success), 4.08 (danger) and 4.23 (info) against a 4.5:1 floor. The -700 steps exist because of that measurement. Do not reintroduce the retired rule.", "section": "colors" },
+      { "name": "The Reserved Amber Rule", "body": "accent-500 means a human should look at this — a breached threshold, an approval waiting on someone. It is spent on one element per page. If a second amber appears, the first one has stopped meaning anything.", "section": "colors" },
+      { "name": "The Not-A-Text-Colour Rule", "body": "ink-400 is not a text colour on light grounds (2.77:1 on surface-50). Meta text is ink-600.", "section": "colors" },
+      { "name": "The Two-Field Rule", "body": "Full-bleed saturated colour is a marketing privilege and it is spent twice: once on the deep-teal sovereignty section, once on the ink-900 close. A third field would turn a structural beat into wallpaper, and none of it is permitted on app surfaces.", "section": "colors" },
+      { "name": "The Measure Rule", "body": "Body copy is capped at 68ch. The dominant claim on a full-bleed field runs shorter at 54ch, and rail body at 62ch, because a wide measure on a saturated ground is unreadable before it is ugly.", "section": "typography" },
+      { "name": "The Every-Figure-Is-Mono Rule", "body": "Any number a reader might check — a count, a percentage, a date, a score, an id — is IBM Plex Mono with font-variant-numeric: tabular-nums. Prose numbers that are merely rhetorical stay in Inter.", "section": "typography" },
+      { "name": "The Sentence-Case Rule", "body": "Sentence case everywhere. The system carries no ALL-CAPS role on this surface; the app's overline token is deliberately unused here.", "section": "typography" },
+      { "name": "The Burmese Peer Rule", "body": "Where English and Burmese render the same content they sit side by side as equals with equal weight and equal container, never primary-and-translation. Burmese text takes 1.75 line-height and must not clip at any width.", "section": "typography" },
+      { "name": "The One Lift Rule", "body": "shadow-lift exists to separate the hero record from the artifact dissolving behind it. A second element carrying it makes neither of them the subject.", "section": "elevation" },
+      { "name": "The Border-First Rule", "body": "If a surface needs definition, give it a line-200 border and a ground. Reach for a shadow only when something genuinely floats over scrolling content.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do take every token from packages/ui/tailwind-preset.js. This surface is a register of \"Clear Pipeline\", not a second identity; a colour that is not in the preset is a fork.",
+      "Do put -700 text on a -100 tint, from the same family (The Seven-Hundred Rule).",
+      "Do set every checkable figure in IBM Plex Mono with .tnum.",
+      "Do define surfaces with a 1px line-200 border and a ground change (The Border-First Rule).",
+      "Do split the 12-column grid asymmetrically, and differently in each section.",
+      "Do cap body copy at 68ch, 54ch for a dominant claim on a saturated field.",
+      "Do theme the browser's own surfaces — selection, caret, focus ring, scrollbar, underline-offset — to system values. Their defaults belong to no design system.",
+      "Do render Burmese and English as peers, at 1.75 line-height, and check both at every width.",
+      "Do draw icons (Lucide, or a hand-built SVG), and give every icon-only control a screen-reader label.",
+      "Do keep the page to one authored motion moment: the mask dissolve of the spreadsheet into the record, with node stamps staggered to 2150ms — the same moment re-arranged to run downward below 768px, not a second effect. Honour prefers-reduced-motion by collapsing all of it."
+    ],
+    "donts": [
+      "Don't spend amber twice on one page (The Reserved Amber Rule).",
+      "Don't use ink-400 as a text colour on a light ground.",
+      "Don't put a saturated colour field behind an app surface. The privilege is marketing-only, and even here it is spent exactly twice.",
+      "Don't use a backdrop filter anywhere but the sticky nav, where content genuinely scrolls beneath.",
+      "Don't add a scroll-reveal, a parallax, or a second animated moment. The page has one, on purpose.",
+      "Don't build a row of four identical tiles, or a centred headline above one.",
+      "Don't carry an ALL-CAPS eyebrow or kicker above a headline. Sections open on the headline itself; the only micro-labels are sentence-case labels inside a block, naming its contents.",
+      "Don't use a typographic glyph as an icon where a drawn icon belongs.",
+      "Don't invent a status label outside the backend enums.",
+      "Don't blur a value to imply it exists but is withheld — except in the deliberately labelled blind-panel demonstration, where the surrounding copy says what is hidden and why. In the product itself, withheld scores are counted, never blurred.",
+      "Don't stack a shadow on top of a border to manufacture depth."
+    ]
+  }
+}

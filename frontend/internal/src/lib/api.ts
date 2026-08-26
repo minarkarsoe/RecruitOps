@@ -21,10 +21,29 @@ import type {
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
 export class ApiError extends Error {
-  constructor(public readonly status: number, message: string) {
+  constructor(
+    public readonly status: number,
+    message: string,
+    /**
+     * Seconds from the `Retry-After` header, when the server sent one. Only a 429 does.
+     *
+     * Carried on the error because the header is the ONLY place the number exists — the
+     * login lockout's countdown (ADR-0016) is otherwise unrenderable, and a screen that
+     * invents "try again in a few minutes" is guessing at a value the server already knows.
+     */
+    public readonly retryAfterSeconds?: number
+  ) {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+/** `Retry-After` in seconds, or undefined. Only the delta-seconds form is used by this API. */
+function retryAfterSeconds(res: Response): number | undefined {
+  const raw = res.headers.get('Retry-After');
+  if (!raw) return undefined;
+  const seconds = Number.parseInt(raw, 10);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
 }
 
 let refreshPromise: Promise<LoginResponse | null> | null = null;
@@ -90,12 +109,19 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
 
   if (res.status === 401) {
+    // ⚠️ Not on the login endpoint. A 401 there means the credentials were wrong — the caller
+    // never had a session to expire — and telling someone who just mistyped their password
+    // that their session expired sends them looking for a problem that does not exist.
+    // ADR-0016: that 401 carries no body, so the copy is the page's to choose.
+    if (path === '/auth/login') {
+      throw new ApiError(401, 'Email or password is incorrect.');
+    }
     auth.clear();
     throw new ApiError(401, 'Your session has expired. Please sign in again.');
   }
 
   if (!res.ok) {
-    throw new ApiError(res.status, await readError(res));
+    throw new ApiError(res.status, await readError(res), retryAfterSeconds(res));
   }
 
   // 204 and empty bodies are valid successes.
@@ -141,12 +167,13 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
   }
 
   if (res.status === 401) {
+    // No login special-case here: uploads are multipart and sign-in never is.
     auth.clear();
     throw new ApiError(401, 'Your session has expired. Please sign in again.');
   }
 
   if (!res.ok) {
-    throw new ApiError(res.status, await readError(res));
+    throw new ApiError(res.status, await readError(res), retryAfterSeconds(res));
   }
 
   const text = await res.text();

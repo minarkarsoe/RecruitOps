@@ -48,10 +48,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ref={ref}
             id={selectId}
             disabled={disabled}
-            className={`h-10 w-full appearance-none rounded-sm border bg-surface-0 px-3 pr-8 text-[15px] text-ink-900 transition-colors focus:outline-none focus:ring-2 disabled:bg-surface-50 disabled:cursor-not-allowed ${
+            className={`h-9 w-full appearance-none rounded-md border bg-white px-3 pr-8 text-base text-ink-900 transition focus:outline-none focus:ring-2 disabled:bg-canvas disabled:text-ink-400 disabled:cursor-not-allowed ${
               error
-                ? 'border-danger-600 focus:border-danger-600 focus:ring-danger-600'
-                : 'border-line-200 focus:border-primary-600 focus:ring-primary-600'
+                ? 'border-critical-500 focus:border-critical-500 focus:ring-critical-500/20'
+                : 'border-line focus:border-brand-700 focus:ring-brand-700/20'
             } ${className}`}
             {...props}
           >
@@ -81,9 +81,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           </div>
         </div>
         {error ? (
-          <p className="mt-1.5 text-xs text-danger-600 font-medium">{error}</p>
+          <p className="mt-1.5 text-sm text-critical-700">{error}</p>
         ) : helperText ? (
-          <p className="mt-1.5 text-xs text-ink-600">{helperText}</p>
+          <p className="mt-1.5 text-sm text-ink-500">{helperText}</p>
         ) : null}
       </div>
     );

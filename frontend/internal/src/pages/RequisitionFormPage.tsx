@@ -80,7 +80,7 @@ export function RequisitionFormPage({ mode }: { mode: 'create' | 'edit' }) {
     }
   }
 
-  const field = 'h-10 w-full rounded-sm border border-line-200 px-3 focus:outline-none focus:ring-2 focus:ring-primary-600';
+  const field = 'h-10 w-full rounded-md border border-line px-3 focus:outline-none focus:ring-2 focus:ring-brand-700';
 
   if (loading) return <p className="text-ink-600">Loading…</p>;
 
@@ -88,21 +88,21 @@ export function RequisitionFormPage({ mode }: { mode: 'create' | 'edit' }) {
     <>
       <header className="mb-6">
         {isEdit && (
-          <Link to={`/requisitions/${id}`} className="mb-2 inline-block text-[13px] text-primary-600 hover:underline">
+          <Link to={`/requisitions/${id}`} className="mb-2 inline-block text-sm text-brand-700 hover:underline">
             ← Back to requisition
           </Link>
         )}
-        <h1 className="font-display text-2xl font-bold">
+        <h1 className="text-xl font-semibold tracking-tight">
           {isEdit ? 'Edit draft' : 'New requisition'}
         </h1>
       </header>
 
-      {error && <p role="alert" className="mb-4 text-[15px] text-danger-600">{error}</p>}
+      {error && <p role="alert" className="mb-4 text-md text-critical-700">{error}</p>}
 
       <Card>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label htmlFor="department" className="mb-1 block text-[13px] font-semibold">Department</label>
+            <label htmlFor="department" className="mb-1 block text-sm font-semibold">Department</label>
             <select
               id="department" required className={field} value={form.departmentId}
               onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
@@ -114,7 +114,7 @@ export function RequisitionFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
           {templates.length > 0 && (
             <div>
-              <label htmlFor="template" className="mb-1 block text-[13px] font-semibold">
+              <label htmlFor="template" className="mb-1 block text-sm font-semibold">
                 {isEdit ? 'Replace the JD from a template' : 'Start from a JD template'}{' '}
                 <span className="font-normal text-ink-400">(optional)</span>
               </label>
@@ -126,7 +126,7 @@ export function RequisitionFormPage({ mode }: { mode: 'create' | 'edit' }) {
           )}
 
           <div>
-            <label htmlFor="title" className="mb-1 block text-[13px] font-semibold">Position title</label>
+            <label htmlFor="title" className="mb-1 block text-sm font-semibold">Position title</label>
             <input
               id="title" required minLength={2} maxLength={200} className={field}
               value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -135,7 +135,7 @@ export function RequisitionFormPage({ mode }: { mode: 'create' | 'edit' }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="headcount" className="mb-1 block text-[13px] font-semibold">Headcount</label>
+              <label htmlFor="headcount" className="mb-1 block text-sm font-semibold">Headcount</label>
               <input
                 id="headcount" type="number" min={1} max={1000} required className={field}
                 value={form.headcount}
@@ -143,7 +143,7 @@ export function RequisitionFormPage({ mode }: { mode: 'create' | 'edit' }) {
               />
             </div>
             <div>
-              <label htmlFor="salary" className="mb-1 block text-[13px] font-semibold">
+              <label htmlFor="salary" className="mb-1 block text-sm font-semibold">
                 Salary budget <span className="font-normal text-ink-400">(optional)</span>
               </label>
               <input
@@ -157,10 +157,10 @@ export function RequisitionFormPage({ mode }: { mode: 'create' | 'edit' }) {
           </div>
 
           <div>
-            <label htmlFor="jd" className="mb-1 block text-[13px] font-semibold">Job description</label>
+            <label htmlFor="jd" className="mb-1 block text-sm font-semibold">Job description</label>
             <textarea
               id="jd" rows={8} required
-              className="w-full rounded-sm border border-line-200 p-3 focus:outline-none focus:ring-2 focus:ring-primary-600"
+              className="w-full rounded-md border border-line p-3 focus:outline-none focus:ring-2 focus:ring-brand-700"
               value={form.jobDescription}
               onChange={(e) => setForm({ ...form, jobDescription: e.target.value })}
             />

@@ -2,6 +2,13 @@ import { Breadcrumbs } from './Breadcrumbs';
 import { auth, hasPermission } from '../lib/auth';
 import { useNavigate } from 'react-router-dom';
 
+// Built against the top bar in `design/internal/board.html` (ADR-0025):
+// `h-14 bg-white border-b border-line`, place on the left, actions on the right.
+//
+// ⚠️ No user badge here any more. The kit puts identity in the nav rail's footer and nowhere
+// else — two avatars on one screen is two places to check who you are signed in as, and they
+// can disagree while a session is being replaced.
+
 interface HeaderProps {
   onOpenCommandPalette: () => void;
 }
@@ -12,75 +19,46 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
   const canCreateReq = hasPermission(session, 'permission:requisitions:requisitions:create');
 
   return (
-    <header className="h-14 border-b border-line-200 bg-surface-0 px-6 flex items-center justify-between gap-4 sticky top-0 z-20 shadow-xs">
-      {/* Left: Dynamic Route Breadcrumbs */}
-      <div className="flex items-center min-w-0">
+    <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-4 border-b border-line bg-white px-5">
+      <div className="flex min-w-0 items-center">
         <Breadcrumbs />
       </div>
 
-      {/* Right: Search / Command Palette trigger + Quick Info & Actions */}
-      <div className="flex items-center gap-3 shrink-0">
-        {/* Command Palette Search Trigger Button */}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         <button
           type="button"
           onClick={onOpenCommandPalette}
           aria-label="Search commands"
-          className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-line-200 bg-surface-50 hover:bg-surface-100 text-ink-500 hover:text-ink-900 text-xs transition-colors shadow-xs group"
+          className="flex h-8 items-center gap-2 rounded-md border border-line bg-canvas px-2.5 text-sm
+            text-ink-500 transition-colors hover:border-line-strong hover:text-ink-900 lg:w-56"
         >
-          <svg
-            className="h-3.5 w-3.5 text-ink-400 group-hover:text-ink-600 transition-colors"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
+          <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
+            <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
           </svg>
-          <span className="hidden sm:inline">Search or jump to...</span>
-          <kbd className="font-mono text-[10px] font-semibold text-ink-400 bg-surface-0 border border-line-200 px-1.5 py-0.5 rounded shadow-2xs">
+          <span className="hidden sm:inline">Search or jump to…</span>
+          {/* Auto margin, not a spacer: the label is hidden below `sm` and a fixed gap would
+              leave the shortcut floating in the middle of an otherwise empty control. */}
+          <kbd className="ml-auto hidden rounded border border-line bg-white px-1.5 py-0.5 font-mono text-2xs lg:inline">
             Ctrl+K
           </kbd>
         </button>
 
-        {/* Quick Action Button (if permitted) */}
         {canCreateReq && (
           <button
             type="button"
             onClick={() => navigate('/requisitions/new')}
-            className="hidden md:inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold shadow-xs transition-colors"
+            className="hidden h-9 items-center gap-1.5 rounded-md bg-brand-700 px-3.5 text-base font-medium
+              text-white transition-colors hover:bg-brand-800 active:bg-brand-900
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-700 focus-visible:ring-offset-2
+              md:inline-flex"
           >
-            <svg
-              className="h-3.5 w-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth="2.5"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
-            <span>New Requisition</span>
+            {/* The label names the outcome, not the verb — the kit's rule for every button. */}
+            New requisition
           </button>
-        )}
-
-        {/* User / Department Badge */}
-        {session && (
-          <div className="flex items-center gap-2 pl-2 border-l border-line-200 text-xs">
-            <div className="h-7 w-7 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs border border-primary-200">
-              {session.displayName ? session.displayName.charAt(0).toUpperCase() : 'U'}
-            </div>
-            <div className="hidden lg:block text-left">
-              <div className="font-semibold text-ink-900 leading-tight">
-                {session.displayName}
-              </div>
-              <div className="text-[11px] text-ink-400 leading-tight">
-                {session.role}
-              </div>
-            </div>
-          </div>
         )}
       </div>
     </header>

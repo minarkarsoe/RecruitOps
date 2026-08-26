@@ -22,7 +22,7 @@ export function Skeleton({
 
   return (
     <div
-      className={`animate-pulse bg-line-200/70 ${
+      className={`animate-pulse bg-line/70 ${
         circle ? 'rounded-full' : 'rounded-md'
       } ${className}`}
       style={customStyle}
@@ -70,7 +70,7 @@ export function SkeletonRow({
   className?: string;
 }) {
   return (
-    <div className={`flex items-center gap-4 py-3 border-b border-line-200 ${className}`}>
+    <div className={`flex items-center gap-4 py-3 border-b border-line ${className}`}>
       {Array.from({ length: columns }).map((_, i) => (
         <Skeleton key={i} height={20} className="flex-1" />
       ))}
@@ -80,7 +80,7 @@ export function SkeletonRow({
 
 export function SkeletonCard({ className = '' }: { className?: string }) {
   return (
-    <div className={`p-6 rounded-md border border-line-200 bg-surface-0 space-y-4 ${className}`}>
+    <div className={`p-6 rounded-md border border-line bg-white space-y-4 ${className}`}>
       <div className="flex items-center gap-3">
         <SkeletonAvatar size={40} />
         <div className="flex-1 space-y-2">

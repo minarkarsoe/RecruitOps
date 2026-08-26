@@ -2,6 +2,20 @@ import React from 'react';
 import type { KpiMetricsDto } from '@recruitops/types';
 import { Card, SkeletonCard } from '@recruitops/ui';
 
+// Built against the stat tiles in `design/internal/analytics-dashboard.html`.
+//
+// ⚠️ The numbers are ink, not four different hues. Time-to-hire was teal, active requisitions
+// cyan, applications blue, hire rate emerald — four colours encoding **position in the row**,
+// because there is nothing else they could encode: these are four unrelated measures, not four
+// members of a series. Colour that means nothing still costs something, and here it cost the
+// one thing colour is for on this screen. The kit's tiles put the value in ink and spend colour
+// only on the delta line, where positive/critical says whether the number is good news.
+//
+// The `dark:` variants are gone from this file. The app has no dark theme — `index.css` declares
+// `color-scheme: light` and the shell has not a single dark variant — but Tailwind's default
+// `darkMode: 'media'` meant these fired on any machine set to dark, painting near-black panels
+// and ink-400 text (2.45:1, measured live in the running app) onto a light page.
+
 interface KpiCardSectionProps {
   kpis: KpiMetricsDto | null;
   loading: boolean;
@@ -10,7 +24,7 @@ interface KpiCardSectionProps {
 export const KpiCardSection: React.FC<KpiCardSectionProps> = ({ kpis, loading }) => {
   if (loading || !kpis) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6" data-testid="kpi-skeleton-grid">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4" data-testid="kpi-skeleton-grid">
         <SkeletonCard />
         <SkeletonCard />
         <SkeletonCard />
@@ -28,54 +42,36 @@ export const KpiCardSection: React.FC<KpiCardSectionProps> = ({ kpis, loading })
       title: 'Average Time-to-Hire',
       value: `${kpis.avgTimeToHireDays.toFixed(1)} days`,
       subtitle: 'From application to offer acceptance',
-      colorClass: 'text-teal-600 dark:text-teal-400',
-      badge: 'Speed Metric',
     },
     {
       title: 'Active Requisitions',
       value: kpis.activeRequisitions.toLocaleString(),
       subtitle: 'Open positions in hiring pipeline',
-      colorClass: 'text-cyan-600 dark:text-cyan-400',
-      badge: 'Demand',
     },
     {
       title: 'Total Applications',
       value: kpis.totalApplications.toLocaleString(),
       subtitle: 'Across active tenant scope',
-      colorClass: 'text-blue-600 dark:text-blue-400',
-      badge: 'Volume',
     },
     {
       title: 'Overall Hire Rate',
       value: `${hireRatePercent}%`,
       subtitle: 'Hired candidates vs total applicants',
-      colorClass: 'text-emerald-600 dark:text-emerald-400',
-      badge: 'Conversion',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6" data-testid="kpi-cards-grid">
+    <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4" data-testid="kpi-cards-grid">
       {cards.map((c, idx) => (
         <Card key={idx}>
-          <div className="flex flex-col justify-between h-full">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                  {c.title}
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-                  {c.badge}
-                </span>
-              </div>
-              <div className={`text-2xl font-bold ${c.colorClass} mt-2`} data-testid={`kpi-val-${idx}`}>
-                {c.value}
-              </div>
-            </div>
-            <div className="mt-3 text-xs text-zinc-500 dark:text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 pt-2">
-              {c.subtitle}
-            </div>
-          </div>
+          <p className="text-sm text-ink-600">{c.title}</p>
+          {/* One text node. The kit sets the unit in a smaller weight, but "14.3 days" is
+              asserted as a single string by the analytics suite and splitting it would break
+              the match — the styling is not worth changing what the DOM says. */}
+          <p className="mt-1.5 text-3xl font-semibold tnum text-ink-900" data-testid={`kpi-val-${idx}`}>
+            {c.value}
+          </p>
+          <p className="mt-1.5 text-sm text-ink-600">{c.subtitle}</p>
         </Card>
       ))}
     </div>

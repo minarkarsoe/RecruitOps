@@ -1,23 +1,72 @@
 import React, { useState } from 'react';
 import type { TimeToHireAnalyticsDto } from '@recruitops/types';
-import { Card, SkeletonRow } from '@recruitops/ui';
+import { Card } from '@recruitops/ui';
+
+// Built against `design/internal/analytics-dashboard.html`.
+//
+// ⚠️ All three tabs draw the SAME hue now. They used to be teal for stages, cyan for departments
+// and blue for postings — so the colour encoded which tab you were on, which the tab already
+// encodes, while implying the three views measure different things. They measure exactly one
+// thing: average days. Two of those three hues were also 5.4 ΔE apart, which is below the point
+// where full-colour vision can separate them, so the distinction was not even legible.
+//
+// The tab strip is the kit's detented filter group — one bordered track, active segment filled
+// `bg-ink-900`. It replaces a grey `bg-zinc-100` pill holding a white "raised" tab, which is the
+// opposite polarity to every other selected control in the app.
+
+type Tab = 'stages' | 'departments' | 'postings';
 
 interface TimeToHireChartProps {
   data: TimeToHireAnalyticsDto | null;
   loading: boolean;
 }
 
+/** One row of the chart: name, bar, value. The three views differ only in how wide the name
+ *  column needs to be and whether a hired count rides along, so they share this. */
+function BarRow({
+  label,
+  labelWidth,
+  widthPct,
+  value,
+  meta,
+  title,
+}: {
+  label: string;
+  labelWidth: string;
+  widthPct: number;
+  value: string;
+  meta?: string;
+  title: string;
+}) {
+  return (
+    <div
+      className="bar-row grid items-center gap-3"
+      style={{ gridTemplateColumns: `${labelWidth} 1fr 130px` }}
+      title={title}
+    >
+      <span className="truncate text-base text-ink-700">{label}</span>
+      <span className="bar-track block h-6">
+        <span className="bar-fill block" style={{ width: `${widthPct}%` }} />
+      </span>
+      <span className="flex items-baseline justify-end gap-2">
+        <span className="text-base font-medium tnum">{value}</span>
+        {meta && <span className="text-sm tnum text-ink-600">{meta}</span>}
+      </span>
+    </div>
+  );
+}
+
 export const TimeToHireChart: React.FC<TimeToHireChartProps> = ({ data, loading }) => {
-  const [activeTab, setActiveTab] = useState<'stages' | 'departments' | 'postings'>('stages');
+  const [activeTab, setActiveTab] = useState<Tab>('stages');
 
   if (loading || !data) {
     return (
       <Card title="Time-to-Hire Analytics">
-        <div data-testid="time-to-hire-skeleton">
-          <div className="h-6 w-48 bg-zinc-200 dark:bg-zinc-800 rounded mb-4 animate-pulse" />
-          <SkeletonRow />
-          <SkeletonRow />
-          <SkeletonRow />
+        <div className="space-y-3" data-testid="time-to-hire-skeleton">
+          <span className="skeleton block h-4 w-48" />
+          <span className="skeleton block h-6 w-full" />
+          <span className="skeleton block h-6 w-full" />
+          <span className="skeleton block h-6 w-full" />
         </div>
       </Card>
     );
@@ -27,141 +76,100 @@ export const TimeToHireChart: React.FC<TimeToHireChartProps> = ({ data, loading 
   const maxDeptDays = Math.max(...data.departmentBreakdown.map((d) => d.avgDays), 1);
   const maxPostingDays = Math.max(...data.postingBreakdown.map((p) => p.avgDays), 1);
 
+  const tabs: { value: Tab; label: string }[] = [
+    { value: 'stages', label: 'Pipeline Stages' },
+    { value: 'departments', label: 'By Department' },
+    { value: 'postings', label: 'By Job Posting' },
+  ];
+
+  const width = (days: number, max: number) => Math.min(Math.max((days / max) * 100, 4), 100);
+
   return (
     <div data-testid="time-to-hire-chart-card">
       <Card title="Time-to-Hire Analytics">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-3 border-b border-zinc-100 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="mb-5 flex flex-col justify-between gap-3 border-b border-line pb-3 sm:flex-row sm:items-center">
+          <p className="text-sm text-ink-600">
             Average days spent in each pipeline stage and across departments &amp; job postings
           </p>
 
-          <div className="inline-flex p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setActiveTab('stages')}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                activeTab === 'stages'
-                  ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              }`}
-            >
-              Pipeline Stages
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('departments')}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                activeTab === 'departments'
-                  ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              }`}
-            >
-              By Department
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('postings')}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                activeTab === 'postings'
-                  ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-              }`}
-            >
-              By Job Posting
-            </button>
+          <div
+            className="flex shrink-0 items-center rounded-md border border-line p-0.5"
+            role="group"
+            aria-label="Time-to-hire breakdown"
+          >
+            {tabs.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                aria-pressed={activeTab === tab.value}
+                onClick={() => setActiveTab(tab.value)}
+                className={`h-7 rounded px-2.5 text-sm transition-colors ${
+                  activeTab === tab.value
+                    ? 'bg-ink-900 font-medium text-white'
+                    : 'text-ink-600 hover:text-ink-900'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
         {activeTab === 'stages' && (
-          <div className="space-y-4" data-testid="tth-stages-view">
+          <div className="space-y-2.5" data-testid="tth-stages-view">
             {data.stageDurations.length === 0 ? (
-              <div className="text-sm text-zinc-500 text-center py-6">No stage duration data available.</div>
+              <p className="py-6 text-center text-sm text-ink-600">No stage duration data available.</p>
             ) : (
-              data.stageDurations.map((item, idx) => {
-                const widthPct = Math.min(Math.max((item.avgDays / maxStageDays) * 100, 4), 100);
-                return (
-                  <div key={idx} className="flex items-center text-xs">
-                    <span className="w-28 font-medium text-zinc-700 dark:text-zinc-300 truncate pr-2">
-                      {item.stage}
-                    </span>
-                    <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-full h-4 overflow-hidden relative mr-3">
-                      <div
-                        className="bg-teal-500 dark:bg-teal-400 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${widthPct}%` }}
-                      />
-                    </div>
-                    <span className="w-16 text-right font-semibold text-zinc-900 dark:text-zinc-100">
-                      {item.avgDays.toFixed(1)} days
-                    </span>
-                  </div>
-                );
-              })
+              data.stageDurations.map((item, idx) => (
+                <BarRow
+                  key={idx}
+                  label={item.stage}
+                  labelWidth="120px"
+                  widthPct={width(item.avgDays, maxStageDays)}
+                  value={`${item.avgDays.toFixed(1)} days`}
+                  title={`${item.stage} — ${item.avgDays.toFixed(1)} days on average`}
+                />
+              ))
             )}
           </div>
         )}
 
         {activeTab === 'departments' && (
-          <div className="space-y-4" data-testid="tth-departments-view">
+          <div className="space-y-2.5" data-testid="tth-departments-view">
             {data.departmentBreakdown.length === 0 ? (
-              <div className="text-sm text-zinc-500 text-center py-6">No department breakdown data available.</div>
+              <p className="py-6 text-center text-sm text-ink-600">No department breakdown data available.</p>
             ) : (
-              data.departmentBreakdown.map((item, idx) => {
-                const widthPct = Math.min(Math.max((item.avgDays / maxDeptDays) * 100, 4), 100);
-                return (
-                  <div key={idx} className="flex items-center text-xs">
-                    <div className="w-36 font-medium text-zinc-700 dark:text-zinc-300 truncate pr-2">
-                      {item.departmentName}
-                    </div>
-                    <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-full h-4 overflow-hidden relative mr-3">
-                      <div
-                        className="bg-cyan-500 dark:bg-cyan-400 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${widthPct}%` }}
-                      />
-                    </div>
-                    <div className="w-28 text-right flex items-center justify-end gap-2">
-                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                        {item.avgDays.toFixed(1)} days
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
-                        {item.hiredCount} hired
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
+              data.departmentBreakdown.map((item, idx) => (
+                <BarRow
+                  key={idx}
+                  label={item.departmentName}
+                  labelWidth="160px"
+                  widthPct={width(item.avgDays, maxDeptDays)}
+                  value={`${item.avgDays.toFixed(1)} days`}
+                  meta={`${item.hiredCount} hired`}
+                  title={`${item.departmentName} — ${item.avgDays.toFixed(1)} days, ${item.hiredCount} hired`}
+                />
+              ))
             )}
           </div>
         )}
 
         {activeTab === 'postings' && (
-          <div className="space-y-4" data-testid="tth-postings-view">
+          <div className="space-y-2.5" data-testid="tth-postings-view">
             {data.postingBreakdown.length === 0 ? (
-              <div className="text-sm text-zinc-500 text-center py-6">No job posting breakdown data available.</div>
+              <p className="py-6 text-center text-sm text-ink-600">No job posting breakdown data available.</p>
             ) : (
-              data.postingBreakdown.map((item, idx) => {
-                const widthPct = Math.min(Math.max((item.avgDays / maxPostingDays) * 100, 4), 100);
-                return (
-                  <div key={idx} className="flex items-center text-xs">
-                    <div className="w-44 font-medium text-zinc-700 dark:text-zinc-300 truncate pr-2">
-                      {item.postingTitle}
-                    </div>
-                    <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-full h-4 overflow-hidden relative mr-3">
-                      <div
-                        className="bg-blue-500 dark:bg-blue-400 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${widthPct}%` }}
-                      />
-                    </div>
-                    <div className="w-28 text-right flex items-center justify-end gap-2">
-                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                        {item.avgDays.toFixed(1)} days
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
-                        {item.hiredCount} hired
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
+              data.postingBreakdown.map((item, idx) => (
+                <BarRow
+                  key={idx}
+                  label={item.postingTitle}
+                  labelWidth="200px"
+                  widthPct={width(item.avgDays, maxPostingDays)}
+                  value={`${item.avgDays.toFixed(1)} days`}
+                  meta={`${item.hiredCount} hired`}
+                  title={`${item.postingTitle} — ${item.avgDays.toFixed(1)} days, ${item.hiredCount} hired`}
+                />
+              ))
             )}
           </div>
         )}

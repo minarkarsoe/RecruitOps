@@ -19,8 +19,8 @@ export function Table<T = any>({
 }: TableProps<T>) {
   if (headers && data && renderRow) {
     return (
-      <div className="w-full overflow-x-auto border border-line-200 rounded-md bg-surface-0">
-        <table className={`w-full text-left text-sm text-ink-900 border-collapse ${className}`} {...props}>
+      <div className="w-full overflow-x-auto overflow-hidden rounded-lg border border-line bg-white">
+        <table className={`w-full border-collapse text-left text-base text-ink-900 ${className}`} {...props}>
           <TableHeader>
             <TableRow hoverable={false}>
               {headers.map((header, idx) => (
@@ -33,7 +33,7 @@ export function Table<T = any>({
           <TableBody>
             {data.length === 0 ? (
               <TableRow hoverable={false}>
-                <TableCell colSpan={headers.length} className="text-center text-ink-400 py-8">
+                <TableCell colSpan={headers.length} className="py-8 text-center text-ink-500">
                   No data available
                 </TableCell>
               </TableRow>
@@ -47,8 +47,8 @@ export function Table<T = any>({
   }
 
   return (
-    <div className="w-full overflow-x-auto border border-line-200 rounded-md bg-surface-0">
-      <table className={`w-full text-left text-sm text-ink-900 border-collapse ${className}`} {...props}>
+    <div className="w-full overflow-x-auto overflow-hidden rounded-lg border border-line bg-white">
+      <table className={`w-full border-collapse text-left text-base text-ink-900 ${className}`} {...props}>
         {children}
       </table>
     </div>
@@ -61,7 +61,7 @@ export function TableHeader({
   ...props
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <thead className={`bg-surface-50 border-b border-line-200 ${className}`} {...props}>
+    <thead className={`bg-canvas border-b border-line ${className}`} {...props}>
       {children}
     </thead>
   );
@@ -73,7 +73,7 @@ export function TableBody({
   ...props
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <tbody className={`divide-y divide-line-200 bg-surface-0 ${className}`} {...props}>
+    <tbody className={`bg-white ${className}`} {...props}>
       {children}
     </tbody>
   );
@@ -85,7 +85,7 @@ export function TableFooter({
   ...props
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <tfoot className={`bg-surface-50 border-t border-line-200 font-medium ${className}`} {...props}>
+    <tfoot className={`bg-canvas border-t border-line font-medium ${className}`} {...props}>
       {children}
     </tfoot>
   );
@@ -105,8 +105,8 @@ export function TableRow({
 }: TableRowProps) {
   return (
     <tr
-      className={`border-b border-line-200 transition-colors ${
-        selected ? 'bg-primary-100/50' : hoverable ? 'hover:bg-surface-50' : ''
+      className={`border-b border-line transition-colors ${
+        selected ? 'bg-brand-50/60' : hoverable ? 'hover:bg-canvas' : ''
       } ${className}`}
       {...props}
     >
@@ -127,8 +127,8 @@ export function TableHead({
 }: TableHeadProps) {
   return (
     <th
-      className={`font-semibold uppercase tracking-wider text-[11px] text-ink-600 align-middle ${
-        dense ? 'px-3 py-2' : 'px-4 py-3'
+      className={`align-middle text-sm font-medium text-ink-600 ${
+        dense ? 'px-3 py-2' : 'px-4 py-2.5'
       } ${className}`}
       {...props}
     >
@@ -149,8 +149,8 @@ export function TableCell({
 }: TableCellProps) {
   return (
     <td
-      className={`align-middle text-sm text-ink-900 ${
-        dense ? 'px-3 py-2.5' : 'px-4 py-3.5'
+      className={`align-middle text-base text-ink-900 ${
+        dense ? 'px-3 py-2' : 'px-4 py-3'
       } ${className}`}
       {...props}
     >
@@ -165,7 +165,7 @@ export function TableCaption({
   ...props
 }: React.HTMLAttributes<HTMLTableCaptionElement>) {
   return (
-    <caption className={`mt-4 text-xs text-ink-400 ${className}`} {...props}>
+    <caption className={`mt-4 text-sm text-ink-500 ${className}`} {...props}>
       {children}
     </caption>
   );

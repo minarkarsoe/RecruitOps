@@ -963,6 +963,57 @@ export interface SearchResponse {
   totalPages: number;
 }
 
+// ---------------------------------------------------------------------------
+// Delivery log — the read side of the outbox (ADR-0026).
+//
+// Mirrors `DeliveryLogEntryDto`. ⚠️ There is no `payloadJson` here and there must not be: the
+// payload holds render inputs and, for an offer, a salary, and this list is read by a Hiring
+// Manager. `DeliveryLogTests.The_Payload_Never_Crosses_The_Wire` asserts on the raw response body
+// so that adding it to either side fails on the server rather than shipping.
+// ---------------------------------------------------------------------------
+
+export type OutboundMessageKind =
+  | 'InterviewInvitation'
+  | 'OfferSent'
+  | 'OfferReminder'
+  | 'PreboardingHandoff'
+  | 'ScheduledReport'
+  | 'ChannelNotification';
+
+/** `Suppressed` is a **correct outcome, not an error** — an opt-out honoured, or a message that
+ *  became irrelevant before it was sent. The UI must not colour it red: rendering an honoured
+ *  opt-out as a failure teaches recruiters to ignore the failure colour (ADR-0026). */
+export type OutboundMessageStatus = 'Pending' | 'Sent' | 'Failed' | 'Suppressed';
+
+export interface DeliveryLogEntry {
+  id: string;
+  kind: OutboundMessageKind | string;
+  /** Resolved server-side so the log and its filter cannot end up with two names for one kind. */
+  kindLabel: string;
+  channel: string;
+  recipient: string;
+  candidateName: string | null;
+  subjectType: string | null;
+  subjectId: string | null;
+  status: OutboundMessageStatus | string;
+  attempts: number;
+  /** Null on terminal rows — a `Failed` message is not waiting for anything. */
+  nextAttemptAt: string | null;
+  /** Written for a recruiter, not for a log file. Shown verbatim under the status. */
+  lastError: string | null;
+  sentAt: string | null;
+  createdAt: string;
+}
+
+export interface DeliveryLogQuery {
+  status?: OutboundMessageStatus;
+  kind?: OutboundMessageKind;
+  subjectType?: string;
+  subjectId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export * from './version';
 
 

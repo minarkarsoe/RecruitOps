@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Application form</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../internal/ds.js"></script>
+<link rel="stylesheet" href="../internal/ds.css" />
+</head>
+<body class="bg-canvas text-ink-900">
+
+<!--
+  MODULE 2.2 — THE APPLICATION FORM behind the shareable link.
+
+  What is actually happening when Submit is pressed, and what the design owes each part:
+
+  · The answers are REBUILT FROM THE SCHEMA, never stored as submitted. The schema
+    comes from a recruiter and the answers from an anonymous stranger, and both
+    paths share Domain/ApplicationFormSchema so they cannot disagree about what a
+    field means. So every control here has to correspond to one of the six real
+    field types — a clever composite input would have nowhere to land.
+
+  · DUPLICATE DETECTION RUNS ON THE PHONE AND EMAIL. A match attaches this
+    application to the existing candidate, filling blank fields and never
+    overwriting filled ones. The candidate is never told they were recognised:
+    that would confirm to a stranger which phone numbers are in the database.
+
+  · STAGE HISTORY IS WRITTEN FROM ARRIVAL, with nobody logged in. Module 5's charts
+    are built on those rows and cannot be reconstructed later.
+
+  Phone-first: 44px targets, one column, and as few fields as the posting allows.
+  This form is filled in on mobile data, standing up, on a phone with a cracked screen.
+-->
+
+<div class="min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-line">
+    <div class="max-w-[560px] mx-auto px-5 h-14 flex items-center gap-3">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true" class="shrink-0">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight truncate">Yoma Commercial Bank</span>
+      <div class="ml-auto flex items-center rounded-md border border-line p-0.5 shrink-0">
+        <button class="h-8 px-3 rounded text-sm font-medium bg-ink-900 text-white">EN</button>
+        <button class="h-8 px-3 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors mm">မြန်မာ</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+    <div class="max-w-[560px] mx-auto px-5 py-8">
+
+      <p class="text-sm text-ink-600">Applying for</p>
+      <h1 class="mt-1 text-2xl font-bold tracking-tight">Collections Officer (Field) — Yangon</h1>
+
+      <form class="mt-7 space-y-6">
+
+        <!-- Always-collected block -->
+        <div class="space-y-5">
+          <div>
+            <label for="a-name" class="block text-base font-medium">Full name <span class="text-critical-500">*</span></label>
+            <input id="a-name" class="mt-2 w-full h-12 px-3.5 rounded-md border border-line bg-white text-md outline-none focus:border-brand-700 transition-colors" />
+          </div>
+
+          <div>
+            <label for="a-phone" class="block text-base font-medium">Phone number <span class="text-critical-500">*</span></label>
+            <input id="a-phone" type="tel" inputmode="numeric" placeholder="09" class="mt-2 w-full h-12 px-3.5 rounded-md border border-line bg-white text-md tnum placeholder:text-ink-400 outline-none focus:border-brand-700 transition-colors" />
+            <p class="mt-1.5 text-sm text-ink-600">This is how we will reach you. Viber on this number is fine.</p>
+          </div>
+
+          <div>
+            <label for="a-email" class="block text-base font-medium">Email</label>
+            <input id="a-email" type="email" class="mt-2 w-full h-12 px-3.5 rounded-md border border-line bg-white text-md outline-none focus:border-brand-700 transition-colors" />
+            <p class="mt-1.5 text-sm text-ink-600">Optional. Leave it blank if you do not use email.</p>
+          </div>
+
+          <div>
+            <span class="block text-base font-medium">Your CV <span class="text-critical-500">*</span></span>
+            <div class="mt-2 rounded-md border-2 border-dashed border-line-strong px-4 py-7 text-center">
+              <svg class="w-7 h-7 text-ink-400 mx-auto" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V5M8 9l4-4 4 4M4 19h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <p class="mt-2.5 text-base font-medium">Choose a file or take a photo</p>
+              <p class="mt-1 text-sm text-ink-600">PDF, Word, or a clear photo of your CV</p>
+              <button type="button" class="mt-3.5 h-11 px-4 rounded-md border border-line bg-white hover:border-line-strong text-base font-medium transition-colors">Choose file</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Custom fields from the posting's schema -->
+        <div class="pt-2 border-t border-line space-y-5">
+          <div>
+            <label for="a-salary" class="block text-base font-medium">Expected salary (MMK) <span class="text-critical-500">*</span></label>
+            <input id="a-salary" inputmode="numeric" class="mt-2 w-full h-12 px-3.5 rounded-md border border-line bg-white text-md font-mono tnum outline-none focus:border-brand-700 transition-colors" />
+          </div>
+
+          <div>
+            <label for="a-start" class="block text-base font-medium">Earliest start date</label>
+            <input id="a-start" type="date" class="mt-2 w-full h-12 px-3.5 rounded-md border border-line bg-white text-md tnum outline-none focus:border-brand-700 transition-colors" />
+          </div>
+
+          <div>
+            <span class="block text-base font-medium">Do you hold a motorbike licence? <span class="text-critical-500">*</span></span>
+            <div class="mt-2 flex items-center rounded-md border border-line p-0.5 w-full max-w-[220px]">
+              <button type="button" class="flex-1 h-11 rounded text-base font-medium bg-ink-900 text-white">Yes</button>
+              <button type="button" class="flex-1 h-11 rounded text-base text-ink-600 hover:text-ink-900 transition-colors">No</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-line">
+          <label class="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" class="w-5 h-5 rounded border-line-strong accent-[#0F766E] mt-0.5 shrink-0" />
+            <span class="text-base text-ink-700">
+              Keep my details on file so you can tell me about other positions. I can ask you to remove
+              them at any time.
+            </span>
+          </label>
+        </div>
+
+        <button type="button" class="w-full h-12 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-md font-medium transition-colors">
+          Send application
+        </button>
+
+        <p class="text-sm text-ink-600 text-center">
+          Your application goes to Yoma Commercial Bank's own recruitment team.
+        </p>
+      </form>
+
+    </div>
+  </main>
+</div>
+
+<!-- ==================== DESIGN NOTES (kit chrome, never ships) ==================== -->
+<div class="border-t-2 border-line bg-canvas">
+  <div class="max-w-[980px] mx-auto px-5 py-8">
+    <p class="spec-label">design/public/apply.html</p>
+    <h2 class="mt-1.5 text-2xl font-semibold tracking-tight">The other states</h2>
+
+    <div class="mt-5 grid lg:grid-cols-3 gap-5 items-start">
+
+      <!-- Validation -->
+      <div>
+        <p class="spec-label">Rejected on submit</p>
+        <div class="mt-2 rounded-lg border border-line bg-white p-5">
+          <div role="alert" class="rounded-md border border-critical-100 bg-critical-50 px-3.5 py-3">
+            <p class="text-base font-medium text-critical-700">Two things need fixing</p>
+            <ul class="mt-1.5 space-y-1 text-sm text-critical-700">
+              <li>· Phone number — we need 9 digits after 09</li>
+              <li>· Your CV — please attach a file</li>
+            </ul>
+          </div>
+          <div class="mt-4">
+            <label class="block text-base font-medium">Phone number <span class="text-critical-500">*</span></label>
+            <input value="09771" class="mt-2 w-full h-12 px-3.5 rounded-md border-2 border-critical-500 bg-white text-md tnum outline-none" />
+            <p class="mt-1.5 text-sm text-critical-700">We need 9 digits after 09.</p>
+          </div>
+        </div>
+        <p class="mt-2.5 text-sm text-ink-600">
+          A summary at the top <em>and</em> the message on the field. On a phone the failing field is
+          often below the fold, and a lone red border the applicant cannot see reads as a broken
+          button. Errors say what to do, not what is invalid.
+        </p>
+      </div>
+
+      <!-- Sending -->
+      <div>
+        <p class="spec-label">Sending, on a bad connection</p>
+        <div class="mt-2 rounded-lg border border-line bg-white p-5">
+          <div class="rounded-md border border-line bg-canvas px-3.5 py-3">
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-base font-medium">Sending your CV</p>
+              <p class="font-mono text-sm tnum text-ink-600">1.2 / 2.4 MB</p>
+            </div>
+            <div class="mt-2 h-2 rounded-full bg-white border border-line overflow-hidden">
+              <div class="h-full bg-brand-600" style="width:50%"></div>
+            </div>
+            <p class="mt-2 text-sm text-ink-600">Keep this page open. It will finish on a slow connection.</p>
+          </div>
+          <button disabled class="mt-4 w-full h-12 rounded-md bg-brand-700 text-white text-md font-medium inline-flex items-center justify-center gap-2 cursor-wait">
+            <svg class="w-4 h-4 animate-spin" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-opacity=".3" stroke-width="1.8"/>
+              <path d="M14.2 8A6.2 6.2 0 0 0 8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            Sending…
+          </button>
+        </div>
+        <p class="mt-2.5 text-sm text-ink-600">
+          Bytes, not a percentage guess. A CV photo taken on a phone is often several megabytes over a
+          mobile connection, and the honest answer to “is it stuck?” is a number that keeps moving.
+        </p>
+      </div>
+
+      <!-- Success -->
+      <div>
+        <p class="spec-label">Sent</p>
+        <div class="mt-2 rounded-lg border border-line bg-white p-5 text-center">
+          <div class="w-12 h-12 rounded-full bg-positive-100 grid place-items-center mx-auto">
+            <svg class="w-6 h-6 text-positive-700" viewBox="0 0 24 24" fill="none"><path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3 class="mt-4 text-xl font-semibold tracking-tight">Application sent</h3>
+          <p class="mt-2 text-base text-ink-600">
+            We have your application for Collections Officer (Field). Our recruitment team reads every
+            one, and we will contact you on <span class="font-medium text-ink-900 tnum">09-77xxxxxx</span>.
+          </p>
+          <div class="mt-4 rounded-md border border-line bg-canvas px-3.5 py-3 text-left">
+            <p class="text-sm font-medium">Your reference</p>
+            <p class="mt-0.5 font-mono text-base tnum">APP-7K3M9Q</p>
+            <p class="mt-1.5 text-sm text-ink-600">Screenshot this. Quote it if you contact us.</p>
+          </div>
+          <a href="jobs.html" class="mt-4 inline-flex items-center h-11 px-4 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">See other positions</a>
+        </div>
+        <p class="mt-2.5 text-sm text-ink-600">
+          A reference number, because “we'll be in touch” with nothing to hold is how a candidate ends
+          up phoning the branch. It is short enough to read over the phone and carries no sequence.
+        </p>
+      </div>
+    </div>
+
+    <!-- Recognised -->
+    <div class="mt-8 grid lg:grid-cols-2 gap-6 items-start">
+      <div>
+        <p class="spec-label">Already applied to this exact position</p>
+        <div class="mt-2 rounded-lg border border-line bg-white p-5 text-center">
+          <div class="w-12 h-12 rounded-full bg-canvas border border-line grid place-items-center mx-auto">
+            <svg class="w-6 h-6 text-ink-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/><path d="M12 7.5v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </div>
+          <h3 class="mt-4 text-xl font-semibold tracking-tight">You already applied for this one</h3>
+          <p class="mt-2 text-base text-ink-600 max-w-[44ch] mx-auto">
+            We received your application for Collections Officer (Field) on 14 August and it is with our
+            recruitment team. There is nothing more you need to do.
+          </p>
+          <a href="jobs.html" class="mt-4 inline-flex items-center h-11 px-4 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">See other positions</a>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="rounded-lg border border-line bg-white p-5">
+          <p class="text-base font-semibold">This is the only duplicate the candidate is told about</p>
+          <p class="mt-1.5 text-sm text-ink-600 max-w-[70ch]">
+            Applying twice to the <em>same</em> posting is something they did and can verify, so
+            telling them is helpful and reveals nothing. Everything else stays silent: if their phone
+            number matches a candidate from a different job two years ago, the application is quietly
+            attached to that record and the page says nothing. Saying “welcome back” would confirm to
+            anyone typing phone numbers into this form which ones are in the database.
+          </p>
+        </div>
+        <div class="rounded-lg border border-line bg-white p-5">
+          <p class="text-base font-semibold">Blank fields fill in; filled fields never get overwritten</p>
+          <p class="mt-1.5 text-sm text-ink-600 max-w-[70ch]">
+            If the older record has no email and this form supplies one, it is added. If it has a
+            different email, the older one stands and this one is not silently replaced — a recruiter
+            resolves that, because an anonymous form is not allowed to edit an existing person's
+            contact details.
+          </p>
+        </div>
+        <div class="rounded-lg border border-line bg-white p-5">
+          <p class="text-base font-semibold">Zawgyi is fixed here, not later</p>
+          <p class="mt-1.5 text-sm text-ink-600 max-w-[70ch]">
+            A name typed on a Zawgyi keyboard is normalised to Unicode as it arrives. If it were
+            stored raw, this candidate would be invisible to every Burmese search from that day on —
+            and nobody would ever notice, because a search that finds nothing looks like a search with
+            no matches.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-8 grid md:grid-cols-2 gap-4">
+      <div class="rounded-lg border border-line bg-white p-5">
+        <p class="text-base font-semibold">Email is optional, phone is not</p>
+        <p class="mt-1.5 text-sm text-ink-600">
+          The reverse of the usual web form, and correct for this market: a field-role applicant may
+          have no email address in daily use but certainly has a phone with Viber. Making email
+          required would filter out exactly the candidates this posting is looking for.
+        </p>
+      </div>
+      <div class="rounded-lg border border-line bg-white p-5">
+        <p class="text-base font-semibold">Three custom fields, because the recruiter chose three</p>
+        <p class="mt-1.5 text-sm text-ink-600">
+          The block under the divider is rendered from this posting's schema. Twenty are allowed; every
+          one is a reason to abandon the form on a phone. The builder shows “3 of 20 used” rather than
+          an empty allowance inviting someone to fill it.
+        </p>
+      </div>
+    </div>
+
+    <p class="mt-6"><a href="../internal/index.html" class="text-base font-medium text-brand-700 hover:text-brand-800">← All screens</a></p>
+  </div>
+</div>
+
+</body>
+</html>

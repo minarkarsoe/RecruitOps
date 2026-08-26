@@ -25,6 +25,8 @@ Server specifications scale with company headcount, volume of active requisition
 ### 2.2 Local CV Text Extraction Load
 - PDF and DOCX text parsing runs locally in-process with zero network latency.
 - CPU spikes up to 80% during bulk upload batches (50+ CVs). Medium and Enterprise tiers should size vCPU accordingly.
+- **Bulk upload no longer holds the CVs in application memory** (ADR-0026, 2026-08-21). It used to keep every file of every in-flight batch in a static dictionary — 50 files × several MB × concurrent uploads — which this guide never accounted for. The bytes now go to object storage on the way in, and the worker holds one file at a time, so peak API memory is set by the *upload request* rather than by the batch. Size object storage for it instead: a failed CV's bytes are deleted, a successful one becomes that application's résumé and stays.
+- **The bulk worker is single-threaded by design.** `BulkResume:BatchSize` (default 5) files per pass, sequential — extraction is CPU-bound and local (ADR-0008), so parallelising it competes with the API for the same cores. Raise it only alongside vCPU, and keep `BatchSize × slowest-extraction` well inside `BulkResume:VisibilityTimeout` or the same CV is parsed twice.
 
 ### 2.3 Object Storage (MinIO / Cloudflare R2)
 - Attachment Storage: ~500 KB per uploaded candidate resume.

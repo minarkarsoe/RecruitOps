@@ -186,7 +186,9 @@ describe('Empirical Challenge: Milestone 2 Debounce, AbortController & Keyboard 
       // Category display order in UI: 1. Quick Actions (Item 3), 2. Navigation (Item 1, Item 2)
       // Visual rendering assigns currentIndex = 0 to Item 3.
       // So when selectedIndex = 0, the DOM highlights Item 3 (Quick Actions).
-      const highlightedEl = container.querySelector('.bg-primary-100\\/70');
+      // Selected-row tint in CommandPalette. `brand` since ADR-0025 (was `primary`).
+      const highlightedEl = container.querySelector('.bg-brand-100\\/70');
+      expect(highlightedEl).not.toBeNull();
       expect(highlightedEl?.textContent).toContain('Item 3');
 
       // Pressing Enter executes allCombinedItems[0], which MUST be Item 3 (Quick Actions)!

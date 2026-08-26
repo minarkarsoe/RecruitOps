@@ -1,0 +1,101 @@
+/* ===========================================================================
+   RecruitOps internal app — base styles and the few things utilities can't do.
+   Pairs with ds.js. See ADR-0025 for the token decision.
+   =========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Myanmar:wght@400;600&display=swap');
+
+:root { color-scheme: light; }
+
+body {
+  background: #F8FAFC;
+  color: #0F172A;
+  font-family: Inter, "Noto Sans Myanmar", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Burmese needs the taller line box or diacritics clip. Applied per-element
+   rather than globally, so English UI keeps its compact 20px rhythm. */
+.mm { font-family: "Noto Sans Myanmar", Inter, sans-serif; line-height: 1.7; }
+
+/* One focus treatment everywhere. Operate mode: every interactive element
+   must show it, and it must not be the browser default. */
+:focus-visible {
+  outline: 2px solid #0F766E;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection { background: #CCFBF1; color: #134E4A; }
+
+/* Digits that sit in columns must not dance as they change. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* JetBrains Mono ships programming ligatures, so "===" collapses into one glyph and
+   reads as a stray bar in UI text. We use mono for IDs, dates and literal operators,
+   never for source, so ligatures are pure loss here. */
+.font-mono, code, kbd, pre {
+  font-variant-ligatures: none;
+  -webkit-font-feature-settings: "liga" 0, "calt" 0;
+          font-feature-settings: "liga" 0, "calt" 0;
+}
+
+/* NOTE: no custom scrollbar styling here, deliberately. The marketing page
+   themes its scrollbar because it is a brand surface; product UI reinventing
+   a standard affordance is the opposite of what this app needs. */
+
+/* --- Approval chain rail -------------------------------------------------
+   The product's signature device, carried over from the previous system
+   because it survives the rebrand: it encodes sequence, and sequence is the
+   thing Module 1 is about. Colour tokens change; the device does not. */
+.rail-step { position: relative; }
+.rail-step::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 28px;
+  bottom: -12px;
+  width: 1px;
+  background: #E2E8F0;
+}
+.rail-step:last-child::before { display: none; }
+.rail-step.is-done::before { background: #99F6E4; }
+
+/* --- Skeleton loading ----------------------------------------------------
+   Skeletons, never a spinner parked in the middle of content: the shape of
+   what is coming is information, a spinner is not. */
+@keyframes ds-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .45 } }
+.skeleton {
+  background: #E2E8F0;
+  border-radius: 6px;
+  animation: ds-pulse 1.6s cubic-bezier(.4, 0, .6, 1) infinite;
+}
+
+/* --- Board columns -------------------------------------------------------
+   The board is the shell's home surface. Columns scroll independently so the
+   header row stays put while a long stage scrolls. */
+.board-col { min-width: 260px; }
+.board-scroll { scrollbar-width: thin; }
+
+/* Drag affordance for candidate cards. Cursor only — no lift-and-rotate
+   theatrics; this is state feedback, not choreography. */
+.card-draggable { cursor: grab; }
+.card-draggable:active { cursor: grabbing; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* Design-kit chrome only. Never ships in the app. */
+.spec-label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: #64748B;
+}
+.spec-grid { background-image: linear-gradient(#E2E8F0 1px, transparent 1px); background-size: 100% 8px; }

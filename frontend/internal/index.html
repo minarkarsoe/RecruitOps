@@ -6,7 +6,11 @@
     <title>RecruitOps</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&family=Noto+Sans+Myanmar:wght@400;600;700&display=swap" rel="stylesheet" />
+    <!-- V1.0 (ADR-0025): Inter + JetBrains Mono. Bricolage Grotesque is gone — V1.0 has no
+         display face on purpose — and IBM Plex Mono is replaced by JetBrains Mono.
+         Requested here rather than by @import in index.css: an @import inside a stylesheet
+         cannot start downloading until that stylesheet has itself arrived and parsed. -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Myanmar:wght@400;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>

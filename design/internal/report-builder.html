@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Custom report builder</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 5.3 — CUSTOM REPORT BUILDER.
+  The field picker is permission-aware at the point of choosing, not at the point of
+  running: a recruiter sees "Approved budget" greyed with a reason, rather than picking
+  it, pressing Generate and getting an empty column. An affordance that can only fail is
+  worse than no affordance.
+  Schedule Email is the feature that forces server-side generation — nobody's browser is
+  open at 08:00 on Friday.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Insight</p>
+      <a href="analytics-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Executive dashboard</a>
+      <a href="analytics-pipeline.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Pipeline &amp; source</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Reports</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">TW</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">U Thura Win</span>
+          <span class="block text-2xs text-white/50 truncate">Recruiter</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Custom report</h1>
+      <div class="ml-auto flex items-center gap-2">
+        <button class="inline-flex items-center h-9 px-3.5 rounded-md bg-white border border-line hover:border-line-strong text-ink-900 text-base font-medium transition-colors">Save as template</button>
+        <button class="inline-flex items-center h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Generate report</button>
+      </div>
+    </header>
+
+    <div class="flex-1 min-h-0 flex">
+
+      <!-- ===== FIELD PICKER ===== -->
+      <aside class="w-[300px] shrink-0 bg-white border-r border-line overflow-y-auto">
+        <div class="px-5 py-4 border-b border-line">
+          <p class="text-base font-semibold">Columns</p>
+          <p class="mt-1 text-sm text-ink-600 tnum">5 of 14 selected</p>
+        </div>
+
+        <div class="px-5 py-4 space-y-4">
+          <div>
+            <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">Requisition</p>
+            <div class="mt-2 space-y-2">
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" checked class="w-4 h-4 rounded border-line-strong text-brand-700 focus:ring-brand-700" /><span class="text-base">Requisition ID</span></label>
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" checked class="w-4 h-4 rounded border-line-strong text-brand-700 focus:ring-brand-700" /><span class="text-base">Job title</span></label>
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" class="w-4 h-4 rounded border-line-strong text-brand-700 focus:ring-brand-700" /><span class="text-base">Department</span></label>
+              <!-- Permission-aware at pick time, with the reason attached. -->
+              <label class="flex items-start gap-2.5 cursor-not-allowed opacity-60">
+                <input type="checkbox" disabled class="mt-0.5 w-4 h-4 rounded border-line-strong" />
+                <span class="min-w-0">
+                  <span class="block text-base">Approved budget</span>
+                  <span class="block text-sm text-ink-600">Your role cannot see salary figures</span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-line">
+            <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">Candidate</p>
+            <div class="mt-2 space-y-2">
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" checked class="w-4 h-4 rounded border-line-strong text-brand-700 focus:ring-brand-700" /><span class="text-base">Candidate name</span></label>
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" checked class="w-4 h-4 rounded border-line-strong text-brand-700 focus:ring-brand-700" /><span class="text-base">Stage</span></label>
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" class="w-4 h-4 rounded border-line-strong text-brand-700 focus:ring-brand-700" /><span class="text-base">Source</span></label>
+              <label class="flex items-start gap-2.5 cursor-not-allowed opacity-60">
+                <input type="checkbox" disabled class="mt-0.5 w-4 h-4 rounded border-line-strong" />
+                <span class="min-w-0">
+                  <span class="block text-base">Offered salary</span>
+                  <span class="block text-sm text-ink-600">Your role cannot see salary figures</span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-line">
+            <p class="text-2xs font-medium uppercase tracking-wider text-ink-500">Dates</p>
+            <div class="mt-2 space-y-2">
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" checked class="w-4 h-4 rounded border-line-strong text-brand-700 focus:ring-brand-700" /><span class="text-base">Joining date</span></label>
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" class="w-4 h-4 rounded border-line-strong text-brand-700 focus:ring-brand-700" /><span class="text-base">Applied on</span></label>
+              <label class="flex items-center gap-2.5 cursor-pointer"><input type="checkbox" class="w-4 h-4 rounded border-line-strong text-brand-700 focus:ring-brand-700" /><span class="text-base">Offer accepted on</span></label>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ===== RESULT ===== -->
+      <div class="flex-1 min-w-0 flex flex-col">
+
+        <div class="h-12 shrink-0 bg-white border-b border-line flex items-center gap-3 px-5">
+          <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm"><option>Last 90 days</option><option>This year</option></select>
+          <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm"><option>All departments</option></select>
+          <span class="ml-auto flex items-center gap-2">
+            <button class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-line bg-white hover:border-line-strong text-sm font-medium transition-colors">Export Excel</button>
+            <button class="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-line bg-white hover:border-line-strong text-sm font-medium transition-colors">Export PDF</button>
+          </span>
+        </div>
+
+        <div class="flex-1 min-h-0 overflow-auto">
+          <table class="w-full min-w-[820px] bg-white text-base">
+            <thead class="sticky top-0">
+              <tr class="bg-canvas border-b border-line text-left text-sm">
+                <th class="px-5 py-2.5 font-medium text-ink-600">Requisition ID</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Job title</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Candidate name</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Stage</th>
+                <th class="px-5 py-2.5 font-medium text-ink-600">Joining date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-line hover:bg-canvas transition-colors"><td class="px-5 py-3 font-mono text-sm tnum">REQ-2026-0418</td><td class="px-5 py-3">Senior Credit Analyst</td><td class="px-5 py-3">Ma Ei Thandar Kyaw</td><td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Offer</span></td><td class="px-5 py-3 font-mono text-sm tnum">1 Oct 2026</td></tr>
+              <tr class="border-b border-line hover:bg-canvas transition-colors"><td class="px-5 py-3 font-mono text-sm tnum">REQ-2026-0416</td><td class="px-5 py-3">Treasury Dealer</td><td class="px-5 py-3">Daw Nway Nway Oo</td><td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Hired</span></td><td class="px-5 py-3 font-mono text-sm tnum">1 Oct 2026</td></tr>
+              <tr class="border-b border-line hover:bg-canvas transition-colors"><td class="px-5 py-3 font-mono text-sm tnum">REQ-2026-0417</td><td class="px-5 py-3">Branch Operations Officer</td><td class="px-5 py-3">U Kyaw Swar Lin</td><td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Offer</span></td><td class="px-5 py-3 font-mono text-sm tnum">15 Sep 2026</td></tr>
+              <tr class="hover:bg-canvas transition-colors"><td class="px-5 py-3 font-mono text-sm tnum">REQ-2026-0412</td><td class="px-5 py-3">Credit Analyst</td><td class="px-5 py-3">U Myo Set Paing</td><td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-critical-50 text-critical-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Rejected</span></td><td class="px-5 py-3 text-ink-600">—</td></tr>
+            </tbody>
+          </table>
+
+          <!-- ===== SCHEDULE ===== -->
+          <div class="m-5 rounded-lg border border-line bg-white">
+            <header class="px-5 h-12 flex items-center gap-2 border-b border-line">
+              <h2 class="text-base font-semibold">Send this report automatically</h2>
+              <span class="ml-auto inline-flex items-center h-6 px-2.5 rounded-full bg-critical-50 text-critical-700 text-xs font-medium">Needs a scheduler and an email sender</span>
+            </header>
+            <div class="p-5">
+              <div class="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1.5">Every</label>
+                  <select class="w-full h-9 px-3 rounded-md border border-line bg-white text-base"><option>Friday</option><option>Monday</option><option>1st of the month</option></select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1.5">At</label>
+                  <input type="time" value="08:00" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base font-mono tnum" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1.5">Format</label>
+                  <select class="w-full h-9 px-3 rounded-md border border-line bg-white text-base"><option>Excel</option><option>PDF</option></select>
+                </div>
+              </div>
+              <div class="mt-4">
+                <label class="block text-sm font-medium mb-1.5">To</label>
+                <div class="flex flex-wrap gap-2">
+                  <span class="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-canvas border border-line text-sm">Daw Moe Moe Aung <button class="text-ink-500 hover:text-ink-900" aria-label="Remove">×</button></span>
+                  <span class="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-canvas border border-line text-sm">Management group <button class="text-ink-500 hover:text-ink-900" aria-label="Remove">×</button></span>
+                  <button class="inline-flex items-center h-7 px-2.5 rounded-full border border-dashed border-line-strong text-sm text-ink-600 hover:text-ink-900 transition-colors">+ Add recipient</button>
+                </div>
+              </div>
+              <p class="mt-4 text-sm text-ink-600 max-w-[76ch]">
+                Each recipient gets the report <span class="font-medium text-ink-900">filtered to what they are
+                allowed to see</span>, not the sender's copy. A scheduled report is the easiest way to email
+                someone data they could not open in the app.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

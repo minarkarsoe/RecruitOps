@@ -38,6 +38,26 @@ scoping** (`ADR-0003`), which is applied explicitly and can therefore be forgott
 3. Hard-to-reverse decision → write an ADR in `docs/decisions/`.
 4. Spec change → update the module doc **before** the code.
 
+## UI work starts from `design/` — not from a description
+
+`design/` is the source of truth for what the product looks like, the way `docs/` is for what it
+does. **Before building or changing any screen, open the matching file in `design/internal/` or
+`design/public/` and build against it.** Do not invent a layout when one is already drawn; if the
+screen you need is not there, say so rather than improvising a twenty-sixth style.
+
+- `design/internal/index.html` indexes all 25 screens.
+- `design/internal/components.html` is the component sheet — buttons, inputs, pills, tables, empty
+  and loading states.
+- `design/internal/ds.js` holds the **V1.0 tokens** (ADR-0025) and `ds.css` the few things
+  utilities cannot express (the approval-chain rail, Burmese line-height, focus ring, skeletons).
+
+⚠️ **The design kit and the running apps do not yet share a token vocabulary, and this is not
+cosmetic drift — the class names differ.** The kit uses `brand-*`, `ink-*`, `canvas`, `line`,
+`positive/warn/critical`; `packages/ui/tailwind-preset.js` still ships "Clear Pipeline" —
+`primary-*`, `surface-*`, `line-200`, `success/warning/danger/accent`. A screen copied from the
+kit renders **unstyled**, not merely off-brand. **ADR-0025 step 3 is the prerequisite** for this
+rule to mean anything; until it lands, translating by hand is how the two systems drift for good.
+
 ## Stack
 
 - **Backend**: **.NET 10 (LTS)** / ASP.NET Core Web API — modular monolith, Clean Architecture (Domain / Application / Infrastructure / Api).

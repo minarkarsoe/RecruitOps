@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Executive dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+<style>
+  /* Chart marks. Thin, 4px rounded data-end anchored to the baseline, recessive grid.
+     Bars are single-series magnitude, so one hue — no categorical palette here. */
+  .bar-track { background: #F1F5F9; border-radius: 4px; }
+  .bar-fill  { background: #0D9488; border-radius: 0 4px 4px 0; height: 100%; }
+  .bar-row:hover .bar-fill { background: #0F766E; }
+  .grid-line { border-left: 1px dashed #E2E8F0; }
+</style>
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 5.1 — EXECUTIVE DASHBOARD.
+  Form choices, made before colour:
+    · Time-to-Hire / Time-to-Fill / Acceptance Rate are single headline numbers →
+      stat tiles, not charts. A three-point line to show "trend" would be noise.
+    · Active Vacancies is magnitude across named categories with long labels →
+      horizontal bars, one hue, direct value labels, no legend (single series).
+  Palette: bars are one measure, so a single hue. The validated categorical set
+  (#0D9488 #7C3AED #D97706 #0369A1) belongs to Source of Hire on the next screen,
+  where identity is actually being encoded.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Insight</p>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Executive dashboard</a>
+      <a href="analytics-pipeline.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Pipeline &amp; source</a>
+      <a href="report-builder.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Reports</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">MM</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">Daw Moe Moe Aung</span>
+          <span class="block text-2xs text-white/50 truncate">Chief HR Officer</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Executive dashboard</h1>
+      <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium">Company-wide</span>
+    </header>
+
+    <!-- Filters in one row above the charts, detented like everywhere else. -->
+    <div class="h-12 shrink-0 bg-white border-b border-line flex items-center gap-3 px-6 overflow-x-auto">
+      <div class="flex items-center rounded-md border border-line p-0.5 shrink-0">
+        <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">Month</button>
+        <button class="h-7 px-2.5 rounded text-sm font-medium bg-ink-900 text-white">Quarter</button>
+        <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">Year</button>
+      </div>
+      <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm shrink-0">
+        <option>All departments</option><option>Credit Risk</option><option>Retail Operations</option>
+      </select>
+      <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm shrink-0">
+        <option>All recruiters</option><option>U Thura Win</option>
+      </select>
+      <span class="ml-auto text-sm text-ink-600 shrink-0">Q3 2026 · 1 Jul – 18 Aug</span>
+    </div>
+
+    <div class="flex-1 min-h-0 overflow-y-auto">
+      <div class="max-w-[1200px] mx-auto px-6 py-6 space-y-5">
+
+        <!-- ===== STAT TILES ===== -->
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+          <div class="rounded-lg border border-line bg-white p-5">
+            <p class="text-sm text-ink-600">Time-to-Hire</p>
+            <p class="mt-1.5 text-3xl font-semibold tnum">34 <span class="text-xl font-medium text-ink-600">days</span></p>
+            <p class="mt-1.5 text-sm text-ink-600">Application received → offer accepted</p>
+            <p class="mt-3 inline-flex items-center gap-1.5 text-sm text-positive-700">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none"><path d="M7 11V3M3.5 6.5L7 3l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              4 days faster than Q2
+            </p>
+          </div>
+
+          <div class="rounded-lg border border-line bg-white p-5">
+            <p class="text-sm text-ink-600">Time-to-Fill</p>
+            <p class="mt-1.5 text-3xl font-semibold tnum">51 <span class="text-xl font-medium text-ink-600">days</span></p>
+            <p class="mt-1.5 text-sm text-ink-600">Requisition approved → offer accepted</p>
+            <p class="mt-3 inline-flex items-center gap-1.5 text-sm text-ink-600">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none"><path d="M3 7h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              Unchanged from Q2
+            </p>
+          </div>
+
+          <div class="rounded-lg border border-line bg-white p-5">
+            <p class="text-sm text-ink-600">Offer acceptance rate</p>
+            <p class="mt-1.5 text-3xl font-semibold tnum">78<span class="text-xl font-medium text-ink-600">%</span></p>
+            <p class="mt-1.5 text-sm text-ink-600">32 of 41 offers accepted</p>
+            <p class="mt-3 inline-flex items-center gap-1.5 text-sm text-critical-700">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none"><path d="M7 3v8M3.5 7.5L7 11l3.5-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              6 points below Q2
+            </p>
+          </div>
+        </div>
+
+        <!-- The spec's open question, made visible rather than left in a document.
+             Both required clocks start after approval, so the wait this product exists
+             to fix is invisible on its own dashboard. -->
+        <div class="rounded-lg border border-warn-500/30 bg-warn-50 p-5">
+          <div class="flex items-start gap-3">
+            <svg class="w-4 h-4 text-warn-700 mt-1 shrink-0" viewBox="0 0 16 16" fill="none"><path d="M8 5.5v3.5M8 11.2v.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.4"/></svg>
+            <div class="min-w-0">
+              <p class="text-base font-medium text-warn-700">Proposed fourth tile — not in the requirement</p>
+              <p class="mt-1 text-sm text-warn-700/90 max-w-[76ch]">
+                Time-to-Fill starts when the requisition is <em class="not-italic font-medium">approved</em>, so a
+                request stuck twelve days in an approval chain reports a <strong class="font-semibold">shorter</strong>
+                Time-to-Fill than one approved the same day. The delay this product exists to remove does not appear
+                on either required metric.
+              </p>
+              <div class="mt-3 inline-flex items-baseline gap-3 rounded-md bg-white border border-warn-500/25 px-4 py-3">
+                <span class="text-sm text-ink-600">Time in approval</span>
+                <span class="text-2xl font-semibold tnum">6.2</span>
+                <span class="text-sm text-ink-600">days average · submitted → fully approved</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== ACTIVE VACANCIES ===== -->
+        <section class="rounded-lg border border-line bg-white">
+          <header class="px-5 h-12 flex items-center gap-3 border-b border-line">
+            <h2 class="text-base font-semibold">Active vacancies by department</h2>
+            <span class="text-sm text-ink-600 tnum">34 open</span>
+            <button id="viewToggle" class="ml-auto inline-flex items-center h-8 px-3 rounded-md border border-line bg-white hover:border-line-strong text-sm font-medium transition-colors">
+              View as table
+            </button>
+          </header>
+
+          <!-- Chart view -->
+          <div id="chartView" class="p-5">
+            <div class="space-y-2.5" role="img" aria-label="Active vacancies by department, horizontal bar chart">
+              <div class="bar-row grid grid-cols-[160px_1fr_44px] items-center gap-3" title="Retail Operations — 12 open vacancies">
+                <span class="text-base text-ink-700 truncate">Retail Operations</span>
+                <span class="bar-track h-6"><span class="bar-fill block" style="width:100%"></span></span>
+                <span class="text-base font-medium font-mono tnum text-right">12</span>
+              </div>
+              <div class="bar-row grid grid-cols-[160px_1fr_44px] items-center gap-3" title="Credit Risk — 8 open vacancies">
+                <span class="text-base text-ink-700 truncate">Credit Risk</span>
+                <span class="bar-track h-6"><span class="bar-fill block" style="width:66.7%"></span></span>
+                <span class="text-base font-medium font-mono tnum text-right">8</span>
+              </div>
+              <div class="bar-row grid grid-cols-[160px_1fr_44px] items-center gap-3" title="Treasury — 5 open vacancies">
+                <span class="text-base text-ink-700 truncate">Treasury</span>
+                <span class="bar-track h-6"><span class="bar-fill block" style="width:41.7%"></span></span>
+                <span class="text-base font-medium font-mono tnum text-right">5</span>
+              </div>
+              <div class="bar-row grid grid-cols-[160px_1fr_44px] items-center gap-3" title="Information Technology — 4 open vacancies">
+                <span class="text-base text-ink-700 truncate">Information Technology</span>
+                <span class="bar-track h-6"><span class="bar-fill block" style="width:33.3%"></span></span>
+                <span class="text-base font-medium font-mono tnum text-right">4</span>
+              </div>
+              <div class="bar-row grid grid-cols-[160px_1fr_44px] items-center gap-3" title="Branch Network — 3 open vacancies">
+                <span class="text-base text-ink-700 truncate">Branch Network</span>
+                <span class="bar-track h-6"><span class="bar-fill block" style="width:25%"></span></span>
+                <span class="text-base font-medium font-mono tnum text-right">3</span>
+              </div>
+              <div class="bar-row grid grid-cols-[160px_1fr_44px] items-center gap-3" title="Compliance — 2 open vacancies">
+                <span class="text-base text-ink-700 truncate">Compliance</span>
+                <span class="bar-track h-6"><span class="bar-fill block" style="width:16.7%"></span></span>
+                <span class="text-base font-medium font-mono tnum text-right">2</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table view — required, not an afterthought: it is how this data is read by
+               anyone the chart fails, and how it gets pasted into a board pack. -->
+          <div id="tableView" class="hidden p-5">
+            <table class="w-full text-base">
+              <thead>
+                <tr class="border-b border-line text-left text-sm">
+                  <th class="pb-2 font-medium text-ink-600">Department</th>
+                  <th class="pb-2 font-medium text-ink-600 text-right">Open vacancies</th>
+                  <th class="pb-2 font-medium text-ink-600 text-right">Share</th>
+                </tr>
+              </thead>
+              <tbody class="[&>tr]:border-b [&>tr]:border-line [&>tr:last-child]:border-0">
+                <tr><td class="py-2">Retail Operations</td><td class="py-2 text-right font-mono tnum">12</td><td class="py-2 text-right font-mono tnum text-ink-600">35%</td></tr>
+                <tr><td class="py-2">Credit Risk</td><td class="py-2 text-right font-mono tnum">8</td><td class="py-2 text-right font-mono tnum text-ink-600">24%</td></tr>
+                <tr><td class="py-2">Treasury</td><td class="py-2 text-right font-mono tnum">5</td><td class="py-2 text-right font-mono tnum text-ink-600">15%</td></tr>
+                <tr><td class="py-2">Information Technology</td><td class="py-2 text-right font-mono tnum">4</td><td class="py-2 text-right font-mono tnum text-ink-600">12%</td></tr>
+                <tr><td class="py-2">Branch Network</td><td class="py-2 text-right font-mono tnum">3</td><td class="py-2 text-right font-mono tnum text-ink-600">9%</td></tr>
+                <tr><td class="py-2">Compliance</td><td class="py-2 text-right font-mono tnum">2</td><td class="py-2 text-right font-mono tnum text-ink-600">6%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Same screen, other roles. The requirement is explicit and the difference is large. -->
+        <section class="rounded-lg border border-line border-dashed bg-white/60 p-5">
+          <p class="spec-label">the same screen for other roles</p>
+          <div class="mt-3 grid md:grid-cols-2 gap-4">
+            <div class="rounded-md border border-line bg-white p-4">
+              <p class="text-base font-medium">Recruiter</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                Only vacancies they handle. ⚠️ The three tiles above must be
+                <strong class="font-medium text-ink-900">recomputed over their rows</strong>, not company
+                averages with a filter applied — a company-wide average silently discloses the other
+                recruiters' numbers.
+              </p>
+            </div>
+            <div class="rounded-md border border-line bg-white p-4">
+              <p class="text-base font-medium">Hiring Manager</p>
+              <p class="mt-1.5 text-sm text-ink-600">
+                Their own department only, and only two of the metrics: Time-to-Fill and Active Vacancies.
+                Acceptance rate and Time-to-Hire are not theirs to see.
+              </p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var btn = document.getElementById('viewToggle');
+    var chart = document.getElementById('chartView');
+    var table = document.getElementById('tableView');
+    btn.addEventListener('click', function () {
+      var showingChart = !chart.classList.contains('hidden');
+      chart.classList.toggle('hidden', showingChart);
+      table.classList.toggle('hidden', !showingChart);
+      btn.textContent = showingChart ? 'View as chart' : 'View as table';
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Talent pool</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 2.3 / 2.4 / 2.6 / 2.7 — THE CANDIDATE DATABASE.
+
+  This is the screen where Myanmar-market reality shows up in the UI rather than
+  only in the backlog, so four things are drawn deliberately:
+
+  · SEARCH IS TRIGRAM, NOT FULL-TEXT (ADR-0009). Burmese has no consistent word
+    spacing and PostgreSQL has no Burmese FTS configuration. A trigram match
+    behaves differently from what users expect from a search box — partial and
+    fuzzy, not word-boundary — so the box says so instead of pretending.
+
+  · EXTRACTION PRE-FILLS A FORM A HUMAN CONFIRMS (ADR-0008 phase 1). It never
+    writes a candidate record straight into the database. The review step is the
+    product, not a nag.
+
+  · AI IS AN ENHANCEMENT THAT MAY BE ABSENT. No API key means no AI structuring
+    and no AI ranking, with the local baseline still fully working. Both states
+    are drawn, because on-prem installs will genuinely run without a key.
+
+  · DUPLICATES: the public path auto-reuses on a phone/email match. Merging two
+    candidates that were ALREADY created separately is the case the module doc
+    lists as still needing a human-confirmation UI — so that UI is drawn here.
+
+  ⚠️ The age and gender filters are drawn WITH their open question attached. The
+  module doc flags them as having data-protection implications that are not yet
+  confirmed for this market. They are not quietly shipped as ordinary filters.
+-->
+
+<div class="flex h-screen">
+
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+    </div>
+    <nav class="flex-1 overflow-y-auto py-3">
+      <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Work</p>
+      <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
+      <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
+      <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Requisitions</a>
+      <a href="postings.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Postings</a>
+      <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">Talent pool</a>
+      <a href="channels.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Channels</a>
+      <a href="offer-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Offers</a>
+      <p class="px-4 pt-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Insight</p>
+      <a href="analytics-dashboard.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Analytics</a>
+    </nav>
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">TW</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">U Thura Win</span>
+          <span class="block text-2xs text-white/50 truncate">Recruiter</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Talent pool</h1>
+      <span class="text-sm text-ink-600 tnum">3,418 candidates</span>
+      <div class="ml-auto flex items-center gap-2">
+        <button class="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M8 11V3.5M5 6.5 8 3.5l3 3M3.5 12.5h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Upload CVs
+        </button>
+      </div>
+    </header>
+
+    <div class="flex-1 min-h-0 overflow-auto">
+
+      <!-- ==================================================== SEARCH -->
+      <div class="bg-white border-b border-line px-6 py-4">
+        <div class="max-w-[760px]">
+          <div class="relative">
+            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="m10.5 10.5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <input value="collections officer" class="w-full h-11 pl-9 pr-3 rounded-md border border-line bg-white text-md outline-none focus:border-brand-700 transition-colors" />
+          </div>
+          <p class="mt-2 text-sm text-ink-600">
+            Searches names, previous positions and CV text. Matching is fuzzy and partial rather
+            than whole-word — <span class="mm text-base font-medium text-ink-900">ကောလ</span> finds
+            <span class="mm text-base font-medium text-ink-900">ကောလိပ်</span>.
+          </p>
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+          <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm"><option>Any previous position</option><option>Sales</option><option>HR</option><option>Admin</option><option>Finance</option></select>
+          <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm"><option>Any experience</option><option>0–2 years</option><option>3–5 years</option><option>6+ years</option></select>
+          <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm"><option>Any source</option><option>Career page</option><option>Telegram</option><option>Facebook</option><option>Uploaded CV</option></select>
+          <span class="w-px h-5 bg-line"></span>
+          <button class="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-warn-100 bg-warn-50 text-warn-700 text-sm font-medium">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 2.5 13 12H1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M7 6v2.4M7 10.2v.01" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            Age &amp; gender filters
+          </button>
+          <span class="ml-auto text-sm text-ink-600 tnum">128 results</span>
+        </div>
+
+        <div class="mt-3 rounded-md border border-warn-100 bg-warn-50 px-3.5 py-3 max-w-[80ch]">
+          <p class="text-sm font-medium text-warn-700">These two filters are held behind a click on purpose</p>
+          <p class="mt-1 text-sm text-warn-700">
+            The module doc lists filtering by age and gender as an open question with
+            data-protection implications that have not been confirmed for this market. Until they
+            are, they are not sitting in the filter row where they would be used by reflex. Whoever
+            resolves the question decides whether this button stays, becomes a permission, or goes.
+          </p>
+        </div>
+      </div>
+
+      <!-- ================================================== RESULTS -->
+      <div class="bg-white">
+        <div class="px-6 py-3 border-b border-line flex items-center gap-3 flex-wrap">
+          <p class="text-sm font-medium text-ink-700">Ranked against</p>
+          <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm"><option>Collections Officer (Field) — Yangon</option><option>Senior Credit Analyst</option><option>No job — plain search</option></select>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium">
+            Keyword baseline
+          </span>
+        </div>
+
+        <table class="w-full min-w-[1040px] text-base">
+          <thead>
+            <tr class="bg-canvas border-b border-line text-left text-sm">
+              <th class="px-5 py-2.5 font-medium text-ink-600 w-10"><input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" /></th>
+              <th class="px-5 py-2.5 font-medium text-ink-600">Candidate</th>
+              <th class="px-5 py-2.5 font-medium text-ink-600">Most recent role</th>
+              <th class="px-5 py-2.5 font-medium text-ink-600">Source</th>
+              <th class="px-5 py-2.5 font-medium text-ink-600">Match</th>
+              <th class="px-5 py-2.5 font-medium text-ink-600">History</th>
+              <th class="px-5 py-2.5 font-medium text-ink-600"></th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <tr class="border-b border-line hover:bg-canvas transition-colors">
+              <td class="px-5 py-3"><input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" /></td>
+              <td class="px-5 py-3">
+                <span class="font-medium">Ko Zeyar Lin</span>
+                <span class="block text-sm text-ink-600 tnum">09-77xxxxxx · zeyar.lin@gmail.com</span>
+              </td>
+              <td class="px-5 py-3 text-ink-700">Collections Officer · KBZ Bank</td>
+              <td class="px-5 py-3"><span class="inline-flex items-center h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium">Telegram</span></td>
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-2">
+                  <div class="w-16 h-1.5 rounded-full bg-canvas border border-line overflow-hidden"><div class="h-full bg-brand-600" style="width:84%"></div></div>
+                  <span class="font-mono text-sm tnum font-medium">84%</span>
+                </div>
+                <button class="mt-0.5 text-xs font-medium text-brand-700 hover:text-brand-800">Why?</button>
+              </td>
+              <td class="px-5 py-3 text-sm text-ink-600">2 previous applications</td>
+              <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Open</button></td>
+            </tr>
+
+            <tr class="border-b border-line hover:bg-canvas transition-colors">
+              <td class="px-5 py-3"><input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" /></td>
+              <td class="px-5 py-3">
+                <span class="font-medium">Ma Thiri Aung</span>
+                <span class="block text-sm text-ink-600 tnum">09-42xxxxxx · thiri.a@gmail.com</span>
+              </td>
+              <td class="px-5 py-3 text-ink-700">Field Recovery Officer · AYA Bank</td>
+              <td class="px-5 py-3"><span class="inline-flex items-center h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium">Career page</span></td>
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-2">
+                  <div class="w-16 h-1.5 rounded-full bg-canvas border border-line overflow-hidden"><div class="h-full bg-brand-600" style="width:79%"></div></div>
+                  <span class="font-mono text-sm tnum font-medium">79%</span>
+                </div>
+                <button class="mt-0.5 text-xs font-medium text-brand-700 hover:text-brand-800">Why?</button>
+              </td>
+              <td class="px-5 py-3 text-sm text-ink-600">—</td>
+              <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Open</button></td>
+            </tr>
+
+            <tr class="border-b border-line hover:bg-canvas transition-colors">
+              <td class="px-5 py-3"><input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" /></td>
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-medium">U Kyaw Swar</span>
+                  <span class="inline-flex items-center gap-1.5 h-5 px-2 rounded-full bg-warn-50 text-warn-700 text-2xs font-medium">Possible duplicate</span>
+                </div>
+                <span class="block text-sm text-ink-600 tnum">09-25xxxxxx · kyawswar90@gmail.com</span>
+              </td>
+              <td class="px-5 py-3 text-ink-700">Collections Supervisor · CB Bank</td>
+              <td class="px-5 py-3"><span class="inline-flex items-center h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium">Uploaded CV</span></td>
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-2">
+                  <div class="w-16 h-1.5 rounded-full bg-canvas border border-line overflow-hidden"><div class="h-full bg-brand-600" style="width:72%"></div></div>
+                  <span class="font-mono text-sm tnum font-medium">72%</span>
+                </div>
+              </td>
+              <td class="px-5 py-3 text-sm text-ink-600">1 previous application</td>
+              <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-warn-700 hover:text-warn-700">Review</button></td>
+            </tr>
+
+            <tr class="hover:bg-canvas transition-colors">
+              <td class="px-5 py-3"><input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" /></td>
+              <td class="px-5 py-3">
+                <span class="font-medium mm">မောင်ဇော်မင်း</span>
+                <span class="block text-sm text-ink-600 tnum">09-95xxxxxx</span>
+              </td>
+              <td class="px-5 py-3 text-ink-700 mm">အရစ်ကျ ကောက်ခံရေး အရာရှိ · Yoma Micro</td>
+              <td class="px-5 py-3"><span class="inline-flex items-center h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium">Viber</span></td>
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-2">
+                  <div class="w-16 h-1.5 rounded-full bg-canvas border border-line overflow-hidden"><div class="h-full bg-brand-600" style="width:68%"></div></div>
+                  <span class="font-mono text-sm tnum font-medium">68%</span>
+                </div>
+              </td>
+              <td class="px-5 py-3 text-sm text-ink-600">—</td>
+              <td class="px-5 py-3 text-right"><button class="text-sm font-medium text-brand-700 hover:text-brand-800">Open</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============================================== EXPLAINABILITY -->
+      <div class="px-6 py-8 border-b border-line">
+        <div class="grid lg:grid-cols-2 gap-6 items-start max-w-[1020px]">
+
+          <div>
+            <p class="spec-label">“Why?” → the score, opened up</p>
+            <div class="mt-2 rounded-lg border border-line bg-white overflow-hidden">
+              <div class="px-5 py-4 border-b border-line">
+                <p class="text-lg font-semibold tracking-tight">Ko Zeyar Lin · 84%</p>
+                <p class="mt-1 text-sm text-ink-600">Against Collections Officer (Field) — Yangon</p>
+              </div>
+              <ul class="px-5 py-4 space-y-2.5">
+                <li class="flex items-start gap-2.5">
+                  <span class="w-5 h-5 rounded-full bg-positive-100 text-positive-700 grid place-items-center shrink-0 mt-0.5"><svg class="w-3 h-3" viewBox="0 0 12 12" fill="none"><path d="m2.5 6.3 2.2 2.2L9.5 3.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                  <span class="text-base">Job title matches “Collections Officer” exactly</span>
+                </li>
+                <li class="flex items-start gap-2.5">
+                  <span class="w-5 h-5 rounded-full bg-positive-100 text-positive-700 grid place-items-center shrink-0 mt-0.5"><svg class="w-3 h-3" viewBox="0 0 12 12" fill="none"><path d="m2.5 6.3 2.2 2.2L9.5 3.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                  <span class="text-base">4 years in the field vs 2 required</span>
+                </li>
+                <li class="flex items-start gap-2.5">
+                  <span class="w-5 h-5 rounded-full bg-positive-100 text-positive-700 grid place-items-center shrink-0 mt-0.5"><svg class="w-3 h-3" viewBox="0 0 12 12" fill="none"><path d="m2.5 6.3 2.2 2.2L9.5 3.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                  <span class="text-base">CV mentions “motorbike licence”</span>
+                </li>
+                <li class="flex items-start gap-2.5">
+                  <span class="w-5 h-5 rounded-full bg-canvas border border-line text-ink-500 grid place-items-center shrink-0 mt-0.5"><svg class="w-3 h-3" viewBox="0 0 12 12" fill="none"><path d="M3 6h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+                  <span class="text-base text-ink-600">No mention of the core banking system named in the JD</span>
+                </li>
+              </ul>
+              <div class="px-5 py-3.5 border-t border-line bg-canvas">
+                <p class="text-sm text-ink-700">
+                  Every line names the evidence. A score that cannot be read back is a score nobody
+                  can defend when a rejected candidate asks why — and the module doc raises exactly
+                  that question.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="spec-label">The same screen with no AI key</p>
+            <div class="mt-2 rounded-lg border border-line bg-white overflow-hidden">
+              <div class="px-5 py-4 border-b border-line flex items-center gap-2.5 flex-wrap">
+                <p class="text-lg font-semibold tracking-tight">Ranking</p>
+                <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>AI off</span>
+              </div>
+              <div class="px-5 py-4">
+                <p class="text-base text-ink-700">
+                  This install has no AI key, so ranking uses the local keyword baseline only.
+                  Scores, explanations and the whole screen work exactly as above.
+                </p>
+                <div class="mt-4 rounded-md border border-line bg-canvas px-3.5 py-3">
+                  <p class="text-sm font-medium">What is actually missing</p>
+                  <ul class="mt-1.5 space-y-1 text-sm text-ink-600">
+                    <li>· AI-structured profiles from CV text (extraction still runs locally)</li>
+                    <li>· AI re-ranking on top of the baseline</li>
+                    <li>· Generated summaries</li>
+                  </ul>
+                </div>
+                <p class="mt-3.5 text-sm text-ink-600">
+                  Drawn because ADR-0008 makes the offline path the default that must never regress.
+                  A design that only shows the AI-on state guarantees somebody builds an empty screen
+                  for the customers who chose on-premise precisely to avoid sending CVs anywhere.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================ BULK UPLOAD -->
+      <div class="px-6 py-8 border-b border-line bg-white">
+        <p class="spec-label">Upload CVs · up to 50 files</p>
+        <h2 class="mt-1.5 text-2xl font-semibold tracking-tight">Bulk upload runs in the background</h2>
+        <p class="mt-2 text-base text-ink-600 max-w-[74ch]">
+          Fifty files is a background job, not a progress bar the recruiter has to sit through.
+          The screen is closable and the result arrives as a summary — the Success / Skipped /
+          Cancelled pop-up in the requirement is that job's result, not a live tally.
+        </p>
+
+        <div class="mt-5 grid lg:grid-cols-3 gap-5 items-start max-w-[1120px]">
+
+          <div class="rounded-lg border border-line overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-line bg-canvas"><p class="text-sm font-medium text-ink-600">1 · Drop</p></div>
+            <div class="p-4">
+              <div class="rounded-md border-2 border-dashed border-line-strong px-4 py-8 text-center">
+                <svg class="w-7 h-7 text-ink-400 mx-auto" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V5M8 9l4-4 4 4M4 19h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <p class="mt-2.5 text-base font-medium">Drop CVs here</p>
+                <p class="mt-1 text-sm text-ink-600">PDF, Word, JPG, PNG · up to 50 at once</p>
+                <button class="mt-3 h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Choose files</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-line overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-line bg-canvas"><p class="text-sm font-medium text-ink-600">2 · Working</p></div>
+            <div class="p-4">
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-base font-medium">Reading 50 files</p>
+                <p class="font-mono text-sm tnum text-ink-600">31 / 50</p>
+              </div>
+              <div class="mt-2.5 h-1.5 rounded-full bg-canvas border border-line overflow-hidden">
+                <div class="h-full bg-brand-600" style="width:62%"></div>
+              </div>
+              <p class="mt-2.5 text-sm text-ink-600">Runs on the server. You can leave this screen — the summary will be waiting.</p>
+
+              <div class="mt-4 space-y-1.5">
+                <div class="flex items-center gap-2 text-sm"><span class="w-1.5 h-1.5 rounded-full bg-positive-500 shrink-0"></span><span class="flex-1 truncate text-ink-700">zeyar_lin_cv.pdf</span><span class="text-ink-500 shrink-0">read</span></div>
+                <div class="flex items-center gap-2 text-sm"><span class="w-1.5 h-1.5 rounded-full bg-positive-500 shrink-0"></span><span class="flex-1 truncate text-ink-700">thiri_aung.docx</span><span class="text-ink-500 shrink-0">read</span></div>
+                <div class="flex items-center gap-2 text-sm"><span class="w-1.5 h-1.5 rounded-full bg-warn-500 shrink-0"></span><span class="flex-1 truncate text-ink-700">scan_0042.jpg</span><span class="text-ink-500 shrink-0">low confidence</span></div>
+                <div class="flex items-center gap-2 text-sm"><span class="w-1.5 h-1.5 rounded-full bg-ink-400 shrink-0"></span><span class="flex-1 truncate text-ink-500">kyaw_zin_resume.pdf</span><span class="text-ink-500 shrink-0">queued</span></div>
+              </div>
+
+              <button class="mt-4 w-full h-9 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Cancel remaining</button>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-line overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-line bg-canvas"><p class="text-sm font-medium text-ink-600">3 · Result</p></div>
+            <div class="p-4">
+              <p class="text-base font-medium">50 files processed</p>
+              <div class="mt-3 space-y-2">
+                <div class="flex items-center gap-2.5 rounded-md border border-positive-100 bg-positive-50 px-3 py-2.5">
+                  <span class="font-mono text-lg font-semibold tnum text-positive-700">41</span>
+                  <span class="text-base text-positive-700">Success</span>
+                </div>
+                <div class="flex items-center gap-2.5 rounded-md border border-warn-100 bg-warn-50 px-3 py-2.5">
+                  <span class="font-mono text-lg font-semibold tnum text-warn-700">6</span>
+                  <span class="text-base text-warn-700">Skipped</span>
+                </div>
+                <div class="flex items-center gap-2.5 rounded-md border border-line bg-canvas px-3 py-2.5">
+                  <span class="font-mono text-lg font-semibold tnum text-ink-700">3</span>
+                  <span class="text-base text-ink-700">Cancelled</span>
+                </div>
+              </div>
+              <div class="mt-3.5 rounded-md border border-line bg-canvas px-3.5 py-3">
+                <p class="text-sm font-medium">Why the 6 were skipped</p>
+                <ul class="mt-1.5 space-y-1 text-sm text-ink-600">
+                  <li>· 4 matched an existing phone or email</li>
+                  <li>· 1 was a scan no text could be read from</li>
+                  <li>· 1 was password-protected</li>
+                </ul>
+              </div>
+              <button class="mt-3.5 w-full h-9 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Review 41 drafts</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 grid md:grid-cols-2 gap-4 max-w-[1120px]">
+          <div class="rounded-lg border border-line bg-canvas p-5">
+            <p class="text-base font-semibold">“Success” means a draft, not a candidate</p>
+            <p class="mt-1.5 text-sm text-ink-600">
+              Phase 1 extraction pre-fills a form that a human reviews and confirms; nothing enters
+              the database unread. The final button says <em>Review 41 drafts</em> rather than
+              “41 candidates added”, because the second sentence would be false and would train
+              recruiters to skip the step the ADR exists to protect.
+            </p>
+          </div>
+          <div class="rounded-lg border border-line bg-canvas p-5">
+            <p class="text-base font-semibold">Zawgyi is fixed at ingest, silently</p>
+            <p class="mt-1.5 text-sm text-ink-600">
+              A Word file authored in Zawgyi extracts as garbage even with no OCR involved, so
+              normalisation to Unicode happens on the way in and is never a user-facing choice.
+              The one place it surfaces is a review card, when the normalised name differs from the
+              raw bytes and a human should glance at it.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================== DUPLICATE -->
+      <div class="px-6 py-8">
+        <p class="spec-label">“Review” → the merge nobody should do blind</p>
+        <h2 class="mt-1.5 text-2xl font-semibold tracking-tight">Two records, one person?</h2>
+        <p class="mt-2 text-base text-ink-600 max-w-[74ch]">
+          On the public path a phone or email match auto-attaches the new application to the
+          existing candidate — filling blanks, never overwriting. This screen is the other case:
+          two candidates that were already created separately, which the module doc lists as still
+          needing a human confirmation step. Merging is not reversible, so nothing here is automatic.
+        </p>
+
+        <div class="mt-5 rounded-lg border border-line bg-white overflow-hidden max-w-[1020px]">
+          <div class="px-5 py-4 border-b border-line">
+            <p class="text-base font-medium">Matched on phone <span class="font-mono tnum">09-25xxxxxx</span></p>
+          </div>
+
+          <div class="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-line">
+            <div class="px-5 py-4">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-base font-semibold">U Kyaw Swar</p>
+                <span class="inline-flex items-center h-5 px-2 rounded-full bg-brand-50 text-brand-800 text-2xs font-medium">Keep this one</span>
+              </div>
+              <dl class="mt-3 space-y-2 text-base">
+                <div class="flex gap-3"><dt class="w-28 shrink-0 text-sm text-ink-500">Email</dt><dd>kyawswar90@gmail.com</dd></div>
+                <div class="flex gap-3"><dt class="w-28 shrink-0 text-sm text-ink-500">Created</dt><dd class="tnum">4 Mar 2026</dd></div>
+                <div class="flex gap-3"><dt class="w-28 shrink-0 text-sm text-ink-500">Applications</dt><dd class="tnum">1</dd></div>
+                <div class="flex gap-3"><dt class="w-28 shrink-0 text-sm text-ink-500">Interviews</dt><dd class="tnum">1 · scorecard submitted</dd></div>
+                <div class="flex gap-3"><dt class="w-28 shrink-0 text-sm text-ink-500">Source</dt><dd>Career page</dd></div>
+              </dl>
+            </div>
+
+            <div class="px-5 py-4">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-base font-semibold">Kyaw Swar (U)</p>
+                <span class="inline-flex items-center h-5 px-2 rounded-full bg-canvas border border-line text-ink-600 text-2xs font-medium">Merge into the other</span>
+              </div>
+              <dl class="mt-3 space-y-2 text-base">
+                <div class="flex gap-3"><dt class="w-28 shrink-0 text-sm text-ink-500">Email</dt><dd class="text-ink-500">— none</dd></div>
+                <div class="flex gap-3"><dt class="w-28 shrink-0 text-sm text-ink-500">Created</dt><dd class="tnum">17 Aug 2026</dd></div>
+                <div class="flex gap-3"><dt class="w-28 shrink-0 text-sm text-ink-500">Applications</dt><dd class="tnum">1</dd></div>
+                <div class="flex gap-3"><dt class="w-28 shrink-0 text-sm text-ink-500">Interviews</dt><dd class="text-ink-500">—</dd></div>
+                <div class="flex gap-3"><dt class="w-28 shrink-0 text-sm text-ink-500">Source</dt><dd>Uploaded CV</dd></div>
+              </dl>
+            </div>
+          </div>
+
+          <div class="px-5 py-4 border-t border-line bg-canvas">
+            <p class="text-sm font-medium">After merging</p>
+            <ul class="mt-1.5 space-y-1 text-sm text-ink-600">
+              <li>· 2 applications on one candidate, both keeping their own stage history</li>
+              <li>· The email from the kept record survives; the blank on the other one does not overwrite it</li>
+              <li>· The uploaded CV is attached as a second document, not a replacement</li>
+              <li>· The merged record keeps a pointer back, so an old link still resolves</li>
+            </ul>
+          </div>
+
+          <div class="px-5 py-3.5 border-t border-line flex items-center gap-2.5 flex-wrap">
+            <button class="h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Merge</button>
+            <button class="h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Not the same person</button>
+            <button class="h-9 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Decide later</button>
+            <p class="text-sm text-ink-600 ml-auto">“Not the same person” is remembered, so the pair stops being flagged.</p>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-lg border border-line bg-white p-5 max-w-[1020px]">
+          <p class="text-base font-semibold">Three buttons, because there are three real answers</p>
+          <p class="mt-1.5 text-sm text-ink-600 max-w-[80ch]">
+            Common Burmese names collide constantly, and a shared family phone is normal here — so
+            “not the same person” is not an edge case, it is the frequent answer. A two-button
+            merge dialog forces a recruiter to either merge two strangers or leave the flag on the
+            list forever, and they will pick whichever gets the badge off their screen.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

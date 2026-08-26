@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RecruitOps.Api.Auth;
 using RecruitOps.Api.Middleware;
+using RecruitOps.Infrastructure.Services.Delivery;
 using RecruitOps.Application.Common;
 using RecruitOps.Infrastructure;
 using RecruitOps.Infrastructure.Persistence;
@@ -27,9 +28,16 @@ builder.Services.AddHttpContextAccessor();
 // Infrastructure (EF Core + Postgres).
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Tenant resolved from the JWT's tenant_id claim (Module 1).
+// Tenant resolved from the JWT's tenant_id claim (Module 1), falling back to an ambient tenant
+// when there is no request at all — the delivery worker. The claim wins whenever it is present;
+// see CurrentTenant for why that order is a security property (ADR-0026 §4).
 builder.Services.AddScoped<ICurrentTenant, CurrentTenant>();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+
+// Background queues (ADR-0026). In-process, because ADR-0004 ships one instance per company —
+// which removes the problem a distributed scheduler exists to solve.
+builder.Services.AddHostedService<OutboundMessageWorker>();
+builder.Services.AddHostedService<BulkResumeWorker>();
 
 // --- Authentication: self-issued JWT bearer ---
 var jwt = builder.Configuration.GetSection("Jwt");

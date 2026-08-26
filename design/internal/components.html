@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Component kit (internal app)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900">
+
+<!--
+  COMPONENT KIT — internal app, V1.0 tokens (ADR-0025)
+  Operate mode: every interactive component ships default, hover, focus, active,
+  disabled, loading and error. Half a state set is how a UI feels unfinished.
+  Static state examples are labelled; the live ones are actually interactive.
+-->
+
+<div class="max-w-[1200px] mx-auto px-8 py-10">
+
+  <header class="pb-8 border-b border-line">
+    <p class="spec-label">design/internal/components.html</p>
+    <h1 class="mt-2 text-3xl font-bold tracking-tight">Component kit</h1>
+    <p class="mt-2 text-md text-ink-600 max-w-[68ch]">
+      The vocabulary every screen in the internal app is assembled from. Tokens come from
+      <code class="font-mono text-sm bg-white border border-line rounded px-1.5 py-0.5">ds.js</code>;
+      change them there and every screen follows.
+    </p>
+    <nav class="mt-5 flex flex-wrap gap-2 text-sm">
+      <a href="index.html" class="inline-flex items-center h-8 px-3 rounded-md border border-line bg-white hover:border-line-strong">← All screens</a>
+    </nav>
+  </header>
+
+  <!-- ============================ COLOR ============================ -->
+  <section class="py-10 border-b border-line">
+    <h2 class="text-xl font-semibold tracking-tight">Colour</h2>
+    <p class="mt-1.5 text-base text-ink-600 max-w-[68ch]">
+      Restrained by default. The brand teal is for primary actions, current selection and focus —
+      never decoration. Semantic colour appears only in pills, badges and small indicators.
+    </p>
+
+    <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="rounded-lg border border-line bg-white overflow-hidden">
+        <div class="h-16 bg-ink-900"></div>
+        <div class="p-3"><p class="text-sm font-medium">ink-900</p><p class="spec-label mt-0.5">#0F172A · text</p></div>
+      </div>
+      <div class="rounded-lg border border-line bg-white overflow-hidden">
+        <div class="h-16 bg-canvas border-b border-line"></div>
+        <div class="p-3"><p class="text-sm font-medium">canvas</p><p class="spec-label mt-0.5">#F8FAFC · page</p></div>
+      </div>
+      <div class="rounded-lg border border-line bg-white overflow-hidden">
+        <div class="h-16 bg-brand-700"></div>
+        <div class="p-3"><p class="text-sm font-medium">brand-700</p><p class="spec-label mt-0.5">#0F766E · primary</p></div>
+      </div>
+      <div class="rounded-lg border border-line bg-white overflow-hidden">
+        <div class="h-16 bg-line"></div>
+        <div class="p-3"><p class="text-sm font-medium">line</p><p class="spec-label mt-0.5">#E2E8F0 · borders</p></div>
+      </div>
+    </div>
+
+    <p class="mt-8 text-sm font-semibold">Semantic pairs — fill, tint, and the text step that goes on the tint</p>
+    <div class="mt-3 overflow-x-auto rounded-lg border border-line">
+      <table class="w-full min-w-[560px] bg-white text-sm">
+        <thead>
+          <tr class="bg-canvas border-b border-line text-left">
+            <th class="px-4 py-2.5 font-medium text-ink-600">Role</th>
+            <th class="px-4 py-2.5 font-medium text-ink-600">Fill -500</th>
+            <th class="px-4 py-2.5 font-medium text-ink-600">Tint -50</th>
+            <th class="px-4 py-2.5 font-medium text-ink-600">Text on tint -700</th>
+            <th class="px-4 py-2.5 font-medium text-ink-600">Example</th>
+          </tr>
+        </thead>
+        <tbody class="[&>tr]:border-b [&>tr]:border-line [&>tr:last-child]:border-0">
+          <tr>
+            <td class="px-4 py-2.5">positive</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#10B981</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#ECFDF5</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#047857</td>
+            <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Hired</span></td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5">warn</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#F59E0B</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#FFFBEB</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#B45309</td>
+            <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Pending approval</span></td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5">critical</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#EF4444</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#FEF2F2</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#B91C1C</td>
+            <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-critical-50 text-critical-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Rejected</span></td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5">info</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#3B82F6</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#EFF6FF</td>
+            <td class="px-4 py-2.5 font-mono text-xs">#1D4ED8</td>
+            <td class="px-4 py-2.5"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-info-50 text-info-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Screening</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-3 text-sm text-ink-600 max-w-[68ch]">
+      <strong class="font-semibold text-ink-900">The rule:</strong> a <code class="font-mono text-xs">-500</code>
+      is a fill, an icon or a border. Text on a tint is always <code class="font-mono text-xs">-700</code>.
+      The previous system mandated <code class="font-mono text-xs">-600</code> on a tint and called it
+      AA-compliant; it measured 2.97:1.
+    </p>
+  </section>
+
+  <!-- ============================ TYPE ============================ -->
+  <section class="py-10 border-b border-line">
+    <h2 class="text-xl font-semibold tracking-tight">Type</h2>
+    <p class="mt-1.5 text-base text-ink-600 max-w-[68ch]">
+      Inter alone, at a fixed rem scale with a ~1.15 ratio. Product UI does not need a display
+      face, and a heading that resizes fluidly inside a panel looks broken rather than responsive.
+    </p>
+    <div class="mt-6 rounded-lg border border-line bg-white divide-y divide-line">
+      <div class="flex items-baseline gap-6 px-5 py-3"><span class="spec-label w-32 shrink-0">3xl · 24/32 · 700</span><span class="text-3xl font-bold tracking-tight">Senior Credit Analyst</span></div>
+      <div class="flex items-baseline gap-6 px-5 py-3"><span class="spec-label w-32 shrink-0">2xl · 20/28 · 600</span><span class="text-2xl font-semibold tracking-tight">Requisitions</span></div>
+      <div class="flex items-baseline gap-6 px-5 py-3"><span class="spec-label w-32 shrink-0">xl · 18/26 · 600</span><span class="text-xl font-semibold">Approval chain</span></div>
+      <div class="flex items-baseline gap-6 px-5 py-3"><span class="spec-label w-32 shrink-0">lg · 16/24 · 600</span><span class="text-lg font-semibold">Panel evaluation</span></div>
+      <div class="flex items-baseline gap-6 px-5 py-3"><span class="spec-label w-32 shrink-0">base · 14/20 · 400</span><span class="text-base">Default body and table text.</span></div>
+      <div class="flex items-baseline gap-6 px-5 py-3"><span class="spec-label w-32 shrink-0">sm · 13/20 · 400</span><span class="text-sm text-ink-600">Secondary and helper text.</span></div>
+      <div class="flex items-baseline gap-6 px-5 py-3"><span class="spec-label w-32 shrink-0">xs · 12/16 · 500</span><span class="text-xs font-medium text-ink-600">Chips, meta, timestamps</span></div>
+      <div class="flex items-baseline gap-6 px-5 py-3"><span class="spec-label w-32 shrink-0">mono · data</span><span class="font-mono text-sm tnum">REQ-2026-0418 · 14 Aug 09:22</span></div>
+      <div class="flex items-baseline gap-6 px-5 py-3"><span class="spec-label w-32 shrink-0">mm · Burmese</span><span class="mm text-base">ချေးငွေဆိုင်ရာ ခွဲခြမ်းစိတ်ဖြာသူ</span></div>
+    </div>
+  </section>
+
+  <!-- ============================ BUTTONS ============================ -->
+  <section class="py-10 border-b border-line">
+    <h2 class="text-xl font-semibold tracking-tight">Buttons</h2>
+    <p class="mt-1.5 text-base text-ink-600 max-w-[68ch]">
+      One primary per view. Height 36 for standard, 32 for compact toolbars. Labels name the
+      outcome — "Submit requisition", never "Submit".
+    </p>
+
+    <div class="mt-6 grid md:grid-cols-2 gap-6">
+      <div class="rounded-lg border border-line bg-white p-5">
+        <p class="text-sm font-semibold">Live — hover, focus and press these</p>
+        <div class="mt-4 flex flex-wrap gap-2.5">
+          <button class="inline-flex items-center h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 active:bg-brand-900 text-white text-base font-medium transition-colors">Submit requisition</button>
+          <button class="inline-flex items-center h-9 px-3.5 rounded-md bg-white border border-line hover:border-line-strong active:bg-canvas text-ink-900 text-base font-medium transition-colors">Save draft</button>
+          <button class="inline-flex items-center h-9 px-3.5 rounded-md hover:bg-white text-brand-700 text-base font-medium transition-colors">Cancel</button>
+          <button class="inline-flex items-center h-9 px-3.5 rounded-md bg-critical-500 hover:bg-critical-700 text-white text-base font-medium transition-colors">Reject</button>
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-line bg-white p-5">
+        <p class="text-sm font-semibold">Every state, shown statically</p>
+        <div class="mt-4 space-y-3">
+          <div class="flex items-center gap-3"><span class="spec-label w-16 shrink-0">default</span><span class="inline-flex items-center h-9 px-3.5 rounded-md bg-brand-700 text-white text-base font-medium">Approve step</span></div>
+          <div class="flex items-center gap-3"><span class="spec-label w-16 shrink-0">hover</span><span class="inline-flex items-center h-9 px-3.5 rounded-md bg-brand-800 text-white text-base font-medium">Approve step</span></div>
+          <div class="flex items-center gap-3"><span class="spec-label w-16 shrink-0">focus</span><span class="inline-flex items-center h-9 px-3.5 rounded-md bg-brand-700 text-white text-base font-medium ring-2 ring-brand-700 ring-offset-2">Approve step</span></div>
+          <div class="flex items-center gap-3"><span class="spec-label w-16 shrink-0">active</span><span class="inline-flex items-center h-9 px-3.5 rounded-md bg-brand-900 text-white text-base font-medium">Approve step</span></div>
+          <div class="flex items-center gap-3"><span class="spec-label w-16 shrink-0">loading</span><span class="inline-flex items-center gap-2 h-9 px-3.5 rounded-md bg-brand-700 text-white text-base font-medium"><svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-opacity=".3" stroke-width="2"/><path d="M14.5 8A6.5 6.5 0 0 0 8 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Approving…</span></div>
+          <div class="flex items-center gap-3"><span class="spec-label w-16 shrink-0">disabled</span><span class="inline-flex items-center h-9 px-3.5 rounded-md bg-ink-400/40 text-white text-base font-medium cursor-not-allowed">Approve step</span></div>
+        </div>
+        <p class="mt-4 text-sm text-ink-600">
+          Disabled is the only place a spinner is allowed to sit inside a control; everywhere else,
+          loading is a skeleton.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ FORMS ============================ -->
+  <section class="py-10 border-b border-line">
+    <h2 class="text-xl font-semibold tracking-tight">Form controls</h2>
+    <p class="mt-1.5 text-base text-ink-600 max-w-[68ch]">
+      Height 36, radius 10 (<code>rounded-md</code>), label above. Never a placeholder standing in for a label — it vanishes
+      exactly when the user needs it. Errors state the fix, not the fault.
+    </p>
+
+    <div class="mt-6 grid md:grid-cols-3 gap-5">
+      <div class="rounded-lg border border-line bg-white p-5 space-y-4">
+        <p class="spec-label">default / focus</p>
+        <div>
+          <label class="block text-sm font-medium mb-1.5" for="f1">Position title</label>
+          <input id="f1" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base placeholder:text-ink-400 focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition" placeholder="e.g. Senior Credit Analyst" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5" for="f2">Department</label>
+          <select id="f2" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition">
+            <option>Credit Risk</option><option>Retail Operations</option><option>Treasury</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5" for="f3">Headcount</label>
+          <input id="f3" type="number" value="3" class="w-full h-9 px-3 rounded-md border border-line bg-white text-base font-mono tnum focus:border-brand-700 focus:ring-2 focus:ring-brand-700/20 outline-none transition" />
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-line bg-white p-5 space-y-4">
+        <p class="spec-label">error / disabled</p>
+        <div>
+          <label class="block text-sm font-medium mb-1.5" for="f4">Salary budget (MMK / month)</label>
+          <input id="f4" value="480000" aria-invalid="true" aria-describedby="f4e" class="w-full h-9 px-3 rounded-md border border-critical-500 bg-white text-base font-mono tnum focus:ring-2 focus:ring-critical-500/20 outline-none" />
+          <p id="f4e" class="mt-1.5 text-sm text-critical-700">
+            Above the band for this grade by 18%. Continue and the chain adds the CHRO.
+          </p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5 text-ink-400" for="f5">Requisition ID</label>
+          <input id="f5" value="REQ-2026-0418" disabled class="w-full h-9 px-3 rounded-md border border-line bg-canvas text-base font-mono text-ink-400 cursor-not-allowed" />
+          <p class="mt-1.5 text-sm text-ink-500">Assigned on submit.</p>
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-line bg-white p-5 space-y-4">
+        <p class="spec-label">choice controls</p>
+        <label class="flex items-start gap-2.5 cursor-pointer">
+          <input type="checkbox" checked class="mt-0.5 w-4 h-4 rounded border-line-strong text-brand-700 focus:ring-brand-700" />
+          <span class="text-base">Show salary on the public job page</span>
+        </label>
+        <label class="flex items-start gap-2.5 cursor-pointer">
+          <input type="checkbox" class="mt-0.5 w-4 h-4 rounded border-line-strong text-brand-700 focus:ring-brand-700" />
+          <span class="text-base">Notify me on every decision</span>
+        </label>
+        <div class="pt-1 space-y-2">
+          <label class="flex items-center gap-2.5 cursor-pointer"><input type="radio" name="mode" checked class="w-4 h-4 border-line-strong text-brand-700 focus:ring-brand-700" /><span class="text-base">On-site</span></label>
+          <label class="flex items-center gap-2.5 cursor-pointer"><input type="radio" name="mode" class="w-4 h-4 border-line-strong text-brand-700 focus:ring-brand-700" /><span class="text-base">Video call</span></label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ STATUS ============================ -->
+  <section class="py-10 border-b border-line">
+    <h2 class="text-xl font-semibold tracking-tight">Status pills</h2>
+    <p class="mt-1.5 text-base text-ink-600 max-w-[68ch]">
+      The vocabulary is exactly the four backend enums — no free-form labels. A status with no enum
+      behind it is a state the product cannot actually be in. Never colour alone: the label always
+      carries the meaning.
+    </p>
+
+    <div class="mt-6 space-y-5">
+      <div>
+        <p class="spec-label mb-2">PipelineStatus — Rejected is an exit, not a stage</p>
+        <div class="flex flex-wrap gap-2">
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Sourced</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-info-50 text-info-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Applied</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-info-50 text-info-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Screening</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Shortlisted</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Interview</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Offer</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Hired</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-critical-50 text-critical-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Rejected</span>
+        </div>
+      </div>
+      <div>
+        <p class="spec-label mb-2">RequisitionStatus — Approved and Cancelled are terminal</p>
+        <div class="flex flex-wrap gap-2">
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Draft</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Pending Approval</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Approved</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-critical-50 text-critical-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Rejected</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Cancelled</span>
+        </div>
+      </div>
+      <div>
+        <p class="spec-label mb-2">JobStatus · InterviewStatus · ApprovalDecision</p>
+        <div class="flex flex-wrap gap-2">
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Live</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Closed</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-info-50 text-info-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Scheduled</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Completed</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>No Show</span>
+          <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Waiting</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ TABLE ============================ -->
+  <section class="py-10 border-b border-line">
+    <h2 class="text-xl font-semibold tracking-tight">Table</h2>
+    <p class="mt-1.5 text-base text-ink-600 max-w-[68ch]">
+      Bottom rules only — no vertical rules, no zebra. Row 44px. Entity in the first column,
+      status right-aligned before actions. Density is a permission this surface has: recruiters
+      need many rows on screen.
+    </p>
+
+    <div class="mt-6 overflow-x-auto rounded-lg border border-line">
+      <table class="w-full min-w-[720px] bg-white text-base">
+        <thead>
+          <tr class="bg-canvas border-b border-line text-left text-sm">
+            <th class="px-4 py-2.5 font-medium text-ink-600">Requisition</th>
+            <th class="px-4 py-2.5 font-medium text-ink-600">Department</th>
+            <th class="px-4 py-2.5 font-medium text-ink-600">Raised by</th>
+            <th class="px-4 py-2.5 font-medium text-ink-600 text-right tnum">Waiting</th>
+            <th class="px-4 py-2.5 font-medium text-ink-600">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-4 py-3"><span class="font-medium">Senior Credit Analyst</span><span class="block font-mono text-xs text-ink-500 tnum">REQ-2026-0418</span></td>
+            <td class="px-4 py-3 text-ink-600">Credit Risk</td>
+            <td class="px-4 py-3 text-ink-600">Daw Hnin Ei Khaing</td>
+            <td class="px-4 py-3 text-right font-mono text-sm tnum text-ink-600">4d</td>
+            <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Pending Approval</span></td>
+          </tr>
+          <tr class="border-b border-line bg-brand-50/60">
+            <td class="px-4 py-3"><span class="font-medium">Branch Operations Officer</span><span class="block font-mono text-xs text-ink-500 tnum">REQ-2026-0417</span><span class="spec-label">← selected row</span></td>
+            <td class="px-4 py-3 text-ink-600">Retail Operations</td>
+            <td class="px-4 py-3 text-ink-600">U Kyaw Zin Latt</td>
+            <td class="px-4 py-3 text-right font-mono text-sm tnum text-ink-600">1d</td>
+            <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Approved</span></td>
+          </tr>
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-4 py-3"><span class="font-medium">Treasury Dealer</span><span class="block font-mono text-xs text-ink-500 tnum">REQ-2026-0416</span></td>
+            <td class="px-4 py-3 text-ink-600">Treasury</td>
+            <td class="px-4 py-3 text-ink-600">Daw Moe Moe Aung</td>
+            <td class="px-4 py-3 text-right font-mono text-sm tnum text-ink-600">12d</td>
+            <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-critical-50 text-critical-700 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Rejected</span></td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3"><span class="skeleton block h-4 w-40"></span><span class="skeleton block h-3 w-24 mt-1.5"></span></td>
+            <td class="px-4 py-3"><span class="skeleton block h-4 w-24"></span></td>
+            <td class="px-4 py-3"><span class="skeleton block h-4 w-32"></span></td>
+            <td class="px-4 py-3"><span class="skeleton block h-4 w-8 ml-auto"></span></td>
+            <td class="px-4 py-3"><span class="skeleton block h-6 w-28 rounded-full"></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-2 spec-label">last row: loading skeleton — the shape of what is coming, not a spinner</p>
+  </section>
+
+  <!-- ============================ RAIL ============================ -->
+  <section class="py-10 border-b border-line">
+    <h2 class="text-xl font-semibold tracking-tight">Approval chain rail</h2>
+    <p class="mt-1.5 text-base text-ink-600 max-w-[68ch]">
+      The product's signature device, carried through the rebrand unchanged in structure. Rounds
+      stack rather than replace: a rejected round stays legible beside its revision, because
+      rewriting it would fabricate a decision nobody made.
+    </p>
+
+    <div class="mt-6 max-w-[640px] rounded-lg border border-line bg-white p-5">
+      <div class="rounded-md border border-line bg-canvas px-3.5 py-2.5 mb-4">
+        <p class="text-sm text-ink-600"><span class="font-medium text-ink-900">Round 1 — rejected by Finance, 12 Aug.</span> “Headcount of 3 is not justified against the Q3 plan.”</p>
+      </div>
+      <div class="rail-step is-done flex gap-3 pb-5">
+        <span class="relative z-10 shrink-0 w-[27px] h-[27px] rounded-full bg-brand-50 border border-brand-200 grid place-items-center">
+          <svg class="w-3 h-3 text-brand-700" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5l2.5 2.5 4.5-5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="text-base"><span class="font-medium">Daw Hnin Ei Khaing</span> <span class="text-ink-500">Department Head</span></p>
+          <p class="text-sm text-ink-600">Approved <span class="font-mono tnum">14 Aug · 09:22</span></p>
+        </div>
+      </div>
+      <div class="rail-step is-done flex gap-3 pb-5">
+        <span class="relative z-10 shrink-0 w-[27px] h-[27px] rounded-full bg-brand-50 border border-brand-200 grid place-items-center">
+          <svg class="w-3 h-3 text-brand-700" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5l2.5 2.5 4.5-5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="text-base"><span class="font-medium">U Kyaw Zin Latt</span> <span class="text-ink-500">Finance Controller</span></p>
+          <p class="text-sm text-ink-600">Approved <span class="font-mono tnum">15 Aug · 16:40</span></p>
+          <div class="mt-2 inline-flex items-start gap-2 rounded-md bg-warn-50 border border-warn-500/25 px-2.5 py-1.5">
+            <span class="text-sm text-warn-700">Salary band exceeded by <span class="font-mono font-medium tnum">18%</span>. Chain extended to CHRO automatically.</span>
+          </div>
+        </div>
+      </div>
+      <div class="rail-step flex gap-3">
+        <span class="relative z-10 shrink-0 w-[27px] h-[27px] rounded-full bg-white border border-line-strong grid place-items-center">
+          <span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="text-base"><span class="font-medium">Daw Moe Moe Aung</span> <span class="text-ink-500">Chief HR Officer</span></p>
+          <p class="text-sm text-ink-600">Waiting · added by threshold rule</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ EMPTY / ERROR ============================ -->
+  <section class="py-10">
+    <h2 class="text-xl font-semibold tracking-tight">Empty, error and overlay states</h2>
+    <p class="mt-1.5 text-base text-ink-600 max-w-[68ch]">
+      An empty state teaches the interface rather than announcing absence. An error names the
+      recovery. A modal is a last resort — inline and progressive alternatives come first.
+    </p>
+
+    <div class="mt-6 grid md:grid-cols-3 gap-5">
+      <div class="rounded-lg border border-line bg-white p-8 text-center">
+        <div class="mx-auto w-10 h-10 rounded-full bg-canvas border border-line grid place-items-center">
+          <svg class="w-5 h-5 text-ink-400" viewBox="0 0 20 20" fill="none"><path d="M4 5h12M4 10h12M4 15h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+        <p class="mt-3 text-lg font-semibold">No requisitions yet</p>
+        <p class="mt-1 text-sm text-ink-600">Raise one and it routes to your department's approval chain automatically.</p>
+        <button class="mt-4 inline-flex items-center h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Raise a requisition</button>
+      </div>
+
+      <div class="rounded-lg border border-critical-500/30 bg-critical-50 p-5">
+        <p class="text-base font-semibold text-critical-700">This department can't be deactivated</p>
+        <p class="mt-1.5 text-sm text-critical-700/90">Two requisitions are still in flight. Decide or cancel them first, then try again.</p>
+        <div class="mt-3 flex gap-2">
+          <button class="inline-flex items-center h-8 px-3 rounded-md bg-white border border-critical-500/30 text-critical-700 text-sm font-medium">View the two</button>
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-line bg-white shadow-overlay p-5">
+        <p class="spec-label">dialog — protected focus only</p>
+        <p class="mt-2 text-lg font-semibold">Cancel this requisition?</p>
+        <p class="mt-1.5 text-sm text-ink-600">
+          The approval chain keeps its half-decided state. “Cancelled while waiting on Finance” is
+          the honest record.
+        </p>
+        <div class="mt-4 flex gap-2 justify-end">
+          <button class="inline-flex items-center h-9 px-3.5 rounded-md bg-white border border-line text-ink-900 text-base font-medium">Keep it open</button>
+          <button class="inline-flex items-center h-9 px-3.5 rounded-md bg-critical-500 hover:bg-critical-700 text-white text-base font-medium transition-colors">Cancel requisition</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

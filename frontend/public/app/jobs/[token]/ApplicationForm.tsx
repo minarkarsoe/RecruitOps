@@ -70,31 +70,45 @@ export function ApplicationForm({
   }
 
   if (done) {
+    // The kit's success panel (`design/public/apply.html`): a bordered card, centred, with the
+    // message set at a readable measure rather than run to the container's full width.
     return (
-      <>
-        <h2 className="font-display text-[19px] font-semibold">Application received</h2>
-        <p className="mt-2 text-[15px] text-ink-600">{done}</p>
-      </>
+      <div className="rounded-lg border border-line bg-white p-5 text-center">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full border border-line bg-canvas">
+          <svg className="h-6 w-6 text-brand-700" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M5 12.5l4.5 4.5L19 7.5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+        <h2 className="mt-4 text-xl font-semibold tracking-tight">Application received</h2>
+        <p className="mx-auto mt-2 max-w-[44ch] text-base text-ink-600">{done}</p>
+      </div>
     );
   }
 
-  const field =
-    'h-10 w-full rounded-sm border border-line-200 px-3 focus:outline-none focus:ring-2 focus:ring-primary-600';
-
   return (
     <>
-      <h2 className="font-display text-[19px] font-semibold">Apply for this role</h2>
-      <p className="mt-2 text-[15px] text-ink-600">No account needed.</p>
+      <h2 className="text-xl font-semibold tracking-tight">Apply for this role</h2>
+      <p className="mt-2 text-base text-ink-600">No account needed.</p>
 
-      {error && <p role="alert" className="mt-4 text-[15px] text-danger-600">{error}</p>}
+      {error && (
+        <div role="alert" className="mt-4 rounded-md border border-critical-100 bg-critical-50 px-3.5 py-3">
+          <p className="text-base font-medium text-critical-700">{error}</p>
+        </div>
+      )}
 
-      <form onSubmit={submit} className="mt-6 space-y-4">
+      <form onSubmit={submit} className="mt-6 space-y-5">
         <div>
-          <label htmlFor="fullName" className="mb-1 block text-[13px] font-semibold">
-            Full name
+          <label htmlFor="fullName" className={labelClass}>
+            Full name <span className="text-critical-500">*</span>
           </label>
           <input
-            id="fullName" required maxLength={200} className={field}
+            id="fullName" required maxLength={200} className={inputClass}
             value={form.fullName}
             onChange={(e) => setForm({ ...form, fullName: e.target.value })}
           />
@@ -102,23 +116,23 @@ export function ApplicationForm({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="email" className="mb-1 block text-[13px] font-semibold">Email</label>
+            <label htmlFor="email" className={labelClass}>Email</label>
             <input
-              id="email" type="email" maxLength={256} className={field}
+              id="email" type="email" maxLength={256} className={inputClass}
               value={form.email ?? ''}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </div>
           <div>
-            <label htmlFor="phone" className="mb-1 block text-[13px] font-semibold">Phone</label>
+            <label htmlFor="phone" className={labelClass}>Phone</label>
             <input
-              id="phone" type="tel" maxLength={30} className={field}
+              id="phone" type="tel" maxLength={30} className={`${inputClass} tnum`}
               value={form.phone ?? ''}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
             />
           </div>
         </div>
-        <p className="text-[13px] text-ink-400">
+        <p className="text-sm text-ink-600">
           Give at least one of email or phone so we can reach you.
         </p>
 
@@ -135,12 +149,12 @@ export function ApplicationForm({
         ))}
 
         <div>
-          <label htmlFor="coverNote" className="mb-1 block text-[13px] font-semibold">
-            Anything you&apos;d like to add <span className="font-normal text-ink-400">(optional)</span>
+          <label htmlFor="coverNote" className={labelClass}>
+            Anything you&apos;d like to add <span className="font-normal text-ink-600">(optional)</span>
           </label>
           <textarea
             id="coverNote" rows={5} maxLength={4000}
-            className="w-full rounded-sm border border-line-200 p-3 focus:outline-none focus:ring-2 focus:ring-primary-600"
+            className={textareaClass}
             value={form.coverNote ?? ''}
             onChange={(e) => setForm({ ...form, coverNote: e.target.value })}
           />
@@ -148,7 +162,8 @@ export function ApplicationForm({
 
         <button
           type="submit" disabled={busy}
-          className="h-10 rounded-sm bg-primary-600 px-5 text-[15px] font-semibold text-white disabled:opacity-50"
+          className="h-12 w-full rounded-md bg-brand-700 text-md font-medium text-white
+            transition-colors hover:bg-brand-800 disabled:bg-ink-400/40"
         >
           {busy ? 'Sending…' : 'Submit application'}
         </button>
@@ -157,8 +172,23 @@ export function ApplicationForm({
   );
 }
 
+// Built against `design/public/apply.html`.
+//
+// ⚠️ These are deliberately BIGGER than the internal app's controls — h-12 and 15px against h-9
+// and 14px. The internal app is an operations tool a recruiter lives in all day, where density is
+// the point; this form is filled once, by a stranger, very often on a phone. Copying the internal
+// `Input` here would be consistency in the wrong direction.
+//
+// `focus:border-brand-700` rather than a ring: `index.css`/`globals.css` already give every
+// focusable element the same 2px `:focus-visible` outline, and a ring on top of that is two focus
+// treatments fighting.
+const labelClass = 'block text-base font-medium';
 const inputClass =
-  'h-10 w-full rounded-sm border border-line-200 px-3 focus:outline-none focus:ring-2 focus:ring-primary-600';
+  'mt-2 h-12 w-full rounded-md border border-line bg-white px-3.5 text-md outline-none ' +
+  'transition-colors focus:border-brand-700';
+const textareaClass =
+  'mt-2 w-full rounded-md border border-line bg-white p-3.5 text-md outline-none ' +
+  'transition-colors focus:border-brand-700';
 
 /** Renders one customer-defined question. `required` is mirrored onto the input so the
  *  browser catches it before a round-trip, but the server enforces it either way. */
@@ -173,16 +203,16 @@ function CustomField({
 
   if (field.type === 'checkbox') {
     return (
-      <label className="flex items-start gap-2 text-[15px]">
+      <label className="flex items-start gap-2.5 text-base">
         <input
-          id={id} type="checkbox" className="mt-1"
+          id={id} type="checkbox" className="mt-1 h-4 w-4 accent-brand-700"
           required={field.required}
           checked={value === 'true'}
           onChange={(e) => onChange(String(e.target.checked))}
         />
         <span>
           {field.label}
-          {field.required && <span className="text-danger-600"> *</span>}
+          {field.required && <span className="text-critical-500"> *</span>}
         </span>
       </label>
     );
@@ -190,15 +220,15 @@ function CustomField({
 
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-[13px] font-semibold">
+      <label htmlFor={id} className={labelClass}>
         {field.label}
-        {field.required && <span className="text-danger-600"> *</span>}
+        {field.required && <span className="text-critical-500"> *</span>}
       </label>
 
       {field.type === 'textarea' ? (
         <textarea
           id={id} rows={4} maxLength={2000} required={field.required}
-          className="w-full rounded-sm border border-line-200 p-3 focus:outline-none focus:ring-2 focus:ring-primary-600"
+          className={textareaClass}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />

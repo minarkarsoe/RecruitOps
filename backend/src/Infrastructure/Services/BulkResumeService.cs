@@ -1,70 +1,62 @@
-using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RecruitOps.Application.Common;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Application.Interfaces;
-using RecruitOps.Domain;
 using RecruitOps.Domain.Entities;
 using RecruitOps.Domain.Enums;
 using RecruitOps.Infrastructure.Persistence;
+using RecruitOps.Infrastructure.Services.Delivery;
 
 namespace RecruitOps.Infrastructure.Services;
 
-internal class BatchStateHolder
+/// <summary>Module 2.3 — takes a recruiter's fifty CVs and puts them on a durable queue.
+///
+/// <para><b>Rewritten onto ADR-0026, not extended.</b> What this replaced kept the batch — and the
+/// raw uploaded bytes — in a <c>static ConcurrentDictionary</c> and started the work with
+/// <c>_ = Task.Run(...)</c>. A restart did not degrade that; it erased it. The recruiter's fifty
+/// files returned 404 with no way to learn whether any candidate had been created, an exception
+/// inside the <c>Task.Run</c> was unobserved, and the files sat in RAM for the whole batch. The
+/// ADR's own Context section is largely a description of this class.</para>
+///
+/// <para>What it does now: validate, put the bytes in object storage (ADR-0013), and write a
+/// <see cref="BulkUploadBatch"/> plus one <see cref="BulkUploadFile"/> per file in a single
+/// <c>SaveChangesAsync</c>. <see cref="BulkResumeWorker"/> does the rest, later, durably.</para>
+/// </summary>
+public class BulkResumeService : IBulkResumeService
 {
-    public Guid BatchId { get; set; }
-    public Guid JobPostingId { get; set; }
-    public Guid TenantId { get; set; }
-    public Guid? UploadedByUserId { get; set; }
-    public BulkBatchStatus Status { get; set; } = BulkBatchStatus.Queued;
-    public int TotalFiles { get; set; }
-    public int ProcessedFiles { get; set; }
-    public int SuccessCount { get; set; }
-    public int SkippedCount { get; set; }
-    public int FailedCount { get; set; }
-    public DateTimeOffset CreatedAt { get; set; }
-    public DateTimeOffset? CompletedAt { get; set; }
-    public List<BatchItemStateHolder> Items { get; set; } = new();
-    public object LockObject { get; } = new();
-}
-
-internal class BatchItemStateHolder
-{
-    public string FileName { get; set; } = string.Empty;
-    public byte[] Content { get; set; } = Array.Empty<byte>();
-    public string ContentType { get; set; } = string.Empty;
-    public BulkFileStatus Status { get; set; } = BulkFileStatus.Queued;
-    public string? ErrorMessage { get; set; }
-    public Guid? ApplicationId { get; set; }
-    public Guid? CandidateId { get; set; }
-}
-
-public class BulkResumeService : IBulkResumeService, Application.Common.Interfaces.IBulkResumeService
-{
-    private static readonly ConcurrentDictionary<Guid, BatchStateHolder> Batches = new();
+    /// <summary>What <c>IDocumentTextExtractor</c> can actually read (ADR-0008 Phase 1).
+    ///
+    /// <para>Deliberately <b>not</b> configurable, unlike the size limit next to it. An operator
+    /// who could add <c>.rtf</c> here would be enabling a format the extractor cannot parse, and
+    /// every such file would fail three times before being given up on. The list is a fact about
+    /// the code, not a deployment preference.</para></summary>
+    private static readonly string[] AllowedExtensions = [".pdf", ".docx", ".png", ".jpg", ".jpeg"];
 
     private readonly AppDbContext _db;
     private readonly IDepartmentAccess _access;
     private readonly ICurrentUser _currentUser;
-    private readonly TimeProvider _timeProvider;
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IFileStorage _storage;
+    private readonly TimeProvider _clock;
+    private readonly BulkResumeOptions _options;
     private readonly ILogger<BulkResumeService> _logger;
 
     public BulkResumeService(
         AppDbContext db,
         IDepartmentAccess access,
         ICurrentUser currentUser,
-        TimeProvider timeProvider,
-        IServiceScopeFactory scopeFactory,
+        IFileStorage storage,
+        TimeProvider clock,
+        IOptions<BulkResumeOptions> options,
         ILogger<BulkResumeService> logger)
     {
         _db = db;
         _access = access;
         _currentUser = currentUser;
-        _timeProvider = timeProvider;
-        _scopeFactory = scopeFactory;
+        _storage = storage;
+        _clock = clock;
+        _options = options.Value;
         _logger = logger;
     }
 
@@ -74,57 +66,52 @@ public class BulkResumeService : IBulkResumeService, Application.Common.Interfac
         Guid? currentUserId,
         CancellationToken ct = default)
     {
-        var posting = await _db.JobPostings.AsNoTracking().FirstOrDefaultAsync(p => p.Id == jobPostingId, ct);
+        var posting = await _db.JobPostings.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == jobPostingId, ct);
+
         if (posting is null)
         {
             _logger.LogWarning("Job posting {JobPostingId} not found.", jobPostingId);
             return null;
         }
 
-        if (!await _access.CanAccessAsync(posting.DepartmentId, ct))
+        // ADR-0003 + ADR-0018, applied explicitly, on the way in. This is the ONLY place they
+        // can be applied for this feature: the worker runs with no user, so it cannot ask "may
+        // they reach it" later (ADR-0026 §4).
+        if (!await CanReachCandidatesInAsync(posting.DepartmentId, ct))
         {
-            _logger.LogWarning("Department access denied for posting {JobPostingId}, department {DepartmentId}.", jobPostingId, posting.DepartmentId);
+            _logger.LogWarning(
+                "Department access denied for posting {JobPostingId}, department {DepartmentId}.",
+                jobPostingId, posting.DepartmentId);
             return null;
         }
 
-        var effectiveUserId = currentUserId ?? _currentUser.UserId;
-        var batchId = Guid.NewGuid();
-        var now = _timeProvider.GetUtcNow();
+        var now = _clock.GetUtcNow();
 
-        var batchState = new BatchStateHolder
+        var batch = new BulkUploadBatch
         {
-            BatchId = batchId,
-            JobPostingId = jobPostingId,
             TenantId = posting.TenantId,
-            UploadedByUserId = effectiveUserId,
-            Status = BulkBatchStatus.Queued,
-            TotalFiles = files.Count,
-            ProcessedFiles = 0,
-            SuccessCount = 0,
-            SkippedCount = 0,
-            FailedCount = 0,
+            JobPostingId = jobPostingId,
+            UploadedByUserId = currentUserId ?? _currentUser.UserId,
             CreatedAt = now,
-            Items = files.Select(f => new BatchItemStateHolder
-            {
-                FileName = f.FileName,
-                Content = f.Content,
-                ContentType = f.ContentType,
-                Status = BulkFileStatus.Queued
-            }).ToList()
         };
 
-        Batches[batchId] = batchState;
+        var rows = new List<BulkUploadFile>(files.Count);
+        for (var i = 0; i < files.Count; i++)
+        {
+            rows.Add(await PrepareAsync(batch, files[i], i, now, ct));
+        }
 
-        // Launch background task processing asynchronously (non-blocking)
-        _ = Task.Run(async () => await ProcessBatchAsync(batchId));
+        _db.BulkUploadBatches.Add(batch);
+        _db.BulkUploadFiles.AddRange(rows);
+        await _db.SaveChangesAsync(ct);
 
         return new BulkUploadBatchResponseDto(
-            BatchId: batchId,
+            BatchId: batch.Id,
             JobPostingId: jobPostingId,
             TotalFiles: files.Count,
             Status: BulkBatchStatus.Queued.ToString(),
-            CreatedAt: now
-        );
+            CreatedAt: now);
     }
 
     public async Task<BulkBatchStatusDto?> GetBatchStatusAsync(
@@ -132,247 +119,201 @@ public class BulkResumeService : IBulkResumeService, Application.Common.Interfac
         Guid batchId,
         CancellationToken ct = default)
     {
-        var posting = await _db.JobPostings.AsNoTracking().FirstOrDefaultAsync(p => p.Id == jobPostingId, ct);
-        if (posting is null)
-        {
-            return null;
-        }
+        var posting = await _db.JobPostings.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == jobPostingId, ct);
 
-        if (!await _access.CanAccessAsync(posting.DepartmentId, ct))
-        {
-            return null;
-        }
+        if (posting is null) return null;
+        if (!await CanReachCandidatesInAsync(posting.DepartmentId, ct)) return null;
 
-        if (!Batches.TryGetValue(batchId, out var batchState) || batchState.JobPostingId != jobPostingId)
-        {
-            return null;
-        }
+        var batch = await _db.BulkUploadBatches.AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Id == batchId && b.JobPostingId == jobPostingId, ct);
 
-        lock (batchState.LockObject)
-        {
-            return new BulkBatchStatusDto(
-                BatchId: batchState.BatchId,
-                JobPostingId: batchState.JobPostingId,
-                Status: batchState.Status.ToString(),
-                TotalFiles: batchState.TotalFiles,
-                ProcessedFiles: batchState.ProcessedFiles,
-                SuccessCount: batchState.SuccessCount,
-                SkippedCount: batchState.SkippedCount,
-                FailedCount: batchState.FailedCount,
-                CreatedAt: batchState.CreatedAt,
-                CompletedAt: batchState.CompletedAt,
-                Items: batchState.Items.Select(i => new BulkFileItemStatusDto(
-                    FileName: i.FileName,
-                    Status: i.Status.ToString(),
-                    ErrorMessage: i.ErrorMessage,
-                    ApplicationId: i.ApplicationId,
-                    CandidateId: i.CandidateId
-                )).ToList()
-            );
-        }
+        // Null covers "no such batch", "not this posting's batch" and "another tenant's batch"
+        // alike — 404 for all three, so existence is never leaked.
+        if (batch is null) return null;
+
+        var rows = await _db.BulkUploadFiles.AsNoTracking()
+            .Where(f => f.BulkUploadBatchId == batchId)
+            .OrderBy(f => f.Ordinal)
+            .ToListAsync(ct);
+
+        return Summarise(batch, rows);
     }
 
-    private async Task ProcessBatchAsync(Guid batchId)
+    /// <summary>Department scoping (ADR-0003) <b>plus</b> the candidate-data exclusion
+    /// (ADR-0018), through one door so neither entry point can get only half of it.
+    ///
+    /// <para>⚠️ <b>This class shipped with only half.</b> Both entry points called
+    /// <c>CanAccessAsync</c> on its own, which answers "does this role work across departments" —
+    /// and an Approver does, on the requisition axis, which is what ADR-0003 was arguing about.
+    /// Asked about a <i>candidate</i>, that same <c>true</c> let an Approver POST fifty CVs into
+    /// any posting in the company and read the batch back. Confirmed against the running API on
+    /// 2026-08-26: <c>POST /api/jobpostings/{id}/resumes/bulk</c> as the Finance approver, against
+    /// a Sales posting, returned <b>200 OK</b> with a batch id.</para>
+    ///
+    /// <para>The bug is the one ADR-0018 was written about, reintroduced in newer code with the
+    /// corrected version sitting in <c>PipelineService.CanReachCandidatesInAsync</c> — which is
+    /// the argument for this being a shared helper rather than a rule each service remembers.</para>
+    /// </summary>
+    private async Task<bool> CanReachCandidatesInAsync(Guid departmentId, CancellationToken ct)
+        => !_currentUser.IsExcludedFromCandidateData
+           && await _access.CanAccessAsync(departmentId, ct);
+
+    // ---------------------------------------------------------------- enqueue helpers
+
+    /// <summary>Turns one uploaded file into a row — storing its bytes first, unless it is
+    /// rejected outright.
+    ///
+    /// <para><b>Validation happens here, not in the worker.</b> Uploading several megabytes into
+    /// object storage in order to refuse them a minute later is work nobody asked for, and the
+    /// recruiter finds out about an unsupported file immediately instead of after a poll.</para></summary>
+    private async Task<BulkUploadFile> PrepareAsync(
+        BulkUploadBatch batch, BulkFileItemInput file, int ordinal, DateTimeOffset now, CancellationToken ct)
     {
-        if (!Batches.TryGetValue(batchId, out var batchState))
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+            ? GuessContentType(file.FileName)
+            : file.ContentType;
+
+        var row = new BulkUploadFile
         {
-            return;
+            TenantId = batch.TenantId,
+            BulkUploadBatchId = batch.Id,
+            Ordinal = ordinal,
+            FileName = Truncate(file.FileName, 255),
+            ContentType = Truncate(contentType, 255),
+            SizeBytes = file.Content.LongLength,
+            Status = BulkFileStatus.Queued,
+            NextAttemptAt = now,
+            CreatedAt = now,
+        };
+
+        var rejection = Reject(file);
+        if (rejection is not null)
+        {
+            row.Status = BulkFileStatus.Failed;
+            row.LastError = rejection;
+            row.CompletedAt = now;
+            return row;
         }
 
-        lock (batchState.LockObject)
+        try
         {
-            batchState.Status = BulkBatchStatus.Processing;
+            using var content = new MemoryStream(file.Content, writable: false);
+
+            // ⚠️ The key carries NO part of the uploaded file name — only ids and a validated
+            // extension. A candidate-supplied name in an object key is how a stray "../" or a
+            // control character becomes somebody else's problem in whichever storage backend a
+            // customer runs. The name the recruiter sees lives in FileName, on the row.
+            var key = $"bulk-uploads/{batch.Id}/{row.Id}{Path.GetExtension(row.FileName).ToLowerInvariant()}";
+
+            var uploaded = await _storage.UploadAsync(
+                new UploadFileRequest(key, content, row.ContentType, file.Content.LongLength), ct);
+
+            row.StorageKey = uploaded.Key;
+        }
+        catch (Exception ex)
+        {
+            // Terminal, not retryable, and the distinction is forced: a retry would need the
+            // bytes, and the bytes only existed inside this request. Failing the one row keeps
+            // the rest of the batch alive, which is the behaviour a recruiter needs when storage
+            // hiccups on file 7 of 50.
+            _logger.LogError(ex, "Could not store {FileName} for batch {BatchId}.", row.FileName, batch.Id);
+
+            row.Status = BulkFileStatus.Failed;
+            row.LastError = "This file could not be stored, so it was not processed. Upload it again.";
+            row.CompletedAt = now;
         }
 
-        var allowedExtensions = new[] { ".pdf", ".docx", ".png", ".jpg", ".jpeg" };
-
-        foreach (var item in batchState.Items)
-        {
-            lock (batchState.LockObject)
-            {
-                item.Status = BulkFileStatus.Processing;
-            }
-
-            // 1. File Size Validation (Max 10MB)
-            if (item.Content.Length == 0 || item.Content.Length > 10 * 1024 * 1024)
-            {
-                lock (batchState.LockObject)
-                {
-                    item.Status = BulkFileStatus.Failed;
-                    item.ErrorMessage = "File size exceeds maximum limit of 10MB.";
-                    batchState.FailedCount++;
-                    batchState.ProcessedFiles++;
-                }
-                continue;
-            }
-
-            // 2. Extension Validation
-            var ext = Path.GetExtension(item.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(ext))
-            {
-                lock (batchState.LockObject)
-                {
-                    item.Status = BulkFileStatus.Failed;
-                    item.ErrorMessage = "Unsupported file extension. Allowed formats: .pdf, .docx, .png, .jpg, .jpeg.";
-                    batchState.FailedCount++;
-                    batchState.ProcessedFiles++;
-                }
-                continue;
-            }
-
-            // 3. Process valid file item inside a fresh DI scope
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var storage = scope.ServiceProvider.GetRequiredService<IFileStorage>();
-                var extractor = scope.ServiceProvider.GetRequiredService<IDocumentTextExtractor>();
-                var clock = scope.ServiceProvider.GetRequiredService<TimeProvider>();
-
-                using var ms = new MemoryStream(item.Content);
-
-                // Extract text & auto-normalize Zawgyi
-                var extractionResult = await extractor.ExtractTextAsync(
-                    ms,
-                    item.FileName,
-                    string.IsNullOrWhiteSpace(item.ContentType) ? GetContentType(item.FileName) : item.ContentType
-                );
-
-                var parsed = extractionResult.ParsedContactInfo;
-                string? email = ContactNormalizer.Email(parsed?.Email);
-                string? phone = ContactNormalizer.Phone(parsed?.Phone);
-
-                // Deduplicate candidate via Email or Phone
-                Candidate? candidate = null;
-                if (email != null || phone != null)
-                {
-                    candidate = await db.Candidates
-                        .IgnoreQueryFilters()
-                        .Where(c => c.TenantId == batchState.TenantId
-                                    && c.MergedIntoCandidateId == null
-                                    && ((email != null && c.Email == email) || (phone != null && c.Phone == phone)))
-                        .OrderBy(c => c.CreatedAt)
-                        .FirstOrDefaultAsync();
-                }
-
-                if (candidate == null)
-                {
-                    string candidateName = parsed?.CandidateName?.Trim() ?? string.Empty;
-                    if (string.IsNullOrWhiteSpace(candidateName))
-                    {
-                        candidateName = Path.GetFileNameWithoutExtension(item.FileName);
-                    }
-
-                    candidate = new Candidate
-                    {
-                        TenantId = batchState.TenantId,
-                        FullName = candidateName,
-                        Email = email,
-                        Phone = phone,
-                        Source = SourceChannel.Direct
-                    };
-                    db.Candidates.Add(candidate);
-                    await db.SaveChangesAsync();
-                }
-                else
-                {
-                    if (candidate.Email == null && email != null) candidate.Email = email;
-                    if (candidate.Phone == null && phone != null) candidate.Phone = phone;
-                    if (string.IsNullOrWhiteSpace(candidate.FullName) && !string.IsNullOrWhiteSpace(parsed?.CandidateName))
-                    {
-                        candidate.FullName = parsed.CandidateName.Trim();
-                    }
-                    await db.SaveChangesAsync();
-                }
-
-                var now = clock.GetUtcNow();
-
-                // Create JobApplication
-                var application = new JobApplication
-                {
-                    TenantId = batchState.TenantId,
-                    JobPostingId = batchState.JobPostingId,
-                    CandidateId = candidate.Id,
-                    Status = PipelineStatus.Sourced,
-                    Source = SourceChannel.Direct,
-                    AppliedAt = now,
-                };
-                db.JobApplications.Add(application);
-                await db.SaveChangesAsync();
-
-                // Upload to Object Storage
-                ms.Position = 0;
-                string fileKey = $"applications/{application.Id}/resume/{Guid.NewGuid()}_{item.FileName}";
-                string contentType = string.IsNullOrWhiteSpace(item.ContentType) ? GetContentType(item.FileName) : item.ContentType;
-
-                var uploadReq = new UploadFileRequest(
-                    Key: fileKey,
-                    Content: ms,
-                    ContentType: contentType,
-                    ContentLength: item.Content.Length
-                );
-                var uploadResp = await storage.UploadAsync(uploadReq);
-
-                // Update application resume properties
-                application.ResumeFileKey = uploadResp.Key;
-                application.ResumeFileName = item.FileName;
-                application.ResumeExtractedText = extractionResult.ExtractedText;
-                application.ResumeUploadedAt = now;
-                application.IsZawgyiNormalized = extractionResult.IsZawgyiNormalized;
-
-                // Log ApplicationStageHistory
-                var history = new ApplicationStageHistory
-                {
-                    TenantId = batchState.TenantId,
-                    JobApplicationId = application.Id,
-                    FromStatus = null,
-                    ToStatus = PipelineStatus.Sourced,
-                    ChangedByUserId = batchState.UploadedByUserId,
-                    ChangedAt = now,
-                    Note = "Created via Bulk CV Upload"
-                };
-                db.ApplicationStageHistories.Add(history);
-                await db.SaveChangesAsync();
-
-                lock (batchState.LockObject)
-                {
-                    item.Status = BulkFileStatus.Success;
-                    item.ApplicationId = application.Id;
-                    item.CandidateId = candidate.Id;
-                    batchState.SuccessCount++;
-                    batchState.ProcessedFiles++;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing bulk resume file {FileName} in batch {BatchId}", item.FileName, batchId);
-                lock (batchState.LockObject)
-                {
-                    item.Status = BulkFileStatus.Failed;
-                    item.ErrorMessage = ex.Message;
-                    batchState.FailedCount++;
-                    batchState.ProcessedFiles++;
-                }
-            }
-        }
-
-        lock (batchState.LockObject)
-        {
-            batchState.Status = BulkBatchStatus.Completed;
-            batchState.CompletedAt = _timeProvider.GetUtcNow();
-        }
+        return row;
     }
 
-    private static string GetContentType(string fileName)
+    /// <summary>The reason to refuse this file, or null to accept it.</summary>
+    private string? Reject(BulkFileItemInput file)
     {
-        string ext = Path.GetExtension(fileName).ToLowerInvariant();
-        return ext switch
+        if (file.Content.LongLength == 0)
+        {
+            return "The file is empty.";
+        }
+
+        if (file.Content.LongLength > _options.MaxFileSizeBytes)
+        {
+            // Wording kept: "exceeds maximum limit" is asserted by the suite and, more to the
+            // point, is what the upload panel already shows.
+            var megabytes = _options.MaxFileSizeBytes / (1024d * 1024d);
+            return $"File size exceeds maximum limit of {megabytes:0.#}MB.";
+        }
+
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!AllowedExtensions.Contains(extension))
+        {
+            return "Unsupported file extension. Allowed formats: .pdf, .docx, .png, .jpg, .jpeg.";
+        }
+
+        return null;
+    }
+
+    // ---------------------------------------------------------------- status
+
+    /// <summary>Computes the batch's state from its files. Nothing here is stored, so nothing here
+    /// can disagree with the rows it describes.</summary>
+    private static BulkBatchStatusDto Summarise(BulkUploadBatch batch, List<BulkUploadFile> rows)
+    {
+        var processed = rows.Count(IsTerminal);
+        var success = rows.Count(f => f.Status == BulkFileStatus.Success);
+        var skipped = rows.Count(f => f.Status == BulkFileStatus.Skipped);
+        var failed = rows.Count(f => f.Status == BulkFileStatus.Failed);
+
+        var status = processed switch
+        {
+            0 => BulkBatchStatus.Queued,
+            _ when processed < rows.Count => BulkBatchStatus.Processing,
+            // Everything is terminal. "Completed" means at least one CV actually became a
+            // candidate; a batch where every single file failed is not a completed batch, and
+            // telling a recruiter it is would be the least useful thing this endpoint could say.
+            _ when success > 0 || skipped > 0 => BulkBatchStatus.Completed,
+            _ => BulkBatchStatus.Failed,
+        };
+
+        DateTimeOffset? completedAt = processed == rows.Count && rows.Count > 0
+            ? rows.Max(f => f.CompletedAt)
+            : null;
+
+        return new BulkBatchStatusDto(
+            BatchId: batch.Id,
+            JobPostingId: batch.JobPostingId,
+            Status: status.ToString(),
+            TotalFiles: rows.Count,
+            ProcessedFiles: processed,
+            SuccessCount: success,
+            SkippedCount: skipped,
+            FailedCount: failed,
+            CreatedAt: batch.CreatedAt,
+            CompletedAt: completedAt,
+            Items: rows.Select(f => new BulkFileItemStatusDto(
+                FileName: f.FileName,
+                Status: f.Status.ToString(),
+                ErrorMessage: f.LastError,
+                ApplicationId: f.JobApplicationId,
+                CandidateId: f.CandidateId)).ToList());
+    }
+
+    private static bool IsTerminal(BulkUploadFile file) =>
+        file.Status is BulkFileStatus.Success or BulkFileStatus.Failed or BulkFileStatus.Skipped;
+
+    // ---------------------------------------------------------------- small helpers
+
+    internal static string GuessContentType(string fileName) =>
+        Path.GetExtension(fileName).ToLowerInvariant() switch
         {
             ".pdf" => "application/pdf",
             ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             ".png" => "image/png",
             ".jpg" or ".jpeg" => "image/jpeg",
-            _ => "application/octet-stream"
+            _ => "application/octet-stream",
         };
-    }
+
+    /// <summary>The column is capped, and a browser will happily send a 4 KB file name. Truncating
+    /// beats a <c>DbUpdateException</c> that loses the other forty-nine files with it.</summary>
+    private static string Truncate(string value, int max) =>
+        value.Length <= max ? value : value[..max];
 }

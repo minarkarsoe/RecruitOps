@@ -104,14 +104,14 @@ export function ApprovalChainsPage() {
     }
   }
 
-  const field = 'h-10 w-full rounded-sm border border-line-200 px-3 focus:outline-none focus:ring-2 focus:ring-primary-600 text-[15px]';
+  const field = 'h-10 w-full rounded-md border border-line px-3 focus:outline-none focus:ring-2 focus:ring-brand-700 text-md';
 
   return (
     <>
       <header className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold">Approval chains</h1>
-          <p className="mt-1 text-[13px] text-ink-400">
+          <h1 className="text-xl font-semibold tracking-tight">Approval chains</h1>
+          <p className="mt-1 text-sm text-ink-400">
             Define who must approve a requisition and in what order.
           </p>
         </div>
@@ -120,23 +120,23 @@ export function ApprovalChainsPage() {
         )}
       </header>
 
-      {error && <p role="alert" className="mb-4 text-[13px] text-danger-600">{error}</p>}
+      {error && <p role="alert" className="mb-4 text-sm text-critical-700">{error}</p>}
 
       {/* ── Create form ── */}
       {showForm && (
         <Card>
-          <h2 className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-ink-600">
+          <h2 className="mb-4 text-base font-semibold">
             New approval chain
           </h2>
           <form onSubmit={submit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1 block text-[13px] font-semibold">Chain name</label>
+                <label className="mb-1 block text-sm font-semibold">Chain name</label>
                 <input required className={field} placeholder="e.g. Default headcount approval"
                   value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
               <div>
-                <label className="mb-1 block text-[13px] font-semibold">
+                <label className="mb-1 block text-sm font-semibold">
                   Department <span className="font-normal text-ink-400">(empty = company-wide)</span>
                 </label>
                 <select className={field}
@@ -152,16 +152,16 @@ export function ApprovalChainsPage() {
 
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <label className="text-[13px] font-semibold">Approval steps (in order)</label>
+                <label className="text-sm font-semibold">Approval steps (in order)</label>
                 <button type="button" onClick={addStep}
-                  className="text-[13px] font-semibold text-primary-600 hover:text-primary-700">
+                  className="text-sm font-semibold text-brand-700 hover:text-brand-700">
                   + Add step
                 </button>
               </div>
               <div className="space-y-2">
                 {form.steps.map((step, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-50 text-[12px] font-bold text-ink-600">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-canvas text-xs font-bold text-ink-600">
                       {i + 1}
                     </span>
                     <input
@@ -187,7 +187,7 @@ export function ApprovalChainsPage() {
                     </select>
                     {form.steps.length > 1 && (
                       <button type="button" onClick={() => removeStep(i)}
-                        className="shrink-0 text-[20px] leading-none text-ink-400 hover:text-danger-600">
+                        className="shrink-0 text-2xl leading-none text-ink-400 hover:text-critical-700">
                         ×
                       </button>
                     )}
@@ -214,7 +214,7 @@ export function ApprovalChainsPage() {
         <Card>
           <div className="py-6 text-center">
             <h3 className="text-base font-semibold">No approval chains yet</h3>
-            <p className="mt-1 text-[13px] text-ink-600">
+            <p className="mt-1 text-sm text-ink-600">
               Create one to enable requisition submission.
             </p>
           </div>
@@ -227,26 +227,26 @@ export function ApprovalChainsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold">{chain.name}</p>
-                  <p className="text-[13px] text-ink-400">
+                  <p className="text-sm text-ink-400">
                     {chain.departmentId
                       ? departments.find((d) => d.id === chain.departmentId)?.name ?? 'Specific department'
                       : 'Company-wide'
                     }
                     {' · '}
                     {chain.isActive ? (
-                      <span className="text-success-600">Active</span>
+                      <span className="text-positive-700">Active</span>
                     ) : (
                       <span className="text-ink-400">Inactive</span>
                     )}
                   </p>
                 </div>
-                <span className="text-[13px] text-ink-400">{chain.steps.length} step{chain.steps.length !== 1 ? 's' : ''}</span>
+                <span className="text-sm text-ink-400">{chain.steps.length} step{chain.steps.length !== 1 ? 's' : ''}</span>
               </div>
               {chain.steps.length > 0 && (
-                <ol className="mt-3 space-y-1 border-t border-line-200 pt-3">
+                <ol className="mt-3 space-y-1 border-t border-line pt-3">
                   {chain.steps.map((s) => (
-                    <li key={s.sequence} className="flex items-center gap-2 text-[13px]">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-50 text-[11px] font-bold text-ink-600">
+                    <li key={s.sequence} className="flex items-center gap-2 text-sm">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-canvas text-2xs font-bold text-ink-600">
                         {s.sequence}
                       </span>
                       <span className="font-semibold">{s.label}</span>

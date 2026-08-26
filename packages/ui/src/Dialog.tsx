@@ -57,16 +57,16 @@ export function Dialog({
       {/* Modal Alignment Wrapper */}
       <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
         <div
-          className={`relative transform overflow-hidden rounded-md bg-surface-0 border border-line-200 shadow-pop transition-all w-full ${SIZE_CLASSES[size]} text-left ${className}`}
+          className={`relative transform overflow-hidden rounded-md bg-white border border-line shadow-overlay transition-all w-full ${SIZE_CLASSES[size]} text-left ${className}`}
           role="dialog"
           aria-modal="true"
         >
           {/* Header if title or description passed */}
           {(title || description) ? (
-            <div className="border-b border-line-200 px-6 py-4 flex items-start justify-between">
+            <div className="border-b border-line px-6 py-4 flex items-start justify-between">
               <div>
                 {title && (
-                  <h3 className="font-display text-lg font-semibold leading-6 text-ink-900">
+                  <h3 className="font-sans text-lg font-semibold leading-6 text-ink-900">
                     {title}
                   </h3>
                 )}
@@ -77,7 +77,7 @@ export function Dialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md p-1 text-ink-400 hover:bg-surface-50 hover:text-ink-600 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                className="rounded-md p-1 text-ink-400 hover:bg-canvas hover:text-ink-600 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 aria-label="Close dialog"
               >
                 <svg
@@ -100,7 +100,7 @@ export function Dialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md p-1 text-ink-400 hover:bg-surface-50 hover:text-ink-600 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                className="rounded-md p-1 text-ink-400 hover:bg-canvas hover:text-ink-600 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 aria-label="Close dialog"
               >
                 <svg
@@ -136,7 +136,7 @@ export function DialogHeader({
   className?: string;
 }) {
   return (
-    <div className={`border-b border-line-200 px-6 py-4 ${className}`}>
+    <div className={`border-b border-line px-6 py-4 ${className}`}>
       {children}
     </div>
   );
@@ -150,7 +150,7 @@ export function DialogTitle({
   className?: string;
 }) {
   return (
-    <h3 className={`font-display text-lg font-semibold text-ink-900 ${className}`}>
+    <h3 className={`font-sans text-lg font-semibold text-ink-900 ${className}`}>
       {children}
     </h3>
   );
@@ -185,7 +185,7 @@ export function DialogFooter({
 }) {
   return (
     <div
-      className={`border-t border-line-200 bg-surface-50 px-6 py-3 flex items-center justify-end gap-3 ${className}`}
+      className={`border-t border-line bg-canvas px-6 py-3 flex items-center justify-end gap-3 ${className}`}
     >
       {children}
     </div>
