@@ -144,6 +144,11 @@ public static class DependencyInjection
         // Module 2 / Milestone 1 — Full-text Search Service
         services.AddScoped<ISearchService, SearchService>();
 
+        // ADR-0026 — the read side of the outbox. Scoped, and it takes ICurrentUser +
+        // IDepartmentAccess for the reason spelled out in DeliveryLogService: this table reaches
+        // a department only through SubjectType/SubjectId, so ADR-0003 has to be applied by hand.
+        services.AddScoped<IDeliveryLogService, DeliveryLogService>();
+
         return services;
     }
 }
