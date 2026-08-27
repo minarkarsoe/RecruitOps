@@ -154,17 +154,13 @@ public class PipelineService : IPipelineService
 
     // ---------- helpers ----------
 
-    /// <summary>Department scoping (ADR-0003) <b>plus</b> the candidate-data exclusion
-    /// (ADR-0018), through one door so a fourth method cannot get only half of it.
+    /// <summary>Forwards to <see cref="IDepartmentAccess.CanReachCandidatesInAsync"/>, which owns
+    /// the rule (ADR-0003 department scoping + the ADR-0018 candidate exclusion).
     ///
-    /// <para><c>CanAccessAsync</c> on its own is not the right question here. It answers
-    /// "does this role work across departments", and an Approver does — on the requisition
-    /// axis, which is what ADR-0003 was arguing about. Asked about a <i>candidate</i>, the
-    /// same true handed an Approver the whole company's pipeline, stage history included.
-    /// They reach an individual application by sitting on its panel (ADR-0017 §4), which
-    /// <c>IApplicationAccess</c> resolves; nothing here grants standing reach.</para>
+    /// <para>This used to be the rule itself, and the copy in <c>BulkResumeService</c> is what
+    /// shipped the same bug a third time. It is kept as a one-line forward only because the call
+    /// sites below read better for it — the logic lives in exactly one place now.</para>
     /// </summary>
-    private async Task<bool> CanReachCandidatesInAsync(Guid departmentId, CancellationToken ct)
-        => !_user.IsExcludedFromCandidateData
-           && await _access.CanAccessAsync(departmentId, ct);
+    private Task<bool> CanReachCandidatesInAsync(Guid departmentId, CancellationToken ct)
+        => _access.CanReachCandidatesInAsync(departmentId, ct);
 }

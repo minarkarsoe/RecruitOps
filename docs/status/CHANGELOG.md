@@ -5,6 +5,40 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🔐 One door for candidate reach — the bug class that shipped three times
+
+**Why:** the ADR-0026 security review's open recommendation. `IDepartmentAccess.CanAccessAsync`
+answers *"does this role work across departments"*, and an `Approver` does — deliberately, per
+ADR-0003. Asked about a **candidate**, that same `true` hands them the whole company. Every
+candidate-facing service had to remember a second half, and three of them forgot it in turn:
+`NoteService`, then `PipelineService`, then `BulkResumeService` — the last written *after*
+ADR-0018 was documented, with the corrected version sitting one file away.
+
+`CanReachCandidatesInAsync` is now a member of `IDepartmentAccess`, implemented once. The three
+hand-rolled copies are gone: `PipelineService` and `BulkResumeService` are one-line forwards, and
+`ApplicationAccess`'s inline "clause 0 + clause 1" is a single call. `CanAccessAsync` keeps the
+requisition axis, and its doc comment now says outright that it is **not** the question to ask
+about candidate data.
+
+**The consolidation is what makes the rule testable as one thing.** Proved by mutation: removing
+`!_user.IsExcludedFromCandidateData` from the single shared helper fails **8 tests**, all
+`ApproverReachTests` — scorecards, the interview and round list, the pipeline and stage history,
+reading and posting to the note thread, bulk upload, and the panel-seat exception. Before this,
+the rule lived in three private copies, so breaking one failed only that service's tests while
+the other two kept their guarantees silently.
+
+**644/644** (62 Domain + 582 Api), build clean, `dotnet format` clean.
+
+**Stated plainly, because it matters:** this removes the *duplication*, not the possibility of
+asking wrong. `CanAccessAsync` is still public — the requisition axis needs it. Making the wrong
+call impossible would mean splitting the interface (`ICandidateReach`) so candidate-facing
+services never see it, which is a larger change and is not done here. The set-shaped form of the
+same rule (`DeliveryLogService`, `AnalyticsService`, `SearchService`) is left alone: all three are
+already correct, and it is not where the bug has ever landed.
+
+⚠️ **This is authorization code and CLAUDE.md asks for explicit human review before it is
+considered done.**
+
 ### 🐳 The public app's browser-side API calls never worked in Docker
 
 **Why:** found bringing the stack up. `frontend/public/next.config.mjs` hard-coded its rewrite to

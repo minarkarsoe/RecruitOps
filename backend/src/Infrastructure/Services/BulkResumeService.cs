@@ -152,12 +152,13 @@ public class BulkResumeService : IBulkResumeService
     /// a Sales posting, returned <b>200 OK</b> with a batch id.</para>
     ///
     /// <para>The bug is the one ADR-0018 was written about, reintroduced in newer code with the
-    /// corrected version sitting in <c>PipelineService.CanReachCandidatesInAsync</c> — which is
-    /// the argument for this being a shared helper rather than a rule each service remembers.</para>
+    /// corrected version sitting in <c>PipelineService.CanReachCandidatesInAsync</c> — which was
+    /// the argument for making this a shared helper rather than a rule each service remembers.
+    /// That argument won: the rule now lives on <see cref="IDepartmentAccess"/> and this is a
+    /// one-line forward.</para>
     /// </summary>
-    private async Task<bool> CanReachCandidatesInAsync(Guid departmentId, CancellationToken ct)
-        => !_currentUser.IsExcludedFromCandidateData
-           && await _access.CanAccessAsync(departmentId, ct);
+    private Task<bool> CanReachCandidatesInAsync(Guid departmentId, CancellationToken ct)
+        => _access.CanReachCandidatesInAsync(departmentId, ct);
 
     // ---------------------------------------------------------------- enqueue helpers
 

@@ -44,9 +44,20 @@ public class DepartmentAccess : IDepartmentAccess
     public async Task<bool> CanAccessAsync(Guid departmentId, CancellationToken ct = default)
     {
         // Unscoped roles (Admin / HrDirector / Recruiter) work across all departments.
+        // ⚠️ An Approver lands here too and gets `true` for every department — correct on the
+        // requisition axis, catastrophic if asked about a candidate. See CanReachCandidatesInAsync.
         if (!_user.IsDepartmentScoped) return true;
 
         var allowed = await AccessibleDepartmentIdsAsync(ct);
         return allowed.Contains(departmentId);
     }
+
+    /// <summary>The candidate axis: department scoping AND the ADR-0018 exclusion, in one place.
+    ///
+    /// <para>The order matters for cost, not correctness — the exclusion is a claim check with no
+    /// database round trip, so testing it first short-circuits the query for a role that could
+    /// never pass anyway.</para></summary>
+    public async Task<bool> CanReachCandidatesInAsync(Guid departmentId, CancellationToken ct = default)
+        => !_user.IsExcludedFromCandidateData
+           && await CanAccessAsync(departmentId, ct);
 }

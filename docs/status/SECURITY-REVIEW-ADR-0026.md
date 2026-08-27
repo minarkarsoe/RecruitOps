@@ -87,6 +87,34 @@ candidate-facing helper the *only* exported way to ask — e.g. move `CanReachCa
 so the next service physically cannot get half of it. Filed, not done here: it changes a shared
 interface and belongs in its own change.
 
+> ### ✅ Done 2026-08-27 — the recommendation above is implemented
+>
+> `CanReachCandidatesInAsync` is now a member of `IDepartmentAccess`, implemented once in
+> `DepartmentAccess`. The three hand-rolled copies are gone: `PipelineService` and
+> `BulkResumeService` are one-line forwards, and `ApplicationAccess`'s inline "clause 0 + clause 1"
+> is a single call. `CanAccessAsync` keeps the requisition axis and its doc comment now says so in
+> the imperative — *"NOT the right question for candidate data"*.
+>
+> **The consolidation is what makes the rule testable as one thing.** Proved by mutation: dropping
+> `!_user.IsExcludedFromCandidateData` from the single shared helper fails **8 tests**, all of them
+> `ApproverReachTests` — scorecards, the interview and round list, the pipeline and stage history,
+> reading and posting to the note thread, bulk upload, and the panel-seat exception. Before this
+> change the same rule lived in three private copies, so breaking one failed only that service's
+> tests and the other two kept their guarantees silently. **644/644 pass restored** (62 Domain +
+> 582 Api), `dotnet format` clean.
+>
+> **What this does and does not buy.** A service that asks the wrong question still compiles —
+> `CanAccessAsync` remains public, because the requisition axis genuinely needs it. What is gone
+> is the *duplication*: there is now one correct implementation to find, one place to fix, and one
+> mutation that proves the whole ADR-0018 surface at once. Making the wrong call impossible would
+> need the interface split in two (`ICandidateReach`) so candidate-facing services cannot see
+> `CanAccessAsync` at all. That is a larger change and is **not** done here.
+>
+> **Not consolidated, deliberately:** the *set*-shaped form of the same rule, which is three-valued
+> (reach nothing / reach this set / reach everything) and appears in `DeliveryLogService`,
+> `AnalyticsService` and `SearchService`. All three already apply the exclusion correctly, and each
+> returns a different shape. Worth a second look, but it is not where the bug has ever landed.
+
 ---
 
 ## Examined and clean

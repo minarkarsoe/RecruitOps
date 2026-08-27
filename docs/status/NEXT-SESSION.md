@@ -623,6 +623,16 @@ Learned the expensive way; all of them are load-bearing.
   this role cross departments", and `Approver` does — on the requisition axis. Asked about a
   candidate, that same true handed an approver the whole company. For anything hanging off an
   application, go through `IApplicationAccess`, which applies both rules.
+  > **Since 2026-08-27 there is one door: `IDepartmentAccess.CanReachCandidatesInAsync`.** It is
+  > department scoping *and* the ADR-0018 exclusion, implemented once. Call it for anything that
+  > touches a candidate, an application, a CV, a scorecard or a pipeline stage. `CanAccessAsync`
+  > is the **requisition axis only** and its doc comment now says so. The three private copies
+  > that used to hold this rule (`PipelineService`, `BulkResumeService`, `ApplicationAccess`) are
+  > forwards now. Mutation-proved: dropping the exclusion from the shared helper fails **8**
+  > `ApproverReachTests` at once, where before it would have failed only one service's.
+  > ⚠️ It is still *possible* to call `CanAccessAsync` about a candidate — it stays public because
+  > requisitions need it. Making that impossible needs the interface split in two
+  > (`ICandidateReach`); not done, and a reasonable next step if this bug ever recurs.
 - **`[Authorize]` attributes are ADDITIVE — an action cannot opt down from its class.** A
   class-level policy plus an action-level policy means **both** must pass. `UsersController`
   had `AdminOnly` on the class and `RecruitmentStaff` on `selectable`, and the result was an
@@ -671,6 +681,15 @@ Learned the expensive way; all of them are load-bearing.
   password field's error outline read correctly in the source and rendered the ordinary grey
   border. Build the class so the losing utility is never emitted, and check it in a browser: a
   unit test on `className` passes either way unless it also asserts the *absence* of the default.
+- **The internal app's session is in `sessionStorage`, which is PER-TAB — so "I logged in" and
+  "the agent can see a session" are different facts.** `auth.ts` keeps `recruitops.session` in
+  `sessionStorage` deliberately (see its comment: it dies with the tab, which is the point). A
+  login therefore exists *only* inside the exact tab it was typed into. Another tab on the same
+  origin, in the same browser and the same profile, sees an **empty** `sessionStorage` and bounces
+  to `/login` — which looks identical to "the login failed". Cost a round trip on 2026-08-27.
+  If a session needs driving, the login must happen **in the tab being driven**; after that,
+  navigating that tab is fine, and only *closing* it drops the session. Checking `localStorage`
+  tells you nothing here — it is always empty.
 - **The Browser pane does not composite, so CSS transitions never advance.** Any property under
   `transition-colors` reads frozen at its starting value in `getComputedStyle`, which looks
   exactly like a broken rule. Set `el.style.transition = 'none'`, force a reflow, then read — or
