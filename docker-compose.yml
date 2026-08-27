@@ -105,9 +105,17 @@ services:
       context: .
       dockerfile: frontend/public/Dockerfile
       target: final
+      args:
+        # Needed at BUILD time, not just runtime: Next freezes next.config.mjs `rewrites()` into
+        # .next/routes-manifest.json during `next build`. Passing this only under `environment`
+        # below leaves the localhost fallback baked in, and every browser-side /api call 500s
+        # with ECONNREFUSED while SSR keeps working — which is why it went unnoticed.
+        API_INTERNAL_URL: "http://backend:8080/api"
     depends_on:
       - backend
     environment:
+      # Still required at runtime: server-side rendering calls the API through this directly,
+      # without going through the rewrite.
       API_INTERNAL_URL: "http://backend:8080/api"
       NEXT_PUBLIC_API_BASE_URL: "/api"
     ports:

@@ -5,6 +5,45 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🐳 The public app's browser-side API calls never worked in Docker
+
+**Why:** found bringing the stack up. `frontend/public/next.config.mjs` hard-coded its rewrite to
+`http://localhost:5080/api`. Inside a container `localhost` is the container itself, where nothing
+listens on 5080 — so **every browser-side `/api` call 500'd** with `connect ECONNREFUSED
+127.0.0.1:5080`. That includes **submitting a job application**, which is the public app's only
+purpose.
+
+It hid for two reasons, both worth remembering:
+
+1. **SSR kept working.** Server-side rendering calls `API_INTERNAL_URL` directly and never touches
+   the rewrite, so the job page rendered perfectly — correct title, description, Open Graph tags —
+   while the form behind it could not talk to anything. A page that *looks* right is not a page
+   that works.
+2. **The obvious fix does nothing.** Compose already set `API_INTERNAL_URL` as a runtime variable.
+   Reading it in `next.config.mjs` looks correct and restarts cleanly — and changes nothing,
+   because **Next evaluates `rewrites()` once during `next build` and freezes the result into
+   `.next/routes-manifest.json`**. The running server never re-reads it. This was fallen into
+   first, and the manifest still said `localhost` after a clean rebuild.
+
+The fix passes `API_INTERNAL_URL` as a **build ARG** (`frontend/public/Dockerfile`) as well as a
+runtime variable (SSR still needs it). Verified by reading what actually shipped:
+
+```
+docker compose exec frontend-public cat .next/routes-manifest.json
+  before: "destination":"http://localhost:5080/api/:path*"
+  after:  "destination":"http://backend:8080/api/:path*"
+```
+
+`GET /api/public/jobs/<token>` through the public app went **500 → 200**, returning real posting
+data; the SSR job page stayed 200. The whole stack now verifies green: backend `/health` and
+Swagger, the internal SPA and its API proxy, the public job page and its rewrite, MinIO and its
+console. The dev database was **not** touched — 1 company, 10 users, 4 departments, 7
+requisitions, 7 candidates, 7 applications all still present.
+
+Also confirmed while there: the public app's `/` returning 404 is **correct**, not a fault — it has
+exactly one route, `app/jobs/[token]/page.tsx`, and no `app/page.tsx`. (It still has no
+`not-found.tsx`, which is the separate backlog item.)
+
 ### 🔢 The landing page claimed 37 permissions. There are 39.
 
 **Why:** found while bringing the Docker stack up. The seeded database reports **39 permissions
