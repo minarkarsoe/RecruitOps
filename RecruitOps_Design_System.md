@@ -169,10 +169,11 @@ by this table. Verify, do not assert.
 > on the reasoning that *a display font in a UI label is a product-slop tell*. One family carries
 > headings, labels, data and body, separated by weight and size rather than by typeface.
 >
-> `font-display` survives in the preset **only as a compat alias** resolving to the same Inter
-> stack. Measured 2026-08-27: **0 usages remain** in `frontend/internal`, `frontend/public` and
-> `packages/ui` — so the alias is dead weight and can be deleted. The preset's own comment still
-> claims 167 usages and is stale.
+> `font-display` used to survive in the preset as a compat alias resolving to the same Inter
+> stack. Measured 2026-08-27 it had **0 usages** across `frontend/internal`, `frontend/public` and
+> `packages/ui`, and it was **deleted the same day** — so `font-display` now emits no CSS at all,
+> which is the right outcome for a class naming a typeface this system does not have. (The
+> preset's comment had claimed 167 usages and was two migrations stale.)
 >
 > The marketing surface is the one place the missing display face is a real loss, at 56px poster
 > scale. It compensates with `-0.04em` tracking; see [DESIGN.md](DESIGN.md).
@@ -234,8 +235,8 @@ Card padding 24. Section gap 32. Form field gap 16. Inline gap 8.
 - `shadow-overlay` `0 10px 30px -8px rgba(15,23,42,.20), 0 4px 10px -4px rgba(15,23,42,.10)` —
   dropdowns, modals, toasts only
 
-> `shadow-pop` is a **compat alias** pointing at `overlay`. Measured 2026-08-27: **0 usages
-> remain**, so it can be deleted along with `font-display`.
+> `shadow-pop` was a compat alias pointing at `overlay`. Measured 2026-08-27 it had **0 usages**
+> and was **deleted the same day**, alongside `font-display`. See §11.
 
 **Dark mode:** there isn't one, and `darkMode: 'class'` in the preset is what makes that true
 rather than aspirational. Tailwind's default is `'media'`, under which a stray `dark:` utility
@@ -453,12 +454,18 @@ renders unstyled while the last screens move.
 
 Measured 2026-08-27 across `frontend/internal/src`, `frontend/public/app` and `packages/ui/src`:
 
-| Alias | Live usages | Verdict |
+| Alias | Live usages | State |
 |---|---|---|
-| `font-display` | **0** | Dead — delete it. The preset's comment still claims 167. |
-| `shadow-pop` | **0** | Dead — delete it. |
+| `font-display` | **0** | ✅ **deleted 2026-08-27** |
+| `shadow-pop` | **0** | ✅ **deleted 2026-08-27** |
 | `rounded-full` | **38** | Still needed (pills, avatars, rail nodes). |
 | `primary-*` / `surface-*` / `success` / `warning` / `danger` / `accent` | **38** | All in the two **parked** orphan folders. |
+
+> The two deletions were proved inert rather than assumed: the internal app's built stylesheet
+> hashes to **`index-DJXXbcKM.css` both before and after**, i.e. the CSS output is byte-identical.
+> A compat alias nothing references emits nothing. `font-display` and `shadow-pop` now correctly
+> produce no CSS at all — the right outcome for class names that reference a typeface and an
+> elevation tier this system does not have.
 
 The 38 old-name usages are entirely inside `features/interviews/BlindScorecardDrawer.tsx` (24) and
 `features/requisitions/` (14) — both orphaned trees with no importers, **parked by the product

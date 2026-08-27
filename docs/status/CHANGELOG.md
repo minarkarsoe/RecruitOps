@@ -5,6 +5,27 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🧹 Two dead compat aliases deleted from the preset
+
+`font-display` and `shadow-pop` are gone from `packages/ui/tailwind-preset.js`. Both existed only
+so old class names kept rendering during the V1.0 migration, and both had **0 live usages**
+repo-wide.
+
+**Proved inert rather than assumed:** the internal app's built stylesheet hashes to
+**`index-DJXXbcKM.css` before and after** — the CSS output is byte-identical, which is what an
+alias nothing references should produce. `font-display` and `shadow-pop` now emit no CSS at all,
+the correct outcome for class names referencing a typeface and an elevation tier this system does
+not have. Typecheck clean, both apps build, **375/375** frontend tests pass.
+
+The preset's comment claiming **167** `font-display` usages went with them; it was two migrations
+stale.
+
+Also corrected in the same block: **the compat layer's exit-condition grep over-reports and cannot
+reach zero as written.** It matches comment prose as well as class names — 43 reported, 38 live.
+The comment now says so and gives a per-file check, because a count that cannot reach zero is not
+an exit condition. The live 38 are entirely inside the two parked orphan folders, which is the
+only thing still blocking the block's removal.
+
 ### 📘 The product's design doc moves to V1.0 — ADR-0025 is now fully adopted
 
 **Why:** `RecruitOps_Design_System.md` was the **last** place in the repo still describing "Clear

@@ -434,11 +434,17 @@ reason `design/` is the source of truth.
 (`marketing/landing.html`, `DESIGN.md`) landed 2026-08-26. See §3.
 
 What is left of ADR-0025 is not a document but the **compat block** in
-`packages/ui/tailwind-preset.js`. Measured 2026-08-27: `font-display` and `shadow-pop` have
-**0 live usages** and can be deleted today; `rounded-full` has 38 and is still needed; the 38
-old-name colour usages are **entirely inside the two parked orphan folders**, so the block cannot
-go until that decision is made. ⚠️ Its own exit-condition grep reports **43** because five hits
-are comment prose in `features/analytics/` — it will never reach zero as written.
+`packages/ui/tailwind-preset.js`, and it is now down to one blocker.
+
+- ✅ `font-display` and `shadow-pop` — **deleted 2026-08-27**, both at 0 usages. Proved inert:
+  the built stylesheet hashes to `index-DJXXbcKM.css` before *and* after, i.e. byte-identical.
+- `rounded-full` — 38 usages (pills, avatars, rail nodes), still load-bearing.
+- The 38 old-name colour usages sit **entirely inside the two parked orphan folders**. That is
+  the **only** thing still holding the block open.
+
+⚠️ Its exit-condition grep reports **43**, not 38 — five hits are comment prose in
+`features/analytics/`, which is itself fully migrated. The comment in the preset now says so and
+gives a per-file check; a count that cannot reach zero is not an exit condition.
 
 ### 1. ✅ ADR-0026 is built — all four steps. What is left is the *screen*.
 

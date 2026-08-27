@@ -77,6 +77,17 @@ export default {
         //       --include=*.ts --include=*.tsx --include=*.css \
         //       frontend/internal/src frontend/public/app packages/ui/src | wc -l
         //
+        // ⚠️⚠️ THAT COUNT OVER-REPORTS AND CANNOT REACH ZERO AS WRITTEN. It matches comment prose
+        // as well as class names. Measured 2026-08-27 it says **43**, of which only **38** are
+        // live classes; the other five are `//` lines in `features/analytics/` recording the old
+        // chart palette that failed the CVD validator (`teal-500`, `emerald-500`, `zinc-100`).
+        // Analytics itself is fully migrated. Check per-file before believing the total:
+        //     ... | sed 's/:.*//' | sort | uniq -c | sort -rn
+        //
+        // The live 38 sit ENTIRELY inside the two orphan folders parked by the product owner on
+        // 2026-08-25 — `features/interviews/BlindScorecardDrawer.tsx` (24) and
+        // `features/requisitions/` (14). This block is blocked on that decision and nothing else.
+        //
         // ⚠️ The `--include` filters and `public/app` are load-bearing. Pointed at
         // `frontend/public`, this grep also reads `.next/` — the build output, which contains
         // compiled copies of the same classes and can never reach zero however much source is
@@ -116,12 +127,15 @@ export default {
 
       // Operate mode: one family carries headings, labels, data and body. No display face — a
       // display font in a UI label is a product-slop tell, and V1.0 drops Bricolage Grotesque
-      // for that reason. `display` stays only as a compat alias and resolves to the same stack,
-      // so the 167 `font-display` usages render as Inter until they are removed.
+      // for that reason.
+      //
+      // The `display` compat alias is GONE (2026-08-27). It existed so `font-display` kept
+      // rendering as Inter during the migration; measured repo-wide on that date, **0 usages
+      // remain**, so `font-display` now emits no CSS — which is the correct outcome for a class
+      // that names a typeface this system does not have.
       fontFamily: {
         sans: ['Inter', '"Noto Sans Myanmar"', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-        display: ['Inter', '"Noto Sans Myanmar"', 'system-ui', 'sans-serif'], // COMPAT
       },
 
       // Fixed rem scale, ~1.15 ratio. Deliberately not fluid: users sit at a consistent DPI and
@@ -147,11 +161,12 @@ export default {
         full: '999px', // COMPAT — V1.0 has no `full`; pills use it and are not yet migrated
       },
 
+      // Three tiers, and the app uses the first two. The `pop` compat alias (→ overlay) is GONE
+      // (2026-08-27): measured repo-wide on that date, 0 usages remained.
       boxShadow: {
         sm:      '0 1px 2px 0 rgba(15,23,42,.05)',
         card:    '0 1px 3px 0 rgba(15,23,42,.07), 0 1px 2px -1px rgba(15,23,42,.05)',
         overlay: '0 10px 30px -8px rgba(15,23,42,.20), 0 4px 10px -4px rgba(15,23,42,.10)',
-        pop:     '0 10px 30px -8px rgba(15,23,42,.20), 0 4px 10px -4px rgba(15,23,42,.10)', // COMPAT → overlay
       },
 
       // 150–250ms. Users are mid-task; nobody wants to watch choreography.
