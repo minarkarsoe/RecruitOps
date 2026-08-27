@@ -5,6 +5,21 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🔢 The landing page claimed 37 permissions. There are 39.
+
+**Why:** found while bringing the Docker stack up. The seeded database reports **39 permissions
+across 10 modules**, and `RbacSeedData.cs` agrees — two independent sources. The public
+`marketing/landing.html` asserted **37** in two places: the security section's "37 permission
+controls across 10 modules" and the tier table's "Dynamic RBAC: 37 permissions". The *modules*
+figure was right; the permission count was not.
+
+Counted per module against the live database — ai 5, applications 5, interviews 4, postings 5,
+requisitions 5, roles 4, scorecards 3, settings 2, system 2, users 4 = **39**.
+
+A wrong capability count on a page procurement reads is a small error with an outsized cost, and
+this one had been sitting there long enough to be quoted back. Nothing else in the repo carried
+the number.
+
 ### 🎨 The marketing landing page moves to V1.0 — ADR-0025 step 4, partly done
 
 **Why:** `marketing/landing.html` was the **last surface still running "Clear Pipeline"**, and
