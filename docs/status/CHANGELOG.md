@@ -5,6 +5,46 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 📘 The product's design doc moves to V1.0 — ADR-0025 is now fully adopted
+
+**Why:** `RecruitOps_Design_System.md` was the **last** place in the repo still describing "Clear
+Pipeline", and it is the document an engineer reads *before* building a screen — so it was
+actively instructing people to use `primary-600`, a class that resolves nowhere. It was named in
+**step 3**'s scope ("the preset, the two frontends, **and `RecruitOps_Design_System.md`**") and
+step 3 closed without it.
+
+Retitled to **"RecruitOps V1.0"**. Structure, vocabulary and signature patterns all survive —
+Approval Chain Rail, Blind Panel Scorecard, department-scope `404`, the enum-bound status
+vocabulary. Colour, type, radius and elevation are replaced.
+
+Corrected against what the code actually ships, not from memory:
+
+- **Button:** `h-9 rounded-md bg-brand-700`, hover→`800`, **active→`900`**. Height and radius both
+  shrank (40→36, 12→10). The doc said 40/12 and named no active state.
+- **Pills:** `-50` tint + `-700` text; neutral is a bordered `canvas` chip, not a tint.
+- **Type scale** now uses Tailwind's own utility names, and records the trap: **`text-base` is
+  14px here, not 16**. The app's ramp tops out at 24px.
+- **`overline` deleted** — an 11px ALL-CAPS token that contradicted the sentence-case rule and
+  appears **nowhere** in the codebase.
+- **Every contrast pair re-measured** on the V1.0 steps (warn 4.84, positive 5.21, critical 5.91,
+  info 6.16, brand-800/brand-50 7.27, `.mention` 4.86, button 5.47, body 7.24).
+- **New §11 "Migration state"** with live counts.
+
+⚠️ **`Offer` and `Interview` are now the same pill colour.** `Offer` was `accent`, `Interview` was
+`warning`, and those families had **identical hexes** under Clear Pipeline — they always looked
+the same, and V1.0 merely makes it visible in source. Distinguishing them is a **product decision
+needing a new colour**, not a rename.
+
+**Three findings about the compat block**, measured across both frontends and `packages/ui`:
+
+- **`font-display`: 0 live usages.** The preset's comment claims **167** and is stale — the alias
+  is dead weight and can be deleted.
+- **`shadow-pop`: 0 live usages.** Same.
+- ⚠️ **The exit-condition grep over-counts and can never reach zero as written.** It reports
+  **43**; only **38** are live, all inside the two parked orphan folders. The other five are
+  *comment prose* in `features/analytics/` recording the chart palette that failed the CVD
+  validator. Analytics itself is fully migrated.
+
 ### 🔐 One door for candidate reach — the bug class that shipped three times
 
 **Why:** the ADR-0026 security review's open recommendation. `IDepartmentAccess.CanAccessAsync`

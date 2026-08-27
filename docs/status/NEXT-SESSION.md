@@ -430,8 +430,15 @@ and build against it: the kit also changes radii, drops the display face and re-
 vocabulary, so a rename alone leaves the apps looking like neither system. That is the whole
 reason `design/` is the source of truth.
 
-Then: `RecruitOps_Design_System.md` — **still outstanding, and now the only one.** Step 4
-(`marketing/landing.html`, `DESIGN.md`) was completed on 2026-08-26; see §3.
+✅ **All of it is done.** `RecruitOps_Design_System.md` landed 2026-08-27; step 4
+(`marketing/landing.html`, `DESIGN.md`) landed 2026-08-26. See §3.
+
+What is left of ADR-0025 is not a document but the **compat block** in
+`packages/ui/tailwind-preset.js`. Measured 2026-08-27: `font-display` and `shadow-pop` have
+**0 live usages** and can be deleted today; `rounded-full` has 38 and is still needed; the 38
+old-name colour usages are **entirely inside the two parked orphan folders**, so the block cannot
+go until that decision is made. ⚠️ Its own exit-condition grep reports **43** because five hits
+are comment prose in `features/analytics/` — it will never reach zero as written.
 
 ### 1. ✅ ADR-0026 is built — all four steps. What is left is the *screen*.
 
@@ -542,18 +549,24 @@ they now describe a system the code no longer runs. Measured 2026-08-25, countin
 |---|---|---|
 | `marketing/landing.html` | ~~65~~ | ✅ **done 2026-08-26** — on V1.0, 0 stale names |
 | `DESIGN.md` | ~~47~~ | ✅ **done 2026-08-26** — rewritten from the retokened artifact |
-| `RecruitOps_Design_System.md` | **27** *(re-counted 2026-08-26)* | ❌ still Clear Pipeline |
+| `RecruitOps_Design_System.md` | ~~27~~ | ✅ **done 2026-08-27** — retitled "RecruitOps V1.0" |
 
-**Only `RecruitOps_Design_System.md` is left**, and note two things about it:
+**✅ ADR-0025 is fully adopted. Every document and surface is on V1.0.**
 
-- It is **27** references, not 16. The old figure came from a narrower pattern; the file is also
-  *titled* `# RecruitOps Design System — "Clear Pipeline"`, and its colour table, type table and
-  every component spec still name Clear Pipeline tokens.
-- It belongs to **step 3, not step 4**. The ADR's step 3 is "move
-  `packages/ui/tailwind-preset.js`, the two frontends, **and `RecruitOps_Design_System.md`** onto
-  V1.0". Step 3 was closed without it. So this is a step-3 loose end wearing a step-4 label, and
-  it is the *product's* design doc — the one an engineer reads before building a screen. It is
-  now the last place in the repo that will tell you to use `primary-600`.
+`RecruitOps_Design_System.md` was the last one, and it was a **step-3** loose end wearing a
+step-4 label: step 3's scope is "move the preset, the two frontends, **and
+`RecruitOps_Design_System.md`**", and step 3 closed without it. For two days the product's own
+design document told an engineer to reach for `primary-600` — a class that resolves nowhere.
+
+What it now records, beyond renamed tokens: the button is `h-9 rounded-md bg-brand-700` with
+hover→`800`, active→`900` (height and radius both shrank); pills are `-50` tint + `-700` text;
+`overline` is gone and used nowhere; the type scale is Tailwind's own utility names where
+**`text-base` is 14px, not 16**; and every contrast pair is re-measured rather than asserted.
+
+⚠️ **`Offer` and `Interview` are now the same pill colour.** `Offer` was `accent`, `Interview` was
+`warning`, and those two families had **identical hexes** under Clear Pipeline — so they always
+looked the same; V1.0 merging them into `warn` just makes it visible. Telling them apart at a
+glance is a **product decision needing a new colour**, not a token rename.
 
 ⚠️ **Separately, and not a design-system problem:** `marketing/landing.html` **overflows
 horizontally at narrow widths**. Measured live at a 440px viewport: `scrollWidth` 602 before the

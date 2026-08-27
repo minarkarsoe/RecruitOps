@@ -1,9 +1,11 @@
 # ADR-0025 — Token system "RecruitOps V1.0" (proposed)
 
 - **Date:** 2026-08-17
-- **Status:** ✅ **Accepted 2026-08-17.** V1.0 replaces "Clear Pipeline" as the product's token
-  system. Superseded sections of `RecruitOps_Design_System.md` are listed under *Decision* below.
-  **Adoption is staged — see the sequencing note. No shipped code has moved yet.**
+- **Status:** ✅ **Accepted 2026-08-17 · fully adopted 2026-08-27.** V1.0 replaces "Clear Pipeline"
+  as the product's token system. All four sequencing steps are complete: the kit, the preset, both
+  frontends, `RecruitOps_Design_System.md`, `marketing/landing.html` and `DESIGN.md`.
+  **What remains is not a document but the compat block in `packages/ui/tailwind-preset.js`** —
+  see the closing note under *Sequencing*.
 - **Related:** [ADR-0012](ADR-0012-frontend-split.md) (shared preset is the anti-drift mechanism),
   [ADR-0007](ADR-0007-productization-and-addons.md) (no per-surface forks),
   `RecruitOps_Design_System.md` (the adopted system), `DESIGN.md` (the built marketing world)
@@ -124,6 +126,19 @@ The rebrand is **not** executed by editing the preset first. Order:
 > - **`RecruitOps_Design_System.md` is still on Clear Pipeline** — 27 references, and its title
 >   is "Clear Pipeline". That file belongs to **step 3**, not step 4, and step 3 was closed
 >   without it. Step 4 does not close it and this note does not either.
+>   > ✅ **Closed 2026-08-27.** Retitled "RecruitOps V1.0". Beyond renaming tokens it corrects the
+>   > button spec against the shipped kit (height 40→36, radius 12→10, and an `active:brand-900`
+>   > state the doc never had), moves the type scale onto Tailwind's utility names while flagging
+>   > that **`text-base` is 14px not 16**, deletes the unused `overline` token, and re-measures
+>   > every contrast pair. A new §11 records migration state.
+>
+> **Step 3's real remainder is the compat block**, not a document. Measured 2026-08-27:
+> `font-display` and `shadow-pop` have **zero** live usages and are deletable now (the preset's
+> comment claiming 167 `font-display` usages is stale). `rounded-full` has 38 and is still load-
+> bearing. The 38 remaining old-name colour usages sit **entirely inside the two orphan folders
+> parked by the product owner**, so the block cannot be removed until that decision is made.
+> ⚠️ The block's own exit-condition grep reports **43** and will never reach zero as written —
+> five hits are comment prose in `features/analytics/`, which is itself fully migrated.
 
 Rebranding the preset before the screens exist would mean redesigning against a moving target,
 and would break both running frontends for no delivered benefit.
