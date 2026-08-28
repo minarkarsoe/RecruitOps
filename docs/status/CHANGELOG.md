@@ -5,6 +5,41 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🗑️ The tier badge is gone — MIGRATION-PLAN step 5
+
+`Badge` still carried `gold` / `silver` / `bronze`, which rendered `ClientTier` — an agency-era
+concept **deleted by ADR-0001 on 2026-07-27**. No screen had rendered them since. Only three test
+files kept them reachable, which is circular: the tests existed because the variants did.
+
+This was not a judgement call — `MIGRATION-PLAN.md` **step 5 says "remove tier badge"** and had
+been sitting unchecked for a month. The other half of that step, revising
+`RecruitOps_Design_System.md`, landed yesterday.
+
+Removed with them: **the crown icon `Badge` injected on its own** whenever `variant="gold"` and no
+icon was passed. A badge now shows an icon only when the caller supplies one, which is the rule
+every other variant already followed.
+
+They were also **the only hard-coded hexes left in the file** (`#FBF3E1`, `#5A6872`, `#8C5B32`
+and friends) — they predated the token system entirely and could never have been measured against
+it. Every remaining variant is a V1.0 token pair.
+
+The three test cases were **retargeted, not deleted**, because two of them pinned behaviour that
+outlived the variants: a caller-supplied icon still renders, and a Badge draws no icon of its own.
+That second assertion is new — nothing previously proved the crown was the *only* automatic icon.
+
+**644/644** backend, **433** frontend, 0 build warnings, typecheck clean.
+
+### 🩹 The last build warning
+
+`CS8604` in `ApplicationFormSchema.cs`. `ApplicationFormField.Key` is declared non-nullable but
+arrives from `JsonSerializer.Deserialize`, where a document omitting it leaves the property null.
+The loop handled that at the regex check (`field.Key ?? string.Empty`) and then passed the raw
+value to `HashSet<string>.Add` four lines later.
+
+Not a live bug — a null key fails the pattern check and returns before reaching the `Add` — but
+the null-handling was in one of two places that needed it. Coalesced once into a local. **The
+backend now builds with 0 warnings.**
+
 ### 🧮 CI reports frontend test counts — and catches a suite that stops running
 
 The backend has had a counts table since run #4. The frontend had a bare green tick, and that

@@ -318,9 +318,6 @@ describe('Milestone 1 Empirical Challenge Suite (UI Primitives)', () => {
         'warning',
         'danger',
         'info',
-        'gold',
-        'silver',
-        'bronze',
       ] as const;
 
       variants.forEach((v) => {
@@ -330,15 +327,25 @@ describe('Milestone 1 Empirical Challenge Suite (UI Primitives)', () => {
       });
     });
 
-    it('allows custom icon override on gold badge', () => {
+    // Was "allows custom icon override on gold badge". The tier variants are gone
+    // (MIGRATION-PLAN step 5), and with them the crown icon that `gold` rendered
+    // automatically — but a caller-supplied icon is still the contract, so the case is kept
+    // on a variant that still exists rather than deleted with the one that does not.
+    it('renders a caller-supplied icon', () => {
       const customIcon = <span data-testid="custom-icon">★</span>;
       render(
-        <Badge variant="gold" icon={customIcon}>
-          Gold Custom
+        <Badge variant="primary" icon={customIcon}>
+          With icon
         </Badge>
       );
 
       expect(screen.getByTestId('custom-icon')).toBeInTheDocument();
+    });
+
+    it('renders no icon when none is passed', () => {
+      const { container } = render(<Badge variant="primary">Plain</Badge>);
+      // `gold` used to inject a crown here with no caller involvement. Nothing does now.
+      expect(container.querySelector('svg')).not.toBeInTheDocument();
     });
   });
 

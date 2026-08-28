@@ -60,12 +60,25 @@ Minimum to make Module 1 possible: ~~`Department`~~ ✅, `Requisition`,
 Also added: `UserDepartment` (many-to-many access per ADR-0003), `Company` (renamed from
 `Tenant`), `JobPosting` (renamed from `Job`, now department-owned).
 
-## ⬜ Step 5 — Update the design system
+## ✅ Step 5 — Update the design system *(done 2026-08-28)*
 
 Revise `/RecruitOps_Design_System.md` per the impact table in
 [data-model.md](../architecture/data-model.md#design-system-impact): remove tier badge,
 client feedback bar, and the client-review portal card; repurpose the expiry card;
 update the status-pill vocabulary; add a public job page + application form design.
+
+| Item | State |
+|---|---|
+| `RecruitOps_Design_System.md` revised | ✅ 2026-08-27 — retitled "RecruitOps V1.0" (ADR-0025) |
+| Tier badge removed | ✅ 2026-08-28 — `Badge`'s `gold`/`silver`/`bronze` **and** the crown icon it auto-injected |
+| Client feedback bar / client-review portal card | ✅ never existed in the V1.0 doc |
+| Status-pill vocabulary | ✅ bound to the four backend enums |
+| Public job page + application form | ✅ built and shipped (`frontend/public`) |
+
+> The tier badge was the last of these still in code. It survived a month after ADR-0001 because
+> no screen rendered it — only three test files kept it reachable, which is circular. The
+> component's own comment had deferred to this file ("deleting them is a migration change"), and
+> this file said "remove tier badge", so the deferral pointed at an instruction nobody executed.
 
 ## ⬜ Step 6 — Docs & verification
 

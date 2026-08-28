@@ -633,8 +633,12 @@ rather than engineering ones:
   >
   > CI needed no change: the root `test` script is `--workspaces --if-present`, so a `test` script
   > in the workspace is enough. Frontend total is now **399** (375 internal + 24 public).
-- **`Badge` still carries `gold` / `silver` / `bronze`** — agency-era `ClientTier`, removed by
-  ADR-0001. No screen renders them; three test files hold them alive.
+- ~~**`Badge` still carries `gold` / `silver` / `bronze`**~~ ✅ **removed 2026-08-28** —
+  MIGRATION-PLAN **step 5** ("remove tier badge"), which had been unchecked for a month. The
+  crown icon `Badge` injected on its own for `variant="gold"` went too: a badge now draws an
+  icon only when the caller passes one. They were also the only hard-coded hexes left in the
+  file, predating the token system entirely. The three tests were **retargeted rather than
+  deleted** — two of them pinned behaviour that outlived the variants.
 - **`ExecutiveSummaryPanel` offers a "Client Portal" audience** and the API takes
   `audience: 'internal' | 'client'`. Agency-era vocabulary in a shipped contract (ADR-0001).
 - Re-run Module 5's metrics against the **new** definitions once Module 4 exists; the shipped

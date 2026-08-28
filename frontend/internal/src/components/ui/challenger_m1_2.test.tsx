@@ -140,9 +140,6 @@ describe('Empirical Stress Tests - Milestone 1 UI Primitives (Challenger 2)', ()
         'warning',
         'danger',
         'info',
-        'gold',
-        'silver',
-        'bronze',
       ] as const;
 
       variants.forEach((v) => {

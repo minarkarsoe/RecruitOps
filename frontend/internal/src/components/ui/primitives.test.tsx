@@ -52,10 +52,14 @@ describe('UI Primitives Library (Milestone 1)', () => {
       expect(screen.getByText('Default Badge')).toBeInTheDocument();
     });
 
-    it('renders client tier gold badge with crown icon', () => {
-      const { container } = render(<Badge variant="gold">Gold Tier</Badge>);
-      expect(screen.getByText('Gold Tier')).toBeInTheDocument();
-      expect(container.querySelector('svg')).toBeInTheDocument();
+    // Was "renders client tier gold badge with crown icon". `ClientTier` was an agency-era
+    // concept deleted by ADR-0001, and the `gold` variant that rendered it — along with the
+    // crown it injected on its own — went with MIGRATION-PLAN step 5 on 2026-08-28. The
+    // replacement pins the behaviour that outlived it: a Badge draws no icon of its own.
+    it('renders no icon unless the caller passes one', () => {
+      const { container } = render(<Badge variant="primary">No icon</Badge>);
+      expect(screen.getByText('No icon')).toBeInTheDocument();
+      expect(container.querySelector('svg')).not.toBeInTheDocument();
     });
 
     it('renders cyan and teal brand variants', () => {

@@ -1,5 +1,9 @@
 import React from 'react';
 
+// `gold` / `silver` / `bronze` were removed on 2026-08-28 — MIGRATION-PLAN step 5, "remove tier
+// badge". They rendered `ClientTier`, an agency-era concept deleted by ADR-0001 on 2026-07-27.
+// No screen had rendered them since; only three test files kept them reachable, which is
+// circular — the tests existed because the variants did.
 export type BadgeVariant =
   | 'default'
   | 'primary'
@@ -10,10 +14,7 @@ export type BadgeVariant =
   | 'success'
   | 'warning'
   | 'danger'
-  | 'info'
-  | 'gold'
-  | 'silver'
-  | 'bronze';
+  | 'info';
 
 export type BadgeSize = 'sm' | 'md';
 
@@ -49,13 +50,10 @@ const VARIANT_CLASSES: Record<BadgeVariant, string> = {
   warning: 'bg-warn-50 text-warn-700',
   danger: 'bg-critical-50 text-critical-700',
   info: 'bg-info-50 text-info-700',
-  // ⚠️ STALE — `ClientTier` was an agency-era concept, removed by ADR-0001. No screen renders
-  // these; only three test files reference them. Left in place because deleting them is a
-  // migration change, not a design-token one — see docs/status/MIGRATION-PLAN.md.
-  gold: 'bg-[#FBF3E1] text-[#B58226] border border-[#F2DBA8]',
-  silver: 'bg-[#EFF2F5] text-[#5A6872] border border-[#D3DBE2]',
-  bronze: 'bg-[#F6ECE3] text-[#8C5B32] border border-[#E8D3C3]',
 };
+// Every value above is a V1.0 token. The three tier variants that used to sit here were the
+// only hard-coded hexes left in this file — they predated the token system entirely and could
+// never have been checked against it.
 
 const SIZE_CLASSES: Record<BadgeSize, string> = {
   sm: 'h-5 px-2 text-2xs font-medium gap-1',
@@ -70,19 +68,15 @@ export function Badge({
   className = '',
   ...props
 }: BadgeProps) {
-  // Render default crown icon for gold tier if variant is gold and no custom icon provided
-  const renderedIcon = icon || (variant === 'gold' ? (
-    <svg className="h-3 w-3 fill-current" viewBox="0 0 24 24">
-      <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
-    </svg>
-  ) : null);
-
+  // The crown icon that used to appear automatically for `variant="gold"` went with the tier
+  // variants (MIGRATION-PLAN step 5). A badge now shows an icon only when one is passed in,
+  // which is the rule every other variant already followed.
   return (
     <span
       className={`inline-flex items-center rounded-full transition-colors whitespace-nowrap ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
       {...props}
     >
-      {renderedIcon}
+      {icon}
       {children}
     </span>
   );
