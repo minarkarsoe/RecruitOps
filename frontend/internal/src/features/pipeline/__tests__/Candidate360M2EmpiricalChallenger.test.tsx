@@ -161,7 +161,11 @@ describe('Candidate 360 M2 Empirical Challenge Suite', () => {
       await user.click(screen.getByRole('button', { name: /Generate AI Summary/i }));
 
       await waitFor(() => {
-        const sent = vi.mocked(aiApi.generateExecutiveSummary).mock.calls.at(-1)![0];
+        // Indexed, not `.at(-1)` — see the note in CandidateSlideOverAi.test.tsx. `.at()`
+        // type-checks locally only because a hoisted `@types/node` augments `Array<T>`; the
+        // Docker build has no `@types/node` and rejects it against `lib: ES2020`.
+        const calls = vi.mocked(aiApi.generateExecutiveSummary).mock.calls;
+        const sent = calls[calls.length - 1][0];
         expect(sent.language).toBe(expected);
         // `audience` stays gone — ADR-0001 removed clients.
         expect(sent).not.toHaveProperty('audience');

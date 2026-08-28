@@ -3,7 +3,51 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-08-26 (latest)
+## 2026-08-26 → 2026-08-28 (latest)
+
+> Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
+> which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
+
+### 🐳 The Docker image built code the local build accepted — `@types/node` was the difference
+
+`docker compose build frontend-internal` failed on `.at(-1)` in two Executive Summary test files
+with `TS2550: Property 'at' does not exist`. The same source type-checked locally, and kept
+type-checking under `tsc -b --force` with the incremental cache deleted — so this was **not**
+staleness.
+
+**The cause is workspace hoisting.** `frontend/internal/tsconfig.json` declares
+`lib: ["ES2020", ...]`, and `Array.prototype.at` is ES2022. It resolved locally anyway because
+`@types/node` — a devDependency of **`frontend/public`**, not of `frontend/internal` — is hoisted
+to the repo root by npm workspaces, and it ships a compatibility shim declaring
+`interface Array<T> extends RelativeIndexable<T>`, which adds `.at()` **regardless of `lib`**.
+`frontend/internal`'s tsconfig had no `types` restriction, so tsc picked it up.
+
+The internal image's build context is the repo root but copies only `package.json`, `packages/`
+and `frontend/internal/` — never `frontend/public/`. So `@types/node` is absent in the image and
+the identical source is rejected. Verified with `tsc --listFiles`: the local program loads libs
+only up to `lib.es2020.*`, and `lib.es2022.array.d.ts` is never in it.
+
+Two fixes, because the first alone would leave the trap armed:
+
+1. The two call sites use `calls[calls.length - 1]` instead of `.at(-1)`, honouring the declared
+   ES2020 target rather than an accident of hoisting.
+2. **`"types": []` in `frontend/internal/tsconfig.json`** — the real fix. This is a browser SPA
+   and has no business seeing Node globals. It makes the local typecheck match the image's
+   exactly, so "passes locally, fails in Docker" cannot recur for this class. Measured: zero
+   errors under `types: []`, and triple-slash `/// <reference types="vite/client" />` in
+   `src/vite-env.d.ts` is unaffected (the option gates only *automatic* inclusion).
+
+**A green local typecheck was not evidence the image would build.** It is now.
+
+Touched: `frontend/internal/tsconfig.json`, `CandidateSlideOverAi.test.tsx`,
+`Candidate360M2EmpiricalChallenger.test.tsx`.
+
+Images rebuilt and the stack recreated (no volume flags — `pgdata` and `miniodata` untouched;
+row counts confirmed identical afterwards). Verified against the running stack: the backend
+publishes `language`; the internal SPA serves a new bundle carrying the header-search fix and no
+tier-badge strings; the public app's `routes-manifest.json` is baked to `http://backend:8080/api`
+and SSR-renders a real job page at `/jobs/<token>` (200). `/` on the public app returns 404 — it
+has only ever had the one route, pending `app/not-found.tsx`.
 
 ### 🇲🇲 Burmese output actually works now — `language` reaches the model
 

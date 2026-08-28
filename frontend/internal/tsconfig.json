@@ -2,6 +2,24 @@
   "compilerOptions": {
     "target": "ES2020",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
+
+    // ⚠️ Load-bearing. Without this, tsc auto-includes every `@types/*` package it can see in
+    // the hoisted root `node_modules` — including `@types/node`, which nothing in this workspace
+    // depends on (it is a devDependency of `frontend/public`, hoisted here by npm workspaces).
+    //
+    // That is not merely untidy: `@types/node` ships an `interface Array<T> extends
+    // RelativeIndexable<T>` augmentation that adds `.at()` regardless of `lib`, so ES2022 APIs
+    // type-check locally against a declared ES2020 target. The Docker image builds from a
+    // context that excludes `frontend/public`, has no `@types/node`, and rejects the same
+    // source — a green local build with a red image, on identical code. That happened on
+    // 2026-08-28 and cost a full debug cycle.
+    //
+    // This is a browser SPA; it has no business seeing Node globals. Verified: with `types: []`
+    // the workspace type-checks with zero errors. Triple-slash `/// <reference types="..." />`
+    // directives (see src/vite-env.d.ts) are unaffected — this only disables *automatic*
+    // inclusion.
+    "types": [],
+
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",

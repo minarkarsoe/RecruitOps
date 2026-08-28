@@ -136,7 +136,15 @@ describe('Candidate 360 AI Smart Match & Executive Summary UI Tests', () => {
     await user.click(screen.getByRole('button', { name: /Generate AI Summary/i }));
 
     await waitFor(() => {
-      const sent = vi.mocked(aiApi.generateExecutiveSummary).mock.calls.at(-1)![0];
+      // Indexed, not `.at(-1)`. This tsconfig declares `lib: ES2020` and `Array.prototype.at`
+      // is ES2022 — but it still type-checks locally, because `@types/node` (a devDependency of
+      // `frontend/public`, hoisted to the repo root by npm workspaces) ships an `interface
+      // Array<T> extends RelativeIndexable<T>` augmentation that adds `.at()` regardless of
+      // `lib`. The Docker image never copies `frontend/public`, so `@types/node` is absent there
+      // and the identical source fails to build. Don't reintroduce `.at()`: locally passing
+      // proves nothing about the image.
+      const calls = vi.mocked(aiApi.generateExecutiveSummary).mock.calls;
+      const sent = calls[calls.length - 1][0];
       expect(sent.language).toBe('my');
       expect(sent).not.toHaveProperty('audience');
       expect(screen.getByText('မေသူသည် ပရိုဂရမ်းမင်းကျွမ်းကျင်သော စီနီယာအင်ဂျင်နီယာတစ်ဦးဖြစ်သည်။')).toBeInTheDocument();
