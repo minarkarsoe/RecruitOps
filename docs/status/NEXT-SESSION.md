@@ -639,7 +639,15 @@ rather than engineering ones:
   `audience: 'internal' | 'client'`. Agency-era vocabulary in a shipped contract (ADR-0001).
 - Re-run Module 5's metrics against the **new** definitions once Module 4 exists; the shipped
   ones end at a different event.
-- Fix or delete the CI `Test counts` summary step — it reports a number nobody should trust.
+- ~~Fix or delete the CI `Test counts` summary step~~ ✅ **the frontend now has one too
+  (2026-08-28).** The backend's has been trustworthy since run #4; the frontend had only a green
+  tick, which mattered because **`npm run test --workspaces --if-present` exits 0 when a script is
+  missing** — a workspace whose tests stopped running looked exactly like one that passed. The new
+  step prints a per-workspace table and **fails the job** when a workspace declaring a `test`
+  script produces no vitest summary; the expected list comes from `package.json`, so it extends
+  itself. Verified by extracting the script back out of `ci.yml` and running it against four logs
+  (pass / failing / absent / no-log). ⚠️ `set -o pipefail` on the test step is load-bearing —
+  without it `tee` masks a failing suite as green.
 - Build warning `CS8604` in `ApplicationFormSchema.cs:102`.
 - Write the **99.9% SLA ADR** before `marketing/landing.html` goes live — it is asserted
   publicly and recorded nowhere.

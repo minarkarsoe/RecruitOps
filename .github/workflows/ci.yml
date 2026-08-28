@@ -219,8 +219,135 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # `set -o pipefail` is load-bearing: without it the pipeline's exit code is `tee`'s,
+      # which is always 0, and a failing suite would report green. That is the same trap the
+      # backend summary step's comment describes, one job down.
       - name: Test
-        run: npm run test
+        shell: bash
+        run: set -o pipefail && npm run test 2>&1 | tee frontend-test.log
+
+      # The backend has had a counts table since run #4; the frontend had a bare green tick.
+      # That asymmetry matters more than it looks, because of one npm behaviour:
+      #
+      #   `npm run test --workspaces --if-present` EXITS 0 WHEN A SCRIPT IS MISSING.
+      #
+      # So a workspace whose tests stopped running — script renamed, removed, or a vitest
+      # `include` glob that stops matching — is indistinguishable from a workspace that
+      # passed. `@recruitops/public` had no tests at all until 2026-08-27 and nobody noticed;
+      # this step is what stops that being true again quietly.
+      #
+      # It derives the expected workspaces from package.json rather than hard-coding them, so
+      # adding a workspace extends the check automatically and removing a `test` script is
+      # caught rather than silently shrinking the suite.
+      - name: Test counts
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, re, sys
+
+          LOG = pathlib.Path("frontend-test.log")
+          ROOT = pathlib.Path(".")
+          SUMMARY = os.environ.get("GITHUB_STEP_SUMMARY")
+
+          # Encoding is pinned rather than inherited — the table uses em dashes, and a report
+          # rendered with replacement characters is a report nobody reads.
+          out = open(SUMMARY, "a", encoding="utf-8") if SUMMARY else \
+                open(sys.stdout.fileno(), "w", encoding="utf-8", closefd=False)
+          def w(s=""): out.write(s + "\n")
+
+          ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+          w("## Frontend test run")
+
+          if not LOG.exists():
+              w("The test step produced no log — it failed before vitest was reached.")
+              out.close()
+              raise SystemExit(1)
+
+          lines = [ANSI.sub("", l).rstrip() for l in LOG.read_text(errors="replace").splitlines()]
+
+          expected = {}
+          for ws in json.loads((ROOT / "package.json").read_text()).get("workspaces", []):
+              for pkg in sorted(ROOT.glob(f"{ws}/package.json")):
+                  data = json.loads(pkg.read_text())
+                  if data.get("scripts", {}).get("test"):
+                      expected[data["name"]] = True
+
+          marker = re.compile(r"^> (@recruitops/[A-Za-z0-9._-]+)@\S+ test$")
+          tests_line = re.compile(r"^\s*Tests\s+(.+?)\s*$")
+          files_line = re.compile(r"^\s*Test Files\s+(.+?)\s*$")
+          count = re.compile(r"(\d+)\s+(passed|failed|skipped)")
+
+          seen, order, current = {}, [], None
+          for l in lines:
+              m = marker.match(l)
+              if m:
+                  current = m.group(1)
+                  if current not in seen:
+                      order.append(current)
+                      seen[current] = {"tests": None, "files": None}
+                  continue
+              if current is None:
+                  continue
+              m = tests_line.match(l)
+              if m and seen[current]["tests"] is None and count.search(m.group(1)):
+                  seen[current]["tests"] = m.group(1); continue
+              m = files_line.match(l)
+              if m and seen[current]["files"] is None and count.search(m.group(1)):
+                  seen[current]["files"] = m.group(1)
+
+          def totals(s):
+              if not s: return 0, 0
+              d = {k: int(v) for v, k in count.findall(s)}
+              return d.get("passed", 0), d.get("failed", 0)
+
+          def cell(s):
+              # vitest's failing summary is `2 failed | 22 passed (24)`. That pipe is a column
+              # separator in Markdown, so an unescaped one splits the row into six columns and
+              # the report renders as garbage exactly when something has gone wrong.
+              return "—" if not s else s.replace("|", "\\|")
+
+          w("")
+          w("| Workspace | Test files | Tests | Result |")
+          w("|---|---|---|---|")
+
+          problems, gp, gf = [], 0, 0
+          for name in sorted(expected):
+              got = seen.get(name)
+              if got is None or got["tests"] is None:
+                  w(f"| `{name}` | — | — | **DID NOT RUN** |")
+                  problems.append(f"`{name}` has a `test` script but produced no vitest summary.")
+                  continue
+              p, f = totals(got["tests"])
+              gp += p; gf += f
+              w(f"| `{name}` | {cell(got['files'])} | {cell(got['tests'])} | {'FAILED' if f else 'passed'} |")
+
+          for name in order:
+              if name not in expected:
+                  w(f"| `{name}` | — | {cell(seen[name]['tests'])} | ran, but declares no test script |")
+
+          w("")
+          w(f"**{gp} passed, {gf} failed** across {len(expected)} workspace(s).")
+
+          if problems:
+              w("")
+              w("### This report is not trustworthy")
+              w("")
+              for p in problems:
+                  w(f"- {p}")
+              w("")
+              w("`npm run test --workspaces --if-present` exits 0 when a script is missing, so a "
+                "workspace whose tests stopped running is indistinguishable from one that passed. "
+                "That is what this check exists to catch.")
+
+          out.close()
+
+          # THIS STEP REPORTS, and adjudicates exactly one thing the test step cannot: whether
+          # every workspace claiming to have tests actually produced a summary. Whether those
+          # tests passed is the test step's exit code, and nothing here second-guesses it.
+          raise SystemExit(1 if problems else 0)
+          PY
 
       - name: Build
         run: npm run build

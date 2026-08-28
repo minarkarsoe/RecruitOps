@@ -5,6 +5,43 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🧮 CI reports frontend test counts — and catches a suite that stops running
+
+The backend has had a counts table since run #4. The frontend had a bare green tick, and that
+asymmetry hid something specific:
+
+> **`npm run test --workspaces --if-present` exits 0 when a script is missing.**
+
+So a workspace whose tests stopped running — script renamed or removed, or a vitest `include`
+glob that quietly stops matching — is **indistinguishable from one that passed**. `frontend/public`
+had no tests at all until yesterday and nobody noticed; with a second workspace now in the suite,
+this step is what stops that being true again silently.
+
+The new `Test counts` step prints a per-workspace table and **fails the job** if a workspace that
+declares a `test` script produced no vitest summary. The expected list is derived from
+`package.json` rather than hard-coded, so adding a workspace extends the check automatically and
+removing a `test` script is caught instead of shrinking the suite unnoticed.
+
+**Verified by extracting the script back out of `ci.yml` and running it against four logs** — not
+by reading it:
+
+| Case | Expected | Got |
+|---|---|---|
+| Both suites pass | table, exit 0 | ✓ 432 passed |
+| Public suite failing | `FAILED` row, exit 0 | ✓ 430 passed, 2 failed |
+| Public suite absent | `DID NOT RUN`, exit **1** | ✓ |
+| No log at all | exit **1** | ✓ |
+
+Two rendering bugs were found and fixed by testing the *failure* paths rather than the happy one:
+vitest's failing summary is `2 failed | 22 passed (24)`, and that **pipe is a Markdown column
+separator** — unescaped it split the row into six columns, so the report rendered as garbage
+exactly when something had gone wrong. Output encoding is also pinned to UTF-8 rather than
+inherited, after em dashes came back as replacement characters.
+
+⚠️ **`set -o pipefail` on the test step is load-bearing.** Piping to `tee` otherwise makes the
+pipeline exit code `tee`'s, which is always 0 — a failing suite would report green. Verified both
+ways locally. This is the same trap the backend summary step's own comment describes, one job down.
+
 ### 🔎 The header search box wrapped its own placeholder onto two lines
 
 Reported from a screenshot. "Search or jump to…" was breaking across two lines *inside* a
