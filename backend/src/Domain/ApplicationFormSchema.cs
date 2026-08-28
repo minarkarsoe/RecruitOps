@@ -91,29 +91,36 @@ public static class ApplicationFormSchema
 
         foreach (var field in parsed)
         {
-            if (!KeyPattern.IsMatch(field.Key ?? string.Empty))
+            // `Key` is declared non-nullable, but it arrives from `JsonSerializer.Deserialize`,
+            // where a document simply omitting it leaves the property null. Coalesced once, into
+            // a local, so the null case is handled in one place rather than at each use — the
+            // previous code did it only at the regex check and passed the raw value to
+            // `HashSet.Add` four lines later, which is what CS8604 was pointing at.
+            var key = field.Key ?? string.Empty;
+
+            if (!KeyPattern.IsMatch(key))
             {
-                error = $"Field key '{field.Key}' must be 1–50 letters, digits or underscores.";
+                error = $"Field key '{key}' must be 1–50 letters, digits or underscores.";
                 return false;
             }
 
             // Case-insensitive, because two keys differing only by case would be
             // indistinguishable to anyone reading the answers later.
-            if (!seen.Add(field.Key))
+            if (!seen.Add(key))
             {
-                error = $"Field key '{field.Key}' is used more than once.";
+                error = $"Field key '{key}' is used more than once.";
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(field.Label) || field.Label.Length > 100)
             {
-                error = $"Field '{field.Key}' needs a label of 1–100 characters.";
+                error = $"Field '{key}' needs a label of 1–100 characters.";
                 return false;
             }
 
             if (!FieldTypes.Contains(field.Type))
             {
-                error = $"Field '{field.Key}' has unknown type '{field.Type}'.";
+                error = $"Field '{key}' has unknown type '{field.Type}'.";
                 return false;
             }
 
@@ -122,17 +129,17 @@ public static class ApplicationFormSchema
                 var options = field.Options ?? [];
                 if (options.Length == 0)
                 {
-                    error = $"Field '{field.Key}' is a dropdown, so it needs at least one option.";
+                    error = $"Field '{key}' is a dropdown, so it needs at least one option.";
                     return false;
                 }
                 if (options.Length > MaxOptions)
                 {
-                    error = $"Field '{field.Key}' has more than {MaxOptions} options.";
+                    error = $"Field '{key}' has more than {MaxOptions} options.";
                     return false;
                 }
                 if (options.Any(string.IsNullOrWhiteSpace))
                 {
-                    error = $"Field '{field.Key}' has a blank option.";
+                    error = $"Field '{key}' has a blank option.";
                     return false;
                 }
             }
