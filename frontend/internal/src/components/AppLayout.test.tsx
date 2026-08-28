@@ -193,3 +193,84 @@ describe('AppLayout Permission-Aware Navigation', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * The app shell must be exactly one viewport tall, with the CONTENT pane scrolling inside it —
+ * the pattern every screen in `design/internal/` uses (`body.overflow-hidden` around
+ * `div.flex.h-screen`).
+ *
+ * ⚠️ What these tests can and cannot prove. jsdom does no layout: every `getBoundingClientRect`
+ * is 0×0, so a test here CANNOT measure that "Sign out" is on screen. These pin the class
+ * contract that produces the behaviour, and nothing more. The behaviour itself was measured in a
+ * real browser on 2026-08-28 against the production build, with 3000px of filler in `<main>`:
+ *
+ *   fixed     → aside 720px (= viewport), Sign out at y=676 and visible, document not scrollable
+ *   reverted  → aside 3124px, Sign out at y=3080, 2392px of scrolling needed to reach it
+ *
+ * That second row is the bug as reported: the rail grew to the height of the tallest page and
+ * took its own footer off screen with it. Treat a failure here as "the shell stopped being a
+ * shell", and re-measure in a browser rather than adjusting the expectation.
+ */
+describe('AppLayout shell geometry (ADR-0025 app-shell pattern)', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    auth.set({
+      accessToken: 'token-shell',
+      expiresAtUtc: '2099-01-01T00:00:00Z',
+      role: 'Admin',
+      displayName: 'Shell Tester',
+      userId: 'usr-shell',
+      isSuperAdmin: false,
+      permissions: ['permission:users:users:read'],
+    });
+  });
+
+  function renderShell() {
+    const { container } = render(
+      <MemoryRouter>
+        <AppLayout />
+      </MemoryRouter>
+    );
+    const aside = container.querySelector('aside')!;
+    return { container, aside, contentPane: aside.nextElementSibling as HTMLElement };
+  }
+
+  it('caps the shell at one viewport instead of letting it grow with the page', () => {
+    const { container } = renderShell();
+    const shell = container.firstElementChild as HTMLElement;
+
+    expect(shell.className).toContain('h-screen');
+    expect(shell.className).toContain('overflow-hidden');
+    // `min-h-screen` is the regression: it lets the shell — and with it the rail — grow to the
+    // height of the tallest page on the screen.
+    expect(shell.className).not.toContain('min-h-screen');
+  });
+
+  it('scrolls the content pane, not the document', () => {
+    const { contentPane } = renderShell();
+
+    expect(contentPane.className).toContain('overflow-y-auto');
+  });
+
+  it('lets the shell row shrink so the inner scroll container can engage', () => {
+    const { aside } = renderShell();
+    const row = aside.parentElement!;
+
+    // Without `min-h-0` a flex item's default `min-height:auto` floors it at content height, so
+    // the pane's `overflow-y-auto` never activates and the document scrolls after all.
+    expect(row.className).toContain('min-h-0');
+    expect(row.className).not.toContain('min-h-screen');
+  });
+
+  it('keeps the sign-out control inside the rail, below the scrolling nav', () => {
+    const { aside } = renderShell();
+    const nav = aside.querySelector('nav')!;
+    const signOut = within(aside).getByRole('button', { name: /sign out/i });
+
+    // The nav is the part that scrolls when there are more links than fit; the footer holding
+    // the user block and Sign out is a sibling of it, so it stays pinned to the bottom.
+    expect(nav.className).toContain('overflow-y-auto');
+    expect(nav.contains(signOut)).toBe(false);
+    expect(aside.contains(signOut)).toBe(true);
+  });
+});

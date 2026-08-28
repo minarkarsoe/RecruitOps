@@ -612,6 +612,26 @@ rather than engineering ones:
 - **Module 6 needs `Requisition → HeadcountPlan`** or its headline number is uncomputable.
 - **Age/gender filtering** is unconfirmed for this market.
 
+### 4b. 🎨 Two nav questions the product owner raised — the kit does not answer either
+Raised 2026-08-28 alongside the sidebar-scroll bug (which is fixed; these are separate).
+**Neither is drawn in `design/internal/`**, so both are design-system additions touching all 25
+screens, not screen-local changes. Confirmed by grep: no collapsed-rail variant, no
+`aria-expanded`/`<details>` nav anywhere in the kit.
+
+- **A collapsible rail (icon-only ↔ full).** The stronger of the two. The rail is a fixed 224px
+  on every screen, and the product is table-heavy — Pipeline and Analytics are the screens that
+  want the width back. Wants: a persisted preference, `title`/`aria-label` on each icon once the
+  label is gone, and a decision about whether the group headings survive the collapsed state
+  (they usually cannot, which is an argument for keeping the group count low).
+- **Parent/child accordion groups.** Weaker, and worth pushing back on. The rail currently holds
+  **11 links under 4 headings**, all reachable in one click; the flat list fits one viewport now
+  that the shell is fixed. Accordions would trade a zero-click scan for a click-to-open on
+  something that already fits, and the compaction they buy is ~4 heading rows. Reconsider if the
+  rail passes roughly 18–20 links — Modules 6 and 8 could take it there.
+
+If the answer to either is yes, it starts in `design/internal/` (the kit is the source of truth
+for what the product looks like), not in `Sidebar.tsx`.
+
 ### 5. Smaller, whenever
 - **Delete or wire up the orphaned feature folders** — `features/requisitions/`,
   `features/interviews/`, and four of the five files in `features/pipeline/`. Zero importers

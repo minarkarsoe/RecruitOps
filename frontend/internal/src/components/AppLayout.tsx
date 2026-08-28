@@ -156,17 +156,31 @@ export function AppLayout() {
     .map(({ permission: _, ...item }) => item);
 
   return (
-    <div className="min-h-screen flex flex-col bg-canvas">
-      {/* SuperAdmin tenant switcher banner */}
+    // ⚠️ `h-screen` + `overflow-hidden`, NOT `min-h-screen`. This is the app-shell pattern the
+    // kit uses on all 25 screens (`design/internal/board.html`: `body.overflow-hidden` around
+    // `div.flex.h-screen`): the shell is exactly one viewport tall and the CONTENT PANE scrolls
+    // inside it, so the rail never moves.
+    //
+    // It was `min-h-screen` on both this element and the row below, which makes the shell grow
+    // to the height of the tallest page. The rail grew with it, so its footer — the user block
+    // and Sign out — sat at the bottom of a 2000px column and you had to scroll the whole page
+    // to sign out. Reported 2026-08-28 from the Scorecard Templates screen.
+    <div className="h-screen flex flex-col bg-canvas overflow-hidden">
+      {/* SuperAdmin tenant switcher banner. Outside the row on purpose: it takes its natural
+          height and the shell below claims whatever is left, so the rail is never taller than
+          the viewport even when the banner is showing. */}
       <TenantSwitcherBar />
 
-      {/* Main shell container */}
-      <div className="flex flex-1 min-h-screen">
+      {/* Main shell container. `min-h-0` lets the flex children actually shrink — without it a
+          flex item's default `min-height:auto` floors it at content height and the inner
+          `overflow-y-auto` never engages. */}
+      <div className="flex flex-1 min-h-0">
         {/* Collateral Grouped Sidebar */}
         <Sidebar session={session} onSignOut={signOut} />
 
-        {/* Content area with sticky Header */}
-        <div className="flex-1 flex flex-col min-w-0">
+        {/* Content area with sticky Header. This is the scroll container now; the Header's
+            `sticky top-0` sticks to it rather than to the document. */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
           <Header onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
           <main className="mx-auto w-full max-w-[1280px] p-6 flex-1">
             <Outlet />

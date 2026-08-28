@@ -8,6 +8,39 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### 🧭 The sidebar scrolled away with the page, taking Sign out with it
+
+Reported 2026-08-28 from Scorecard Templates: on any page taller than the viewport you had to
+scroll the whole document to reach the user block and **Sign out** at the bottom of the rail.
+
+The rail's own internals were already right — `nav` is `flex-1 overflow-y-auto` with the footer
+as its sibling. The fault was one level up, in `AppLayout`: both the outer element and the shell
+row used **`min-h-screen`**, so the shell grew to the height of the tallest page and the rail
+grew with it.
+
+`design/internal/board.html` — and all 25 kit screens — use the opposite: `body.overflow-hidden`
+around `div.flex.h-screen`. The shell is exactly one viewport and the **content pane** scrolls
+inside it. Adopted that: `h-screen overflow-hidden` on the shell, `min-h-0` on the row (without
+it a flex item's default `min-height:auto` floors it at content height and the inner
+`overflow-y-auto` never engages), and `overflow-y-auto` on the content column.
+
+Measured in a real browser against the production build, with 3000px of filler in `<main>`:
+
+| | aside height | Sign out at | reachable without scrolling |
+|---|---|---|---|
+| before | 3124px | y = 3080 | ✗ — 2392px of scrolling |
+| after | 720px (= viewport) | y = 676 | ✓ |
+
+After the fix the content pane scrolls (verified to 2000px) while the rail and the sticky header
+both stay put. **4 new tests** in `AppLayout.test.tsx`, mutation-proved — reverting to
+`min-h-screen` fails 3 of them. They pin the class contract, not pixels, and say so: jsdom does
+no layout, so the geometry above was measured in a browser and is recorded in the test file
+rather than asserted.
+
+Not changed, because the kit does not draw them: a collapsible rail and nested parent/child nav
+groups. Both were raised in the same report and both are design-system additions affecting all
+25 screens — see the note in `NEXT-SESSION.md`.
+
 ### 🐳 The Docker image built code the local build accepted — `@types/node` was the difference
 
 `docker compose build frontend-internal` failed on `.at(-1)` in two Executive Summary test files
