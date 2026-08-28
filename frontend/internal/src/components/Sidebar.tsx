@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { auth, hasPermission, isSuperAdmin, Session } from '../lib/auth';
 import { useFeatureFlags } from '../lib/useFeatureFlags';
@@ -83,7 +84,46 @@ const icons = {
     <path d="M2.5 4.5h11a1 1 0 011 1v5a1 1 0 01-1 1h-11a1 1 0 01-1-1v-5a1 1 0 011-1zM2.8 5l5.2 3.6L13.2 5"
       stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
   ),
+  chevronLeft: (
+    <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  ),
+  chevronRight: (
+    <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  ),
+  signOut: (
+    <path d="M6 2.5H3.5a1 1 0 00-1 1v9a1 1 0 001 1H6M10 11l3-3-3-3M13 8H6"
+      stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  ),
 };
+
+/**
+ * Persisted collapse preference.
+ *
+ * `localStorage`, deliberately — NOT the `sessionStorage` that `auth` uses. That choice is a
+ * security trade-off about a bearer token dying with the tab; this is a width preference. A
+ * preference that resets every time you open a tab is not a preference, and there is nothing
+ * here worth protecting from an attacker who can already read the page.
+ *
+ * Every access is guarded: Safari private mode throws on `localStorage` access outright, and a
+ * nav rail that cannot render because a preference could not be read would be a poor trade.
+ */
+const COLLAPSE_KEY = 'recruitops.sidebar.collapsed';
+
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function writeCollapsed(value: boolean): void {
+  try {
+    localStorage.setItem(COLLAPSE_KEY, String(value));
+  } catch {
+    /* preference is a convenience; losing it must never break navigation */
+  }
+}
 
 function Icon({ children, active }: { children: JSX.Element; active: boolean }) {
   return (
@@ -102,6 +142,17 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
   const navigate = useNavigate();
   const session = propSession !== undefined ? propSession : auth.get();
   const { isFeatureEnabled } = useFeatureFlags();
+
+  // Lazy initialiser: read the stored preference once, on mount, rather than on every render.
+  const [collapsed, setCollapsed] = useState<boolean>(readCollapsed);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      writeCollapsed(next);
+      return next;
+    });
+  }, []);
 
   function handleSignOut() {
     if (onSignOut) {
@@ -157,12 +208,34 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
     },
   ];
 
+  // Only groups with at least one permitted item survive; computed up front because the
+  // collapsed rail draws a hairline BETWEEN groups, and "between" needs the final list. Deriving
+  // it inside the map would put a rule above a group that turns out to be empty.
+  const visibleGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) =>
+          hasPermission(session, item.permission) &&
+          (!item.featureFlag || isFeatureEnabled(item.featureFlag))
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
+
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `mx-2 flex h-9 items-center gap-2.5 rounded-md px-2.5 text-base transition-colors ${
-      isActive
-        ? 'bg-white/10 font-medium text-white'
-        : 'text-white/70 hover:bg-white/5 hover:text-white'
-    }`;
+    collapsed
+      ? `mx-2 grid h-9 place-items-center rounded-md transition-colors ${
+          isActive ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5 hover:text-white'
+        }`
+      : `mx-2 flex h-9 items-center gap-2.5 rounded-md px-2.5 text-base transition-colors ${
+          isActive
+            ? 'bg-white/10 font-medium text-white'
+            : 'text-white/70 hover:bg-white/5 hover:text-white'
+        }`;
+
+  const footerBtnClass = collapsed
+    ? 'grid h-9 w-full place-items-center rounded-md text-white/70 transition-colors hover:bg-white/5 hover:text-white'
+    : 'flex h-9 w-full items-center gap-2.5 rounded-md px-2 text-left text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white';
 
   const initials = (session?.displayName ?? '')
     .split(/\s+/)
@@ -172,8 +245,18 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
     .join('') || 'U';
 
   return (
-    <aside className="flex w-[224px] shrink-0 flex-col bg-ink-900 text-white">
-      <div className="flex h-14 items-center gap-2.5 border-b border-white/10 px-4">
+    // Width is NOT transitioned, on purpose. Animating it would relayout the content pane every
+    // frame, and the screens this feature exists for — Pipeline, Analytics — are exactly the
+    // wide tables where that costs the most. An instant toggle is also simply faster to use.
+    <aside
+      id="app-sidebar"
+      className={`flex shrink-0 flex-col bg-ink-900 text-white ${collapsed ? 'w-16' : 'w-[224px]'}`}
+    >
+      <div
+        className={`flex h-14 shrink-0 items-center border-b border-white/10 ${
+          collapsed ? 'justify-center' : 'gap-2.5 px-4'
+        }`}
+      >
         <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
           <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E" />
           <circle cx="9" cy="7.5" r="2.1" fill="#fff" />
@@ -181,67 +264,113 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
           <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B" />
           <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" strokeWidth="1.4" strokeLinecap="round" />
         </svg>
-        <span className="text-base font-semibold tracking-tight">RecruitOps</span>
+        {/* The wordmark is the only thing the header loses; the mark stays so the rail is still
+            identifiably the product at 64px. */}
+        {!collapsed && <span className="text-base font-semibold tracking-tight">RecruitOps</span>}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3">
-        {navGroups.map((group) => {
-          const visibleItems = group.items.filter(
-            (item) =>
-              hasPermission(session, item.permission) &&
-              (!item.featureFlag || isFeatureEnabled(item.featureFlag))
-          );
-
-          // A group whose every item is hidden must not leave its heading behind — an empty
-          // "Team" label tells the user something exists that they cannot see.
-          if (visibleItems.length === 0) return null;
-
-          return (
-            <div key={group.title} className="pb-1">
-              {/* white/50, not the kit's white/40. Measured 2026-08-21 on ink-900: /40 is
-                  3.81:1 and fails AA for text this size; /50 is 5.23:1. The kit was corrected
-                  to match rather than the other way round. */}
+      <nav className="flex-1 overflow-y-auto py-3" aria-label="Main">
+        {visibleGroups.map((group, index) => (
+          <div key={group.title} className="pb-1">
+            {collapsed ? (
+              // At 64px a heading cannot be read, so grouping is carried by a rule instead of a
+              // word. No rule above the first group — it would separate it from nothing.
+              index > 0 && <div className="mx-3 my-2 border-t border-white/10" aria-hidden="true" />
+            ) : (
+              /* white/50, not the kit's white/40. Measured 2026-08-21 on ink-900: /40 is
+                 3.81:1 and fails AA for text this size; /50 is 5.23:1. The kit was corrected
+                 to match rather than the other way round. */
               <p className="px-4 pb-1.5 pt-3 text-2xs font-medium uppercase tracking-wider text-white/50">
                 {group.title}
               </p>
-              {visibleItems.map((item) => (
-                <NavLink key={item.to} to={item.to} className={linkClass}>
-                  {({ isActive }) => (
-                    <>
-                      <Icon active={isActive}>{item.icon}</Icon>
-                      {item.label}
-                    </>
-                  )}
-                </NavLink>
-              ))}
-            </div>
-          );
-        })}
+            )}
+            {group.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={linkClass}
+                // Both, and they do different jobs: `title` is the mouse's tooltip, `aria-label`
+                // is what a screen reader announces once the visible text is gone. An icon-only
+                // rail carrying neither is a memory test.
+                title={collapsed ? item.label : undefined}
+                aria-label={collapsed ? item.label : undefined}
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon active={isActive}>{item.icon}</Icon>
+                    {!collapsed && item.label}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        ))}
       </nav>
 
-      {session && (
-        <div className="border-t border-white/10 p-3">
-          <div className="flex items-center gap-2.5 px-2 py-1">
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-700 text-2xs font-semibold">
-              {initials}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">{session.displayName}</span>
-              {/* Super admin is a role line, not a badge with an emoji. An emoji in an
-                  enterprise nav is decoration where a fact belongs. */}
-              <span className="block truncate text-2xs text-white/50">
-                {isSuperAdmin(session) ? 'Super admin' : session.role}
+      <div className="shrink-0 border-t border-white/10 p-3">
+        {/* The toggle lives in the pinned footer and occupies the SAME slot in both states. A
+            control that relocates itself when you use it is a bad control — you click it, and
+            the thing you clicked is now somewhere else. The footer is also the only region
+            guaranteed to be on screen, since the nav above it is what scrolls. */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className={footerBtnClass}
+          aria-expanded={!collapsed}
+          aria-controls="app-sidebar"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <svg className="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            {collapsed ? icons.chevronRight : icons.chevronLeft}
+          </svg>
+          {!collapsed && 'Collapse'}
+        </button>
+
+        {session && (
+          <>
+            <div
+              className={
+                collapsed
+                  ? 'mt-1 grid h-9 place-items-center'
+                  : 'mt-1 flex items-center gap-2.5 px-2 py-1'
+              }
+              // Collapsed, the avatar is the only thing left of the user block, so it has to
+              // say who it belongs to on its own.
+              title={collapsed ? session.displayName : undefined}
+            >
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-700 text-2xs font-semibold">
+                {initials}
               </span>
-            </span>
-          </div>
-          <button
-            onClick={handleSignOut}
-            className="mt-1 w-full rounded-md px-2 py-1.5 text-left text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white"
-          >
-            Sign out
-          </button>
-        </div>
-      )}
+              {!collapsed && (
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{session.displayName}</span>
+                  {/* Super admin is a role line, not a badge with an emoji. An emoji in an
+                      enterprise nav is decoration where a fact belongs. */}
+                  <span className="block truncate text-2xs text-white/50">
+                    {isSuperAdmin(session) ? 'Super admin' : session.role}
+                  </span>
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className={`mt-1 ${footerBtnClass}`}
+              title={collapsed ? 'Sign out' : undefined}
+              aria-label={collapsed ? 'Sign out' : undefined}
+            >
+              {collapsed ? (
+                <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  {icons.signOut}
+                </svg>
+              ) : (
+                'Sign out'
+              )}
+            </button>
+          </>
+        )}
+      </div>
     </aside>
   );
 }

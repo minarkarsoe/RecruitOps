@@ -612,25 +612,28 @@ rather than engineering ones:
 - **Module 6 needs `Requisition → HeadcountPlan`** or its headline number is uncomputable.
 - **Age/gender filtering** is unconfirmed for this market.
 
-### 4b. 🎨 Two nav questions the product owner raised — the kit does not answer either
-Raised 2026-08-28 alongside the sidebar-scroll bug (which is fixed; these are separate).
-**Neither is drawn in `design/internal/`**, so both are design-system additions touching all 25
-screens, not screen-local changes. Confirmed by grep: no collapsed-rail variant, no
-`aria-expanded`/`<details>` nav anywhere in the kit.
+### 4b. 🎨 Two nav questions the product owner raised — one built, one deferred by them
+Raised 2026-08-28 alongside the sidebar-scroll bug. Neither was drawn in `design/internal/`
+(confirmed by grep: no collapsed-rail variant, no `aria-expanded`/`<details>` nav anywhere).
 
-- **A collapsible rail (icon-only ↔ full).** The stronger of the two. The rail is a fixed 224px
-  on every screen, and the product is table-heavy — Pipeline and Analytics are the screens that
-  want the width back. Wants: a persisted preference, `title`/`aria-label` on each icon once the
-  label is gone, and a decision about whether the group headings survive the collapsed state
-  (they usually cannot, which is an argument for keeping the group count low).
-- **Parent/child accordion groups.** Weaker, and worth pushing back on. The rail currently holds
-  **11 links under 4 headings**, all reachable in one click; the flat list fits one viewport now
-  that the shell is fixed. Accordions would trade a zero-click scan for a click-to-open on
-  something that already fits, and the compaction they buy is ~4 heading rows. Reconsider if the
-  rail passes roughly 18–20 links — Modules 6 and 8 could take it there.
+**✅ Collapsible rail — done 2026-08-28.** Drawn into `design/internal/components.html` first
+("Nav rail — collapsed state"), then built in `Sidebar.tsx`. 224px ↔ 64px, persisted in
+`localStorage`, `aria-label` + `title` on every icon, group headings replaced by hairlines,
+toggle fixed in the pinned footer. 10 tests. Details in `CHANGELOG.md`.
 
-If the answer to either is yes, it starts in `design/internal/` (the kit is the source of truth
-for what the product looks like), not in `Sidebar.tsx`.
+**⏸ Parent/child accordion groups — deferred by the product owner (2026-08-28)**, explicitly
+"for when I add more later". Do not build it speculatively.
+
+When it is picked up, the case against building it *today* still stands and is the thing to
+re-check first: the rail holds **11 links under 4 headings**, all one click away, and the flat
+list fits one viewport. An accordion trades a zero-click scan for a click-to-open on something
+that already fits, buying back ~4 heading rows. The trigger to revisit is the link count, not
+taste — **roughly 18–20**, which Modules 6 and 8 could reach.
+
+Note the interaction with the collapsed state: at 64px there are no headings to expand, so an
+accordion has to define what it does when the rail is narrow (usually: flyout submenus on hover
+or click, which is a different component, not a variant). Decide that in the kit before writing
+any of it.
 
 ### 5. Smaller, whenever
 - **Delete or wire up the orphaned feature folders** — `features/requisitions/`,

@@ -8,6 +8,48 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### ↔️ The nav rail collapses to 64px — drawn in the kit first, then built
+
+Requested 2026-08-28 after the scroll fix below. The product is table-heavy and the rail is a
+fixed 224px on every screen; Pipeline and Analytics are the screens that want the width back.
+
+**The kit did not draw this state, so the kit got it first.** `design/internal/components.html`
+gains a "Nav rail — collapsed state" section showing both widths side by side plus the rules
+that govern the collapsed one. Building it only in `Sidebar.tsx` would have made the app the
+twenty-sixth style and left `design/` — the source of truth for what the product looks like —
+describing a rail that no longer exists.
+
+What the collapsed state keeps, and why:
+
+- **64px, not narrower.** With `mx-2` that leaves a **48×36** hit target, measured in the
+  browser — comfortably above the 24×24 WCAG 2.5.8 AA minimum.
+- **`aria-label` *and* `title` on every link.** They serve different audiences: `title` is the
+  mouse's tooltip, `aria-label` is what a screen reader announces once the visible text is gone.
+- **A hairline between groups instead of a heading.** The `2xs` uppercase headings genuinely
+  cannot be read at 64px; the rule keeps the grouping they carried. No rule above the first
+  group — it would separate it from nothing.
+- **The toggle does not move.** Same slot in the pinned footer in both states. A control that
+  relocates itself when you use it is a bad control.
+- **The preference persists**, in `localStorage` — deliberately *not* the `sessionStorage` that
+  `auth` uses. That is a security trade-off about a bearer token dying with the tab; this is a
+  width preference, and one that resets every visit is not a preference. Every access is
+  try/caught, because Safari private mode throws on `localStorage` outright.
+- **Width is not animated.** Transitioning it relayouts the content pane every frame, and the
+  wide tables this feature exists for are exactly where that costs most.
+
+Measured in a browser against the production build: 224px → **64px**, 11 links all carrying both
+labels, **3** rules for 4 groups, preference surviving a reload, and Sign out still on screen
+with 3000px of content.
+
+**10 tests**, three of them mutation-proved. One mutation is worth recording because it failed
+the *test*, not the code: dropping `aria-label` entirely left all ten green, because the
+accessible-name algorithm falls back to `title`. The suite now asserts both attributes directly
+rather than trusting `getByRole({ name })` — which had been quietly proving something weaker
+than it claimed.
+
+**The accordion / parent-child nav was explicitly deferred by the product owner** to whenever the
+rail grows. Not built. See `NEXT-SESSION` §4b.
+
 ### 🧭 The sidebar scrolled away with the page, taking Sign out with it
 
 Reported 2026-08-28 from Scorecard Templates: on any page taller than the viewport you had to
