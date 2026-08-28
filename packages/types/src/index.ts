@@ -815,22 +815,37 @@ export interface MatchCandidateRequest {
   jobPostingId: string;
 }
 
-export interface MatchCriterion {
-  criterion: string;
-  score: number;
-  rationale: string;
-}
-
+// ⚠️ Corrected 2026-08-28 — the third endpoint in this file found to describe an API that does
+// not exist, after `generateExecutiveSummary` and `prepareDocument`. This one had shipped UI on
+// top of it, so it was not merely blank: it was *wrong in the recruiter's favour-reversing
+// direction*. Captured live before correcting (`POST /api/Ai/claude/match-candidate` -> 200):
+//
+//   api returns:  matchScore, overallVerdict, matchedSkills, missingSkills,
+//                 strengths, concerns, recommendation
+//   spa read:     candidateId, jobPostingId, overallScore, recommendation,
+//                 strengths, gaps, criteria, suggestedInterviewQuestions, summary
+//
+// Only `strengths` ever matched. `recommendation` matched by *name* while disagreeing on type —
+// the API sends a sentence ("Proceed to Technical Deep Dive Interview."), the SPA typed it as a
+// four-member enum and switched on it, so every candidate fell to `default:` and was painted
+// critical-red "Low Match" beside an "undefined% Match" score. `gaps` was undefined, so an
+// 88-point candidate's real concern was replaced with "No critical gaps identified."
+//
+// `criteria` / `MatchCriterion` and `suggestedInterviewQuestions` are gone rather than wired up:
+// nothing on the backend produces a per-criterion breakdown, and interview questions come from
+// `prepareDocument`'s InterviewKit. Mirrors `CandidateMatchAnalysisDto` in
+// `backend/src/Application/DTOs/Ai/AiIntegrationDtos.cs`.
 export interface CandidateMatchAnalysis {
-  candidateId: string;
-  jobPostingId: string;
-  overallScore: number;
-  recommendation: 'StrongMatch' | 'GoodMatch' | 'PossibleMatch' | 'LowMatch';
+  /** 0–100. */
+  matchScore: number;
+  /** Free-form model text, e.g. "Strong Fit" / "Gap Identified". Never switch on it. */
+  overallVerdict: string;
+  matchedSkills: string[];
+  missingSkills: string[];
   strengths: string[];
-  gaps: string[];
-  criteria: MatchCriterion[];
-  suggestedInterviewQuestions: string[];
-  summary: string;
+  concerns: string[];
+  /** A next-step sentence, not a grade. */
+  recommendation: string;
 }
 
 // ── Gemini: Executive Summary ─────────────────────────────────────────────

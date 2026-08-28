@@ -34,21 +34,17 @@ const mockCandidate = {
   customFieldsJson: null,
 };
 
+// `CandidateMatchAnalysisDto`'s real shape (corrected 2026-08-28). This fixture used to carry
+// `candidateId`, `jobPostingId`, `overallScore`, `gaps`, `criteria`, `suggestedInterviewQuestions`
+// and `summary` — none of which the endpoint returns.
 const mockMatchAnalysis: CandidateMatchAnalysis = {
-  candidateId: 'cand-m2-test-1',
-  jobPostingId: 'job-101',
-  overallScore: 88,
-  recommendation: 'StrongMatch',
+  matchScore: 88,
+  overallVerdict: 'Strong Fit',
+  matchedSkills: ['C#', '.NET', 'AWS'],
+  missingSkills: ['Go'],
   strengths: ['10+ years C# / .NET architecture experience', 'System design expertise'],
-  gaps: ['No direct Go experience'],
-  criteria: [
-    { criterion: 'Backend Engineering', score: 95, rationale: 'Senior level C# expertise.' },
-    { criterion: 'Cloud Infrastructure', score: 80, rationale: 'Solid AWS experience.' },
-  ],
-  suggestedInterviewQuestions: [
-    'How do you approach refactoring monoliths into distributed microservices?',
-  ],
-  summary: 'Thandar Aung is an exceptional candidate for the Lead Architect position.',
+  concerns: ['No direct Go experience'],
+  recommendation: 'Thandar Aung is an exceptional candidate for the Lead Architect position.',
 };
 
 // The API's real shape (`ExecutiveSummaryDto`), corrected 2026-08-28 from the running
@@ -66,11 +62,11 @@ describe('Candidate 360 M2 Empirical Challenge Suite', () => {
   });
 
   describe('1. Smart Match Badge Score Calculations & Color-Coding', () => {
-    it('correctly maps recommendation types to badge variants and labels', () => {
-      expect(getMatchBadgeConfig('StrongMatch', 85)).toEqual({ variant: 'success', label: 'Strong Match' });
-      expect(getMatchBadgeConfig('GoodMatch', 65)).toEqual({ variant: 'primary', label: 'Good Match' });
-      expect(getMatchBadgeConfig('PossibleMatch', 45)).toEqual({ variant: 'warning', label: 'Possible Match' });
-      expect(getMatchBadgeConfig('LowMatch', 25)).toEqual({ variant: 'danger', label: 'Low Match' });
+    it('maps the score to the badge variant, carrying the verdict through as the label', () => {
+      expect(getMatchBadgeConfig('Strong Fit', 85)).toEqual({ variant: 'success', label: 'Strong Fit' });
+      expect(getMatchBadgeConfig('Good Fit', 65)).toEqual({ variant: 'primary', label: 'Good Fit' });
+      expect(getMatchBadgeConfig('Moderate Fit', 45)).toEqual({ variant: 'warning', label: 'Moderate Fit' });
+      expect(getMatchBadgeConfig('Gap Identified', 25)).toEqual({ variant: 'danger', label: 'Gap Identified' });
     });
 
     it('fallback score thresholds when recommendation is undefined', () => {
@@ -92,10 +88,13 @@ describe('Candidate 360 M2 Empirical Challenge Suite', () => {
 
       await waitFor(() => {
         expect(aiApi.matchCandidate).toHaveBeenCalledWith({ candidateId: 'cand-m2-test-1', jobPostingId: 'job-101' });
-        expect(screen.getByText(/88% Match \(Strong Match\)/i)).toBeInTheDocument();
-        expect(screen.getByText('Backend Engineering')).toBeInTheDocument();
-        expect(screen.getByText('95% Match')).toBeInTheDocument();
+        expect(screen.getByText(/88% Match \(Strong Fit\)/i)).toBeInTheDocument();
+        // Was a per-criterion row and its 95% chip, from a `criteria` array the API has never
+        // sent. The skill split is what actually arrives on every call.
+        expect(screen.getByText('C#')).toBeInTheDocument();
+        expect(screen.getByText('Go')).toBeInTheDocument();
         expect(screen.getByText('10+ years C# / .NET architecture experience')).toBeInTheDocument();
+        expect(screen.getByText('No direct Go experience')).toBeInTheDocument();
       });
     });
   });

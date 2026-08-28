@@ -63,17 +63,21 @@ describe("aiApi.parseResume", () => {
 });
 
 describe("aiApi.matchCandidate", () => {
-  it("posts to /ai/claude/match-candidate and returns match analysis", async () => {
+  // ⚠️ REWRITTEN 2026-08-28 — the third contract in this file that described an API nobody had
+  // called. This mocked `candidateId`, `jobPostingId`, `overallScore`, `gaps`, `criteria`,
+  // `suggestedInterviewQuestions` and `summary`, and asserted `recommendation === "StrongMatch"`.
+  // The service returns `matchScore`, `overallVerdict`, `matchedSkills`, `missingSkills`,
+  // `strengths`, `concerns`, `recommendation` — and `recommendation` is a sentence, not a grade.
+  // Verified against the running service's OpenAPI *and* a live 200 before correcting.
+  it("posts to /ai/claude/match-candidate and returns the API's shape", async () => {
     const mockResult = {
-      candidateId: "cand-001",
-      jobPostingId: "job-001",
-      overallScore: 87,
-      recommendation: "StrongMatch",
+      matchScore: 87,
+      overallVerdict: "Strong Fit",
+      matchedSkills: ["TypeScript"],
+      missingSkills: ["Kubernetes"],
       strengths: ["TypeScript expertise"],
-      gaps: [],
-      criteria: [],
-      suggestedInterviewQuestions: ["Tell me about your TypeScript experience."],
-      summary: "Strong technical match.",
+      concerns: [],
+      recommendation: "Proceed to Technical Deep Dive Interview.",
     };
     vi.stubGlobal("fetch", makeOkFetch(mockResult));
     const result = await aiApi.matchCandidate({ candidateId: "cand-001", jobPostingId: "job-001" });
@@ -81,8 +85,20 @@ describe("aiApi.matchCandidate", () => {
       expect.stringContaining("/ai/claude/match-candidate"),
       expect.objectContaining({ method: "POST" })
     );
-    expect(result.recommendation).toBe("StrongMatch");
-    expect(result.overallScore).toBe(87);
+    expect(result.matchScore).toBe(87);
+    expect(result.overallVerdict).toBe("Strong Fit");
+    expect(result.missingSkills).toEqual(["Kubernetes"]);
+  });
+
+  it("sends only the two fields the API binds", async () => {
+    vi.stubGlobal("fetch", makeOkFetch({
+      matchScore: 0, overallVerdict: "", matchedSkills: [], missingSkills: [],
+      strengths: [], concerns: [], recommendation: "",
+    }));
+    await aiApi.matchCandidate({ candidateId: "cand-001", jobPostingId: "job-001" });
+
+    const body = JSON.parse(String((vi.mocked(fetch).mock.calls[0][1] as RequestInit).body));
+    expect(Object.keys(body).sort()).toEqual(["candidateId", "jobPostingId"]);
   });
 });
 

@@ -445,7 +445,7 @@ export function CandidateSlideOver({
 
   if (!isOpen) return null;
 
-  const matchBadgeConfig = matchAnalysis ? getMatchBadgeConfig(matchAnalysis.recommendation, matchAnalysis.overallScore) : null;
+  const matchBadgeConfig = matchAnalysis ? getMatchBadgeConfig(matchAnalysis.overallVerdict, matchAnalysis.matchScore) : null;
 
   return (
     <Sheet isOpen={isOpen} onClose={onClose} size="xl" className={className}>
@@ -474,7 +474,7 @@ export function CandidateSlideOver({
                         className="inline-flex items-center gap-1 transition-opacity hover:opacity-85"
                       >
                         <Badge variant={matchBadgeConfig.variant} className="cursor-pointer">
-                          {matchAnalysis?.overallScore}% Match
+                          {matchAnalysis?.matchScore}% Match
                         </Badge>
                       </button>
                     ) : (

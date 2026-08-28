@@ -42,9 +42,8 @@ describe('Candidate 360 Challenger Stress Test Suite', () => {
   });
 
   describe('1. getMatchBadgeConfig Boundary Scoring Unit Tests', () => {
-    it('evaluates recommendation priorities and exact boundary scores (80, 60, 40)', () => {
-      expect(getMatchBadgeConfig('StrongMatch', 100)).toEqual({ variant: 'success', label: 'Strong Match' });
-      expect(getMatchBadgeConfig('StrongMatch', 80)).toEqual({ variant: 'success', label: 'Strong Match' });
+    it('bands on the score at every boundary (80, 60, 40)', () => {
+      expect(getMatchBadgeConfig(undefined, 100)).toEqual({ variant: 'success', label: '100% Match' });
       expect(getMatchBadgeConfig(undefined, 80)).toEqual({ variant: 'success', label: '80% Match' });
       expect(getMatchBadgeConfig(undefined, 79)).toEqual({ variant: 'primary', label: '79% Match' });
       expect(getMatchBadgeConfig(undefined, 60)).toEqual({ variant: 'primary', label: '60% Match' });
@@ -52,7 +51,19 @@ describe('Candidate 360 Challenger Stress Test Suite', () => {
       expect(getMatchBadgeConfig(undefined, 40)).toEqual({ variant: 'warning', label: '40% Match' });
       expect(getMatchBadgeConfig(undefined, 39)).toEqual({ variant: 'danger', label: '39% Match' });
       expect(getMatchBadgeConfig(undefined, 0)).toEqual({ variant: 'danger', label: '0% Match' });
-      expect(getMatchBadgeConfig('LowMatch', 35)).toEqual({ variant: 'danger', label: 'Low Match' });
+    });
+
+    it('shows the verdict as a label but never lets it pick the colour', () => {
+      // The verdict is free model text. Before 2026-08-28 this function switched on it against
+      // four enum members the API has never sent, so every real verdict hit `default:` and every
+      // candidate came back critical-red. A verdict may name the band; it may not set it.
+      expect(getMatchBadgeConfig('Strong Fit', 88)).toEqual({ variant: 'success', label: 'Strong Fit' });
+      expect(getMatchBadgeConfig('Gap Identified', 35)).toEqual({ variant: 'danger', label: 'Gap Identified' });
+      // An enthusiastic verdict cannot rescue a low score, and a blunt one cannot sink a high one.
+      expect(getMatchBadgeConfig('Exceptional Fit', 30).variant).toBe('danger');
+      expect(getMatchBadgeConfig('Gap Identified', 95).variant).toBe('success');
+      // Whitespace-only is not a label.
+      expect(getMatchBadgeConfig('   ', 50)).toEqual({ variant: 'warning', label: '50% Match' });
     });
   });
 
@@ -70,17 +81,15 @@ describe('Candidate 360 Challenger Stress Test Suite', () => {
       expect(aiApi.matchCandidate).not.toHaveBeenCalled();
     });
 
-    it('handles empty strengths, gaps, criteria, and interview questions in SmartMatchBreakdown', async () => {
+    it('handles empty strengths, concerns, and skill lists in SmartMatchBreakdown', async () => {
       const emptyAnalysis: CandidateMatchAnalysis = {
-        candidateId: 'cand-100',
-        jobPostingId: 'job-500',
-        overallScore: 50,
-        recommendation: 'PossibleMatch',
+        matchScore: 50,
+        overallVerdict: 'Moderate Fit',
+        matchedSkills: [],
+        missingSkills: [],
         strengths: [],
-        gaps: [],
-        criteria: [],
-        suggestedInterviewQuestions: [],
-        summary: 'Moderate fit candidate.',
+        concerns: [],
+        recommendation: 'Moderate fit candidate.',
       };
 
       vi.mocked(aiApi.matchCandidate).mockResolvedValueOnce(emptyAnalysis);
@@ -88,9 +97,10 @@ describe('Candidate 360 Challenger Stress Test Suite', () => {
       render(<SmartMatchBreakdown candidateId="cand-100" jobPostingId="job-500" />);
 
       await waitFor(() => {
-        expect(screen.getByText('50% Match (Possible Match)')).toBeInTheDocument();
+        // 50 lands in the `warning` band; the label is the model's own verdict text.
+        expect(screen.getByText('50% Match (Moderate Fit)')).toBeInTheDocument();
         expect(screen.getByText('No specific strengths identified.')).toBeInTheDocument();
-        expect(screen.getByText('No critical gaps identified.')).toBeInTheDocument();
+        expect(screen.getByText('No critical concerns identified.')).toBeInTheDocument();
         expect(screen.getByText('Moderate fit candidate.')).toBeInTheDocument();
       });
     });
@@ -142,15 +152,13 @@ describe('Candidate 360 Challenger Stress Test Suite', () => {
       vi.mocked(aiApi.matchCandidate)
         .mockRejectedValueOnce(new ApiError(500, 'Server overloaded'))
         .mockResolvedValueOnce({
-          candidateId: 'cand-100',
-          jobPostingId: 'job-500',
-          overallScore: 90,
-          recommendation: 'StrongMatch',
+          matchScore: 90,
+          overallVerdict: 'Strong Fit',
+          matchedSkills: [],
+          missingSkills: [],
           strengths: ['Great experience'],
-          gaps: [],
-          criteria: [],
-          suggestedInterviewQuestions: [],
-          summary: 'High fit.',
+          concerns: [],
+          recommendation: 'High fit.',
         });
 
       render(<SmartMatchBreakdown candidateId="cand-100" jobPostingId="job-500" />);
@@ -163,7 +171,7 @@ describe('Candidate 360 Challenger Stress Test Suite', () => {
       await user.click(retryBtn);
 
       await waitFor(() => {
-        expect(screen.getByText('90% Match (Strong Match)')).toBeInTheDocument();
+        expect(screen.getByText('90% Match (Strong Fit)')).toBeInTheDocument();
       });
     });
   });

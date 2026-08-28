@@ -8,6 +8,52 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### 🎯 `matchCandidate` — the third fictional contract, and the first one users could *see*
+
+The last AI endpoint written in the old style, checked with the method that had worked twice
+(OpenAPI first, then a live `200` from the running service). Same disease, worse symptom.
+
+```
+api returns:  matchScore, overallVerdict, matchedSkills, missingSkills,
+              strengths, concerns, recommendation
+spa read:     candidateId, jobPostingId, overallScore, recommendation,
+              strengths, gaps, criteria, suggestedInterviewQuestions, summary
+```
+
+`strengths` was the only field that matched. The other two contract bugs rendered *blanks*; this
+one had a whole UI built on it, so it rendered **wrong information confidently**:
+
+| what the recruiter saw | what the API had said |
+|---|---|
+| `undefined% Match` | `matchScore: 88` |
+| a **critical-red "Low Match"** badge | `overallVerdict: "Strong Fit"` |
+| "No critical gaps identified." | `concerns: ["Limited experience with Kubernetes…"]` |
+| (blank summary banner) | `recommendation: "Proceed to Technical Deep Dive Interview."` |
+| — | `matchedSkills` / `missingSkills`, never rendered at all |
+
+The badge is the sharp one. `recommendation` matched by **name** while disagreeing on **type** —
+the API sends a sentence, the SPA typed it as a four-member enum and `switch`ed on it, so every
+real verdict missed every case and fell to `default: 'danger' / 'Low Match'`. The strongest
+candidate in the pipeline was painted the same red as the weakest, and the score beside it read
+`undefined`. A name collision is worse than a missing field: a missing field is blank, a
+mistyped one is plausible.
+
+Fixed so the class cannot recur: **free text may be displayed, never decided on.**
+`getMatchBadgeConfig` now bands on `matchScore` alone and carries `overallVerdict` through as a
+label. `criteria` / `MatchCriterion` and `suggestedInterviewQuestions` are deleted rather than
+wired up — nothing produces a per-criterion breakdown, and interview questions come from
+`prepareDocument`'s InterviewKit. The skill split the API was already sending is rendered.
+
+`SmartMatchLiveContract.test.tsx` is new and holds a **verbatim capture of a live 200**, typed
+rather than cast, so the next drift fails to compile. Five tests, all red before the fix. Two
+deliberate mutations (verdict decides the colour; concerns always render empty) each killed by
+three tests. **Frontend 449 → 456.**
+
+> All three AI contracts in `packages/types` have now been checked against the running service.
+> None of the three was right. The common cause was not carelessness about any one field — it
+> was that **every test mocked the response in the shape the caller wanted**, so the fixtures and
+> the interfaces agreed with each other and nothing ever compared either to the API.
+
 ### 🗑 `ClientDossier` deleted — and the sweep found the whole endpoint's contract was fiction
 
 Asked for: remove the agency-era `ClientDossier` document type (ADR-0001 removed clients on

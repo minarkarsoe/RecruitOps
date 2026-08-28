@@ -32,22 +32,17 @@ const mockCandidate = {
   customFieldsJson: null,
 };
 
+// `CandidateMatchAnalysisDto`'s real shape (corrected 2026-08-28) — see the note beside
+// `CandidateMatchAnalysis` in `packages/types`.
 const mockMatchAnalysis: CandidateMatchAnalysis = {
-  candidateId: 'cand-888',
-  jobPostingId: 'job-777',
-  overallScore: 85,
-  recommendation: 'StrongMatch',
+  matchScore: 85,
+  overallVerdict: 'Strong Fit',
+  matchedSkills: ['C#', '.NET Core', 'React', 'TypeScript'],
+  missingSkills: ['GraphQL'],
   strengths: ['8+ years experience in C# / .NET Core', 'Strong React / TypeScript frontend skills'],
-  gaps: ['Limited experience with GraphQL API design'],
-  criteria: [
-    { criterion: 'Technical Skills', score: 90, rationale: 'Excellent match for C# and React stack.' },
-    { criterion: 'Years of Experience', score: 85, rationale: 'Exceeds the 5 years requirement.' },
-  ],
-  suggestedInterviewQuestions: [
-    'How do you approach optimizing React rendering performance in large applications?',
-    'Can you describe your experience with asynchronous messaging architectures?',
-  ],
-  summary: 'May Thu is a strong candidate with relevant experience in full-stack web application development.',
+  concerns: ['Limited experience with GraphQL API design'],
+  recommendation:
+    'May Thu is a strong candidate with relevant experience in full-stack web application development.',
 };
 
 // The API's real shape (`ExecutiveSummaryDto`), corrected 2026-08-28. This fixture used to
@@ -65,7 +60,7 @@ describe('Candidate 360 AI Smart Match & Executive Summary UI Tests', () => {
     vi.clearAllMocks();
   });
 
-  it('1. Renders Smart Match Badge in header and detailed criteria breakdown drawer panel', async () => {
+  it('1. Renders Smart Match Badge in header and the breakdown panel', async () => {
     vi.mocked(aiApi.matchCandidate).mockResolvedValueOnce(mockMatchAnalysis);
 
     render(
@@ -83,14 +78,15 @@ describe('Candidate 360 AI Smart Match & Executive Summary UI Tests', () => {
         candidateId: 'cand-888',
         jobPostingId: 'job-777',
       });
-      expect(screen.getByText('85% Match (Strong Match)')).toBeInTheDocument();
+      expect(screen.getByText('85% Match (Strong Fit)')).toBeInTheDocument();
       expect(screen.getByText('AI Smart Match Analysis')).toBeInTheDocument();
-      expect(screen.getByText('Technical Skills')).toBeInTheDocument();
       expect(screen.getByText('8+ years experience in C# / .NET Core')).toBeInTheDocument();
       expect(screen.getByText('Limited experience with GraphQL API design')).toBeInTheDocument();
-      expect(
-        screen.getByText('How do you approach optimizing React rendering performance in large applications?')
-      ).toBeInTheDocument();
+      // The two assertions that stood here — a "Technical Skills" criterion row and a suggested
+      // interview question — were reading a criteria table and a questions list that the API has
+      // never populated. What it does send is the skill split, which nothing rendered until now.
+      expect(screen.getByText('.NET Core')).toBeInTheDocument();
+      expect(screen.getByText('GraphQL')).toBeInTheDocument();
     });
   });
 
