@@ -8,6 +8,34 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### ✅ The three Module 3 behaviours, finally observed
+
+Flagged as "worth checking specifically" and carried unverified across five updates of
+`NEXT-SESSION.md`. All three pass — observed in the running app against the production build,
+not inferred from tests. No code changed; this entry records evidence.
+
+**Panel picker for a Recruiter** — 10 options render with name and role, matching the 10 active
+users exactly. The reason this needed eyes rather than a test: `ApplicationDebrief.tsx:491` does
+`.catch(() => setUsers([]))`, so a failed fetch produces an empty picker **visually identical to
+"no users exist"**. Working and silently broken look the same.
+
+**Blind state on `/interviews/:id`** — panel of three, one submitted. As a non-submitter:
+`blindedUntilYouSubmit: true`, `hiddenCount: 1`, `visible: []`, and the entire response is **112
+bytes with no trace of the submitter's evaluation** — withheld at the source, not merely hidden
+in the UI. Her `Recommendation` and `SummaryComment` appear nowhere in the DOM. Her *name* does
+appear, in the roster as "Scorecard in", which is deliberate: who has finished is public to the
+panel, what they wrote is not.
+
+**`.mention` survives the Tailwind build** — present in the CSS the container serves, with all
+declarations intact. Contrast 4.86:1, passes AA. Purging it would have rendered unstyled text
+rather than an error, which is why it was on the list.
+
+> **The finding that came out of doing this.** `/interviews/:id` routes to
+> `pages/InterviewDetailPage`. `features/interviews/BlindScorecardDrawer` — which owns the
+> blind-state *tests* — has **zero production importers**; only three test files import it. Those
+> tests have been passing while proving nothing about the screen that ships, on the module whose
+> correctness matters most. The parked orphan-folder decision now has a concrete cost attached.
+
 ### 📦 A `.dockerignore`, and `npm ci` against the lockfile the images had been ignoring
 
 Two long-standing gaps in the frontend image builds, both raised earlier the same day.

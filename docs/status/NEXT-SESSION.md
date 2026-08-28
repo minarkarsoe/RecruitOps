@@ -86,23 +86,40 @@ Two habits worth keeping from it:
    and these tests looked for a `backend/` directory that only exists in a checkout. Reach for
    `docker build --target test ./backend` to reproduce before theorising — it took one run.
 
-## ⚠️ "The stack came up" is not "the screens are correct"
+## ✅ The three Module 3 behaviours — all verified 2026-08-28
 
-Three Module 3 behaviours were flagged as worth checking specifically, and **still have not
-been eyeballed** — carried across four updates of this file now. Each takes about a minute in
-the browser, and each fails *quietly*. **These remain the cheapest verification left in the
-project.**
+Carried across five updates of this file. **Done.** All three pass, observed in the running app
+against the production build, not inferred from tests.
 
-1. **The panel picker populates when logged in as a Recruiter.** This is ADR-0019's entire
-   reason to exist, and it has only ever been proved *reachable* by a test, never *observed*
-   working. Scheduling requires a non-empty panel, so if the picker is empty the whole module
-   is undrivable by its main role.
-2. **The blind state on `/interviews/:id` with two panel members.** Member A submits; member B
-   should see `hiddenCount: 1` and no scores until they submit. Enforced server-side and
-   rendered three ways client-side, so a UI-only regression is invisible to the API tests.
-3. **`.mention` styling survives the Tailwind build.** The markup is generated in C#, so
-   Tailwind's content scanner cannot see the class — it lives in `index.css` for that reason.
-   A production build purging it renders unstyled text, not an error.
+1. **The panel picker populates for a Recruiter.** ✅ Logged in as Ma Su Su Hlaing (Recruiter),
+   opened a candidate's *Interviews → Schedule interview*: **10 options render**, each with name
+   and role, matching the 10 active users exactly. `/api/users/selectable` returns 200.
+   Worth knowing: `ApplicationDebrief.tsx:491` does `.catch(() => setUsers([]))`, so a failed
+   fetch renders an empty picker that is **visually identical to "no users exist"**. Populated
+   and silently broken cannot be told apart by eye — which is why this needed observing.
+2. **The blind state on `/interviews/:id`.** ✅ Interview `c4491dcf…`, panel of three: Su Su
+   Hlaing submitted, Aung Kyaw Moe and Thiri Kyaw had not. Logged in as **Aung Kyaw Moe**:
+   `blindedUntilYouSubmit: true`, `hiddenCount: 1`, `visible: []`. The whole response is **112
+   bytes and contains no trace of her** — withheld at the source, not hidden in the UI. The page
+   renders *"1 evaluation is waiting for yours."*
+   Her name **does** appear, in the panel roster as "Scorecard in" — deliberate (see the comment
+   at `InterviewDetailPage.tsx:276`): who has finished is public to the panel, what they wrote is
+   not. Her `Recommendation` and `SummaryComment` appear nowhere in the DOM; the one `StrongYes`
+   in the HTML is an `<option>` in Aung Kyaw Moe's own blank form.
+3. **`.mention` survives the Tailwind build.** ✅ From the CSS the container actually serves:
+   `.mention{font-weight:600;color:#0f766e;background:#ccfbf1;border-radius:3px;padding:0 2px}`.
+   Contrast 4.86:1 — passes AA.
+
+> ⚠️ **A finding from doing this, and it bears on the parked orphan folders.** `/interviews/:id`
+> routes to **`pages/InterviewDetailPage`**. `features/interviews/BlindScorecardDrawer` — which
+> owns the blind-state *tests* — has **zero production importers**; only three test files import
+> it. Those tests pass while proving nothing about the screen that ships. That is the orphan
+> problem stated concretely, on the module whose correctness matters most.
+
+**How to log in for checks like these:** the Browser pane is its own browser, and `auth.ts` uses
+`sessionStorage`, which is per-tab. Logging in anywhere else — including another tab of the same
+browser — leaves the pane's tab logged out. This cost four failed attempts across earlier
+sessions before anyone noticed. Demo credentials are committed in `scripts/demo-data.json`.
 
 ## Backlog, in the order I'd take it
 
