@@ -5,6 +5,47 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🧪 `frontend/public` has tests — 24 of them, and the first one found a bug
+
+**Why:** it had **none**, and it is a stranger's only view of the product. That is exactly how
+the Docker rewrite bug shipped the day before: browser-side API calls were dead in a container
+while SSR kept working, so the page *looked* perfect and nothing exercised the difference.
+
+**The first test file found a second, latent bug in the same file.** `api()` built its headers as
+`{ 'Content-Type': 'application/json', ...init.headers }` and then spread `...init` **after** it —
+which replaces the whole `headers` key with the caller's raw object, discarding the merge. Nothing
+passes headers today, so it never fired; the next caller to add one would have sent a JSON body
+with no content type and had it rejected or misparsed. `headers` now comes last.
+
+24 tests across two files:
+
+- **`lib/api.test.ts`** pins the server-vs-browser base-URL branch — the *class* of bug behind the
+  Docker failure. A Server Component has no page origin so it needs an absolute URL; the browser
+  needs a relative one so the call is same-origin and hits the rewrite. One test asserts the two
+  **must not collapse into the same value**.
+- **`ApplicationForm.test.tsx`** covers the contact rule (email *or* phone, whitespace doesn't
+  count), `customFieldsJson` being `null` rather than `"{}"` when a posting has no questions,
+  every custom field type, `required` mirroring, the select's empty first option, and the success
+  state replacing the form so it cannot be submitted twice.
+- **One test exists purely as a leak guard:** the catch block deliberately shows a generic
+  message, and the test asserts none of the server's wording — status code, exception text,
+  service name — reaches a public page.
+
+**Mutation-proved, all three restored afterwards:**
+
+| Mutation | Tests killed |
+|---|---|
+| Collapse the server/browser base-URL branch | **3** |
+| Echo the API error to the page | **1** (the leak guard) |
+| Remove the contact rule | **2** |
+
+Config mirrors `frontend/internal`'s deliberately — a second testing idiom in one repo is a thing
+to keep in sync forever. No new third-party packages: every dependency was already installed at
+the root and used by the sibling workspace. **CI needs no change** — the root `test` script fans
+out with `--workspaces --if-present`, so adding the script is enough. Frontend total is now
+**399** (375 internal + 24 public), typecheck clean, both apps build, and the rebuilt container
+verifies live: SSR job page 200, browser-side API path 200.
+
 ### 🧹 Two dead compat aliases deleted from the preset
 
 `font-display` and `shadow-pop` are gone from `packages/ui/tailwind-preset.js`. Both existed only

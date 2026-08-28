@@ -603,8 +603,18 @@ rather than engineering ones:
 - **`frontend/public` has no `app/not-found.tsx`** — a candidate following a withdrawn job link
   gets Next.js's built-in 404: no layout, no fonts, no company name. `design/public/` does not
   draw this screen, so it needs designing before building.
-- **`frontend/public` has no tests at all** — a stranger's only view of the product is the
-  least-covered surface in the repo.
+- ~~**`frontend/public` has no tests at all**~~ ✅ **done 2026-08-27 — 24 tests.** `lib/api.test.ts`
+  pins the server-vs-browser base-URL branch (the class of bug behind the Docker rewrite failure,
+  including one test asserting the two **must not collapse**); `ApplicationForm.test.tsx` covers
+  the contact rule, `customFieldsJson` null-vs-`{}`, every custom field type, and a **leak guard**
+  asserting no server wording reaches a public page. All mutation-proved (branch collapse kills 3,
+  echoing the error kills 1, removing the contact rule kills 2).
+  > **The first test file found a latent bug**: `api()` merged `Content-Type` into headers and
+  > then spread `...init` *after* it, replacing the whole `headers` key. Nothing passes headers
+  > today so it never fired. Fixed — `headers` comes last.
+  >
+  > CI needed no change: the root `test` script is `--workspaces --if-present`, so a `test` script
+  > in the workspace is enough. Frontend total is now **399** (375 internal + 24 public).
 - **`Badge` still carries `gold` / `silver` / `bronze`** — agency-era `ClientTier`, removed by
   ADR-0001. No screen renders them; three test files hold them alive.
 - **`ExecutiveSummaryPanel` offers a "Client Portal" audience** and the API takes

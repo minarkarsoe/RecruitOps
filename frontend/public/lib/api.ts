@@ -13,9 +13,15 @@ function baseUrl(): string {
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${baseUrl()}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     cache: 'no-store',
     ...init,
+    // ⚠️ `headers` MUST come after `...init`. It used to come before, which meant the merge
+    // below was silently discarded: spreading `init` last replaced the whole `headers` key with
+    // the caller's raw object, dropping `Content-Type: application/json`. Latent until
+    // 2026-08-27 only because no call site passed a header — the next one would have sent a
+    // JSON body with no content type and had it rejected or misparsed. Found by the first test
+    // ever written for this app.
+    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });
   if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
   return res.json() as Promise<T>;
