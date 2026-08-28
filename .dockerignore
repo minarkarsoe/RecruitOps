@@ -1,0 +1,71 @@
+# Build context for the ROOT-context images — frontend/internal and frontend/public.
+# (The backend builds from ./backend and has its own backend/.dockerignore.)
+#
+# Written 2026-08-28. Until then there was no .dockerignore at all, so every root-context build
+# uploaded the whole working tree to the daemon: `node_modules`, `.git`, and — the one that
+# actually mattered — a 52 MB `frontend/public/.next` from the host. That last one is not merely
+# slow: it lands in the image at exactly the path `next build` writes to, and
+# `.next/routes-manifest.json` is where the frozen API rewrite lives. A stale host build sitting
+# under the real one is the same trap that produced the ECONNREFUSED bug on 2026-08-27.
+#
+# ⚠️ Deny-list, not an allow-list, and deliberately so: the Dockerfiles COPY specific paths, so
+# an over-eager `*` + re-include would fail at build time in a way that is tedious to debug.
+# When adding a rule, check it against what those two Dockerfiles actually copy:
+#   package.json, package-lock.json, packages/**, frontend/internal/**, frontend/public/**
+
+# --- Dependencies and build output ------------------------------------------
+# Host installs are the wrong platform (native binaries built for Windows/macOS) and the
+# image reinstalls from the lockfile anyway.
+**/node_modules
+**/.next
+**/dist
+**/out
+**/build
+**/.vite
+**/*.tsbuildinfo
+**/coverage
+**/.turbo
+
+# --- Secrets. Never bake these into an image --------------------------------
+.env
+.env.*
+!.env.example
+**/appsettings.*.local.json
+infra/secrets
+
+# --- The backend. Not copied by either root-context Dockerfile --------------
+# It has its own context (./backend); including it here only inflates the upload.
+backend
+
+# --- Version control, CI and tooling ----------------------------------------
+.git
+.gitignore
+.github
+.vscode
+.idea
+.claude
+.impeccable
+.agents
+.mcp.json
+.lsp-mcp.json
+
+# --- Documentation and design sources ---------------------------------------
+# `design/` is the source of truth for the UI, but the apps are built from
+# `frontend/**` and `packages/**` — the kit itself is never compiled in.
+docs
+design
+marketing
+scripts
+*.md
+LICENSE
+
+# --- Docker's own files ------------------------------------------------------
+Dockerfile
+**/Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# --- Editor and OS noise -----------------------------------------------------
+**/.DS_Store
+**/Thumbs.db
+**/*.log

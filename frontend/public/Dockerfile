@@ -12,10 +12,18 @@ WORKDIR /repo
 ARG API_INTERNAL_URL=http://localhost:5080/api
 ENV API_INTERNAL_URL=$API_INTERNAL_URL
 
-COPY package.json ./
+# Manifests and the LOCKFILE first — see the note in frontend/internal/Dockerfile. `npm ci`
+# installs the locked graph exactly; `npm install` without a lockfile in context resolved fresh
+# on every build, so the image and CI could diverge with nothing to compare.
+COPY package.json package-lock.json ./
+COPY packages/types/package.json    packages/types/
+COPY packages/ui/package.json       packages/ui/
+COPY frontend/internal/package.json frontend/internal/
+COPY frontend/public/package.json   frontend/public/
+RUN npm ci
+
 COPY packages ./packages
 COPY frontend/public ./frontend/public
-RUN npm install --workspaces --include-workspace-root
 RUN npm run build --workspace @recruitops/public
 
 FROM node:22-alpine AS final

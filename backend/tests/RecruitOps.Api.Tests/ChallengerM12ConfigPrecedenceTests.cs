@@ -7,6 +7,32 @@ using Xunit;
 namespace RecruitOps.Api.Tests;
 
 /// <summary>
+/// Marks a test that reads repository-level files (<c>docker-compose.yml</c>, <c>.env</c>) rather
+/// than files inside the backend project.
+///
+/// <para>Those files sit outside the backend image's build context by design (ADR-0015), so a
+/// test that needs them cannot run inside the packaged image — which is where CI runs this suite.
+/// Setting <c>Skip</c> at discovery time makes that a <b>reported skip with a reason</b> rather
+/// than a failure, and rather than the worse option of a test that passes while asserting
+/// nothing.</para>
+///
+/// <para>xUnit 2.9 has no <c>SkipUnless</c>/<c>Assert.Skip</c> — both arrived in v3 — so
+/// subclassing <see cref="FactAttribute"/> is the supported way to skip conditionally here.</para>
+/// </summary>
+public sealed class RepoScopeFactAttribute : FactAttribute
+{
+    public RepoScopeFactAttribute()
+    {
+        if (!ChallengerM12ConfigPrecedenceTests.RunningFromCheckout)
+        {
+            Skip = "Repo-scope check: docker-compose.yml and .env sit outside the backend build "
+                 + "context (ADR-0015) and cannot be read from inside the packaged image. "
+                 + "Runs on a developer checkout.";
+        }
+    }
+}
+
+/// <summary>
 /// challenger_m1_2 — milestone 1, remit: CONFIGURATION PRECEDENCE. Which value wins, where.
 ///
 /// <para>challenger_m1_1 proves each shipped JSON file binds to 60/120 <em>in isolation</em>
@@ -22,22 +48,75 @@ namespace RecruitOps.Api.Tests;
 /// </summary>
 public class ChallengerM12ConfigPrecedenceTests
 {
+    // ⚠️ These paths were rewritten on 2026-08-28 because the whole class had been failing in
+    // CI — all ten tests, on every run since at least 2026-08-25.
+    //
+    // The old lookup walked up from `AppContext.BaseDirectory` searching for
+    // `backend/RecruitOps.sln`, which only ever exists in a git checkout. CI runs this suite
+    // inside the backend image (`docker build --target test ./backend`), where the build context
+    // IS `backend/`, so the source lands at `/src` and there is no `backend/` directory anywhere
+    // above it. The walk ran off the top of the filesystem, `Assert.NotNull(dir)` failed, and
+    // every test in the class died before reaching its own assertions.
+    //
+    // Locally they passed, so the failure looked like CI being broken rather than the tests
+    // being wrong about where they were. Same shape as the `@types/node` build divergence fixed
+    // the same day: a green local run proving nothing about the packaged artefact.
+
+    /// <summary>
+    /// The directory containing <c>RecruitOps.sln</c>. That is <c>&lt;repo&gt;/backend</c> in a
+    /// checkout and <c>/src</c> inside the image — the two layouts this suite must run in.
+    /// </summary>
+    private static readonly string SolutionRoot = FindAncestorContaining("RecruitOps.sln")
+        ?? throw new InvalidOperationException(
+            $"RecruitOps.sln not found above '{AppContext.BaseDirectory}'. The test project has " +
+            "moved relative to the solution, or the image layout changed.");
+
+    private static string ApiDir => Path.Combine(SolutionRoot, "src", "Api");
+
+    /// <summary>
+    /// True when the suite is running from a git checkout rather than from inside the packaged
+    /// backend image. The discriminator is the solution root's own name: a checkout puts the
+    /// solution in <c>backend/</c>, the image copies it to <c>/src</c>.
+    /// </summary>
+    /// <remarks>Public because <see cref="RepoScopeFactAttribute"/> reads it at discovery.</remarks>
+    public static bool RunningFromCheckout =>
+        string.Equals(Path.GetFileName(SolutionRoot), "backend", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The repository root — the directory holding <c>docker-compose.yml</c>. Only meaningful in
+    /// a checkout: the backend image's build context is <c>./backend</c> by design (ADR-0015),
+    /// so repo-level files are structurally outside it and copying them in would put repo
+    /// configuration, and potentially a <c>.env</c>, into a runtime image.
+    /// </summary>
     private static string RepoRoot
     {
         get
         {
-            var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "backend", "RecruitOps.sln")))
-            {
-                dir = dir.Parent;
-            }
+            Assert.True(RunningFromCheckout,
+                "RepoRoot is not reachable from inside the packaged image — mark the test " +
+                "[RepoScopeFact] instead of [Fact].");
 
-            Assert.NotNull(dir);
-            return dir!.FullName;
+            var root = Directory.GetParent(SolutionRoot)!.FullName;
+
+            // Fail loudly rather than skip if a checkout has somehow lost the file: a silent
+            // skip on a developer machine is how a repo-scope guard stops guarding.
+            Assert.True(File.Exists(Path.Combine(root, "docker-compose.yml")),
+                $"'{root}' looks like a checkout but has no docker-compose.yml.");
+
+            return root;
         }
     }
 
-    private static string ApiDir => Path.Combine(RepoRoot, "backend", "src", "Api");
+    private static string? FindAncestorContaining(string fileName)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, fileName)))
+        {
+            dir = dir.Parent;
+        }
+
+        return dir?.FullName;
+    }
 
     /// <summary>Reproduces the default host layering for a given environment name.</summary>
     private static (LoginRateLimitOptions Login, PublicApplyRateLimitOptions Apply) Resolve(
@@ -127,7 +206,7 @@ public class ChallengerM12ConfigPrecedenceTests
     /// The guard for the rule above: no compose service, and no .env alongside it, may set a
     /// RateLimit override. If one is ever added this test names it.
     /// </summary>
-    [Fact]
+    [RepoScopeFact]
     public void DockerCompose_And_DotEnv_SetNoRateLimitOverride()
     {
         foreach (var file in new[] { "docker-compose.yml", ".env", ".env.example" })
@@ -150,7 +229,7 @@ public class ChallengerM12ConfigPrecedenceTests
     /// appsettings.Development.json had to be fixed too. If this assumption ever stops holding
     /// the reasoning behind the four-file fix stops holding with it.
     /// </summary>
-    [Fact]
+    [RepoScopeFact]
     public void DockerCompose_RunsBackendAsDevelopment()
     {
         var text = File.ReadAllText(Path.Combine(RepoRoot, "docker-compose.yml"));

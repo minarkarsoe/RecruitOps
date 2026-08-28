@@ -70,6 +70,22 @@ suppressed message reaches the recruiter instead of only the database.
 | Tests | ✅ backend **644/644** (62 domain + 582 api) · frontend **375/375** across 46 files |
 | Design | ✅ 25 static screens, all seven modules — `design/internal/index.html` |
 
+## 🔴 CI was red for three days and nobody noticed — check it first
+
+**Fixed 2026-08-28.** `gh run list --workflow=ci.yml` showed **fifteen consecutive failures**
+going back to 2026-08-25, every one of them the same ten tests in
+`ChallengerM12ConfigPrecedenceTests`, and every one of them passing locally. Full account in
+`CHANGELOG.md`.
+
+Two habits worth keeping from it:
+
+1. **Check `gh run list` at the start of a session.** A red build that has been red for a while
+   stops looking like news. Three days of pushes went on top of it.
+2. **"Passes locally, fails in Docker" means your machine has something the image does not.**
+   Twice in one day: the type-check leaned on a hoisted `@types/node` the image never installs,
+   and these tests looked for a `backend/` directory that only exists in a checkout. Reach for
+   `docker build --target test ./backend` to reproduce before theorising — it took one run.
+
 ## ⚠️ "The stack came up" is not "the screens are correct"
 
 Three Module 3 behaviours were flagged as worth checking specifically, and **still have not

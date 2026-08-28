@@ -8,6 +8,92 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### 📦 A `.dockerignore`, and `npm ci` against the lockfile the images had been ignoring
+
+Two long-standing gaps in the frontend image builds, both raised earlier the same day.
+
+**1. There was no `.dockerignore` at all.** Every root-context build uploaded the entire working
+tree — **896 MB** of it: `node_modules`, `.git`, `backend/`, `docs/`, and a **52 MB
+`frontend/public/.next`** from the host. That last one is not merely slow. It lands in the image
+at exactly the path `next build` writes to, and `.next/routes-manifest.json` is where the frozen
+API rewrite lives — a stale host build sitting under the real one is the same trap that produced
+the ECONNREFUSED bug on 2026-08-27.
+
+Cold context transfer after the ignore file: **213 kB**. Deliberately a deny-list rather than
+`*` plus re-includes, because an over-eager allow-list fails at build time in a way that is
+tedious to debug; the file says which paths the two Dockerfiles actually copy.
+
+**2. `npm install`, with `package-lock.json` never copied into the context.** The repo carries a
+200 KB lockfile and the images ignored it outright, resolving dependencies afresh on every build.
+What CI tested and what the image shipped were free to differ, silently, with nothing to compare
+them against.
+
+Both Dockerfiles now copy the lockfile and every workspace manifest — including
+`frontend/public`'s in the internal image, which does not build it: `npm ci` validates the
+lockfile against the whole workspace graph and errors on a missing one. Manifests are copied
+before the sources, so the install sits in its own layer and editing a component no longer
+reinstalls hundreds of packages.
+
+Verified by building both images from scratch: `npm ci` installs 352 packages in 13–17 s, the
+Vite and Next builds succeed, the public image's `routes-manifest.json` still bakes to
+`http://backend:8080/api`, and the nginx image contains only `index.html`, `assets/` and
+`50x.html` — no host build output smuggled in.
+
+> Note for whoever touches `frontend/internal/tsconfig.json`: `"types": []` became load-bearing
+> in a second way here. `npm ci` installs the whole workspace graph, so `@types/node` is now
+> present in the internal image too — the divergence that broke the build this morning is closed
+> from both ends, and the tsconfig is what keeps the SPA from quietly depending on Node globals.
+
+### 🔴 CI had been red on every run since 2026-08-25 — ten tests that could not find the repo
+
+`ChallengerM12ConfigPrecedenceTests` failed **all ten** of its tests in CI, on **fifteen
+consecutive runs**, while passing locally. Not a flake and not new: a permanently red build
+nobody had chased.
+
+The class located its fixtures by walking up from `AppContext.BaseDirectory` looking for
+`backend/RecruitOps.sln`. That path only exists in a git checkout. CI runs this suite **inside
+the backend image** (`docker build --target test ./backend`), where the build context *is*
+`backend/`, so the solution lands at `/src` and there is no `backend/` directory above it
+anywhere. The walk ran off the top of the filesystem, `Assert.NotNull(dir)` failed, and every
+test in the class died before reaching its own assertions — including the ones guarding the
+rate-limit precedence fix they were written for.
+
+**The same shape as the `@types/node` divergence fixed the same day**: a green local run proving
+nothing about the packaged artefact. Two independent instances in one session is a pattern, not
+a coincidence — see the note at the end of this entry.
+
+Split by what each test actually needs:
+
+- **Eight** read only files under `backend/src/Api` (`appsettings*.json`,
+  `Properties/launchSettings.json`), which *are* in the image, just at a different path. They now
+  resolve through `SolutionRoot` — the directory containing `RecruitOps.sln`, which is
+  `<repo>/backend` in a checkout and `/src` in the image. They genuinely run in both.
+- **Two** read repo-level files (`docker-compose.yml`, `.env`). Those sit outside the backend
+  build context by design (ADR-0015), and copying them in would put repo configuration — and
+  potentially a `.env` — into a runtime image. They are marked `[RepoScopeFact]`, a
+  `FactAttribute` subclass that sets `Skip` at discovery when the solution root is not named
+  `backend`. xUnit 2.9 has neither `SkipUnless` nor `Assert.Skip` (both are v3), so subclassing
+  is the supported route.
+
+A **reported skip with a reason**, never a vacuous pass: the version of this that "worked" by
+letting `RepoRoot` return something harmless would have left both tests asserting nothing while
+showing green. `RepoRoot` still fails loudly if a real checkout has lost its `docker-compose.yml`.
+
+Verified by reproducing the CI failure locally first, then re-running the suite inside the image:
+
+| | Api tests | passed | failed | skipped |
+|---|---|---|---|---|
+| before | 593 | 583 | **10** | 0 |
+| after | 593 | **591** | 0 | 2 |
+
+Local (`dotnet test backend/RecruitOps.sln`) is unchanged at 62 + 593 = **655, nothing skipped** —
+the two repo-scope tests run there, which is the point.
+
+> **Pattern worth naming.** Both of today's CI/Docker failures were tests or type-checks that
+> silently depended on a path present in a checkout and absent in the image. When something
+> passes locally and fails in Docker, the first question is not "what is wrong with CI" but
+> "what does my machine have that the image does not".
+
 ### 🗂 Nav groups fold, the toggle became a header hamburger, and the rail's scrollbar went dark
 
 Three corrections from the product owner on 2026-08-28, all of them right.
