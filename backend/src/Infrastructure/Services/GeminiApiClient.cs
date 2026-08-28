@@ -282,10 +282,13 @@ public class GeminiApiClient : IGeminiService
 
     private static DocumentPrepResultDto GetDocumentPrepStub(PrepareDocumentRequest req)
     {
+        // `ClientDossier` was the middle arm until 2026-08-28. It was an agency-era artefact —
+        // a candidate packaged for presentation to a client — and ADR-0001 removed clients on
+        // 2026-07-27. The controller now rejects anything outside `DocumentTypes.All`, so the
+        // default arm is reached only by `JdDraft`.
         var title = req.DocumentType switch
         {
-            "InterviewKit" => "Candidate Interview Kit & Assessment Guide",
-            "ClientDossier" => "Executive Candidate Dossier (Client Presentation)",
+            DocumentTypes.InterviewKit => "Candidate Interview Kit & Assessment Guide",
             _ => "Job Description & Sourcing Brief"
         };
 
@@ -297,7 +300,7 @@ This document was generated automatically via Gemini AI for Candidate ID `{req.C
 ### Core Qualifications
 - **Primary Expertise**: Full Stack Engineering (.NET 10 & React TypeScript)
 - **Architectural Strength**: Clean Architecture, Microservices, Dynamic RBAC
-- **Domain Experience**: B2B Recruitment Agency SaaS (RAaaS)
+- **Domain Experience**: In-house talent acquisition platforms
 
 ### Assessment Criteria
 1. Technical Competency & Clean Code Standards
@@ -312,7 +315,7 @@ This document was generated automatically via Gemini AI for Candidate ID `{req.C
 <ul>
   <li><strong>Primary Expertise</strong>: Full Stack Engineering (.NET 10 & React TypeScript)</li>
   <li><strong>Architectural Strength</strong>: Clean Architecture, Microservices, Dynamic RBAC</li>
-  <li><strong>Domain Experience</strong>: B2B Recruitment Agency SaaS (RAaaS)</li>
+  <li><strong>Domain Experience</strong>: In-house talent acquisition platforms</li>
 </ul>
 </div>";
 

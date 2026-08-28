@@ -706,10 +706,24 @@ why someone wants a thing is not a sentence postponing it.
   > API key. **11 backend tests**, mutation-proved (ignoring `Language` fails 6). Confirmed in
   > the live OpenAPI schema after a container rebuild.
   > ⚠️ The stub's Burmese strings are a **developer placeholder pending native review**.
-  > ⚠️ Worth a sweep: this endpoint's contract was fiction and nothing noticed. The **other AI
-  > endpoints have not been checked the same way** — `matchCandidate` and `prepareDocument` have
-  > mocks written in the same style, and `PrepareDocumentRequest` still lists a
-  > `"ClientDossier"` document type, which is the same agency-era concept.
+  > ⚠️ Worth a sweep: this endpoint's contract was fiction and nothing noticed.
+  >
+  > **`prepareDocument` swept 2026-08-28 — it was worse.** `ClientDossier` is gone (ADR-0001),
+  > and checking it against the running OpenAPI turned up that **all six fields of
+  > `DocumentPrepResult` were fiction** (the API returns `documentTitle`, `contentMarkdown`,
+  > `contentHtml`), and that the TS request carried a `language` the API record never had — the
+  > exact Executive Summary bug, in the neighbouring method. `lib/ai.test.ts` mocked the false
+  > shape, which is why it survived. `DocumentType` is a closed set now and validated, because it
+  > is interpolated into the model prompt.
+  >
+  > **`matchCandidate` is STILL unchecked** and is the last one written in that style. Check it
+  > the way that worked twice: `curl` the running service's OpenAPI and diff it against
+  > `packages/types`, rather than reading either one on its own.
+  >
+  > 🇲🇲 Open question that came out of the sweep: `prepareDocument` has **no `language`
+  > support at all** now. The Executive Summary got it on 2026-08-28; the same argument applies
+  > to a generated interview kit, and `GeminiApiClient.LanguageInstruction` already exists. Not
+  > built — it is a feature, not a correction.
 - Re-run Module 5's metrics against the **new** definitions once Module 4 exists; the shipped
   ones end at a different event.
 - ~~Fix or delete the CI `Test counts` summary step~~ ✅ **the frontend now has one too

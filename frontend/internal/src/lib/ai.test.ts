@@ -131,14 +131,17 @@ describe("aiApi.generateExecutiveSummary", () => {
 });
 
 describe("aiApi.prepareDocument", () => {
-  it("posts to /ai/gemini/document-prep and returns document", async () => {
+  // ⚠️ REWRITTEN 2026-08-28. This mocked `candidateId`, `jobPostingId`, `documentType`,
+  // `markdownContent`, `htmlContent` and `generatedAtUtc` — SIX fields, none of which the API
+  // returns — and then asserted on `result.documentType`, a field that has never existed. The
+  // test passed because the mock and the interface agreed with each other and neither had been
+  // compared to the service. Verified against the running OpenAPI document: the response is
+  // `documentTitle`, `contentMarkdown`, `contentHtml`.
+  it("posts to /ai/gemini/document-prep and returns the document the API actually sends", async () => {
     const mockResult = {
-      candidateId: "cand-001",
-      jobPostingId: "job-001",
-      documentType: "InterviewKit",
-      markdownContent: "# Interview Kit",
-      htmlContent: "<h1>Interview Kit</h1>",
-      generatedAtUtc: "2026-08-06T13:00:00Z",
+      documentTitle: "Candidate Interview Kit & Assessment Guide",
+      contentMarkdown: "# Interview Kit",
+      contentHtml: "<h1>Interview Kit</h1>",
     };
     vi.stubGlobal("fetch", makeOkFetch(mockResult));
     const result = await aiApi.prepareDocument({
@@ -150,7 +153,24 @@ describe("aiApi.prepareDocument", () => {
       expect.stringContaining("/ai/gemini/document-prep"),
       expect.objectContaining({ method: "POST" })
     );
-    expect(result.documentType).toBe("InterviewKit");
+    expect(result.documentTitle).toBe("Candidate Interview Kit & Assessment Guide");
+    expect(result.contentMarkdown).toContain("Interview Kit");
+    expect(result.contentHtml).toContain("<h1>");
+  });
+
+  it("sends only the three fields the API binds", async () => {
+    // `language` used to be on the request interface and the API record never had one, so it was
+    // discarded — the same bug as the Executive Summary's. Nothing should reintroduce it here
+    // without the server side landing in the same change.
+    vi.stubGlobal("fetch", makeOkFetch({ documentTitle: "t", contentMarkdown: "#", contentHtml: "<p/>" }));
+    await aiApi.prepareDocument({
+      candidateId: "cand-001",
+      jobPostingId: "job-001",
+      documentType: "JdDraft",
+    });
+
+    const body = JSON.parse((fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
+    expect(Object.keys(body).sort()).toEqual(["candidateId", "documentType", "jobPostingId"]);
   });
 });
 

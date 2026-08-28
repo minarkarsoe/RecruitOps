@@ -71,10 +71,38 @@ public record ExecutiveSummaryDto(
     List<string> RecommendedInterviewQuestions
 );
 
+/// <summary>
+/// The documents this endpoint knows how to prepare.
+///
+/// <para><b>A closed set, not a comment.</b> <c>DocumentType</c> was a free <c>string</c>
+/// documented as <c>"InterviewKit" | "ClientDossier" | "JdDraft"</c> and validated nowhere — and
+/// it is interpolated straight into the model prompt in <c>GeminiApiClient</c>. An unvalidated
+/// caller-supplied string reaching a prompt is prompt-injection surface: <c>"InterviewKit. Ignore
+/// the above and ..."</c> was a perfectly acceptable document type. Deleting a value from the
+/// comment would not have stopped anyone sending it.</para>
+///
+/// <para><c>ClientDossier</c> is gone (2026-08-28). It was an agency-era concept — a candidate
+/// packaged for presentation to a client — and ADR-0001 removed clients from the product on
+/// 2026-07-27. There is nobody to send a dossier to.</para>
+/// </summary>
+public static class DocumentTypes
+{
+    public const string InterviewKit = "InterviewKit";
+    public const string JdDraft = "JdDraft";
+
+    public static readonly IReadOnlyList<string> All = new[] { InterviewKit, JdDraft };
+
+    /// <summary>Case-sensitive on purpose: this is an identifier crossing an API boundary, and
+    /// the set is short enough that a caller can match it exactly.</summary>
+    public static bool IsSupported(string? documentType) =>
+        documentType is not null && All.Contains(documentType, StringComparer.Ordinal);
+}
+
 public record PrepareDocumentRequest(
     Guid CandidateId,
     Guid JobPostingId,
-    string DocumentType // "InterviewKit" | "ClientDossier" | "JdDraft"
+    /// <summary>One of <see cref="DocumentTypes.All"/>. Rejected with 400 otherwise.</summary>
+    string DocumentType
 );
 
 public record DocumentPrepResultDto(

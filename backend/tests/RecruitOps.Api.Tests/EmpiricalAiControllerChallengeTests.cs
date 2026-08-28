@@ -52,7 +52,7 @@ public class EmpiricalAiControllerChallengeTests : IClassFixture<CustomWebAppFac
         Assert.Equal(HttpStatusCode.OK, summaryRes.StatusCode);
 
         // 4. Document Prep
-        var docRes = await client.PostAsJsonAsync("/api/ai/gemini/document-prep", new PrepareDocumentRequest(Guid.NewGuid(), Guid.NewGuid(), "Dossier"));
+        var docRes = await client.PostAsJsonAsync("/api/ai/gemini/document-prep", new PrepareDocumentRequest(Guid.NewGuid(), Guid.NewGuid(), DocumentTypes.InterviewKit));
         Assert.Equal(HttpStatusCode.OK, docRes.StatusCode);
 
         // 5. Burmese Localization
@@ -74,7 +74,7 @@ public class EmpiricalAiControllerChallengeTests : IClassFixture<CustomWebAppFac
         var summaryRes = await client.PostAsJsonAsync("/api/ai/gemini/executive-summary", new GenerateExecutiveSummaryRequest(Guid.NewGuid(), null, "Exec"));
         Assert.Equal(HttpStatusCode.Forbidden, summaryRes.StatusCode);
 
-        var docRes = await client.PostAsJsonAsync("/api/ai/gemini/document-prep", new PrepareDocumentRequest(Guid.NewGuid(), Guid.NewGuid(), "Dossier"));
+        var docRes = await client.PostAsJsonAsync("/api/ai/gemini/document-prep", new PrepareDocumentRequest(Guid.NewGuid(), Guid.NewGuid(), DocumentTypes.InterviewKit));
         Assert.Equal(HttpStatusCode.Forbidden, docRes.StatusCode);
 
         var locRes = await client.PostAsJsonAsync("/api/ai/gemini/burmese-localization", new BurmeseLocalizationRequest("Hello", "my", null));

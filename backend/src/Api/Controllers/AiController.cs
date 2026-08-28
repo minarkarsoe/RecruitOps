@@ -137,8 +137,11 @@ public class AiController : ControllerBase
     }
 
     /// <summary>
-    /// Prepares interview kits and client dossiers in Markdown & HTML using Gemini AI.
+    /// Prepares an interview kit or a JD draft in Markdown &amp; HTML using Gemini AI.
     /// Dual routed: POST /api/ai/document-prep AND /api/ai/gemini/document-prep
+    ///
+    /// <para>Client dossiers were the third type and are gone (2026-08-28): ADR-0001 removed
+    /// clients from the product, so there is nobody to prepare one for.</para>
     /// </summary>
     [HttpPost("document-prep")]
     [HttpPost("gemini/document-prep")]
@@ -152,6 +155,19 @@ public class AiController : ControllerBase
             {
                 Title = "Invalid Request Payload",
                 Detail = "CandidateId, JobPostingId, and DocumentType are required."
+            });
+        }
+
+        // Rejected, not defaulted. `DocumentType` is interpolated into the model prompt, so an
+        // unrecognised value is not a cosmetic mismatch to shrug off the way an unknown language
+        // or interview status is — it is caller-controlled text reaching a prompt. Naming the
+        // supported values is what turns "ClientDossier stopped working" into a usable message.
+        if (!DocumentTypes.IsSupported(request.DocumentType))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Unsupported DocumentType",
+                Detail = $"DocumentType must be one of: {string.Join(", ", DocumentTypes.All)}."
             });
         }
 

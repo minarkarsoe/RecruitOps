@@ -139,7 +139,7 @@ public class AiProviderIntegrationAndGatingTests : IClassFixture<CustomWebAppFac
     public async Task DocumentPrep_Primary_Route_And_Gemini_Alias_Route_Return_Identical_Results()
     {
         var client = CreateAuthorizedClient(Roles.Recruiter);
-        var request = new PrepareDocumentRequest(Guid.NewGuid(), Guid.NewGuid(), "ClientDossier");
+        var request = new PrepareDocumentRequest(Guid.NewGuid(), Guid.NewGuid(), DocumentTypes.InterviewKit);
 
         var primaryResp = await client.PostAsJsonAsync("/api/ai/document-prep", request);
         var aliasResp = await client.PostAsJsonAsync("/api/ai/gemini/document-prep", request);

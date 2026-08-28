@@ -234,7 +234,7 @@ public class AiStressAndResilienceTests : IClassFixture<CustomWebAppFactory>
     public async Task DocumentPrep_Generated_Document_Formats_Are_NonEmpty_And_Valid()
     {
         var client = CreateAuthorizedClient();
-        var request = new PrepareDocumentRequest(Guid.NewGuid(), Guid.NewGuid(), "ClientDossier");
+        var request = new PrepareDocumentRequest(Guid.NewGuid(), Guid.NewGuid(), DocumentTypes.InterviewKit);
 
         var response = await client.PostAsJsonAsync("/api/ai/document-prep", request);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

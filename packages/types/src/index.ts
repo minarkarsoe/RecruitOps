@@ -874,21 +874,43 @@ export interface ExecutiveSummaryResult {
 }
 
 // ── Gemini: Document Preparation ─────────────────────────────────────────
+/**
+ * The documents the API knows how to prepare — a closed set as of 2026-08-28, mirroring
+ * `DocumentTypes.All`. Anything else is a 400.
+ *
+ * ⚠️ This used to be `documentType: string` commented as
+ * `"InterviewKit" | "ClientDossier" | "OfferLetter" | "JobDescription"`, and **three of those
+ * four were fiction**. `ClientDossier` is agency-era (ADR-0001 removed clients); `OfferLetter`
+ * and `JobDescription` were never implemented. The backend called the JD document `JdDraft`, a
+ * test called it `JdBrief`, another sent `Dossier` — five names for two documents, and every one
+ * returned 200, because the field was an unvalidated string and the switch had a default arm.
+ */
+export type DocumentType = 'InterviewKit' | 'JdDraft';
+
 export interface PrepareDocumentRequest {
   candidateId: string;
   jobPostingId: string;
-  /** "InterviewKit" | "ClientDossier" | "OfferLetter" | "JobDescription" */
-  documentType: string;
-  language?: 'en' | 'my' | 'bilingual';
+  documentType: DocumentType;
+  // ⚠️ NO `language` here, and its absence is deliberate. This interface carried
+  // `language?: 'en' | 'my' | 'bilingual'` and the API's record never had one, so model binding
+  // discarded it — the identical bug fixed on the Executive Summary endpoint the same day, in
+  // the neighbouring method. Do not add it back without adding it to
+  // `PrepareDocumentRequest` in `AiIntegrationDtos.cs` at the same time; a field the caller can
+  // set and the server cannot see is worse than no field at all.
 }
 
+/**
+ * ⚠️ Corrected 2026-08-28 against the running service's OpenAPI document. **Every one of the six
+ * fields this interface previously declared was fiction** — it said `candidateId`,
+ * `jobPostingId`, `documentType`, `markdownContent`, `htmlContent`, `generatedAtUtc`; the API
+ * returns the three below and nothing else. Nothing caught it because no screen consumes this
+ * endpoint and `lib/ai.test.ts` mocked the response in the shape the interface claimed — the
+ * same way the Executive Summary's fictional contract survived for months.
+ */
 export interface DocumentPrepResult {
-  candidateId: string;
-  jobPostingId: string;
-  documentType: string;
-  markdownContent: string;
-  htmlContent: string;
-  generatedAtUtc: string;
+  documentTitle: string;
+  contentMarkdown: string;
+  contentHtml: string;
 }
 
 // ── Gemini: Burmese Localization ──────────────────────────────────────────

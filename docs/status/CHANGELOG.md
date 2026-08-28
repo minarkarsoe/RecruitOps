@@ -8,6 +8,52 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### 🗑 `ClientDossier` deleted — and the sweep found the whole endpoint's contract was fiction
+
+Asked for: remove the agency-era `ClientDossier` document type (ADR-0001 removed clients on
+2026-07-27; there is nobody to send a dossier to). Removing it properly turned out to mean more
+than deleting a word.
+
+**`DocumentType` was an unvalidated `string` interpolated straight into the model prompt**
+(`GeminiApiClient` line 87). Deleting a value from a comment would not have stopped anyone
+sending it — and a caller-controlled string reaching a prompt is injection surface:
+`"InterviewKit. Ignore the above and …"` was a perfectly acceptable document type. It is a closed
+set now (`DocumentTypes.All`), validated in the controller, rejected with a 400 that names the
+alternatives.
+
+That validation exposed how loose it had been. **Five names existed for two documents**, and
+every one returned 200 because the switch had a default arm that answered anything:
+
+| name | where |
+|---|---|
+| `JdDraft` | the backend DTO's own comment |
+| `JdBrief` | `AiIntegrationTests` |
+| `JobDescription` | `packages/types` |
+| `OfferLetter` | `packages/types` — never implemented at all |
+| `Dossier` | `EmpiricalAiControllerChallengeTests` |
+
+Then, checking the response against the running service's OpenAPI — the method that settled the
+Executive Summary contract this morning — **all six fields of `DocumentPrepResult` were fiction.**
+It declared `candidateId`, `jobPostingId`, `documentType`, `markdownContent`, `htmlContent`,
+`generatedAtUtc`; the API returns `documentTitle`, `contentMarkdown`, `contentHtml` and nothing
+else. `lib/ai.test.ts` mocked the declared shape and asserted on `result.documentType`, a field
+that has never existed — the test agreed with the interface, and neither had been compared to the
+service.
+
+And the TS request carried a `language` the API record never had, so model binding discarded it:
+**the identical bug fixed on the Executive Summary this morning, sitting in the neighbouring
+method.** Removed from the interface with a note not to re-add it without the server side.
+
+Also swept out of the stub: `"B2B Recruitment Agency SaaS (RAaaS)"` in the fabricated candidate
+profile, agency-era in the same way, now asserted against.
+
+Safe because nothing consumes it: no screen calls `prepareDocument` — only `lib/api.ts`'s
+passthrough and tests. **Backend 608, frontend 449.**
+
+> `matchCandidate` is the last AI endpoint written in this style and is still unchecked. The
+> method that has now worked twice: `curl` the running OpenAPI and diff it against
+> `packages/types`, rather than reading either on its own.
+
 ### 🔐 Security review of the interviews list found a real gap — panel reach is per *application*
 
 `security-reviewer` was run against `InterviewService.ListAsync` (the review CLAUDE.md asks for on
