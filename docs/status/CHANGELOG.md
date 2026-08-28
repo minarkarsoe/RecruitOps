@@ -8,6 +8,36 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### ☰ The header hamburger reaches the rest of the kit — 19 screens, not 24
+
+The collapsed-rail spec landed in `components.html` and shipped in the app, but only
+`interviews.html` was drawn with the new header; every other screen still showed the plain
+logo-and-wordmark. A reference kit whose screens disagree about a control that is on every one of
+them is worse than one that is uniformly out of date.
+
+**The count in the earlier note was wrong: it is 19, not 24.** Reconciled properly — the index
+lists **26** screens, which is **22 internal + 4 in `design/public/`**, and `design/internal/`
+holds 23 files (22 screens + `index.html`). Of those, `login.html` has no rail, `components.html`
+draws both rail states as specimens rather than a real rail, and `interviews.html` already had
+the header. That leaves 19.
+
+Safe to do in bulk because it was checked first: the header block is **byte-identical across all
+19** — one distinct variant, verified before any edit — so the replacement is exact rather than a
+regex over markup that only looks similar. The script asserts one match per file and fails
+otherwise.
+
+Also fixed, and it was a defect I had left: `interviews.html` referenced `.rail-scroll`, a class
+that **did not exist in the kit's `ds.css`** — the app had the rule, the kit did not, so the kit's
+own rail would have painted a light scrollbar on `bg-ink-900` exactly as the app's did. The rule
+is now in `ds.css` with the reasoning, and the 19 rails carry the class.
+
+Verified in the browser against the served kit: all 20 rails have the hamburger last in the
+header with `aria-expanded="true"`, 32×32 and 12px from the rail's right edge, the header on
+`px-3`, and the nav resolving `color-scheme: dark` + `scrollbar-width: thin`. Icon contrast
+against the rail is **9.13:1** — well past the 3:1 WCAG 1.4.11 non-text minimum. (A first
+measurement said 17.85:1; that was wrong, because it read `rgba(255,255,255,0.7)` as opaque white
+instead of compositing the alpha over `ink-900`.)
+
 ### 🗓 The Interviews list — the screen the rail has always pointed at
 
 Asked for directly: *"why don't I see the interview tab beside the nav bar?"* The answer was that

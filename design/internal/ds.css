@@ -44,7 +44,20 @@ body {
 
 /* NOTE: no custom scrollbar styling here, deliberately. The marketing page
    themes its scrollbar because it is a brand surface; product UI reinventing
-   a standard affordance is the opposite of what this app needs. */
+   a standard affordance is the opposite of what this app needs.
+
+   The nav rail below is the one exception, and it does not break that rule —
+   it tells the browser the truth about the surface and then asks for the thin
+   native variant, which is what `.board-scroll` already does further down.
+   The rail is `bg-ink-900`; without `color-scheme: dark` the UA paints its
+   LIGHT scrollbar on it — on Windows a full-width grey trough with stepper
+   arrows. No colours are invented, so this stays correct under a future theme
+   and under forced-colors. Added 2026-08-28, mirroring the shipped rule in
+   `frontend/internal/src/index.css`. */
+.rail-scroll {
+  color-scheme: dark;
+  scrollbar-width: thin;
+}
 
 /* --- Approval chain rail -------------------------------------------------
    The product's signature device, carried over from the previous system

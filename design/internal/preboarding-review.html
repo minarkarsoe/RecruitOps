@@ -42,16 +42,19 @@
 <div class="flex h-screen">
 
   <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
-    <div class="h-14 flex items-center gap-2.5 px-4 border-b border-white/10">
-      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <div class="h-14 flex items-center gap-2.5 px-3 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true" class="ml-1 shrink-0">
         <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
         <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
         <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
         <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
       </svg>
       <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+      <button aria-label="Collapse sidebar" aria-expanded="true" class="ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-md text-white/70 hover:bg-white/5 hover:text-white transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M2.5 4h11M2.5 8h11M2.5 12h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </button>
     </div>
-    <nav class="flex-1 overflow-y-auto py-3">
+    <nav class="rail-scroll flex-1 overflow-y-auto py-3">
       <p class="px-4 pb-1.5 text-2xs font-medium uppercase tracking-wider text-white/50">Work</p>
       <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Board</a>
       <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">Inbox</a>
