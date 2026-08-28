@@ -50,13 +50,14 @@ const mockMatchAnalysis: CandidateMatchAnalysis = {
   summary: 'May Thu is a strong candidate with relevant experience in full-stack web application development.',
 };
 
+// The API's real shape (`ExecutiveSummaryDto`), corrected 2026-08-28. This fixture used to
+// carry `candidateId`, `summary`, `keyStrengths`, `suggestedInterviewQuestions` and
+// `isBilingual` — none of which the endpoint returns.
 const mockExecSummary: ExecutiveSummaryResult = {
-  candidateId: 'cand-888',
   headline: 'Senior Full Stack Engineer with 8+ Years Experience',
-  summary: 'May Thu is a high-performing senior developer with extensive domain expertise in recruitment platforms.',
-  keyStrengths: ['Full Stack proficiency (C#, React)', 'Proven track record of team leadership'],
-  suggestedInterviewQuestions: ['Describe a complex architectural trade-off you recently made.'],
-  isBilingual: false,
+  executiveSummary: 'May Thu is a high-performing senior developer with extensive domain expertise in recruitment platforms.',
+  keyHighlights: ['Full Stack proficiency (C#, React)', 'Proven track record of team leadership'],
+  recommendedInterviewQuestions: ['Describe a complex architectural trade-off you recently made.'],
 };
 
 describe('Candidate 360 AI Smart Match & Executive Summary UI Tests', () => {
@@ -93,7 +94,13 @@ describe('Candidate 360 AI Smart Match & Executive Summary UI Tests', () => {
     });
   });
 
-  it('2. Generates Executive Summary with EN / MY / Bilingual language switcher toggle', async () => {
+  // ⚠️ REWRITTEN 2026-08-28. This case asserted that switching to MY sent `language: 'my'`
+  // alongside `audience: 'internal'`, and that a "Burmese Enabled" badge appeared. The API's
+  // request record is (CandidateId, JobPostingId, Tone) and its response carries no
+  // `isBilingual`, so all three assertions described a contract that did not exist — the mock
+  // simply agreed with them. `audience` is deleted (ADR-0001); `language` is a control the
+  // request does not yet carry.
+  it('2. Generates an Executive Summary and renders the API response through the slide-over', async () => {
     const user = userEvent.setup();
     vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce(mockExecSummary);
 
@@ -107,38 +114,32 @@ describe('Candidate 360 AI Smart Match & Executive Summary UI Tests', () => {
       />
     );
 
-    const generateBtn = screen.getByRole('button', { name: /Generate AI Summary/i });
-    await user.click(generateBtn);
-
-    await waitFor(() => {
-      expect(aiApi.generateExecutiveSummary).toHaveBeenCalledWith({
-        candidateId: 'cand-888',
-        jobPostingId: 'job-777',
-        audience: 'internal',
-        language: 'en',
-      });
-      expect(screen.getByText('Senior Full Stack Engineer with 8+ Years Experience')).toBeInTheDocument();
-    });
-
-    // Switch language to MY (Burmese)
-    const myLangBtn = screen.getByRole('button', { name: /MY \(Burmese\)/i });
-    vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce({
-      ...mockExecSummary,
-      summary: 'မေသူသည် ပရိုဂရမ်းမင်းကျွမ်းကျင်သော စီနီယာအင်ဂျင်နီယာတစ်ဦးဖြစ်သည်။',
-      isBilingual: true,
-    });
-
-    await user.click(myLangBtn);
     await user.click(screen.getByRole('button', { name: /Generate AI Summary/i }));
 
     await waitFor(() => {
       expect(aiApi.generateExecutiveSummary).toHaveBeenCalledWith({
         candidateId: 'cand-888',
         jobPostingId: 'job-777',
-        audience: 'internal',
-        language: 'my',
       });
-      expect(screen.getByText('Burmese Enabled')).toBeInTheDocument();
+      expect(screen.getByText(mockExecSummary.headline)).toBeInTheDocument();
+      // Under the old field names this was `undefined` and the body rendered blank.
+      expect(screen.getByText(mockExecSummary.executiveSummary)).toBeInTheDocument();
+    });
+
+    // Selecting Burmese still re-requests, and the panel renders whatever comes back — but the
+    // choice is not on the wire, which is the gap this pins.
+    vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce({
+      ...mockExecSummary,
+      executiveSummary: 'မေသူသည် ပရိုဂရမ်းမင်းကျွမ်းကျင်သော စီနီယာအင်ဂျင်နီယာတစ်ဦးဖြစ်သည်။',
+    });
+
+    await user.click(screen.getByRole('button', { name: /MY \(Burmese\)/i }));
+    await user.click(screen.getByRole('button', { name: /Generate AI Summary/i }));
+
+    await waitFor(() => {
+      const sent = vi.mocked(aiApi.generateExecutiveSummary).mock.calls.at(-1)![0];
+      expect(sent).not.toHaveProperty('language');
+      expect(sent).not.toHaveProperty('audience');
       expect(screen.getByText('မေသူသည် ပရိုဂရမ်းမင်းကျွမ်းကျင်သော စီနီယာအင်ဂျင်နီယာတစ်ဦးဖြစ်သည်။')).toBeInTheDocument();
     });
   });

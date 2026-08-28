@@ -798,23 +798,34 @@ export interface CandidateMatchAnalysis {
 }
 
 // ── Gemini: Executive Summary ─────────────────────────────────────────────
+//
+// ⚠️ These two mirror `GenerateExecutiveSummaryRequest` / `ExecutiveSummaryDto` in
+// `backend/src/Application/DTOs/Ai/AiIntegrationDtos.cs`. Until 2026-08-28 they mirrored
+// nothing — every field name below was different from the one the API actually uses, and the
+// difference was invisible because `ai.test.ts` mocked the response in the *frontend's* shape.
+// Verified against the live API's own OpenAPI document before correcting:
+//
+//   request  api accepts:  candidateId, jobPostingId, tone
+//            spa was sending: candidateId, jobPostingId, audience, language   <- both dropped
+//   response api returns:  headline, executiveSummary, keyHighlights, recommendedInterviewQuestions
+//            spa was reading:  headline, summary, keyStrengths, suggestedInterviewQuestions
+//
+// Only `headline` ever matched, so the panel rendered a headline over three blanks.
+//
+// `audience` is GONE rather than wired up. It was `'client' | 'internal'`, and clients were
+// deleted by ADR-0001 on 2026-07-27 — there is no client portal for a summary to be safe for.
 export interface GenerateExecutiveSummaryRequest {
   candidateId: string;
   jobPostingId?: string;
-  /** Audience for the summary: "client" (portal-safe) or "internal" */
-  audience?: 'client' | 'internal';
-  /** Output language: "en", "my" (Burmese), or "bilingual" */
-  language?: 'en' | 'my' | 'bilingual';
+  /** Free-form steer on the writing. The API accepts it; nothing sends one yet. */
+  tone?: string;
 }
 
 export interface ExecutiveSummaryResult {
-  candidateId: string;
   headline: string;
-  summary: string;
-  keyStrengths: string[];
-  suggestedInterviewQuestions: string[];
-  /** True when output includes Burmese content */
-  isBilingual: boolean;
+  executiveSummary: string;
+  keyHighlights: string[];
+  recommendedInterviewQuestions: string[];
 }
 
 // ── Gemini: Document Preparation ─────────────────────────────────────────

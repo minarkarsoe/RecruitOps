@@ -51,13 +51,13 @@ const mockMatchAnalysis: CandidateMatchAnalysis = {
   summary: 'Thandar Aung is an exceptional candidate for the Lead Architect position.',
 };
 
+// The API's real shape (`ExecutiveSummaryDto`), corrected 2026-08-28 from the running
+// service's OpenAPI document.
 const mockExecSummary: ExecutiveSummaryResult = {
-  candidateId: 'cand-m2-test-1',
   headline: 'Lead Software Architect with 10+ Years Experience',
-  summary: 'Thandar Aung has demonstrated deep expertise in enterprise systems.',
-  keyStrengths: ['Enterprise C# / .NET Architecture', 'Technical Team Leadership'],
-  suggestedInterviewQuestions: ['Describe a time you solved a distributed data consistency problem.'],
-  isBilingual: false,
+  executiveSummary: 'Thandar Aung has demonstrated deep expertise in enterprise systems.',
+  keyHighlights: ['Enterprise C# / .NET Architecture', 'Technical Team Leadership'],
+  recommendedInterviewQuestions: ['Describe a time you solved a distributed data consistency problem.'],
 };
 
 describe('Candidate 360 M2 Empirical Challenge Suite', () => {
@@ -100,92 +100,67 @@ describe('Candidate 360 M2 Empirical Challenge Suite', () => {
     });
   });
 
-  describe('2. Executive Summary Panel Language Toggling (en, my, bilingual)', () => {
-    it('sends language parameter en when EN language button is selected', async () => {
+  // ⚠️ REWRITTEN 2026-08-28. This block used to assert that the panel sent
+  // `audience: 'internal'` and `language: 'en' | 'my' | 'bilingual'`, and that a
+  // "Burmese Enabled" badge appeared from an `isBilingual` response field.
+  //
+  // NONE of that was real. The API's request record is (CandidateId, JobPostingId, Tone) and
+  // its response is (Headline, ExecutiveSummary, KeyHighlights, RecommendedInterviewQuestions),
+  // verified against the running service's OpenAPI document. `audience` and `language` were
+  // discarded by model binding, and `isBilingual` was never returned — so these tests passed
+  // against mocks describing a contract that did not exist.
+  //
+  // `audience` is now deleted (ADR-0001 removed clients). `language` is kept as a control but
+  // deliberately not sent, and that gap is what the second test below pins.
+  describe('2. Executive Summary Panel request contract', () => {
+    it('sends only the fields the API binds', async () => {
       const user = userEvent.setup();
       vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce(mockExecSummary);
 
-      render(
-        <ExecutiveSummaryPanel
-          candidateId="cand-m2-test-1"
-          jobPostingId="job-101"
-        />
-      );
-
-      const generateBtn = screen.getByRole('button', { name: /Generate AI Summary/i });
-      await user.click(generateBtn);
+      render(<ExecutiveSummaryPanel candidateId="cand-m2-test-1" jobPostingId="job-101" />);
+      await user.click(screen.getByRole('button', { name: /Generate AI Summary/i }));
 
       await waitFor(() => {
         expect(aiApi.generateExecutiveSummary).toHaveBeenCalledWith({
           candidateId: 'cand-m2-test-1',
           jobPostingId: 'job-101',
-          audience: 'internal',
-          language: 'en',
         });
       });
     });
 
-    it('sends language parameter my when MY (Burmese) language button is selected', async () => {
+    it('renders the API response under its real field names', async () => {
       const user = userEvent.setup();
-      vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce({
-        ...mockExecSummary,
-        summary: 'သန္တာအောင်သည် အတွေ့အကြုံရှိသော ဆော့ဖ်ဝဲအင်ဂျင်နီယာဖြစ်သည်။',
-        isBilingual: true,
-      });
+      vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce(mockExecSummary);
 
-      render(
-        <ExecutiveSummaryPanel
-          candidateId="cand-m2-test-1"
-          jobPostingId="job-101"
-        />
-      );
+      render(<ExecutiveSummaryPanel candidateId="cand-m2-test-1" jobPostingId="job-101" />);
+      await user.click(screen.getByRole('button', { name: /Generate AI Summary/i }));
 
-      const myBtn = screen.getByRole('button', { name: /MY \(Burmese\)/i });
-      await user.click(myBtn);
-
-      const generateBtn = screen.getByRole('button', { name: /Generate AI Summary/i });
-      await user.click(generateBtn);
-
+      // Before the fix the panel read `.summary`, `.keyStrengths` and
+      // `.suggestedInterviewQuestions` — all `undefined` against the real response, so only the
+      // headline appeared and the body was blank.
       await waitFor(() => {
-        expect(aiApi.generateExecutiveSummary).toHaveBeenCalledWith({
-          candidateId: 'cand-m2-test-1',
-          jobPostingId: 'job-101',
-          audience: 'internal',
-          language: 'my',
-        });
-        expect(screen.getByText('Burmese Enabled')).toBeInTheDocument();
-        expect(screen.getByText('သန္တာအောင်သည် အတွေ့အကြုံရှိသော ဆော့ဖ်ဝဲအင်ဂျင်နီယာဖြစ်သည်။')).toBeInTheDocument();
+        expect(screen.getByText(mockExecSummary.headline)).toBeInTheDocument();
+        expect(screen.getByText(mockExecSummary.executiveSummary)).toBeInTheDocument();
+        expect(screen.getByText(mockExecSummary.keyHighlights[0])).toBeInTheDocument();
       });
     });
 
-    it('sends language parameter bilingual when Bilingual button is selected', async () => {
+    it('⚠️ offers a Language control that the request does not carry', async () => {
       const user = userEvent.setup();
-      vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce({
-        ...mockExecSummary,
-        isBilingual: true,
-      });
+      vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce(mockExecSummary);
 
-      render(
-        <ExecutiveSummaryPanel
-          candidateId="cand-m2-test-1"
-          jobPostingId="job-101"
-        />
-      );
+      render(<ExecutiveSummaryPanel candidateId="cand-m2-test-1" jobPostingId="job-101" />);
+      await user.click(screen.getByRole('button', { name: /MY \(Burmese\)/i }));
+      await user.click(screen.getByRole('button', { name: /Generate AI Summary/i }));
 
-      const bilingualBtn = screen.getByRole('button', { name: /Bilingual/i });
-      await user.click(bilingualBtn);
-
-      const generateBtn = screen.getByRole('button', { name: /Generate AI Summary/i });
-      await user.click(generateBtn);
-
+      // The control is kept because bilingual output is a real requirement (ADR-0009) and
+      // wiring it needs a backend field. Until then, selecting Burmese changes nothing on the
+      // wire — pinned here so the gap is visible rather than implied by a control that looks
+      // like it works. Delete this test when `language` reaches the request record.
       await waitFor(() => {
-        expect(aiApi.generateExecutiveSummary).toHaveBeenCalledWith({
-          candidateId: 'cand-m2-test-1',
-          jobPostingId: 'job-101',
-          audience: 'internal',
-          language: 'bilingual',
-        });
-        expect(screen.getByText('Burmese Enabled')).toBeInTheDocument();
+        const sent = vi.mocked(aiApi.generateExecutiveSummary).mock.calls[0][0];
+        expect(sent).not.toHaveProperty('language');
+        expect(sent).not.toHaveProperty('audience');
       });
     });
   });

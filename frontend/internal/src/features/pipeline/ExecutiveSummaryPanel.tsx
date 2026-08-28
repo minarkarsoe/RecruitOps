@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
-import { Badge, Button, SkeletonCard, SkeletonText } from '@recruitops/ui';
+// `Badge` went with the "Burmese Enabled" pill, which read `isBilingual` — a field the API
+// has never returned.
+import { Button, SkeletonCard, SkeletonText } from '@recruitops/ui';
 import type { ExecutiveSummaryResult } from '@recruitops/types';
 import { aiApi, ApiError } from '../../lib/api';
 
@@ -67,7 +69,6 @@ export function ExecutiveSummaryPanel({
 }: ExecutiveSummaryPanelProps) {
   const [summaryResult, setSummaryResult] = useState<ExecutiveSummaryResult | null>(initialSummary);
   const [language, setLanguage] = useState<'en' | 'my' | 'bilingual'>('en');
-  const [audience, setAudience] = useState<'internal' | 'client'>('internal');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ApiError | Error | null>(null);
   const [isApiKeyMissing, setIsApiKeyMissing] = useState(false);
@@ -80,11 +81,14 @@ export function ExecutiveSummaryPanel({
     setIsApiKeyMissing(false);
 
     try {
+      // `language` is deliberately NOT sent. The API's request record is
+      // (CandidateId, JobPostingId, Tone) — it has never had a language field, so sending one
+      // only put a value on the wire for model binding to discard. Sending nothing is the
+      // honest version of the same behaviour, and it makes the gap visible in the type rather
+      // than hidden in a dropped property. See the note on the Language control below.
       const result = await aiApi.generateExecutiveSummary({
         candidateId,
         jobPostingId,
-        audience,
-        language,
       });
       setSummaryResult(result);
     } catch (err) {
@@ -99,19 +103,19 @@ export function ExecutiveSummaryPanel({
     } finally {
       setLoading(false);
     }
-  }, [candidateId, jobPostingId, audience, language]);
+  }, [candidateId, jobPostingId, language]);
 
   const handleCopy = () => {
     if (!summaryResult) return;
     const textToCopy = [
       `# Executive Summary: ${candidateName}`,
       `Headline: ${summaryResult.headline}`,
-      `\n${summaryResult.summary}`,
-      summaryResult.keyStrengths?.length
-        ? `\nKey Strengths:\n${summaryResult.keyStrengths.map((s) => `- ${s}`).join('\n')}`
+      `\n${summaryResult.executiveSummary}`,
+      summaryResult.keyHighlights?.length
+        ? `\nKey Strengths:\n${summaryResult.keyHighlights.map((s) => `- ${s}`).join('\n')}`
         : '',
-      summaryResult.suggestedInterviewQuestions?.length
-        ? `\nSuggested Interview Questions:\n${summaryResult.suggestedInterviewQuestions.map((q) => `- ${q}`).join('\n')}`
+      summaryResult.recommendedInterviewQuestions?.length
+        ? `\nSuggested Interview Questions:\n${summaryResult.recommendedInterviewQuestions.map((q) => `- ${q}`).join('\n')}`
         : '',
     ]
       .filter(Boolean)
@@ -127,15 +131,15 @@ export function ExecutiveSummaryPanel({
     const textContent = [
       `# Executive Candidate Summary — ${candidateName}`,
       `Generated on: ${new Date().toLocaleDateString()}`,
-      `Audience: ${audience.toUpperCase()} | Language: ${language.toUpperCase()}`,
+      `Language: ${language.toUpperCase()}`,
       `--------------------------------------------------`,
       `Headline: ${summaryResult.headline}`,
-      `\nSummary:\n${summaryResult.summary}`,
-      summaryResult.keyStrengths?.length
-        ? `\nKey Strengths:\n${summaryResult.keyStrengths.map((s) => `* ${s}`).join('\n')}`
+      `\nSummary:\n${summaryResult.executiveSummary}`,
+      summaryResult.keyHighlights?.length
+        ? `\nKey Strengths:\n${summaryResult.keyHighlights.map((s) => `* ${s}`).join('\n')}`
         : '',
-      summaryResult.suggestedInterviewQuestions?.length
-        ? `\nSuggested Interview Questions:\n${summaryResult.suggestedInterviewQuestions.map((q) => `* ${q}`).join('\n')}`
+      summaryResult.recommendedInterviewQuestions?.length
+        ? `\nSuggested Interview Questions:\n${summaryResult.recommendedInterviewQuestions.map((q) => `* ${q}`).join('\n')}`
         : '',
     ]
       .filter(Boolean)
@@ -159,7 +163,6 @@ export function ExecutiveSummaryPanel({
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-ink-900">Executive Candidate Summary</h3>
-            {summaryResult?.isBilingual && <Badge variant="primary">Burmese Enabled</Badge>}
           </div>
           <p className="mt-0.5 text-sm text-ink-500">
             Powered by Gemini AI candidate profiling and localization
@@ -175,8 +178,17 @@ export function ExecutiveSummaryPanel({
         </Button>
       </div>
 
-      {/* Controls toolbar: Language toggle group & Audience selector */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* The Audience selector that used to sit to the right of this is gone (2026-08-28). It
+          offered "Internal Recruiter" and "Client Portal", and clients were deleted by ADR-0001
+          on 2026-07-27 — there is no client portal for a summary to be made safe for. The API
+          never accepted the field either, so switching it had never changed anything.
+
+          ⚠️ `language` is still not read by the API. `GenerateExecutiveSummaryRequest` accepts
+          `candidateId`, `jobPostingId` and `tone` only, so this control is currently decorative.
+          It is kept rather than removed because bilingual output is a real product requirement
+          (ADR-0009) and wiring it needs a backend change; the alternative was deleting the only
+          Burmese affordance on the panel. Tracked in NEXT-SESSION. */}
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <span className="text-sm text-ink-500">Language</span>
           <Segmented
@@ -187,19 +199,6 @@ export function ExecutiveSummaryPanel({
               { value: 'en', label: 'EN (English)' },
               { value: 'my', label: 'MY (Burmese)' },
               { value: 'bilingual', label: 'Bilingual' },
-            ]}
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-ink-500">Audience</span>
-          <Segmented
-            label="Summary audience"
-            value={audience}
-            onChange={setAudience}
-            options={[
-              { value: 'internal', label: 'Internal Recruiter' },
-              { value: 'client', label: 'Client Portal' },
             ]}
           />
         </div>
@@ -292,15 +291,15 @@ export function ExecutiveSummaryPanel({
               language === 'en' ? 'leading-6' : 'mm'
             }`}
           >
-            {summaryResult.summary}
+            {summaryResult.executiveSummary}
           </div>
 
           {/* Key Strengths */}
-          {summaryResult.keyStrengths && summaryResult.keyStrengths.length > 0 && (
+          {summaryResult.keyHighlights && summaryResult.keyHighlights.length > 0 && (
             <div className="space-y-2 rounded-md border border-line bg-canvas p-4">
               <h4 className="text-2xs font-medium uppercase tracking-wider text-ink-500">Key Qualifications &amp; Strengths</h4>
               <ul className="space-y-1.5 text-base text-ink-800">
-                {summaryResult.keyStrengths.map((st, idx) => (
+                {summaryResult.keyHighlights.map((st, idx) => (
                   <li key={idx} className="flex items-start gap-2">
                     <span className="text-brand-700">•</span>
                     <span>{st}</span>
@@ -311,11 +310,11 @@ export function ExecutiveSummaryPanel({
           )}
 
           {/* Suggested Questions */}
-          {summaryResult.suggestedInterviewQuestions && summaryResult.suggestedInterviewQuestions.length > 0 && (
+          {summaryResult.recommendedInterviewQuestions && summaryResult.recommendedInterviewQuestions.length > 0 && (
             <div className="space-y-2 rounded-md border border-line bg-canvas p-4">
               <h4 className="text-2xs font-medium uppercase tracking-wider text-ink-500">Suggested Interview Questions</h4>
               <ol className="list-inside list-decimal space-y-1.5 text-base text-ink-800">
-                {summaryResult.suggestedInterviewQuestions.map((q, idx) => (
+                {summaryResult.recommendedInterviewQuestions.map((q, idx) => (
                   <li key={idx} className="pl-1 leading-5">
                     {q}
                   </li>

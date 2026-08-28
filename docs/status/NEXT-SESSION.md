@@ -639,8 +639,23 @@ rather than engineering ones:
   icon only when the caller passes one. They were also the only hard-coded hexes left in the
   file, predating the token system entirely. The three tests were **retargeted rather than
   deleted** — two of them pinned behaviour that outlived the variants.
-- **`ExecutiveSummaryPanel` offers a "Client Portal" audience** and the API takes
-  `audience: 'internal' | 'client'`. Agency-era vocabulary in a shipped contract (ADR-0001).
+- ~~**`ExecutiveSummaryPanel` offers a "Client Portal" audience**~~ ✅ **fixed 2026-08-28 — and it
+  was far worse than vocabulary.** The API does **not** take `audience`; it never has. Checked
+  against the running service's OpenAPI document, the SPA and the API had never agreed on this
+  endpoint in either direction: `audience` and `language` were discarded by model binding, and
+  only `headline` matched on the response, so the panel rendered a headline over three blanks.
+  `ai.test.ts` mocked the response in the frontend's shape, so it passed and proved nothing —
+  the same failure the `ApprovalChainsPage` comment warns about, one module over.
+  `audience` was deleted (ADR-0001 removed clients) rather than wired up; `packages/types` now
+  mirrors `AiIntegrationDtos.cs`.
+  > ⚠️ **`language` is still not carried by the request.** The control is kept because bilingual
+  > output is a real requirement (ADR-0009) and wiring it needs a backend field on
+  > `GenerateExecutiveSummaryRequest`. Three tests pin the gap. **This is the next thing to do
+  > for this panel** — until then the Burmese option is decorative.
+  > ⚠️ Worth a sweep: this endpoint's contract was fiction and nothing noticed. The **other AI
+  > endpoints have not been checked the same way** — `matchCandidate` and `prepareDocument` have
+  > mocks written in the same style, and `PrepareDocumentRequest` still lists a
+  > `"ClientDossier"` document type, which is the same agency-era concept.
 - Re-run Module 5's metrics against the **new** definitions once Module 4 exists; the shipped
   ones end at a different event.
 - ~~Fix or delete the CI `Test counts` summary step~~ ✅ **the frontend now has one too

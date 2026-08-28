@@ -87,27 +87,46 @@ describe("aiApi.matchCandidate", () => {
 });
 
 describe("aiApi.generateExecutiveSummary", () => {
-  it("posts to /ai/gemini/executive-summary and returns summary", async () => {
+  // ⚠️ THIS TEST IS WHY THE CONTRACT DRIFTED UNNOTICED. Until 2026-08-28 the mock below
+  // returned `{ candidateId, summary, keyStrengths, suggestedInterviewQuestions, isBilingual }`
+  // — the shape the FRONTEND wanted. The API returns
+  // `{ headline, executiveSummary, keyHighlights, recommendedInterviewQuestions }`, and only
+  // `headline` was ever common to both. The test passed and proved nothing, while the panel
+  // rendered a headline over three blanks.
+  //
+  // The mock is now the API's real shape, taken from the running service's own OpenAPI
+  // document. A mock tuned to the caller's wishes is not a test of a contract.
+  it("posts to /ai/gemini/executive-summary and returns the API's shape", async () => {
     const mockResult = {
-      candidateId: "cand-001",
       headline: "Experienced Full-Stack Engineer",
-      summary: "Aung Ko brings 5 years of TypeScript and React experience.",
-      keyStrengths: ["TypeScript", "React"],
-      suggestedInterviewQuestions: [],
-      isBilingual: false,
+      executiveSummary: "Aung Ko brings 5 years of TypeScript and React experience.",
+      keyHighlights: ["TypeScript", "React"],
+      recommendedInterviewQuestions: [],
     };
     vi.stubGlobal("fetch", makeOkFetch(mockResult));
-    const result = await aiApi.generateExecutiveSummary({
-      candidateId: "cand-001",
-      audience: "client",
-      language: "en",
-    });
+    const result = await aiApi.generateExecutiveSummary({ candidateId: "cand-001" });
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("/ai/gemini/executive-summary"),
       expect.objectContaining({ method: "POST" })
     );
-    expect(result.isBilingual).toBe(false);
     expect(result.headline).toBe("Experienced Full-Stack Engineer");
+    expect(result.executiveSummary).toBe("Aung Ko brings 5 years of TypeScript and React experience.");
+    expect(result.keyHighlights).toEqual(["TypeScript", "React"]);
+  });
+
+  it("sends only the fields the API binds — no audience, no language", async () => {
+    vi.stubGlobal("fetch", makeOkFetch({
+      headline: "h", executiveSummary: "s", keyHighlights: [], recommendedInterviewQuestions: [],
+    }));
+
+    await aiApi.generateExecutiveSummary({ candidateId: "cand-001", jobPostingId: "job-001" });
+
+    const body = JSON.parse(String((vi.mocked(fetch).mock.calls[0][1] as RequestInit).body));
+    // `audience` was agency-era (ADR-0001 deleted clients) and `language` has never existed on
+    // the request record. Both used to be sent and silently discarded by model binding.
+    expect(body).toEqual({ candidateId: "cand-001", jobPostingId: "job-001" });
+    expect(body).not.toHaveProperty("audience");
+    expect(body).not.toHaveProperty("language");
   });
 });
 

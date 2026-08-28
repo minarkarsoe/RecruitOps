@@ -5,6 +5,45 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🔌 The Executive Summary contract was fiction in both directions
+
+The backlog called this "agency-era vocabulary in a shipped contract". It was worse: **the SPA
+and the API had never agreed on this endpoint at all.** Verified against the running service's own
+OpenAPI document, not by reading code:
+
+| | API accepts / returns | SPA was sending / reading |
+|---|---|---|
+| Request | `candidateId`, `jobPostingId`, **`tone`** | `candidateId`, `jobPostingId`, **`audience`**, **`language`** |
+| Response | `headline`, **`executiveSummary`**, **`keyHighlights`**, **`recommendedInterviewQuestions`** | `headline`, **`summary`**, **`keyStrengths`**, **`suggestedInterviewQuestions`** |
+
+`audience` and `language` were **discarded by model binding** — the selectors changed nothing.
+**Only `headline` ever matched on the response**, so the panel rendered a headline over three
+blanks, plus a "Burmese Enabled" badge driven by an `isBilingual` field the API has never
+returned.
+
+**Why nobody caught it:** `ai.test.ts` mocked the response in the *frontend's* shape. The test
+passed and proved nothing. That is the same failure the `ApprovalChainsPage` test comment warned
+about — a mock tuned to the caller's wishes is not a test of a contract — and it recurred one
+module over. Every rewritten mock now carries the API's real field names.
+
+**`audience` is deleted, not wired up.** It was `'client' | 'internal'`, and clients were removed
+by ADR-0001 on 2026-07-27 — there is no client portal for a summary to be made safe for. Wiring it
+would have entrenched a concept the product does not have. *(Product owner's call, asked before
+changing a shared contract per CLAUDE.md.)*
+
+`packages/types` now mirrors `AiIntegrationDtos.cs`, which is what CLAUDE.md always said it did.
+The typechecker found all 10 consumers built against the phantom shape — a useful demonstration
+that the types were load-bearing and simply pointed at the wrong thing.
+
+⚠️ **`language` remains a control the request does not carry.** It is kept rather than deleted
+because bilingual output is a real requirement (ADR-0009) and wiring it needs a backend field;
+deleting it would remove the only Burmese affordance on the panel. It no longer *sends* a value
+for binding to throw away, and **three tests pin the gap** so it is visible rather than implied by
+a control that looks like it works.
+
+Mutation-proved: putting `audience` and `language` back on the wire fails 3 tests.
+**434 frontend tests** (410 internal + 24 public), typecheck clean, both apps build.
+
 ### 🗑️ The tier badge is gone — MIGRATION-PLAN step 5
 
 `Badge` still carried `gold` / `silver` / `bronze`, which rendered `ClientTier` — an agency-era

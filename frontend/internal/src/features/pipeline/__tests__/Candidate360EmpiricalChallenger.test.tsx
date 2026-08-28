@@ -96,13 +96,15 @@ describe('Candidate 360 Challenger Stress Test Suite', () => {
     });
 
     it('handles undefined optional arrays in ExecutiveSummaryPanel without crashing', async () => {
+      // The API's real field names (corrected 2026-08-28). The two `undefined as any` casts
+      // stay: the point of this case is that the panel survives a response missing its arrays,
+      // and `ExecutiveSummaryDto` declares them non-nullable without the serializer guaranteeing
+      // it.
       const minimalSummary: ExecutiveSummaryResult = {
-        candidateId: 'cand-100',
         headline: 'Software Developer Profile',
-        summary: 'Solid background in application development.',
-        keyStrengths: undefined as any,
-        suggestedInterviewQuestions: undefined as any,
-        isBilingual: false,
+        executiveSummary: 'Solid background in application development.',
+        keyHighlights: undefined as any,
+        recommendedInterviewQuestions: undefined as any,
       };
 
       const user = userEvent.setup();
