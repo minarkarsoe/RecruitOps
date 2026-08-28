@@ -45,6 +45,22 @@ body {
 /* Digits that sit in columns must not dance as they change. */
 .tnum { font-variant-numeric: tabular-nums; }
 
+/* --- The nav rail's scrollbar ---------------------------------------------
+ * `ds.css` says, correctly, that product UI must not reinvent the scrollbar. This does not
+ * reinvent it — it tells the browser the truth about the surface and then asks for the thin
+ * native variant, exactly as `.board-scroll` already does in the kit.
+ *
+ * The rail is `bg-ink-900`. Without `color-scheme: dark` the UA paints its LIGHT scrollbar on
+ * it: on Windows a full-width grey trough with stepper arrows, which is what the rail looked
+ * like when it overflowed (reported 2026-08-28). `color-scheme` is the standard, one-property
+ * way to say "this subtree is dark" and have the platform render its own dark furniture — no
+ * colours invented here, so it stays correct under a future theme and under forced-colors.
+ */
+.rail-scroll {
+  color-scheme: dark;
+  scrollbar-width: thin;
+}
+
 /* JetBrains Mono ships programming ligatures, so "===" collapses into one glyph and reads
    as a stray bar in UI text. We use mono for IDs, dates and literal operators, never for
    source, so ligatures are pure loss here. */

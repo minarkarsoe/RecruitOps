@@ -621,19 +621,13 @@ Raised 2026-08-28 alongside the sidebar-scroll bug. Neither was drawn in `design
 `localStorage`, `aria-label` + `title` on every icon, group headings replaced by hairlines,
 toggle fixed in the pinned footer. 10 tests. Details in `CHANGELOG.md`.
 
-**⏸ Parent/child accordion groups — deferred by the product owner (2026-08-28)**, explicitly
-"for when I add more later". Do not build it speculatively.
+**✅ Parent/child groups — done 2026-08-28.** Headings are buttons that fold their children away.
+Shut set persisted (not the open set, so groups added later arrive open); a group holding the
+active route never folds; no folding at 64px, where there is no heading to fold.
 
-When it is picked up, the case against building it *today* still stands and is the thing to
-re-check first: the rail holds **11 links under 4 headings**, all one click away, and the flat
-list fits one viewport. An accordion trades a zero-click scan for a click-to-open on something
-that already fits, buying back ~4 heading rows. The trigger to revisit is the link count, not
-taste — **roughly 18–20**, which Modules 6 and 8 could reach.
-
-Note the interaction with the collapsed state: at 64px there are no headings to expand, so an
-accordion has to define what it does when the rail is narrow (usually: flyout submenus on hover
-or click, which is a different component, not a variant). Decide that in the kit before writing
-any of it.
+⚠️ I initially recorded this as deferred, reading "ဒါက ငါနောက်ပိုင်း ထပ်တိုးလာရင်အတွက်ပါ" as
+*defer it* when it was the **reason** for wanting it. Worth remembering: a sentence explaining
+why someone wants a thing is not a sentence postponing it.
 
 ### 5. Smaller, whenever
 - **Delete or wire up the orphaned feature folders** — `features/requisitions/`,

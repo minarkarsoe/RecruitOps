@@ -8,6 +8,48 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### 🗂 Nav groups fold, the toggle became a header hamburger, and the rail's scrollbar went dark
+
+Three corrections from the product owner on 2026-08-28, all of them right.
+
+**1. The toggle is a hamburger in the header, not a footer row.** It had been a full-width
+"Collapse" row above the user block, justified as "the toggle should not move". The header
+already had room beside the wordmark, and the dedicated row cost a 36px slot — enough to push
+the nav into overflow on a laptop. Footer went from 145px to **109px**. The "does not move"
+argument still holds, it just holds for the header too: the hamburger occupies the same header
+slot in both states.
+
+**2. The rail's scrollbar was the browser's light one, on `bg-ink-900`.** On Windows that is a
+full-width grey trough with stepper arrows, which is what the screenshot showed. Fixed with
+`color-scheme: dark` + `scrollbar-width: thin` on the nav (`.rail-scroll`).
+
+`ds.css` says product UI must not reinvent the scrollbar, and that is right — this does not.
+`color-scheme` is the standard one-property way to tell the platform "this subtree is dark" so
+it renders *its own* dark furniture. No colours invented, so it stays correct under a future
+theme and under forced-colors. `.board-scroll` in the kit already uses `scrollbar-width: thin`.
+
+**3. Parent/child groups — built, not deferred.** I read "ဒါက ငါနောက်ပိုင်း ထပ်တိုးလာရင်အတွက်ပါ"
+as *defer this*; it was the **reason** for wanting it. The headings are now buttons that fold
+their children away, with two rules that carry most of the risk:
+
+- **What is stored is the SHUT set, not the open set.** A group shipped in a later release must
+  arrive open for users who already have a preference saved — storing the open set would hide
+  new navigation from exactly the people least likely to go looking for it.
+- **A fold never hides the page you are on.** A group holding the active route stays open however
+  it was left, and folds once you navigate away. Verified live: on `/delivery`, folding
+  "Recruitment" records the preference but keeps the group open; navigating to `/users` then
+  applies it. Otherwise the rail stops answering "where am I".
+- **No folding at 64px** — there is no readable heading to fold, and hiding items behind an
+  invisible parent strands them. Narrowing the rail is already the compaction.
+
+Measured live: folding one group cleared the overflow (572px → 555px against a 555px viewport
+slot). **20 tests** on the rail now, mutation-proved — removing the active-route override fails
+2, and applying the accordion while collapsed fails 1.
+
+Kit updated to match in the same change: `design/internal/components.html` now draws the
+hamburger in both header states, a folded group with its chevron and `hidden` panel, and the
+rules for both behaviours.
+
 ### ↔️ The nav rail collapses to 64px — drawn in the kit first, then built
 
 Requested 2026-08-28 after the scroll fix below. The product is table-heavy and the rail is a

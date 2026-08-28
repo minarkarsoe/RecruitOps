@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { auth, hasPermission, isSuperAdmin, Session } from '../lib/auth';
 import { useFeatureFlags } from '../lib/useFeatureFlags';
 
@@ -84,11 +84,11 @@ const icons = {
     <path d="M2.5 4.5h11a1 1 0 011 1v5a1 1 0 01-1 1h-11a1 1 0 01-1-1v-5a1 1 0 011-1zM2.8 5l5.2 3.6L13.2 5"
       stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
   ),
-  chevronLeft: (
-    <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  menu: (
+    <path d="M2.5 4h11M2.5 8h11M2.5 12h11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
   ),
-  chevronRight: (
-    <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  chevronDown: (
+    <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
   ),
   signOut: (
     <path d="M6 2.5H3.5a1 1 0 00-1 1v9a1 1 0 001 1H6M10 11l3-3-3-3M13 8H6"
@@ -125,6 +125,34 @@ function writeCollapsed(value: boolean): void {
   }
 }
 
+/**
+ * Which groups the user has folded shut.
+ *
+ * Stored as the SHUT set, not the open set, so that a group added to the rail in a later release
+ * is open by default for someone who already has a preference saved. Storing the open set would
+ * hide new navigation from exactly the existing users least likely to go looking for it.
+ */
+const SHUT_GROUPS_KEY = 'recruitops.sidebar.shutGroups';
+
+function readShutGroups(): string[] {
+  try {
+    const raw = localStorage.getItem(SHUT_GROUPS_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((g): g is string => typeof g === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeShutGroups(groups: string[]): void {
+  try {
+    localStorage.setItem(SHUT_GROUPS_KEY, JSON.stringify(groups));
+  } catch {
+    /* as above */
+  }
+}
+
 function Icon({ children, active }: { children: JSX.Element; active: boolean }) {
   return (
     <svg
@@ -143,13 +171,24 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
   const session = propSession !== undefined ? propSession : auth.get();
   const { isFeatureEnabled } = useFeatureFlags();
 
-  // Lazy initialiser: read the stored preference once, on mount, rather than on every render.
+  const { pathname } = useLocation();
+
+  // Lazy initialisers: read the stored preferences once, on mount, not on every render.
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsed);
+  const [shutGroups, setShutGroups] = useState<string[]>(readShutGroups);
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((prev) => {
       const next = !prev;
       writeCollapsed(next);
+      return next;
+    });
+  }, []);
+
+  const toggleGroup = useCallback((title: string) => {
+    setShutGroups((prev) => {
+      const next = prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title];
+      writeShutGroups(next);
       return next;
     });
   }, []);
@@ -222,6 +261,13 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
     }))
     .filter((group) => group.items.length > 0);
 
+  // A group is shut only if the user shut it AND the page you are on is not inside it. Folding a
+  // group closed over the active route would hide where you are — the rail would stop answering
+  // "where am I", which is half of what it is for.
+  const isGroupOpen = (group: NavGroup) =>
+    !shutGroups.includes(group.title) ||
+    group.items.some((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
+
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     collapsed
       ? `mx-2 grid h-9 place-items-center rounded-md transition-colors ${
@@ -236,6 +282,25 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
   const footerBtnClass = collapsed
     ? 'grid h-9 w-full place-items-center rounded-md text-white/70 transition-colors hover:bg-white/5 hover:text-white'
     : 'flex h-9 w-full items-center gap-2.5 rounded-md px-2 text-left text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white';
+
+  const menuButton = (
+    // The hamburger is the toggle, in the header beside the wordmark. It was a "Collapse" row in
+    // the footer for about an hour on 2026-08-28; that spent a whole 36px row on a control the
+    // header already had room for, and pushed the nav into overflow on a laptop.
+    <button
+      type="button"
+      onClick={toggleCollapsed}
+      className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+      aria-expanded={!collapsed}
+      aria-controls="app-sidebar"
+      title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+    >
+      <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        {icons.menu}
+      </svg>
+    </button>
+  );
 
   const initials = (session?.displayName ?? '')
     .split(/\s+/)
@@ -254,86 +319,102 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
     >
       <div
         className={`flex h-14 shrink-0 items-center border-b border-white/10 ${
-          collapsed ? 'justify-center' : 'gap-2.5 px-4'
+          collapsed ? 'justify-center' : 'gap-2.5 px-3'
         }`}
       >
-        <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
-          <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E" />
-          <circle cx="9" cy="7.5" r="2.1" fill="#fff" />
-          <circle cx="9" cy="13" r="2.1" fill="#fff" />
-          <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B" />
-          <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" strokeWidth="1.4" strokeLinecap="round" />
-        </svg>
-        {/* The wordmark is the only thing the header loses; the mark stays so the rail is still
-            identifiably the product at 64px. */}
-        {!collapsed && <span className="text-base font-semibold tracking-tight">RecruitOps</span>}
+        {collapsed ? (
+          // At 64px the hamburger is the header. The mark would have to displace it, and a
+          // logo you cannot click is worth less here than the control you need.
+          menuButton
+        ) : (
+          <>
+            <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true" className="ml-1 shrink-0">
+              <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E" />
+              <circle cx="9" cy="7.5" r="2.1" fill="#fff" />
+              <circle cx="9" cy="13" r="2.1" fill="#fff" />
+              <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B" />
+              <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+            <span className="text-base font-semibold tracking-tight">RecruitOps</span>
+            <span className="ml-auto">{menuButton}</span>
+          </>
+        )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3" aria-label="Main">
-        {visibleGroups.map((group, index) => (
-          <div key={group.title} className="pb-1">
-            {collapsed ? (
-              // At 64px a heading cannot be read, so grouping is carried by a rule instead of a
-              // word. No rule above the first group — it would separate it from nothing.
-              index > 0 && <div className="mx-3 my-2 border-t border-white/10" aria-hidden="true" />
-            ) : (
-              /* white/50, not the kit's white/40. Measured 2026-08-21 on ink-900: /40 is
-                 3.81:1 and fails AA for text this size; /50 is 5.23:1. The kit was corrected
-                 to match rather than the other way round. */
-              <p className="px-4 pb-1.5 pt-3 text-2xs font-medium uppercase tracking-wider text-white/50">
-                {group.title}
-              </p>
-            )}
-            {group.items.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={linkClass}
-                // Both, and they do different jobs: `title` is the mouse's tooltip, `aria-label`
-                // is what a screen reader announces once the visible text is gone. An icon-only
-                // rail carrying neither is a memory test.
-                title={collapsed ? item.label : undefined}
-                aria-label={collapsed ? item.label : undefined}
-              >
-                {({ isActive }) => (
-                  <>
-                    <Icon active={isActive}>{item.icon}</Icon>
-                    {!collapsed && item.label}
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </div>
-        ))}
+      <nav className="rail-scroll flex-1 overflow-y-auto py-3" aria-label="Main">
+        {visibleGroups.map((group, index) => {
+          const open = isGroupOpen(group);
+          const panelId = `nav-group-${group.title.toLowerCase().replace(/\s+/g, '-')}`;
+
+          return (
+            <div key={group.title} className="pb-1">
+              {collapsed ? (
+                // At 64px a heading cannot be read, so grouping is carried by a rule instead of a
+                // word — and with no heading there is nothing to fold, so every item shows. The
+                // accordion is a wide-rail affordance; narrowing the rail is already the
+                // compaction, and hiding items behind an invisible parent would strand them.
+                index > 0 && <div className="mx-3 my-2 border-t border-white/10" aria-hidden="true" />
+              ) : (
+                /* white/50, not the kit's white/40. Measured 2026-08-21 on ink-900: /40 is
+                   3.81:1 and fails AA for text this size; /50 is 5.23:1. The kit was corrected
+                   to match rather than the other way round.
+                   A <button>, not a <p> with a click handler: it is operable by keyboard and
+                   announced as expandable for free. */
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.title)}
+                  aria-expanded={open}
+                  aria-controls={panelId}
+                  className="flex w-full items-center gap-1.5 px-4 pb-1.5 pt-3 text-2xs font-medium uppercase tracking-wider text-white/50 transition-colors hover:text-white/80"
+                >
+                  {group.title}
+                  <svg
+                    className={`ml-auto h-3 w-3 shrink-0 transition-transform ${open ? '' : '-rotate-90'}`}
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    {icons.chevronDown}
+                  </svg>
+                </button>
+              )}
+              <div id={collapsed ? undefined : panelId} hidden={!collapsed && !open}>
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={linkClass}
+                    // Both, and they do different jobs: `title` is the mouse's tooltip,
+                    // `aria-label` is what a screen reader announces once the visible text is
+                    // gone. An icon-only rail carrying neither is a memory test.
+                    title={collapsed ? item.label : undefined}
+                    aria-label={collapsed ? item.label : undefined}
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <Icon active={isActive}>{item.icon}</Icon>
+                        {!collapsed && item.label}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </nav>
 
+      {/* The footer holds only the identity block now. The collapse control moved up to the
+          header hamburger: it was costing a full 36px row here for something the header already
+          had room for, and that row was enough to push the nav into overflow on a laptop. */}
       <div className="shrink-0 border-t border-white/10 p-3">
-        {/* The toggle lives in the pinned footer and occupies the SAME slot in both states. A
-            control that relocates itself when you use it is a bad control — you click it, and
-            the thing you clicked is now somewhere else. The footer is also the only region
-            guaranteed to be on screen, since the nav above it is what scrolls. */}
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          className={footerBtnClass}
-          aria-expanded={!collapsed}
-          aria-controls="app-sidebar"
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          <svg className="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            {collapsed ? icons.chevronRight : icons.chevronLeft}
-          </svg>
-          {!collapsed && 'Collapse'}
-        </button>
-
         {session && (
           <>
             <div
               className={
                 collapsed
-                  ? 'mt-1 grid h-9 place-items-center'
-                  : 'mt-1 flex items-center gap-2.5 px-2 py-1'
+                  ? 'grid h-9 place-items-center'
+                  : 'flex items-center gap-2.5 px-2 py-1'
               }
               // Collapsed, the avatar is the only thing left of the user block, so it has to
               // say who it belongs to on its own.
