@@ -25,18 +25,25 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        {/* ⚠️ `whitespace-nowrap` is load-bearing, not tidiness. This control is a fixed `h-8`
+            with a fixed width, holding an icon, a label and the shortcut chip. At `lg:w-56` those
+            added up to ~221px inside 224px — three pixels of slack — so a font-metric difference
+            wrapped "Search or jump to…" onto a second line *inside* a 32px-tall box, which is how
+            it shipped. Nowrap stops the wrap; `lg:w-64` stops the squeeze that caused it.
+            The kit's own search boxes are `w-56`, but they are plain inputs with no `Ctrl+K`
+            chip competing for the same width — this control is not drawn in the kit. */}
         <button
           type="button"
           onClick={onOpenCommandPalette}
           aria-label="Search commands"
-          className="flex h-8 items-center gap-2 rounded-md border border-line bg-canvas px-2.5 text-sm
-            text-ink-500 transition-colors hover:border-line-strong hover:text-ink-900 lg:w-56"
+          className="flex h-8 items-center gap-2 whitespace-nowrap rounded-md border border-line bg-canvas
+            px-2.5 text-sm text-ink-500 transition-colors hover:border-line-strong hover:text-ink-900 lg:w-64"
         >
           <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
             <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
           </svg>
-          <span className="hidden sm:inline">Search or jump to…</span>
+          <span className="hidden truncate sm:inline">Search or jump to…</span>
           {/* Auto margin, not a spacer: the label is hidden below `sm` and a fixed gap would
               leave the shortcut floating in the middle of an otherwise empty control. */}
           <kbd className="ml-auto hidden rounded border border-line bg-white px-1.5 py-0.5 font-mono text-2xs lg:inline">

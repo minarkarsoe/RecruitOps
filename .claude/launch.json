@@ -19,6 +19,13 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--no-install", "vite", "marketing", "--port", "4180", "--strictPort"],
       "port": 4180
+    },
+    {
+      "// internal-dist": "Serves the PRODUCTION build of the internal SPA. Useful for checking a rendered control against the real built stylesheet and font, without a dev server rebuilding under you. Run `npm run build --workspace @recruitops/internal` first.",
+      "name": "internal-dist",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--no-install", "vite", "frontend/internal/dist", "--port", "4181", "--strictPort"],
+      "port": 4181
     }
   ]
 }

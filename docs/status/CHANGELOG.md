@@ -5,6 +5,33 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🔎 The header search box wrapped its own placeholder onto two lines
+
+Reported from a screenshot. "Search or jump to…" was breaking across two lines *inside* a
+32px-tall control, so the top bar had a squashed two-line box where a single-line one belongs.
+
+Reproduced and isolated by measuring the real markup against the real built stylesheet and font
+(served from `frontend/internal/dist`), rather than by eye:
+
+| Case | Label height | Lines |
+|---|---|---|
+| **Shipped** — no `whitespace-nowrap`, `lg:w-56` | **40px** | **2** ✗ |
+| `whitespace-nowrap`, `lg:w-56` | 20px | 1 ✓ |
+| **Fix** — `whitespace-nowrap`, `lg:w-64` | 20px | 1 ✓ |
+
+A 40px label in a 32px box is exactly the screenshot. The control holds an icon, a label and the
+`Ctrl+K` chip inside a fixed width, and at `w-56` they came to ~222px inside 224px — two pixels
+of slack, so any font-metric difference wrapped it.
+
+`whitespace-nowrap` alone fixes the wrap, but two pixels is not a margin; `lg:w-64` gives the
+control real room. **The kit's own search boxes are `w-56` and that is not the discrepancy** —
+they are plain inputs with no shortcut chip competing for the width. This control is not drawn
+in the kit at all, so there was no spec to follow and none broken.
+
+A new `internal-dist` entry in `.claude/launch.json` serves the production build for exactly this
+kind of check — a rendered control against the real stylesheet, with nothing rebuilding underneath
+it.
+
 ### 🐛 The Dropdown question type could not be configured by typing
 
 **Found by the first test ever written for `FormFieldBuilder`.** The comma-separated choices
