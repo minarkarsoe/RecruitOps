@@ -34,6 +34,25 @@ public class InterviewsController : ControllerBase
         _scorecards = scorecards;
     }
 
+    // ---------- the list ----------
+
+    /// <summary>Every interview the caller may see (Module 3). Added 2026-08-28: the rail in
+    /// every kit screen has always carried an "Interviews" item, and there was nothing behind
+    /// it — a round could only be reached by opening a posting and expanding a candidate.
+    ///
+    /// <para><see cref="Policies.InternalUser"/> like the other reads, for the reason in the
+    /// class comment: a panel member is often a Hiring Manager from another department. Access
+    /// is decided in the service, by the same rule the detail endpoint uses.</para></summary>
+    /// <param name="status">Repeatable. Omit for the default view, which shows everything except
+    /// <c>Cancelled</c>. Unrecognised names match nothing rather than erroring.</param>
+    /// <param name="onlyMine">Restrict to rounds the caller is on the panel for.</param>
+    [HttpGet("interviews")]
+    public async Task<ActionResult<IReadOnlyList<InterviewListItemDto>>> List(
+        [FromQuery(Name = "status")] string[]? status,
+        [FromQuery] bool onlyMine,
+        CancellationToken ct)
+        => Ok(await _interviews.ListAsync(status, onlyMine, ct));
+
     // ---------- scheduling ----------
 
     [HttpPost("applications/{applicationId:guid}/interviews")]

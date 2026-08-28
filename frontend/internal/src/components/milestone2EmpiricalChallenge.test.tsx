@@ -228,7 +228,17 @@ describe('Milestone 2 Empirical Stress Testing & Verification', () => {
       expect(screen.queryByText('Governance')).not.toBeInTheDocument();
     });
 
-    it('hides all groups if user has no permissions at all', () => {
+    // ⚠️ REWRITTEN 2026-08-28. This used to assert that a user with no permissions sees NO nav
+    // groups at all. That stopped being true when Interviews was added, and the change is
+    // deliberate rather than a regression: the interviews list carries no `permission`, because
+    // the people who most need it — an Interviewer, an Approver sitting on one panel — hold no
+    // `applications:*` permission, and gating the link on one would hide it from exactly them.
+    // The API is `InternalUser` and decides reach per row (ADR-0017 §4), so someone with nothing
+    // to see gets an empty list rather than a hidden link.
+    //
+    // What still matters, and is what this test now pins: the permission-gated groups stay
+    // hidden, and the only surviving link is the unguarded one.
+    it('shows a user with no permissions only the destinations that need none', () => {
       auth.set({
         accessToken: 'token-empty',
         expiresAtUtc: '2099-01-01T00:00:00Z',
@@ -245,7 +255,15 @@ describe('Milestone 2 Empirical Stress Testing & Verification', () => {
         </MemoryRouter>
       );
 
-      expect(screen.queryByText('Recruitment')).not.toBeInTheDocument();
+      // Recruitment survives, carrying exactly one link: the unguarded Interviews entry.
+      expect(screen.getByText('Recruitment')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Interviews' })).toBeInTheDocument();
+      for (const gated of ['Requisitions', 'Job postings', 'JD templates', 'Delivery log']) {
+        expect(screen.queryByRole('link', { name: gated })).not.toBeInTheDocument();
+      }
+
+      // The permission-gated groups are still gone entirely — an empty heading would tell the
+      // user something exists that they cannot see.
       expect(screen.queryByText('Team')).not.toBeInTheDocument();
       expect(screen.queryByText('Governance')).not.toBeInTheDocument();
       // ONE, not two. The signed-in name used to render in both the sidebar and the header,

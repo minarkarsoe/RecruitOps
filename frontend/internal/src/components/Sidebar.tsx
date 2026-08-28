@@ -19,7 +19,17 @@ interface SidebarProps {
 interface NavItem {
   to: string;
   label: string;
-  permission: string;
+  /**
+   * Omit for a destination every signed-in user may open.
+   *
+   * Only correct when the server decides reach per row rather than per role — Interviews is the
+   * case it was added for: the API's read endpoints are `InternalUser`, not `RecruitmentStaff`,
+   * because a panel member is very often a Hiring Manager from another department, and an
+   * Interviewer holds no `applications:*` permission at all. Gating the link on one would hide
+   * it from exactly the people whose job it is. Someone with no rounds gets an empty list, which
+   * is the honest answer rather than a hidden link.
+   */
+  permission?: string;
   featureFlag?: string;
   icon: JSX.Element;
 }
@@ -77,6 +87,13 @@ const icons = {
     <>
       <circle cx="8" cy="5.5" r="2.4" stroke="currentColor" strokeWidth="1.4" />
       <path d="M3.5 13.5c0-2.3 2-3.8 4.5-3.8s4.5 1.5 4.5 3.8"
+        stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </>
+  ),
+  interviews: (
+    <>
+      <circle cx="8" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M3.5 13c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5"
         stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </>
   ),
@@ -214,6 +231,10 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
         { to: '/requisitions', label: 'Requisitions', permission: 'permission:requisitions:requisitions:read', icon: icons.requisitions },
         { to: '/jobpostings', label: 'Job postings', permission: 'permission:postings:postings:read', icon: icons.postings },
         { to: '/inbox', label: 'Inbox', permission: 'permission:requisitions:requisitions:approve', icon: icons.inbox },
+        // No permission: see the note on NavItem.permission. The API is InternalUser here and
+        // the service decides reach per row, so an Interviewer — who holds no `applications:*`
+        // permission — still reaches the panels they sit on (ADR-0017 §4).
+        { to: '/interviews', label: 'Interviews', icon: icons.interviews },
         { to: '/jdtemplates', label: 'JD templates', permission: 'permission:requisitions:requisitions:read', icon: icons.templates },
         { to: '/scorecardtemplates', label: 'Scorecard templates', permission: 'permission:scorecards:scorecards:manage_templates', icon: icons.templates },
         // ADR-0026's delivery log. Gated on `applications:read` rather than on a permission of
@@ -255,7 +276,7 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
       ...group,
       items: group.items.filter(
         (item) =>
-          hasPermission(session, item.permission) &&
+          (item.permission === undefined || hasPermission(session, item.permission)) &&
           (!item.featureFlag || isFeatureEnabled(item.featureFlag))
       ),
     }))

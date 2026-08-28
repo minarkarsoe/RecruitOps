@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Interviews</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900 overflow-hidden">
+
+<!--
+  MODULE 3 — THE INTERVIEWS LIST.
+
+  Added 2026-08-28. The kit drew `interview.html` (one round, in detail) and put an
+  "Interviews" item in every rail, but never drew the screen that item points at. The app
+  inherited the gap the other way round: it has `/interviews/:id` and NO list, and no rail
+  entry either — so an interview could only ever be reached by opening a job posting,
+  expanding a candidate row, and clicking through. Asked about directly by the product
+  owner; this screen is the answer.
+
+  Four rules it exists to make visible, each enforced in code and invisible in a plain
+  "list of meetings":
+
+  1. DEPARTMENT SCOPE, the same rule the detail screen already uses (ADR-0003). You see
+     interviews whose application hangs off a department you can reach — not "interviews
+     you are on". An interviewer sees their department's rounds including ones they are
+     not sitting on; that is deliberate, and it is what keeps the list and the detail
+     screen from disagreeing about what exists.
+
+  2. PANEL PROGRESS IS PUBLIC, SCORES ARE NOT. "2 of 3 in" is shown here on purpose — the
+     panel is meant to know who is holding up the debrief. What each person wrote stays
+     behind the blind rule until you submit your own (ADR-0017 §3). This screen must never
+     grow a "recommendation" column; that is the leak the blind rule exists to prevent.
+
+  3. CANCELLED IS HIDDEN, NOT DELETED. A cancelled round is history worth keeping — it is
+     the reason a candidate was asked to move twice — so it stays in the record and out of
+     the default view, recoverable from the status filter.
+
+  4. ROUNDS STACK. "Round 2" is not a replacement for round 1; both remain, and the list
+     shows the round number rather than pretending there is one interview per candidate.
+
+  ⚠️ RAIL NOTE: this screen carries the header hamburger from the collapsed-rail spec in
+  `components.html`. The other 24 screens predate that spec and still show the plain
+  header — they should pick it up when next touched.
+-->
+
+<div class="flex h-screen">
+
+  <!-- ======================= NAV RAIL ======================= -->
+  <aside class="w-[224px] shrink-0 bg-ink-900 text-white flex flex-col">
+    <div class="h-14 flex items-center gap-2.5 px-3 border-b border-white/10">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true" class="ml-1 shrink-0">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">RecruitOps</span>
+      <button aria-label="Collapse sidebar" aria-expanded="true" class="ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-md text-white/70 hover:bg-white/5 hover:text-white transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M2.5 4h11M2.5 8h11M2.5 12h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <nav class="rail-scroll flex-1 overflow-y-auto py-3">
+      <button aria-expanded="true" aria-controls="grp-work" class="flex w-full items-center gap-1.5 px-4 pb-1.5 pt-3 text-2xs font-medium uppercase tracking-wider text-white/50 hover:text-white/80 transition-colors">
+        Work
+        <svg class="ml-auto w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div id="grp-work">
+        <a href="board.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="3.5" height="11" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6.5" y="2.5" width="3.5" height="7.5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="2.5" width="3" height="9.5" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+          Board
+        </a>
+        <a href="inbox.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M2 8h3l1 2h4l1-2h3M2.5 4.5h11a1 1 0 011 1v6a1 1 0 01-1 1h-11a1 1 0 01-1-1v-6a1 1 0 011-1z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Inbox
+        </a>
+        <a href="requisition-detail.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M4 2.5h8a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1v-9a1 1 0 011-1zM5.5 6h5M5.5 9h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Requisitions
+        </a>
+        <a href="postings.html" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M8 2.5l5 2.5v6l-5 2.5-5-2.5v-6l5-2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          Postings
+        </a>
+        <!-- Active: this is the screen the rail's Interviews item has always pointed at. -->
+        <a href="#" aria-current="page" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md bg-white/10 text-white text-base font-medium">
+          <svg class="w-4 h-4 text-brand-200" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="6" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M3.5 13c0-2.2 2-3.5 4.5-3.5s4.5 1.3 4.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Interviews
+        </a>
+      </div>
+
+      <button aria-expanded="true" aria-controls="grp-configure" class="flex w-full items-center gap-1.5 px-4 pb-1.5 pt-3 text-2xs font-medium uppercase tracking-wider text-white/50 hover:text-white/80 transition-colors">
+        Configure
+        <svg class="ml-auto w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div id="grp-configure">
+        <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M2.5 4h11M2.5 8h11M2.5 12h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Approval chains
+        </a>
+        <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="3" width="11" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 6.5h5M5.5 9.5h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Scorecard templates
+        </a>
+        <a href="#" class="flex items-center gap-2.5 mx-2 px-2.5 h-9 rounded-md text-white/70 hover:text-white hover:bg-white/5 text-base transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="6" r="2.2" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 13c0-1.9 1.6-3 3.5-3s3.5 1.1 3.5 3M11 5.5h3M11 8h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Users &amp; roles
+        </a>
+      </div>
+    </nav>
+
+    <div class="border-t border-white/10 p-3">
+      <button class="w-full flex items-center gap-2.5 px-2 h-10 rounded-md hover:bg-white/5 transition-colors text-left">
+        <span class="w-7 h-7 rounded-full bg-brand-700 grid place-items-center text-2xs font-semibold shrink-0">TW</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium truncate">U Thura Win</span>
+          <span class="block text-2xs text-white/50 truncate">Recruiter</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ======================= MAIN ======================= -->
+  <div class="flex-1 min-w-0 flex flex-col">
+
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-4 px-6">
+      <h1 class="text-xl font-semibold tracking-tight">Interviews</h1>
+      <!-- No "New interview" button, deliberately. An interview is scheduled against a
+           CANDIDATE, from the board or the posting — a standalone create form here would
+           have to ask "which application?" first, which is the board's job. -->
+      <p class="text-sm text-ink-600 hidden lg:block">Scheduled from a candidate on the board or a posting.</p>
+    </header>
+
+    <div class="h-12 shrink-0 bg-white border-b border-line flex items-center gap-3 px-6 overflow-x-auto">
+      <div class="flex items-center rounded-md border border-line p-0.5 shrink-0">
+        <button class="h-7 px-2.5 rounded text-sm font-medium bg-ink-900 text-white">Upcoming</button>
+        <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">Completed</button>
+        <!-- Rule 3: cancelled rounds stay in the record, out of the default view. -->
+        <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">Cancelled</button>
+        <button class="h-7 px-2.5 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">All</button>
+      </div>
+      <span class="w-px h-5 bg-line shrink-0"></span>
+      <!-- Rule 1: the options here are the departments you can reach, not every department
+           in the company. A department you cannot see is not offered as a filter. -->
+      <select class="h-8 px-2.5 rounded-md border border-line bg-white text-sm shrink-0"><option>All my departments</option><option>Engineering</option><option>Sales &amp; Marketing</option></select>
+      <label class="flex items-center gap-2 text-sm text-ink-600 shrink-0 cursor-pointer">
+        <input type="checkbox" class="w-4 h-4 rounded border-line text-brand-700 focus:ring-brand-700/20" />
+        Only mine
+      </label>
+      <span class="ml-auto text-sm text-ink-600 shrink-0 tnum">4 interviews</span>
+    </div>
+
+    <div class="flex-1 min-h-0 overflow-auto">
+
+      <table class="w-full min-w-[1080px] bg-white text-base">
+        <thead class="sticky top-0 z-10">
+          <tr class="bg-canvas border-b border-line text-left text-sm">
+            <th class="px-5 py-2.5 font-medium text-ink-600">Candidate</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Department</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">When</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Panel</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600">Status</th>
+            <th class="px-5 py-2.5 font-medium text-ink-600"></th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <!-- Today, and you are on the panel. The one row that gets a marker: an interview
+               you are sitting on in the next few hours is the only thing on this screen that
+               is genuinely urgent. -->
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">Ma Ei Phyu Sin</span>
+              <span class="block text-sm text-ink-600">Senior Frontend Engineer · <span class="tnum">Round 2</span></span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Engineering</td>
+            <td class="px-5 py-3">
+              <span class="font-mono tnum text-sm">Today · 14:00</span>
+              <span class="block text-xs text-ink-600">60 min · Online</span>
+            </td>
+            <td class="px-5 py-3">
+              <!-- Rule 2: the COUNT is public, the contents are not. -->
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium">1 of 3 in</span>
+              <span class="block text-xs text-ink-600 mt-1">You, U Aung Kyaw Moe, Ma Thiri Kyaw</span>
+            </td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Scheduled</span></td>
+            <td class="px-5 py-3 text-right"><a href="interview.html" class="text-sm font-medium text-brand-700 hover:text-brand-800">Open</a></td>
+          </tr>
+
+          <!-- Your scorecard is outstanding on a completed round. This is the state the list
+               exists to surface: nothing else in the product tells you the debrief is
+               waiting on you. -->
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">Ma Ei Phyu Sin</span>
+              <span class="block text-sm text-ink-600">Senior Frontend Engineer · <span class="tnum">Round 1</span></span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Engineering</td>
+            <td class="px-5 py-3">
+              <span class="font-mono tnum text-sm">22 Aug · 10:30</span>
+              <span class="block text-xs text-ink-600">45 min · Onsite</span>
+            </td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium">1 of 3 in</span>
+              <span class="block text-xs text-warn-700 mt-1 font-medium">Yours is not in</span>
+            </td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Completed</span></td>
+            <td class="px-5 py-3 text-right"><a href="interview.html" class="text-sm font-medium text-brand-700 hover:text-brand-800">Score</a></td>
+          </tr>
+
+          <!-- A round in your department that you are NOT on. Rule 1 made visible: it is
+               listed, and the panel column names people rather than pretending it is yours. -->
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">Ko Wai Yan Htet</span>
+              <span class="block text-sm text-ink-600">Sales Executive (Yangon) · <span class="tnum">Round 1</span></span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Sales &amp; Marketing</td>
+            <td class="px-5 py-3">
+              <span class="font-mono tnum text-sm">29 Aug · 09:00</span>
+              <span class="block text-xs text-ink-600">45 min · Online</span>
+            </td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas text-ink-600 text-xs font-medium">0 of 2 in</span>
+              <span class="block text-xs text-ink-600 mt-1">Ko Zaw Min Htun, Daw Nwe Nwe Win</span>
+            </td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Scheduled</span></td>
+            <td class="px-5 py-3 text-right"><a href="interview.html" class="text-sm font-medium text-brand-700 hover:text-brand-800">Open</a></td>
+          </tr>
+
+          <!-- Everyone in: the debrief is unlocked. Still no recommendation column — you
+               read the evaluations on the detail screen, where the blind rule is applied. -->
+          <tr class="border-b border-line hover:bg-canvas transition-colors">
+            <td class="px-5 py-3">
+              <span class="font-medium">Ma Yamin Thu</span>
+              <span class="block text-sm text-ink-600">Sales Executive (Yangon) · <span class="tnum">Round 2</span></span>
+            </td>
+            <td class="px-5 py-3 text-ink-600">Sales &amp; Marketing</td>
+            <td class="px-5 py-3">
+              <span class="font-mono tnum text-sm">20 Aug · 16:00</span>
+              <span class="block text-xs text-ink-600">60 min · Onsite</span>
+            </td>
+            <td class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-positive-50 text-positive-700 text-xs font-medium">2 of 2 in</span>
+              <span class="block text-xs text-ink-600 mt-1">Ko Zaw Min Htun, Ma Thiri Kyaw</span>
+            </td>
+            <td class="px-5 py-3"><span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas text-ink-600 text-xs font-medium"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Completed</span></td>
+            <td class="px-5 py-3 text-right"><a href="interview.html" class="text-sm font-medium text-brand-700 hover:text-brand-800">Open</a></td>
+          </tr>
+
+        </tbody>
+      </table>
+
+      <!-- EMPTY STATE, for the filter that matches nothing. Teaches where interviews come
+           from rather than announcing absence — an interviewer with no rounds this week has
+           done nothing wrong and must not be shown an error. -->
+      <div class="hidden p-16 text-center">
+        <p class="text-base font-medium">No interviews here</p>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[46ch] mx-auto">
+          Interviews are scheduled against a candidate, from the board or a posting. Nothing in
+          your departments matches this filter.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

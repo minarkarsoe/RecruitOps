@@ -45,7 +45,7 @@ does. **Before building or changing any screen, open the matching file in `desig
 `design/public/` and build against it.** Do not invent a layout when one is already drawn; if the
 screen you need is not there, say so rather than improvising a twenty-sixth style.
 
-- `design/internal/index.html` indexes all 25 screens.
+- `design/internal/index.html` indexes all 26 screens.
 - `design/internal/components.html` is the component sheet — buttons, inputs, pills, tables, empty
   and loading states.
 - `design/internal/ds.js` holds the **V1.0 tokens** (ADR-0025) and `ds.css` the few things

@@ -26,6 +26,13 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--no-install", "vite", "frontend/internal/dist", "--port", "4181", "--strictPort"],
       "port": 4181
+    },
+    {
+      "// design-kit": "Serves design/internal — the 25 (now 26) reference screens. CLAUDE.md says UI work starts from the kit, and the kit is easier to build against when you can open it rather than only read it. Static files with a Tailwind CDN tag and no build step; vite is used purely as a file server. Start at /index.html.",
+      "name": "design-kit",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--no-install", "vite", "design/internal", "--port", "4182", "--strictPort"],
+      "port": 4182
     }
   ]
 }

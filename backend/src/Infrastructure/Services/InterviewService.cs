@@ -15,6 +15,7 @@ public class InterviewService : IInterviewService
     private readonly AppDbContext _db;
     private readonly ICurrentUser _user;
     private readonly IApplicationAccess _access;
+    private readonly IDepartmentAccess _departments;
     private readonly IScorecardTemplateService _templates;
     private readonly TimeProvider _clock;
 
@@ -22,14 +23,171 @@ public class InterviewService : IInterviewService
         AppDbContext db,
         ICurrentUser user,
         IApplicationAccess access,
+        IDepartmentAccess departments,
         IScorecardTemplateService templates,
         TimeProvider clock)
     {
         _db = db;
         _user = user;
         _access = access;
+        _departments = departments;
         _templates = templates;
         _clock = clock;
+    }
+
+    /// <summary>Statuses shown when the caller asks for no particular one: <b>everything except
+    /// Cancelled</b>. A cancelled round is kept in the record — it is the reason a candidate was
+    /// asked to move twice, so deleting it would lose history — and left out of the default view,
+    /// where it would bury the rounds that are actually happening. Recoverable from the filter.
+    ///
+    /// <para>Expressed as an exclusion rather than a list of two so that a status added to the
+    /// enum later shows up by default instead of silently vanishing from every list — the same
+    /// reasoning as the nav rail storing which groups are shut rather than which are open.
+    /// <c>NoShow</c> is here because of it.</para></summary>
+    private static readonly InterviewStatus[] DefaultStatuses =
+        Enum.GetValues<InterviewStatus>().Where(s => s != InterviewStatus.Cancelled).ToArray();
+
+    public async Task<IReadOnlyList<InterviewListItemDto>> ListAsync(
+        IReadOnlyCollection<string>? statuses = null,
+        bool onlyMine = false,
+        CancellationToken ct = default)
+    {
+        var userId = _user.UserId;
+        if (userId is null) return Array.Empty<InterviewListItemDto>();
+
+        // ── Clause 1: the candidate axis (ADR-0003 scoping + the ADR-0018 exclusion) ──
+        // `null` means "reaches every department" — Admin / HrDirector / Recruiter. An empty set
+        // means a scoped user attached to no department, which is nothing rather than everything.
+        //
+        // ⚠️ An excluded role gets NO standing reach, but this is deliberately not an early
+        // return the way DeliveryLogService's is: clause 2 below still lets them see the rounds
+        // they were personally invited to (ADR-0017 §4). Returning empty here would make the
+        // list disagree with the detail screen, which opens those rounds for them today.
+        var hasStandingReach = !_user.IsExcludedFromCandidateData;
+        HashSet<Guid>? allowedDepartmentIds = null;
+        if (hasStandingReach && _user.IsDepartmentScoped)
+        {
+            var ids = await _departments.AccessibleDepartmentIdsAsync(ct);
+            allowedDepartmentIds = ids.ToHashSet();
+        }
+
+        // ── Clause 2: the panel exception ──
+        var myInterviewIds = await _db.InterviewParticipants.AsNoTracking()
+            .Where(p => p.UserId == userId.Value)
+            .Select(p => p.InterviewId)
+            .ToListAsync(ct);
+        var mine = myInterviewIds.ToHashSet();
+
+        // An unrecognised status name is dropped rather than rejected: it genuinely matches no
+        // interview, so an empty list is the truthful answer, and a 400 here would turn a stale
+        // bookmark into a broken screen. If the caller sent only unrecognised names the result is
+        // empty — which is what they asked for, however they got there.
+        InterviewStatus[] wanted;
+        if (statuses is null || statuses.Count == 0)
+        {
+            wanted = DefaultStatuses;
+        }
+        else
+        {
+            wanted = statuses
+                .Select(s => Enum.TryParse<InterviewStatus>(s, ignoreCase: true, out var parsed)
+                    ? (InterviewStatus?)parsed
+                    : null)
+                .Where(s => s is not null)
+                .Select(s => s!.Value)
+                .Distinct()
+                .ToArray();
+
+            if (wanted.Length == 0) return Array.Empty<InterviewListItemDto>();
+        }
+
+        // One query for the rows and the columns the list shows; participants and scorecard
+        // counts are loaded separately below. Two-step (query in SQL, project in memory) is the
+        // house pattern — see ApplicationAccess.LoadRowAsync.
+        var rows = await (
+            from i in _db.Interviews.AsNoTracking()
+            join a in _db.JobApplications.AsNoTracking() on i.JobApplicationId equals a.Id
+            join c in _db.Candidates.AsNoTracking() on a.CandidateId equals c.Id
+            join jp in _db.JobPostings.AsNoTracking() on a.JobPostingId equals jp.Id
+            join d in _db.Departments.AsNoTracking() on jp.DepartmentId equals d.Id
+            where wanted.Contains(i.Status)
+            select new
+            {
+                i.Id,
+                i.JobApplicationId,
+                CandidateName = c.FullName,
+                PostingTitle = jp.Title,
+                DepartmentId = d.Id,
+                DepartmentName = d.Name,
+                i.Round,
+                i.ScheduledStart,
+                i.DurationMinutes,
+                i.Mode,
+                i.Location,
+                i.Status,
+            }).ToListAsync(ct);
+
+        var visible = rows
+            .Where(r =>
+            {
+                var byPanel = mine.Contains(r.Id);
+                if (onlyMine) return byPanel;
+
+                var byDepartment = hasStandingReach
+                    && (allowedDepartmentIds is null || allowedDepartmentIds.Contains(r.DepartmentId));
+                return byDepartment || byPanel;
+            })
+            .ToList();
+
+        if (visible.Count == 0) return Array.Empty<InterviewListItemDto>();
+
+        var visibleIds = visible.Select(r => r.Id).ToHashSet();
+
+        var participants = await (
+            from p in _db.InterviewParticipants.AsNoTracking()
+            join u in _db.Users.AsNoTracking() on p.UserId equals u.Id
+            where visibleIds.Contains(p.InterviewId)
+            select new { p.InterviewId, p.UserId, u.DisplayName }).ToListAsync(ct);
+
+        // Only the COUNT of finished evaluations, never their content — see the note on
+        // InterviewListItemDto. Widening this projection is how a score reaches a list that has
+        // no blind rule.
+        var submitted = await _db.Scorecards.AsNoTracking()
+            .Where(s => visibleIds.Contains(s.InterviewId) && s.SubmittedAt != null)
+            .Select(s => new { s.InterviewId, s.InterviewerUserId })
+            .ToListAsync(ct);
+
+        var byInterview = participants.ToLookup(p => p.InterviewId);
+        var submittedByInterview = submitted.ToLookup(s => s.InterviewId);
+
+        return visible
+            .OrderByDescending(r => r.ScheduledStart)
+            .Select(r =>
+            {
+                var panel = byInterview[r.Id].ToList();
+                var done = submittedByInterview[r.Id].ToList();
+                var isOnPanel = mine.Contains(r.Id);
+
+                return new InterviewListItemDto(
+                    r.Id,
+                    r.JobApplicationId,
+                    r.CandidateName,
+                    r.PostingTitle,
+                    r.DepartmentId,
+                    r.DepartmentName,
+                    r.Round,
+                    r.ScheduledStart,
+                    r.DurationMinutes,
+                    r.Mode.ToString(),
+                    r.Location,
+                    r.Status.ToString(),
+                    panel.Select(p => p.DisplayName).OrderBy(n => n).ToList(),
+                    panel.Count,
+                    done.Count,
+                    isOnPanel,
+                    isOnPanel && !done.Any(s => s.InterviewerUserId == userId.Value));
+            })
+            .ToList();
     }
 
     public async Task<InterviewDto?> ScheduleAsync(

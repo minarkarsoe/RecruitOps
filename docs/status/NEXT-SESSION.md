@@ -4,7 +4,7 @@
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
-· All seven modules have a drawn UI (25 screens)
+· All seven modules have a drawn UI (26 screens)
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
 

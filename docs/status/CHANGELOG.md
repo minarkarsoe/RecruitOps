@@ -8,6 +8,59 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### 🗓 The Interviews list — the screen the rail has always pointed at
+
+Asked for directly: *"why don't I see the interview tab beside the nav bar?"* The answer was that
+there was nothing to point at. The kit drew `interview.html` (one round, in detail) and put an
+**Interviews** item in every rail; the app had `/interviews/:id` and **no list**, no rail entry,
+and no list endpoint. A round could only be reached by opening a posting, expanding a candidate
+row and clicking through — so *"which interviews am I on this week, and whose scorecard is late"*
+had no answer anywhere in the product.
+
+Built kit-first, as CLAUDE.md requires: `design/internal/interviews.html` is screen **26**,
+indexed and linked, with the rules written into the markup. Then the API, then the page.
+
+**Scoping — the decision that needed the product owner.** Chosen: *the same rule the detail
+screen uses*. That turned out to mean more than "department scope": `IApplicationAccess`
+resolves **either** the candidate axis (ADR-0003 scoping bundled with the ADR-0018 exclusion)
+**or** sitting on the panel (ADR-0017 §4). Implementing department-only would have made the list
+disagree with the detail screen for exactly the cross-department panel members ADR-0017 §4 exists
+to allow — someone able to open a round from the board but unable to find it in their own list.
+
+The ADR-0018 half is the one that has shipped wrong three times, and the interface comment says
+why: *"Each service was asked to remember a two-part rule and the forgettable part is the half
+that is not about departments."* An excluded role gets **no standing reach here and still sees
+the panels it sits on** — deliberately not the early return `DeliveryLogService` uses.
+
+**No evaluation on this screen, at any layer.** `submittedCount` gives "2 of 3 in" — panel
+progress is public by design, the same rule as `HasSubmittedScorecard` — and nothing carries a
+rating, a recommendation or a summary comment. The DTO, the TypeScript interface and the page all
+say so in comments, because this list has no blind rule and must never need one.
+
+**Cancelled is hidden, not deleted**, and the default is expressed as *everything except
+Cancelled* rather than a hand-written pair — so `NoShow`, and any status added later, shows up
+instead of silently vanishing. Same reasoning as the rail storing which groups are shut.
+
+The nav item carries **no permission**, and `NavItem.permission` became optional to allow it. An
+Interviewer holds no `applications:*` permission at all; gating the link would hide it from
+exactly the people whose job it is. The API is `InternalUser` and decides reach per row, so
+someone with nothing to see gets an empty list rather than a hidden link.
+
+**11 backend tests, 13 page tests**, three mutation-proved on the security clauses: removing the
+ADR-0018 exclusion fails 1, removing the panel clause fails 3, showing Cancelled by default
+fails 1. One existing assertion was rewritten rather than made to pass — a milestone-2 test
+required that a user with no permissions sees *no* nav groups, which the unguarded Interviews
+link deliberately changes; it now pins that the gated groups stay hidden and the unguarded link
+is the only survivor.
+
+Verified live as U Aung Kyaw Moe (HiringManager, Engineering): 2 rows, both panels he sits on,
+the Sales & Marketing round correctly absent, `1 of 3 in` with **"Yours is not in"** and a
+**Score** action on the round whose scorecard he owes — and no evaluation content in the response
+or the DOM.
+
+⚠️ **This change touches authorization and wants human review** (CLAUDE.md). The new predicate is
+in `InterviewService.ListAsync`.
+
 ### ✅ The three Module 3 behaviours, finally observed
 
 Flagged as "worth checking specifically" and carried unverified across five updates of

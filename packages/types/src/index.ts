@@ -517,6 +517,42 @@ export interface Interview {
 }
 
 /**
+ * One row of `GET /api/interviews` — mirrors `InterviewListItemDto`.
+ *
+ * ⚠️ **No evaluation content, and it must stay that way.** `submittedCount` says how many of the
+ * panel have finished, which is public to the panel by design; nothing here carries a rating, a
+ * recommendation or a summary comment. Those come from `GET /interviews/{id}/scorecards`, which
+ * applies the blind rule (ADR-0017 §3). Adding a `recommendation` field to this interface would
+ * be asking the API to route around it.
+ */
+export interface InterviewListItem {
+  id: string;
+  jobApplicationId: string;
+  candidateName: string;
+  jobPostingTitle: string;
+  departmentId: string;
+  departmentName: string;
+  round: number;
+  scheduledStart: string;
+  durationMinutes: number;
+  mode: InterviewMode;
+  location: string | null;
+  status: InterviewStatus;
+  panelNames: string[];
+  panelSize: number;
+  submittedCount: number;
+  isOnPanel: boolean;
+  /** The caller is on the panel and has not submitted — the only actionable state on the list. */
+  myScorecardOutstanding: boolean;
+}
+
+/** Query for `GET /api/interviews`. Omitting `status` gives everything except `Cancelled`. */
+export interface InterviewListQuery {
+  status?: InterviewStatus[];
+  onlyMine?: boolean;
+}
+
+/**
  * Scheduling also moves the application's stage and writes an `ApplicationStageHistory`
  * row in the same transaction — so a successful POST invalidates any pipeline or history
  * view the caller is holding.
