@@ -5,6 +5,44 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🇲🇲 Burmese output actually works now — `language` reaches the model
+
+The EN / MY / Bilingual selector has been on the Executive Summary panel since Module 2, sending
+a `language` field on every request. The API's request record never had one, so **model binding
+discarded it every single time** — the control looked like it worked for months and never changed
+a single response.
+
+`GenerateExecutiveSummaryRequest.Language` now exists and becomes a prompt instruction.
+**Burmese is requested as Unicode explicitly**, because a model asked for "Burmese" can return
+Zawgyi — which renders as garbage, never matches a search, and is indistinguishable from Unicode
+to anything that does not check (ADR-0009).
+
+- `my` → the whole response in Burmese.
+- `bilingual` → English first, then Burmese, separated by a blank line, in **every** field.
+  English leads so a reader who only reads English isn't made to scroll past a script they cannot
+  read to reach their own.
+- unknown value → English, not a 400. The API is not the place to reject a language code the UI
+  may add next week, and a 400 would turn a cosmetic mismatch into a broken screen.
+
+**The development stub honours it too**, and that is deliberate: without an API key — which is
+every developer machine — the selector would otherwise look broken, and "it doesn't work locally"
+is how a working feature gets reported as a bug. One test asserts `X-Ai-Simulated` still appears
+on **every** language branch: fabricated AI output has sat under a clean audit in this project
+before, so the marker must survive the new branch, not just the default path.
+
+**11 backend tests**, mutation-proved — making the stub ignore `Language` fails 6 of them. One
+test exists purely because the original bug was *absence*, not malformation: a test that only
+checked the field parsed would have passed against it, so `The_Request_Binds_Language_Instead_Of_Discarding_It`
+compares two responses and asserts they differ.
+
+Verified against the live service after rebuilding the container — `language` is now in the
+published OpenAPI schema alongside `candidateId`, `jobPostingId` and `tone`.
+
+⚠️ The Burmese strings in the stub are a **developer placeholder pending native review**, the
+same caveat the design kit carries.
+
+**Backend 655/655** (+11), **frontend 435**, 0 warnings, typecheck clean.
+
 ### 🔌 The Executive Summary contract was fiction in both directions
 
 The backlog called this "agency-era vocabulary in a shipped contract". It was worse: **the SPA

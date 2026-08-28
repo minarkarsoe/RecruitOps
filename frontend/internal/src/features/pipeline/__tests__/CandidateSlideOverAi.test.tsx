@@ -94,12 +94,11 @@ describe('Candidate 360 AI Smart Match & Executive Summary UI Tests', () => {
     });
   });
 
-  // ⚠️ REWRITTEN 2026-08-28. This case asserted that switching to MY sent `language: 'my'`
-  // alongside `audience: 'internal'`, and that a "Burmese Enabled" badge appeared. The API's
-  // request record is (CandidateId, JobPostingId, Tone) and its response carries no
-  // `isBilingual`, so all three assertions described a contract that did not exist — the mock
-  // simply agreed with them. `audience` is deleted (ADR-0001); `language` is a control the
-  // request does not yet carry.
+  // ⚠️ REWRITTEN 2026-08-28. This case used to assert `audience: 'internal'` and a "Burmese
+  // Enabled" badge from an `isBilingual` response field — neither of which the API has ever
+  // had, so the assertions described a contract that did not exist and the mock simply agreed
+  // with them. `audience` is deleted (ADR-0001 removed clients). `language` is real now: it
+  // reaches `GenerateExecutiveSummaryRequest.Language` and becomes a prompt instruction.
   it('2. Generates an Executive Summary and renders the API response through the slide-over', async () => {
     const user = userEvent.setup();
     vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce(mockExecSummary);
@@ -120,14 +119,14 @@ describe('Candidate 360 AI Smart Match & Executive Summary UI Tests', () => {
       expect(aiApi.generateExecutiveSummary).toHaveBeenCalledWith({
         candidateId: 'cand-888',
         jobPostingId: 'job-777',
+        language: 'en',
       });
       expect(screen.getByText(mockExecSummary.headline)).toBeInTheDocument();
       // Under the old field names this was `undefined` and the body rendered blank.
       expect(screen.getByText(mockExecSummary.executiveSummary)).toBeInTheDocument();
     });
 
-    // Selecting Burmese still re-requests, and the panel renders whatever comes back — but the
-    // choice is not on the wire, which is the gap this pins.
+    // Selecting Burmese re-requests with `language: 'my'` on the wire.
     vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce({
       ...mockExecSummary,
       executiveSummary: 'မေသူသည် ပရိုဂရမ်းမင်းကျွမ်းကျင်သော စီနီယာအင်ဂျင်နီယာတစ်ဦးဖြစ်သည်။',
@@ -138,7 +137,7 @@ describe('Candidate 360 AI Smart Match & Executive Summary UI Tests', () => {
 
     await waitFor(() => {
       const sent = vi.mocked(aiApi.generateExecutiveSummary).mock.calls.at(-1)![0];
-      expect(sent).not.toHaveProperty('language');
+      expect(sent.language).toBe('my');
       expect(sent).not.toHaveProperty('audience');
       expect(screen.getByText('မေသူသည် ပရိုဂရမ်းမင်းကျွမ်းကျင်သော စီနီယာအင်ဂျင်နီယာတစ်ဦးဖြစ်သည်။')).toBeInTheDocument();
     });

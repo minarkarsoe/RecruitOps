@@ -819,6 +819,15 @@ export interface GenerateExecutiveSummaryRequest {
   jobPostingId?: string;
   /** Free-form steer on the writing. The API accepts it; nothing sends one yet. */
   tone?: string;
+  /**
+   * Output language. `undefined` means English.
+   *
+   * Wired end to end on 2026-08-28 — it reaches `GenerateExecutiveSummaryRequest.Language` in
+   * the backend and becomes a prompt instruction. Burmese is requested as **Unicode
+   * explicitly**, because a model asked for "Burmese" can return Zawgyi, which renders as
+   * garbage and never matches a search (ADR-0009).
+   */
+  language?: 'en' | 'my' | 'bilingual';
 }
 
 export interface ExecutiveSummaryResult {

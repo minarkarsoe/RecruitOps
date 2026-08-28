@@ -113,7 +113,7 @@ describe('Candidate 360 M2 Empirical Challenge Suite', () => {
   // `audience` is now deleted (ADR-0001 removed clients). `language` is kept as a control but
   // deliberately not sent, and that gap is what the second test below pins.
   describe('2. Executive Summary Panel request contract', () => {
-    it('sends only the fields the API binds', async () => {
+    it('sends only the fields the API binds, defaulting to English', async () => {
       const user = userEvent.setup();
       vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce(mockExecSummary);
 
@@ -124,6 +124,7 @@ describe('Candidate 360 M2 Empirical Challenge Suite', () => {
         expect(aiApi.generateExecutiveSummary).toHaveBeenCalledWith({
           candidateId: 'cand-m2-test-1',
           jobPostingId: 'job-101',
+          language: 'en',
         });
       });
     });
@@ -145,21 +146,24 @@ describe('Candidate 360 M2 Empirical Challenge Suite', () => {
       });
     });
 
-    it('⚠️ offers a Language control that the request does not carry', async () => {
+    // Was "offers a Language control that the request does not carry" — a pin on the gap.
+    // The gap is closed: `language` reaches `GenerateExecutiveSummaryRequest.Language` and
+    // becomes a prompt instruction. This now pins the wiring instead.
+    it.each([
+      ['MY (Burmese)', 'my'],
+      ['Bilingual', 'bilingual'],
+    ])('carries the selected language when %s is chosen', async (label, expected) => {
       const user = userEvent.setup();
       vi.mocked(aiApi.generateExecutiveSummary).mockResolvedValueOnce(mockExecSummary);
 
       render(<ExecutiveSummaryPanel candidateId="cand-m2-test-1" jobPostingId="job-101" />);
-      await user.click(screen.getByRole('button', { name: /MY \(Burmese\)/i }));
+      await user.click(screen.getByRole('button', { name: new RegExp(label.replace(/[()]/g, '\\$&'), 'i') }));
       await user.click(screen.getByRole('button', { name: /Generate AI Summary/i }));
 
-      // The control is kept because bilingual output is a real requirement (ADR-0009) and
-      // wiring it needs a backend field. Until then, selecting Burmese changes nothing on the
-      // wire — pinned here so the gap is visible rather than implied by a control that looks
-      // like it works. Delete this test when `language` reaches the request record.
       await waitFor(() => {
-        const sent = vi.mocked(aiApi.generateExecutiveSummary).mock.calls[0][0];
-        expect(sent).not.toHaveProperty('language');
+        const sent = vi.mocked(aiApi.generateExecutiveSummary).mock.calls.at(-1)![0];
+        expect(sent.language).toBe(expected);
+        // `audience` stays gone — ADR-0001 removed clients.
         expect(sent).not.toHaveProperty('audience');
       });
     });

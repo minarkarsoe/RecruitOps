@@ -648,10 +648,14 @@ rather than engineering ones:
   the same failure the `ApprovalChainsPage` comment warns about, one module over.
   `audience` was deleted (ADR-0001 removed clients) rather than wired up; `packages/types` now
   mirrors `AiIntegrationDtos.cs`.
-  > ⚠️ **`language` is still not carried by the request.** The control is kept because bilingual
-  > output is a real requirement (ADR-0009) and wiring it needs a backend field on
-  > `GenerateExecutiveSummaryRequest`. Three tests pin the gap. **This is the next thing to do
-  > for this panel** — until then the Burmese option is decorative.
+  > ✅ **`language` is wired end to end (2026-08-28).**
+  > `GenerateExecutiveSummaryRequest.Language` reaches the prompt, Burmese is requested as
+  > **Unicode explicitly** (a model asked for "Burmese" can return Zawgyi), `bilingual` puts
+  > English first then Burmese in every field, and an unknown value falls back to English rather
+  > than 400. The dev stub honours it too, so the selector is not dead on a machine without an
+  > API key. **11 backend tests**, mutation-proved (ignoring `Language` fails 6). Confirmed in
+  > the live OpenAPI schema after a container rebuild.
+  > ⚠️ The stub's Burmese strings are a **developer placeholder pending native review**.
   > ⚠️ Worth a sweep: this endpoint's contract was fiction and nothing noticed. The **other AI
   > endpoints have not been checked the same way** — `matchCandidate` and `prepareDocument` have
   > mocks written in the same style, and `PrepareDocumentRequest` still lists a

@@ -69,6 +69,7 @@ public class GeminiApiClient : IGeminiService
 
         var completion = await RequestCompletionAsync(
             $"Generate an executive summary for Candidate {request.CandidateId}. "
+            + $"{LanguageInstruction(request.Language)}"
             + $"Candidate profile: {candidateProfileData}\nJob posting: {jobPostingData}", ct);
 
         return DeserializeCompletion<ExecutiveSummaryDto>(completion);
@@ -193,8 +194,35 @@ public class GeminiApiClient : IGeminiService
         }
     }
 
+    /// <summary>Turns the requested output language into a prompt instruction (ADR-0009).
+    ///
+    /// <para><b>Unicode is stated explicitly, and that is the whole point.</b> Burmese has two
+    /// incompatible encodings occupying the same code block, and a model asked for "Burmese"
+    /// with no further steer can return Zawgyi — which renders as garbage, never matches a
+    /// search, and is indistinguishable from Unicode to anything that does not check. ADR-0009
+    /// makes Unicode the only representation this system stores.</para>
+    ///
+    /// <para>An unrecognised value produces no instruction rather than an error: the caller has
+    /// asked for something this build does not know, and English is the safe default. The API is
+    /// not the place to reject a language code the UI may add next week.</para></summary>
+    private static string LanguageInstruction(string? language) => language?.ToLowerInvariant() switch
+    {
+        "my" => "Write the entire response in Burmese (Myanmar), using Unicode encoding only — never Zawgyi. ",
+        "bilingual" => "Write each field in English first, then the same content in Burmese (Myanmar) "
+                     + "using Unicode encoding only — never Zawgyi — separated by a blank line. ",
+        _ => string.Empty,
+    };
+
     private static ExecutiveSummaryDto GetExecutiveSummaryStub(GenerateExecutiveSummaryRequest req)
     {
+        // The stub honours `Language` too. Without it the selector would look broken on every
+        // machine without an API key — which is every developer machine — and "the feature does
+        // not work locally" is how a working feature gets reported as a bug.
+        if (req.Language?.ToLowerInvariant() is "my" or "bilingual")
+        {
+            return GetBurmeseExecutiveSummaryStub(req.Language.ToLowerInvariant() == "bilingual");
+        }
+
         return new ExecutiveSummaryDto(
             Headline: "Senior Lead Architect candidate with exceptional full-stack credentials and proven team leadership.",
             ExecutiveSummary: "Candidate demonstrates strong alignment with senior engineering leadership requirements. Possesses deep technical expertise in ASP.NET Core, multi-tenant databases, and modern frontend frameworks, combined with strong communication skills.",
@@ -209,6 +237,45 @@ public class GeminiApiClient : IGeminiService
                 "How do you handle zero-downtime database migrations in multi-tenant SaaS environments?",
                 "Can you walk us through a trade-off decision you made between rapid feature delivery and architectural refactoring?",
                 "How do you mentor mid-level software engineers on Clean Architecture principles?"
+            }
+        );
+    }
+
+    /// <summary>The Burmese sample, in Unicode. Written out rather than machine-translated at
+    /// runtime so the stub costs nothing and cannot itself introduce Zawgyi.
+    ///
+    /// <para>⚠️ Burmese copy pending native review — this is a developer placeholder, the same
+    /// caveat the design kit carries on its Burmese strings.</para></summary>
+    private static ExecutiveSummaryDto GetBurmeseExecutiveSummaryStub(bool bilingual)
+    {
+        // Bilingual puts English first, then Burmese after a blank line, matching the prompt
+        // instruction sent to the real model so both paths render the same shape.
+        string Pair(string en, string my) => bilingual ? $"{en}\n\n{my}" : my;
+
+        return new ExecutiveSummaryDto(
+            Headline: Pair(
+                "Senior Lead Architect candidate with exceptional full-stack credentials and proven team leadership.",
+                "ပြည့်စုံသော full-stack အရည်အချင်းနှင့် အဖွဲ့ဦးဆောင်မှု အတွေ့အကြုံရှိသော အကြီးတန်း ဗိသုကာအင်ဂျင်နီယာ လျှောက်ထားသူ။"),
+            ExecutiveSummary: Pair(
+                "Candidate demonstrates strong alignment with senior engineering leadership requirements.",
+                "လျှောက်ထားသူသည် အကြီးတန်း အင်ဂျင်နီယာ ဦးဆောင်မှုဆိုင်ရာ လိုအပ်ချက်များနှင့် အလွန်ကိုက်ညီပါသည်။ ASP.NET Core၊ multi-tenant ဒေတာဘေ့စ်နှင့် ခေတ်မီ frontend framework များတွင် နက်ရှိုင်းသော ကျွမ်းကျင်မှုရှိပါသည်။"),
+            KeyHighlights: new List<string>
+            {
+                Pair("7+ years designing enterprise SaaS backend architectures",
+                     "လုပ်ငန်းသုံး SaaS backend ဗိသုကာ ဒီဇိုင်းရေးဆွဲမှု အတွေ့အကြုံ ၇ နှစ်ကျော်"),
+                Pair("Led cross-functional engineering teams of 10+ developers",
+                     "ဆော့ဖ်ဝဲရေးသားသူ ၁၀ ဦးကျော်ပါဝင်သော အဖွဲ့များကို ဦးဆောင်ခဲ့သည်"),
+                Pair("Expertise in dynamic RBAC and domain-driven design",
+                     "dynamic RBAC နှင့် domain-driven design တွင် ကျွမ်းကျင်မှု"),
+            },
+            RecommendedInterviewQuestions: new List<string>
+            {
+                Pair("How do you handle zero-downtime database migrations?",
+                     "ဝန်ဆောင်မှု မရပ်တန့်ဘဲ ဒေတာဘေ့စ် ပြောင်းလဲမှုများကို မည်သို့ ကိုင်တွယ်ပါသလဲ။"),
+                Pair("Describe a trade-off between delivery speed and refactoring.",
+                     "လုပ်ငန်းအမြန်ပြီးစီးမှုနှင့် code ပြန်လည်ပြင်ဆင်မှုကြား ရွေးချယ်ခဲ့ရသည့် အခြေအနေတစ်ခုကို ပြောပြပါ။"),
+                Pair("How do you mentor mid-level engineers on Clean Architecture?",
+                     "အလယ်အလတ်တန်း အင်ဂျင်နီယာများကို Clean Architecture အကြောင်း မည်သို့ လမ်းညွှန်ပါသလဲ။"),
             }
         );
     }

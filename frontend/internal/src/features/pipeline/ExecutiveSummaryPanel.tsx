@@ -81,14 +81,10 @@ export function ExecutiveSummaryPanel({
     setIsApiKeyMissing(false);
 
     try {
-      // `language` is deliberately NOT sent. The API's request record is
-      // (CandidateId, JobPostingId, Tone) — it has never had a language field, so sending one
-      // only put a value on the wire for model binding to discard. Sending nothing is the
-      // honest version of the same behaviour, and it makes the gap visible in the type rather
-      // than hidden in a dropped property. See the note on the Language control below.
       const result = await aiApi.generateExecutiveSummary({
         candidateId,
         jobPostingId,
+        language,
       });
       setSummaryResult(result);
     } catch (err) {
@@ -183,11 +179,9 @@ export function ExecutiveSummaryPanel({
           on 2026-07-27 — there is no client portal for a summary to be made safe for. The API
           never accepted the field either, so switching it had never changed anything.
 
-          ⚠️ `language` is still not read by the API. `GenerateExecutiveSummaryRequest` accepts
-          `candidateId`, `jobPostingId` and `tone` only, so this control is currently decorative.
-          It is kept rather than removed because bilingual output is a real product requirement
-          (ADR-0009) and wiring it needs a backend change; the alternative was deleting the only
-          Burmese affordance on the panel. Tracked in NEXT-SESSION. */}
+          Language DOES reach the API now, as of the same day. It had been sent and silently
+          discarded since Module 2, so this control looked like it worked for months without ever
+          changing a single response. Burmese is requested as Unicode explicitly (ADR-0009). */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <span className="text-sm text-ink-500">Language</span>

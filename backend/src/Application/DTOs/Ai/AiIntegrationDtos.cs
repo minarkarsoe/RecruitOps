@@ -49,10 +49,19 @@ public record CandidateMatchAnalysisDto(
     string Recommendation
 );
 
+/// <param name="Language">Output language: <c>"en"</c>, <c>"my"</c> (Burmese Unicode) or
+/// <c>"bilingual"</c>. Null means English.
+///
+/// <para>Added 2026-08-28. The SPA had shipped an EN / MY / Bilingual selector since Module 2
+/// and sent a <c>language</c> field this record did not have, so model binding discarded it on
+/// every request — the control looked like it worked and never did. Burmese output is a real
+/// requirement (ADR-0009), not a nicety: the market this product is sold into reads Burmese, and
+/// a summary a hiring manager cannot read is a summary nobody uses.</para></param>
 public record GenerateExecutiveSummaryRequest(
     Guid CandidateId,
     Guid? JobPostingId = null,
-    string? Tone = null
+    string? Tone = null,
+    string? Language = null
 );
 
 public record ExecutiveSummaryDto(
