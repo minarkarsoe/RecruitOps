@@ -71,12 +71,28 @@ public class InterviewService : IInterviewService
             allowedDepartmentIds = ids.ToHashSet();
         }
 
-        // ── Clause 2: the panel exception ──
-        var myInterviewIds = await _db.InterviewParticipants.AsNoTracking()
+        // ── Clause 2: the panel exception (ADR-0017 §4) ──
+        //
+        // TWO sets, and the difference is the whole finding from the security review of the
+        // first cut. §4 grants "read access to that ONE JOB APPLICATION, its interviews" — so
+        // `IApplicationAccess.IsOnPanelForAsync` keys on the application, and sitting on round 1
+        // opens round 2's detail page. Keying visibility on the interview made the list narrower
+        // than the detail screen: round 2 was openable from the board and missing from the list.
+        //
+        //   myApplicationIds → what you may SEE. Application-scoped, matching the detail rule.
+        //   myInterviewIds   → whether THIS round is yours. Interview-scoped, because "am I on
+        //                      this panel" and "do I owe a scorecard" are per round, and so is
+        //                      the `onlyMine` filter, whose label promises exactly that.
+        var myInterviewIds = (await _db.InterviewParticipants.AsNoTracking()
             .Where(p => p.UserId == userId.Value)
             .Select(p => p.InterviewId)
-            .ToListAsync(ct);
-        var mine = myInterviewIds.ToHashSet();
+            .ToListAsync(ct)).ToHashSet();
+
+        var myApplicationIds = (await (
+            from p in _db.InterviewParticipants.AsNoTracking()
+            join i in _db.Interviews.AsNoTracking() on p.InterviewId equals i.Id
+            where p.UserId == userId.Value
+            select i.JobApplicationId).Distinct().ToListAsync(ct)).ToHashSet();
 
         // An unrecognised status name is dropped rather than rejected: it genuinely matches no
         // interview, so an empty list is the truthful answer, and a 400 here would turn a stale
@@ -89,8 +105,14 @@ public class InterviewService : IInterviewService
         }
         else
         {
+            // `Enum.IsDefined` as well as `TryParse`, because TryParse happily accepts any
+            // numeric string — `?status=999` parses to an InterviewStatus(999) that names no
+            // member. Harmless today (it matches no stored status), but it means a successful
+            // parse would not imply a real member, and the next person to write
+            // `switch (parsed)` would find that out the hard way.
             wanted = statuses
                 .Select(s => Enum.TryParse<InterviewStatus>(s, ignoreCase: true, out var parsed)
+                             && Enum.IsDefined(parsed)
                     ? (InterviewStatus?)parsed
                     : null)
                 .Where(s => s is not null)
@@ -130,12 +152,13 @@ public class InterviewService : IInterviewService
         var visible = rows
             .Where(r =>
             {
-                var byPanel = mine.Contains(r.Id);
-                if (onlyMine) return byPanel;
+                // "Only mine" means the rounds you are sitting on, not every round of an
+                // application you touched once — the label would be lying otherwise.
+                if (onlyMine) return myInterviewIds.Contains(r.Id);
 
                 var byDepartment = hasStandingReach
                     && (allowedDepartmentIds is null || allowedDepartmentIds.Contains(r.DepartmentId));
-                return byDepartment || byPanel;
+                return byDepartment || myApplicationIds.Contains(r.JobApplicationId);
             })
             .ToList();
 
@@ -166,7 +189,9 @@ public class InterviewService : IInterviewService
             {
                 var panel = byInterview[r.Id].ToList();
                 var done = submittedByInterview[r.Id].ToList();
-                var isOnPanel = mine.Contains(r.Id);
+                // Per interview, not per application: you may be able to SEE round 2 because you
+                // sat on round 1, and still not be on round 2's panel or owe it a scorecard.
+                var isOnPanel = myInterviewIds.Contains(r.Id);
 
                 return new InterviewListItemDto(
                     r.Id,

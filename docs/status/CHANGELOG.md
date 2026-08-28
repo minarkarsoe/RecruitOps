@@ -8,6 +8,40 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### 🔐 Security review of the interviews list found a real gap — panel reach is per *application*
+
+`security-reviewer` was run against `InterviewService.ListAsync` (the review CLAUDE.md asks for on
+anything touching authorization). Tenant filters, the ADR-0003/ADR-0018 predicate, `onlyMine`, the
+DTO's fields and the status parsing all held up. **One finding, and it was correct.**
+
+The list keyed panel reach on the **interview**. `IApplicationAccess.IsOnPanelForAsync` keys it on
+the **application** — and ADR-0017 §4 says so in as many words: *"An `InterviewParticipant` row
+grants its user read access to that one job application, **its interviews**, its notes."*
+
+So sitting on round 1 opens round 2's detail page, and the list hid round 2 from you: *"I can open
+it from the board but it is not in my list"* — the exact failure the test file's own header says
+it exists to prevent. **Under-disclosure, not a leak**, so nothing was exposed; but it broke the
+rule the list was written to honour, and the tests passed because none of them scheduled two
+rounds on one application with partial panel overlap.
+
+Fixed with two sets rather than one, because they answer different questions:
+
+| | scope | used for |
+|---|---|---|
+| `myApplicationIds` | application | what you may **see** — matches the detail rule |
+| `myInterviewIds` | interview | `isOnPanel`, `myScorecardOutstanding`, and `onlyMine` |
+
+The reviewer suggested application scope for `onlyMine` too. **Kept per-interview instead**: the
+control is labelled "Only mine", and listing rounds the caller is not sitting on would make the
+label untrue. A test now pins that distinction in both directions.
+
+Also took the reviewer's minor note: `Enum.TryParse` accepts any numeric string, so `?status=999`
+parsed to an `InterviewStatus` naming no member. Harmless — it matched no stored status — but a
+successful parse implying a real member is the kind of thing the next `switch` statement relies
+on. `Enum.IsDefined` now backs it up, with a test.
+
+**Backend 668** (+2). Mutation-proved: reverting visibility to per-interview fails the new test.
+
 ### ☰ The header hamburger reaches the rest of the kit — 19 screens, not 24
 
 The collapsed-rail spec landed in `components.html` and shipped in the app, but only

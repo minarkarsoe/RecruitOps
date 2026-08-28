@@ -105,6 +105,56 @@ public class InterviewListTests : IClassFixture<CustomWebAppFactory>
     }
 
     [Fact]
+    public async Task Panel_Reach_Extends_To_Every_Round_Of_The_Same_Application()
+    {
+        // Found by security review of the first cut, 2026-08-28. The list keyed panel reach on
+        // the INTERVIEW; `IApplicationAccess.IsOnPanelForAsync` keys it on the APPLICATION, and
+        // ADR-0017 §4 is explicit: "An InterviewParticipant row grants its user read access to
+        // that one job application, ITS INTERVIEWS, its notes".
+        //
+        // So sitting on round 1 lets you open round 2's detail page, and the first version of
+        // this list hid round 2 from you — "I can open it from the board but it is not in my
+        // list", which is the exact failure this file's header says it exists to prevent. Under-
+        // disclosure rather than a leak, but it breaks the rule the list was written to honour.
+        var (_, applicationId) = await _scenario.ApplicationAsync("List — sibling rounds");
+
+        var round1 = await _scenario.ScheduleWithAsync(applicationId, _factory.FinanceApproverUserId);
+        var round2 = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId);
+
+        // The detail endpoint opens round 2 for the approver, via round 1's participation.
+        var detail = await _scenario.FinanceApprover().GetAsync($"/api/interviews/{round2.Id}");
+        Assert.Equal(System.Net.HttpStatusCode.OK, detail.StatusCode);
+
+        // The list must agree with it.
+        var list = await ListAsync(_scenario.FinanceApprover());
+
+        Assert.Contains(list, i => i.Id == round1.Id);
+        Assert.Contains(list, i => i.Id == round2.Id);
+
+        // …and still say which one is actually theirs to score. Visibility is per application;
+        // "am I on this panel" and "do I owe a scorecard" stay per interview.
+        Assert.True(Assert.Single(list, i => i.Id == round1.Id).IsOnPanel);
+        Assert.False(Assert.Single(list, i => i.Id == round2.Id).IsOnPanel);
+        Assert.False(Assert.Single(list, i => i.Id == round2.Id).MyScorecardOutstanding);
+    }
+
+    [Fact]
+    public async Task OnlyMine_Stays_Per_Interview_Even_Though_Visibility_Is_Per_Application()
+    {
+        // The control is labelled "Only mine". Widening it to the application would list rounds
+        // the caller is not sitting on, which is not what the words say.
+        var (_, applicationId) = await _scenario.ApplicationAsync("List — onlyMine sibling");
+
+        var round1 = await _scenario.ScheduleWithAsync(applicationId, _factory.FinanceApproverUserId);
+        var round2 = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId);
+
+        var mine = await ListAsync(_scenario.FinanceApprover(), "?onlyMine=true");
+
+        Assert.Contains(mine, i => i.Id == round1.Id);
+        Assert.DoesNotContain(mine, i => i.Id == round2.Id);
+    }
+
+    [Fact]
     public async Task Cancelled_Rounds_Are_Hidden_By_Default_And_Recoverable_By_Filter()
     {
         var (_, applicationId) = await _scenario.ApplicationAsync("List — cancelled");
@@ -161,6 +211,10 @@ public class InterviewListTests : IClassFixture<CustomWebAppFactory>
         // A stale bookmark should not become a broken screen, and an unknown status genuinely
         // matches no interview — so empty is the truthful answer, not a 400.
         Assert.Empty(await ListAsync(_scenario.Recruiter(), "?status=Postponed"));
+
+        // `Enum.TryParse` accepts ANY numeric string, so this one parses to an InterviewStatus
+        // naming no member. `Enum.IsDefined` is what stops it counting as a real status.
+        Assert.Empty(await ListAsync(_scenario.Recruiter(), "?status=999"));
     }
 
     [Fact]
