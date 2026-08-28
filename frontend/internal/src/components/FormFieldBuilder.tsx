@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@recruitops/ui';
 import type { ApplicationFormField } from '@recruitops/types';
 import { parseFormFields } from '@recruitops/types';
@@ -90,18 +91,10 @@ export function FormFieldBuilder({
             </div>
 
             {f.type === 'select' && (
-              <input
+              <OptionsInput
                 className={`${input} mt-2`}
-                placeholder="Choices, separated by commas"
-                value={(f.options ?? []).join(', ')}
-                onChange={(e) =>
-                  update(i, {
-                    options: e.target.value
-                      .split(',')
-                      .map((o) => o.trim())
-                      .filter(Boolean),
-                  })
-                }
+                options={f.options ?? []}
+                onChange={(options) => update(i, { options })}
               />
             )}
 
@@ -132,5 +125,45 @@ export function FormFieldBuilder({
         </Button>
       )}
     </div>
+  );
+}
+
+/**
+ * The comma-separated choices for a `select`.
+ *
+ * ⚠️ **The raw text has to live in local state.** This input previously took its value straight
+ * from `options.join(', ')`, which meant every keystroke was split, trimmed, filtered and
+ * re-joined before the next one — so the moment you typed a comma it was parsed into a
+ * separator, dropped as a blank entry, and **erased under the cursor**. Typing
+ * "Yangon, Mandalay" produced the single option `YangonMandalay`. A recruiter could not enter
+ * a second choice at all; pasting was the only way, and nobody had noticed because the
+ * component had no tests. Found 2026-08-28 by the first ones.
+ *
+ * Seeded once per field. The `<li>` above is keyed by `f.key`, so React keeps this component's
+ * identity across reorder and gives a genuinely different field a fresh one.
+ */
+function OptionsInput({
+  options,
+  onChange,
+  className,
+}: {
+  options: string[];
+  onChange: (options: string[]) => void;
+  className: string;
+}) {
+  const [raw, setRaw] = useState(options.join(', '));
+
+  return (
+    <input
+      className={className}
+      placeholder="Choices, separated by commas"
+      value={raw}
+      onChange={(e) => {
+        setRaw(e.target.value);
+        // The stored schema stays clean — blanks filtered, everything trimmed — even while
+        // the text being typed still has a dangling comma in it.
+        onChange(e.target.value.split(',').map((o) => o.trim()).filter(Boolean));
+      }}
+    />
   );
 }

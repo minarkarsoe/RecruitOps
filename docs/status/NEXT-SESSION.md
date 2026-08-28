@@ -529,14 +529,32 @@ How it was built, each step a session:
 
 ← **you are here: nothing outstanding in ADR-0026.** The open follow-up is the `IDepartmentAccess` refactor the security review recommends — see the bullet above.
 
-### 2. Frontend tests for Modules 1–2's largest untested logic
-Still open. The harness is proven and the suite is at 342, but these two components have no
-test file at all:
+### 2. ✅ Frontend tests for Modules 1–2's largest untested logic — done 2026-08-28
 
-- **`RequisitionFormPage`** — one component serving both create and edit. Two modes in one
-  component is where this repo's recurring "rule added to two of three siblings" bug lives.
-- **`FormFieldBuilder`** — a schema editor whose output the *server* validates. A builder that
-  emits a schema the server rejects fails at the worst possible moment: when a stranger submits.
+33 tests added (`FormFieldBuilder` 20, `RequisitionFormPage` 13). Frontend total **432**
+(408 internal + 24 public). All mutation-proved.
+
+**`FormFieldBuilder` found a real bug, now fixed.** The Dropdown type could not be configured by
+typing: the choices input derived its value from `options.join(', ')`, so each keystroke was
+split, filtered and re-joined before the next — a typed comma was parsed into a separator and
+**erased under the cursor**. Typing `Yangon, Mandalay` produced the one option `YangonMandalay`;
+pasting the same string worked. The field type was silently limited to a single choice. Fixed by
+holding the raw text in local state (`OptionsInput`).
+
+**Three defects are pinned rather than fixed**, each needing a decision rather than a tidy-up:
+
+- ⚠️ **Duplicate keys.** The key is `field_${Date.now().toString(36)}`, so two questions added in
+  the same millisecond collide and the server rejects the **whole schema** ("used more than
+  once") — the recruiter loses the save, not one field. Changing the key format touches keys
+  already persisted in JSONB answers.
+- **A freshly added question has a blank label**, which `ApplicationFormSchema.TryParse` rejects.
+- **Switching a question to Dropdown leaves it with no options**, which `TryParse` also rejects.
+  Both are two clicks away and both fail only on save.
+- ⚠️ **`RequisitionFormPage:49` claims a behaviour it does not have.** The comment says "Bounce
+  rather than let someone fill in a form the API will reject with 409", but on a non-Draft
+  requisition it only sets an error string — no redirect, no disabling. The form stays live and
+  submittable, and the test drives it all the way to the real 409. Whether it should redirect,
+  disable the fields, or hide the form is a product decision.
 
 Pattern to copy: `src/lib/scorecard.test.ts` for pure rules,
 `src/pages/InterviewDetailPage.test.tsx` for a page with `vi.mock('../lib/api')`.

@@ -5,6 +5,67 @@ Format: what changed · why · what it touched.
 
 ## 2026-08-26 (latest)
 
+### 🐛 The Dropdown question type could not be configured by typing
+
+**Found by the first test ever written for `FormFieldBuilder`.** The comma-separated choices
+input took its value from `options.join(', ')`, so every keystroke was split, trimmed, filtered
+and re-joined *before the next one arrived*. The moment a recruiter typed a comma it was parsed
+into a separator, dropped as a blank entry, and **erased under the cursor**.
+
+Proved by probing both input paths against the unfixed component:
+
+| Input | Result |
+|---|---|
+| **Paste** `Yangon, Mandalay` | `["Yangon","Mandalay"]` ✓ |
+| **Type** `Yangon, Mandalay` | `["YangonMandalay"]` ✗ |
+
+The parser was always fine; the controlled round-trip was not. A `select` needs at least one
+option to pass `ApplicationFormSchema.TryParse`, so the field type was not broken outright —
+it was silently limited to **one choice**, unless you happened to paste. A dropdown with one
+choice is not a dropdown.
+
+Fixed by giving the raw text its own local state in a small `OptionsInput`, seeded once per
+field. The stored schema stays clean while the text being typed still has a dangling comma in
+it. Regression-tested; reintroducing the derived value fails 2 tests.
+
+### 🧪 `RequisitionFormPage` and `FormFieldBuilder` have tests — 33 of them
+
+Module 1–2's largest untested logic, and the two components CLAUDE.md named. **Both found
+something.**
+
+**`FormFieldBuilder` (20 tests)** is where a TypeScript component and a C# validator have to
+agree with nothing checking that they do, so every assertion quotes the rule in
+`ApplicationFormSchema.cs` it mirrors: the key pattern, the 20-field ceiling, the six field
+types, at-least-one-option, no blank options. Two schemas the builder can still emit that the
+server rejects are pinned rather than fixed, because both are two clicks away and the fix is a
+UX decision:
+
+- a **freshly added question has a blank label**, which `TryParse` rejects;
+- **switching a question to Dropdown leaves it with no options**, which `TryParse` also rejects.
+
+⚠️ A third is pinned as an outright defect: the generated key is `field_${Date.now().toString(36)}`,
+so **two questions added inside the same millisecond get the same key** and the server rejects
+the entire schema with "used more than once" — the recruiter loses the save, not one field. Not
+fixed here: changing the key format touches keys already persisted in JSONB answers, so it is a
+decision about existing data.
+
+**`RequisitionFormPage` (13 tests)** covers create-vs-edit sharing one component, template
+application (`f.title || t.title` — a template fills a blank title but never overwrites one),
+lookup failures falling back to an empty list without crashing, and `salaryBudget` defaulting to
+`null` rather than `0` (the threshold rule reads those differently).
+
+⚠️ It also pins a **comment that describes behaviour the code does not have**. Line 49 reads
+*"Bounce rather than let someone fill in a form the API will reject with 409"* — but on a
+non-Draft requisition it only sets an error string. No redirect, no disabling. The test drives
+the whole path: retype the title, press Save, and the PUT really is sent and really returns the
+409 the comment promises to avoid. Pinned as-is; whether it should redirect, disable, or hide the
+form is a product decision.
+
+Mutation-proved: emitting `"[]"` instead of `null` kills 1, reintroducing the comma bug kills 2,
+letting a template overwrite a typed title kills 1. All restored.
+
+**Frontend total is now 432** (408 internal + 24 public), typecheck clean, both apps build.
+
 ### 🧪 `frontend/public` has tests — 24 of them, and the first one found a bug
 
 **Why:** it had **none**, and it is a stranger's only view of the product. That is exactly how
