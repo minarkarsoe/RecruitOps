@@ -458,11 +458,21 @@ function InterviewRow({
 // ---------------------------------------------------------------------------
 
 export function ApplicationDebrief({
-  applicationId, onChanged,
+  applicationId, onChanged, showNotes = true,
 }: {
   applicationId: string;
   /** Called after anything that can move the application's stage, so the board can reload. */
   onChanged?: () => void;
+  /**
+   * Whether to render the note thread under the rounds.
+   *
+   * Default true, because this component was built as a self-contained panel under a pipeline
+   * row — rounds and the debrief that follows them, together. The Candidate 360 drawer has its
+   * own Notes tab, so mounting the thread there too put the same composer on two tabs. Caught by
+   * opening the screen (2026-08-29); the wiring tests asserted the Schedule button existed and
+   * had no reason to notice a second copy of something correct.
+   */
+  showNotes?: boolean;
 }) {
   const role = auth.get()?.role;
   const canManage = role ? isRecruitmentStaff(role) : false;
@@ -575,7 +585,7 @@ export function ApplicationDebrief({
 
     {/* The thread is not gated on `canManage`: a panel member from another department is
         exactly who this is for, and posting to it is the job they were added to do. */}
-    <ApplicationNotes applicationId={applicationId} interviews={interviews} />
+    {showNotes && <ApplicationNotes applicationId={applicationId} interviews={interviews} />}
     </>
   );
 }

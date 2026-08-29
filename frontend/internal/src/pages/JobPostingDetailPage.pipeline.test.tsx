@@ -165,6 +165,25 @@ describe('JobPostingDetailPage — the pipeline board', () => {
     });
   });
 
+  it('does not put the note composer on two tabs', async () => {
+    const user = userEvent.setup();
+    mockApi([candidate()]);
+    renderPage();
+
+    await user.click(await screen.findByText('Daw Hnin Yu'));
+    await user.click(await screen.findByRole('button', { name: /Interviews/i }));
+
+    // Found by opening the screen, not by a test: `ApplicationDebrief` bundles the note thread
+    // under its rounds, and the drawer already has a Notes tab, so wiring it in put the same
+    // composer on both. `showNotes={false}` is what keeps each thing in one place — and the
+    // Schedule assertion above passed happily while the duplicate was there, which is the
+    // reminder that "the test is green" and "the screen is right" are different claims.
+    expect(screen.queryByPlaceholderText(/Add a note/i)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /Notes & Debrief/i }));
+    expect(await screen.findByPlaceholderText(/Add a note/i)).toBeInTheDocument();
+  });
+
   it('withholds stage controls from a user without move_stage', async () => {
     signIn(['permission:applications:applications:read']);
     mockApi([candidate()]);

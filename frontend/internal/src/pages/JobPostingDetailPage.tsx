@@ -350,6 +350,8 @@ export function JobPostingDetailPage() {
           selected ? (
             <ApplicationDebrief
               applicationId={selected.id}
+              // The drawer has its own Notes tab; without this the same composer renders twice.
+              showNotes={false}
               onChanged={() => { load().catch(() => { /* surfaced by the page banner */ }); }}
             />
           ) : undefined

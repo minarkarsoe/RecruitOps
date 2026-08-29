@@ -8,6 +8,27 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### 👁 Opened the wired board in a browser — and it found what the tests could not
+
+The board, the drawer and the Smart Match fix all confirmed against the running stack for the
+first time (Chrome, HrDirector, the Product Designer posting with 4 candidates). Everything
+fixed this morning is visible: a **green "88% Match"** badge where a red "Low Match" used to sit,
+the recommendation sentence rendering, `IDENTIFIED CONCERNS (1)` where it used to claim "No
+critical gaps identified.", and the matched/missing skill split that had been thrown away.
+
+**And one defect nothing had caught: the note composer was on two tabs.** `ApplicationDebrief`
+bundles the thread under its rounds, and the drawer already has a Notes tab, so passing the
+debrief into `interviewsSlot` mounted the same composer twice. Fixed with `showNotes`.
+
+Worth recording precisely *why* the tests missed it: the wiring test asserted the Schedule button
+**existed**. It did. A duplicate of something correct is invisible to an assertion that something
+correct is present — "the suite is green" and "the screen is right" are different claims, and
+only one of them was checked. There is now a test for the absence too, mutation-proved.
+
+Also learned while getting there: **`recruitops.session` lives in `sessionStorage`**, which is
+per-tab. A login in one tab does not reach another, and it is why the first attempt at this kept
+showing the login page.
+
 ### 🧹 The orphans, decided — delete the duplicates, wire the pipeline
 
 The product owner's call, after the audit put a number on it: **go by the design, remove what is
