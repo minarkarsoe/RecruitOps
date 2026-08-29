@@ -116,10 +116,11 @@ export function CvAndDocumentsTab({
       setError('File size exceeds maximum limit of 10MB.');
       return;
     }
-    const validExts = ['.pdf', '.docx', '.png', '.jpg', '.jpeg'];
+    // No OCR in this build (2026-08-29) — images are rejected by the API too.
+    const validExts = ['.pdf', '.docx'];
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!validExts.includes(ext)) {
-      setError('Invalid file format. Allowed formats: PDF, DOCX, PNG, JPG, JPEG.');
+      setError('Allowed formats: PDF, DOCX. Scans and photos cannot be read yet.');
       return;
     }
 
@@ -228,7 +229,7 @@ export function CvAndDocumentsTab({
           type="file"
           id="cv-single-upload"
           className="hidden"
-          accept=".pdf,.docx,.png,.jpg,.jpeg"
+          accept=".pdf,.docx"
           onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
         />
         <label
@@ -242,7 +243,7 @@ export function CvAndDocumentsTab({
             Click to upload CV document
           </span>
           <span className="mt-1 text-sm text-ink-500">
-            Supports PDF, DOCX, PNG, JPG up to 10MB
+            Supports PDF and DOCX up to 10MB
           </span>
         </label>
       </div>

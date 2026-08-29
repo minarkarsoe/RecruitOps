@@ -62,13 +62,23 @@ export function BulkCvUploadModal({
       setError('Maximum 50 files allowed per bulk upload batch.');
       return;
     }
+    // Images were dropped on 2026-08-29 to match the API — there is no OCR in this build, so a
+    // photographed CV produced a blank candidate and still reported success.
     const validFiles = newFiles.filter((f) => {
       const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
-      return ['.pdf', '.docx', '.png', '.jpg', '.jpeg'].includes(ext) && f.size <= 10 * 1024 * 1024;
+      return ['.pdf', '.docx'].includes(ext) && f.size <= 10 * 1024 * 1024;
     });
 
     if (validFiles.length < newFiles.length) {
-      setError('Some files were ignored (exceeds 10MB or unsupported format).');
+      const rejected = newFiles.filter((f) => !validFiles.includes(f));
+      const anyImage = rejected.some((f) => /\.(png|jpe?g|gif|webp|heic|tiff?)$/i.test(f.name));
+      // Say which problem it was. "Unsupported format" on a photo reads as a file-type quibble
+      // and sends the recruiter off to re-save it as a PDF, which fails the same way.
+      setError(
+        anyImage
+          ? 'Photos and scans of CVs cannot be read yet — text recognition is not enabled, so they would import with no searchable content. Please use text PDFs or Word documents.'
+          : 'Some files were ignored (over 10MB, or not a PDF or Word document).'
+      );
     } else {
       setError(null);
     }
@@ -155,7 +165,7 @@ export function BulkCvUploadModal({
       <DialogHeader>
         <DialogTitle>Bulk Upload CV Documents</DialogTitle>
         <p className="mt-1 text-sm text-ink-600">
-          Upload up to 50 CV files (.pdf, .docx, .png, .jpg) for automated extraction and pipeline creation.
+          Upload up to 50 CV files (.pdf, .docx) for automated extraction and pipeline creation. Scans and photos are not supported yet.
         </p>
       </DialogHeader>
 
@@ -189,7 +199,7 @@ export function BulkCvUploadModal({
                 id="bulk-cv-input"
                 multiple
                 className="hidden"
-                accept=".pdf,.docx,.png,.jpg,.jpeg"
+                accept=".pdf,.docx"
                 onChange={(e) => e.target.files && handleFilesAdded(e.target.files)}
               />
               <label htmlFor="bulk-cv-input" className="cursor-pointer text-center">

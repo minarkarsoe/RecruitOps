@@ -49,7 +49,8 @@ public class ApplicationsController : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
-    /// <summary>Upload and extract candidate resume document (PDF, DOCX, PNG, JPG).</summary>
+    /// <summary>Upload and extract a candidate resume (PDF or DOCX).
+    /// <para>Images are rejected while there is no OCR — see the guard below.</para></summary>
     [HttpPost("{id:guid}/resume")]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<ResumeExtractionResultDto>> UploadResume(
@@ -65,11 +66,23 @@ public class ApplicationsController : ControllerBase
             return BadRequest(new ProblemDetails { Title = "File Too Large", Detail = "File size exceeds maximum limit of 10MB." });
         }
 
-        var allowedExtensions = new[] { ".pdf", ".docx", ".png", ".jpg", ".jpeg" };
+        // Images were removed on 2026-08-29, matching BulkResumeService.AllowedExtensions. There is
+        // no OCR in this build — accepting a photo produced a blank candidate from a fabricated
+        // "Image Document: …" string and still reported success. The message names the reason
+        // rather than only the rule, because "PNG is unsupported" invites the recruiter to convert
+        // the photo to PDF, which lands in exactly the same empty-text path.
+        var allowedExtensions = new[] { ".pdf", ".docx" };
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (!allowedExtensions.Contains(ext))
         {
-            return BadRequest(new ProblemDetails { Title = "Unsupported Format", Detail = "Allowed formats are PDF, DOCX, PNG, JPG, JPEG." });
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Unsupported Format",
+                Detail = "Allowed formats are PDF and DOCX. Photographed or scanned CVs cannot be "
+                       + "read yet — text recognition is not enabled on this installation, so a "
+                       + "picture of a CV would be stored with no readable content and would not "
+                       + "appear in search. Please upload a text PDF or a Word document."
+            });
         }
 
         var result = await _resumeService.UploadAndExtractResumeAsync(id, file, ct);

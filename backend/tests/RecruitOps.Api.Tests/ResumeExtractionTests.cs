@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
+using Microsoft.AspNetCore.Mvc;
 using RecruitOps.Api.Auth;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Infrastructure.Services.DocumentExtraction;
@@ -67,28 +68,59 @@ public class ResumeExtractionTests : IClassFixture<CustomWebAppFactory>
         Assert.Contains("React", result.ParsedContactInfo.Skills);
     }
 
-    [Fact]
-    public async Task UploadResume_SuccessfulPdfOrImage_Returns200AndResultDto()
+    // ⚠️ REWRITTEN 2026-08-29. This asserted that a PNG upload returns 200 with non-null
+    // ExtractedText — and it passed, because the extractor fabricated
+    // "Image Document: scanned_cv.png | Format: PNG | Dimensions: … | Size: … bytes" and called
+    // that extracted text. `Assert.NotNull(result.ExtractedText)` cannot tell a CV from a
+    // description of a file, so the test held the fabrication in place rather than catching it.
+    //
+    // There is no OCR in this codebase. Images are rejected at upload until that changes.
+    [Theory]
+    [InlineData("scanned_cv.png", "image/png")]
+    [InlineData("scanned_cv.jpg", "image/jpeg")]
+    [InlineData("scanned_cv.jpeg", "image/jpeg")]
+    public async Task UploadResume_ImageFormats_AreRejectedBecauseThereIsNoOcr(
+        string fileName, string mediaType)
     {
-        var (_, appId) = await _scenario.ApplicationAsync("Resume Test PNG");
+        var (_, appId) = await _scenario.ApplicationAsync($"Resume Test {fileName}");
         var client = Recruiter();
 
         byte[] pngBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }; // PNG header
 
         using var content = new MultipartFormDataContent();
         var fileContent = new ByteArrayContent(pngBytes);
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-        content.Add(fileContent, "file", "scanned_cv.png");
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+        content.Add(fileContent, "file", fileName);
 
         var response = await client.PostAsync($"/api/applications/{appId}/resume", content);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<ResumeExtractionResultDto>();
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-        Assert.NotNull(result);
-        Assert.Equal(appId, result.ApplicationId);
-        Assert.Equal("scanned_cv.png", result.FileName);
-        Assert.NotNull(result.ExtractedText);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.NotNull(problem);
+        // The message must say WHY, not just that the format is unsupported. "PNG is not
+        // supported" invites the recruiter to re-save the photo as a PDF, which lands in the
+        // identical empty-text path and wastes the trip.
+        Assert.Contains("text recognition is not enabled", problem.Detail);
+        Assert.Contains("PDF", problem.Detail);
+    }
+
+    [Fact]
+    public async Task UploadResume_TextPdfAndDocx_AreStillAccepted()
+    {
+        // The guard rejects images; it must not have narrowed the formats that do work.
+        var (_, appId) = await _scenario.ApplicationAsync("Resume Test DOCX still ok");
+        var client = Recruiter();
+
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(
+            System.Text.Encoding.UTF8.GetBytes("Aung Aung aung@example.com 09765432100"));
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        content.Add(fileContent, "file", "cv.pdf");
+
+        var response = await client.PostAsync($"/api/applications/{appId}/resume", content);
+
+        Assert.NotEqual(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

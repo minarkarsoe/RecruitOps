@@ -101,11 +101,32 @@ describe('BulkCvUploadModal Empirical Stress & Edge Case Harness', () => {
       fireEvent.change(input, { target: { files: [validFile, hugeFile, invalidExt] } });
 
       await waitFor(() => {
-        expect(screen.getByText('Some files were ignored (exceeds 10MB or unsupported format).')).toBeInTheDocument();
+        expect(
+          screen.getByText('Some files were ignored (over 10MB, or not a PDF or Word document).')
+        ).toBeInTheDocument();
         expect(screen.getByText('good_cv.pdf')).toBeInTheDocument();
         expect(screen.queryByText('huge_cv.pdf')).not.toBeInTheDocument();
         expect(screen.queryByText('malicious.exe')).not.toBeInTheDocument();
         expect(screen.getByText(/Selected Files \(1 \/ 50\)/i)).toBeInTheDocument();
+      });
+    });
+
+    // Added 2026-08-29 alongside dropping .png/.jpg/.jpeg. There is no OCR in this build: an
+    // uploaded photo used to be accepted, turned into a fabricated "Image Document: …" string,
+    // and imported as a nameless candidate that search could never find.
+    it('rejects photos with a reason, not just an unsupported-format warning', async () => {
+      render(<BulkCvUploadModal jobPostingId="job-1" isOpen={true} onClose={vi.fn()} />);
+
+      const photo = new File(['jpegbytes'], 'cv_photo.jpg', { type: 'image/jpeg' });
+      const input = screen.getByLabelText(/Click to select up to 50 CV files/i);
+      fireEvent.change(input, { target: { files: [photo] } });
+
+      await waitFor(() => {
+        // The distinction that matters: a generic "unsupported format" reads as a file-type
+        // quibble and sends the recruiter off to re-save the photo as a PDF — which lands in the
+        // identical empty-text path and wastes the trip. The message has to say it cannot be read.
+        expect(screen.getByText(/text recognition is not enabled/i)).toBeInTheDocument();
+        expect(screen.queryByText('cv_photo.jpg')).not.toBeInTheDocument();
       });
     });
   });

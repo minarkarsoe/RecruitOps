@@ -7,7 +7,7 @@ had drifted in **both** directions at once.
 |---|---|
 | 2.1 · 2.2 · 2.7 | ✅ built |
 | 2.6 search | ✅ built — `SearchService` + `pg_trgm`. This line used to say "not started" |
-| 2.3 upload | 🚧 **PDF/DOCX text only. There is no OCR** — images and scanned PDFs return a metadata placeholder, not text |
+| 2.3 upload | ⏸ **PDF/DOCX text only. There is no OCR** — paused by the product owner 2026-08-29. Images are rejected at upload; a scanned PDF is marked `Skipped` with a reason rather than imported as a blank candidate. The spec text below still describes the intended feature |
 | 2.4 Smart Match | 🚧 **API works; no UI reaches it.** `SmartMatchBreakdown` has zero production importers, so it is absent from the bundle |
 | 2.5 pipeline | 🚧 **list only.** The Kanban board and the 360° candidate view are both written and both orphaned |
 **Priority:** Core — this is the product's daily-use surface.
@@ -64,6 +64,13 @@ earliest start date). Submissions land **directly in the Talent Pipeline**.
 Upload externally-sourced CVs — **PDF, Word, JPG, PNG** — one at a time or in **bulk
 up to 50 files**. OCR reads the documents and **auto-builds candidate profiles**.
 After upload, a pop-up summarises each file as **Success / Skipped / Canceled**.
+
+> ⏸ **Built as: PDF and Word only** (paused 2026-08-29, product owner). JPG/PNG are rejected at
+> upload and a scanned PDF is reported `Skipped`, because there is no OCR engine in the build —
+> shipping it as "supported" imported photographed CVs as nameless, unsearchable candidates.
+> The paragraph above is the **target**, not the current state. Reaching it needs an OCR engine
+> with Burmese support or a vision-model call; both are new dependencies, decision open.
+> This matters more here than the spec implies: in this market a CV is often a phone photo.
 
 ### 2.4 AI-Powered Candidate Matching (Smart Match)
 When a new vacancy is created, the system reads the JD requirements, compares against

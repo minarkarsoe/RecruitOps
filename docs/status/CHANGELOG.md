@@ -8,6 +8,48 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### ⏸ OCR paused — an image is now refused, instead of silently becoming a blank candidate
+
+Product owner's call: pause it, decide build-vs-buy later. "Pause" cannot mean *leave it as it
+was* — as it was, the feature **claimed to work**. `.png` / `.jpg` were accepted, the extractor
+returned a fabricated `Image Document: cv.png | Dimensions: 800x600 | …` string, and the worker
+built a candidate out of it: no name, no email, no phone, a searchable resume text that described
+the file rather than the person, and a **Success** badge. So pausing meant making the failure
+visible.
+
+**Both upload paths now take PDF and DOCX only.** The rejection says *why* — deliberately, because
+"PNG is not supported" reads as a file-type quibble and sends the recruiter off to re-save the
+photo as a PDF, which lands in the identical empty-text path and wastes the trip.
+
+**A scanned PDF is the case that cannot be caught at upload** — it is indistinguishable from a
+text PDF until parsed. It is now **`Skipped`**, not Failed: nothing went wrong, and re-uploading
+the same bytes would behave identically, so "Failed — try again" would be a lie. That required a
+fourth outcome in `BulkResumeWorker`, whose comment had asserted the opposite:
+
+> *"Three outcomes, not four … A CV is never correctly left unprocessed — the reasons a file is
+> not turned into a candidate are all failures."*
+
+True until there was a file we correctly could not read. `BulkFileStatus.Skipped` — carrying the
+comment *"Nothing produces it today"* since it was written — finally has a producer, and the DTO
+already counted it, so the status screen needed no change.
+
+The extractor's image path returns **empty** rather than a placeholder, and
+`IDocumentTextExtractor` now documents the rule that makes that safe: **empty means "not read",
+never "read, found nothing"** — with a note not to reintroduce a placeholder, because a
+plausible-looking string is worse than an empty one, being undetectable.
+
+Skipped files **keep their bytes** (unlike Failed, which are deleted): a real person sent that CV,
+the recruiter is told it was kept, and enabling OCR later should be able to read it.
+
+9 new tests. Three mutations, each killed: removing the empty-text guard (4 tests), re-allowing
+images on the API (3), re-allowing them in the upload modal (1). The old PNG test had asserted
+`Assert.NotNull(result.ExtractedText)` — which cannot tell a CV from a description of a file, and
+so had held the fabrication in place rather than catching it. **Backend 670 → 678, frontend
+456 → 457.**
+
+> Not fixed, by decision: real OCR. Tesseract + Burmese traineddata, or a vision-model call —
+> either is a new dependency, and CLAUDE.md says ask first.
+
 ### 📋 Status docs corrected — and a second thing that was never built at all
 
 Asked to fix the AI status after the audit found no AI endpoint reachable from the SPA. Doing it

@@ -453,4 +453,110 @@ public class BulkResumeWorkerTests
         Assert.Equal(PipelineStatus.Sourced, history.ToStatus);
         Assert.Null(history.FromStatus);
     }
+
+    // ── A scanned PDF, with no OCR in this build (2026-08-29) ────────────────────────────
+    //
+    // Images are rejected at upload, but a scan is a PDF and cannot be told apart from a text
+    // one until its stream comes back empty. Before this, the extractor answered that case with
+    // a fabricated "Image Document: … | Dimensions: …" string, and the worker built a candidate
+    // out of it: no name, no email, no phone, and a searchable resume text that was a
+    // description of the file. It was reported to the recruiter as Success.
+
+    private static DocumentExtractionResult NoTextFound() =>
+        new(
+            ExtractedText: string.Empty,
+            OriginalText: string.Empty,
+            DetectedLanguage: "en",
+            IsZawgyiNormalized: false,
+            ParsedContactInfo: new ParsedContactInfoDto(null, null, null, null, []));
+
+    [Fact]
+    public async Task A_File_With_No_Extractable_Text_Is_Skipped_Not_Failed()
+    {
+        var fixture = BuildFixture();
+        fixture.Extractor.Behaviour = _ => NoTextFound();
+        Seed(fixture, Guid.NewGuid(), fileNames: "scan.pdf");
+
+        await fixture.Worker.RunOnceAsync();
+
+        var file = fixture.Files().Single();
+        // Skipped, not Failed: nothing went wrong and re-uploading the same bytes would behave
+        // identically, so telling the recruiter to try again would be a lie.
+        Assert.Equal(BulkFileStatus.Skipped, file.Status);
+        Assert.NotNull(file.CompletedAt);
+        // And the reason has to explain, since the recruiter can see it.
+        Assert.Contains("text recognition is not enabled", file.LastError);
+    }
+
+    [Fact]
+    public async Task A_Skipped_File_Creates_No_Candidate_And_No_Application()
+    {
+        var fixture = BuildFixture();
+        fixture.Extractor.Behaviour = _ => NoTextFound();
+        Seed(fixture, Guid.NewGuid(), fileNames: "photo-of-cv.pdf");
+
+        await fixture.Worker.RunOnceAsync();
+
+        // The whole point. A blank candidate is worse than no candidate: it occupies the
+        // recruiter's pipeline, it deduplicates against nothing, and its resume text was
+        // previously indexed by trigram search as "Image Document: …".
+        Assert.Empty(fixture.Candidates());
+        Assert.Empty(fixture.Applications());
+        Assert.Empty(fixture.History());
+    }
+
+    [Fact]
+    public async Task A_Skipped_File_Is_Not_Retried()
+    {
+        var fixture = BuildFixture();
+        fixture.Extractor.Behaviour = _ => NoTextFound();
+        Seed(fixture, Guid.NewGuid(), fileNames: "scan.pdf");
+
+        await fixture.Worker.RunOnceAsync();
+        var callsAfterFirst = fixture.Extractor.Calls;
+
+        fixture.Clock.Advance(TimeSpan.FromHours(6));
+        await fixture.Worker.RunOnceAsync();
+
+        // Terminal. Backing a no-OCR file off and re-reading it every few minutes would burn the
+        // queue on a file whose answer cannot change.
+        Assert.Equal(callsAfterFirst, fixture.Extractor.Calls);
+        Assert.Equal(BulkFileStatus.Skipped, fixture.Files().Single().Status);
+    }
+
+    [Fact]
+    public async Task A_Skipped_File_Keeps_Its_Bytes()
+    {
+        var fixture = BuildFixture();
+        fixture.Extractor.Behaviour = _ => NoTextFound();
+        Seed(fixture, Guid.NewGuid(), fileNames: "scan.pdf");
+
+        var key = fixture.Files().Single().StorageKey;
+        Assert.False(string.IsNullOrWhiteSpace(key));
+
+        await fixture.Worker.RunOnceAsync();
+
+        // Unlike a Failed file, whose bytes are deleted because it will never become an
+        // application. A skipped scan is a CV a real person sent; it stays, both because the
+        // recruiter is told it was kept and because enabling OCR later should be able to read it.
+        Assert.NotNull(await fixture.Storage.DownloadAsync(key!));
+    }
+
+    [Fact]
+    public async Task One_Skipped_File_Does_Not_Stop_The_Rest_Of_The_Batch()
+    {
+        var fixture = BuildFixture();
+        fixture.Extractor.Behaviour = fileName =>
+            fileName == "scan.pdf" ? NoTextFound() : FakeExtractor.Result(fileName, $"{fileName}@example.test", null);
+
+        Seed(fixture, Guid.NewGuid(), fileNames: new[] { "good-1.pdf", "scan.pdf", "good-2.pdf" });
+
+        await fixture.Worker.RunOnceAsync();
+
+        var files = fixture.Files();
+        Assert.Equal(BulkFileStatus.Success, files.Single(f => f.FileName == "good-1.pdf").Status);
+        Assert.Equal(BulkFileStatus.Skipped, files.Single(f => f.FileName == "scan.pdf").Status);
+        Assert.Equal(BulkFileStatus.Success, files.Single(f => f.FileName == "good-2.pdf").Status);
+        Assert.Equal(2, fixture.Applications().Count);
+    }
 }

@@ -106,7 +106,7 @@ describe('Candidate 360 SlideOver CV Viewer & Human Review Empirical Stress Test
 
       await waitFor(() => {
         expect(
-          screen.getByText(/Invalid file format. Allowed formats: PDF, DOCX, PNG, JPG, JPEG./i)
+          screen.getByText(/Allowed formats: PDF, DOCX\. Scans and photos cannot be read yet\./i)
         ).toBeInTheDocument();
         expect(resumeApi.uploadCandidateResume).not.toHaveBeenCalled();
       });

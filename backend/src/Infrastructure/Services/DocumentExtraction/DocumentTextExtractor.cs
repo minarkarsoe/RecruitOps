@@ -189,28 +189,35 @@ public class DocumentTextExtractor : IDocumentTextExtractor
         }
     }
 
+    /// <summary>Returns nothing, because there is no OCR in this codebase.
+    ///
+    /// <para>⚠️ <b>This method used to fabricate.</b> It read the PNG header and returned
+    /// <c>"Image Document: cv.png | Format: PNG | Dimensions: 800x600 | Size: 41213 bytes"</c> —
+    /// a string that is not in the document, dressed as extracted text. Nothing downstream could
+    /// tell it apart from a real CV, so: it was stored as
+    /// <c>JobApplication.ResumeExtractedText</c> and indexed by trigram search (a photographed
+    /// Burmese CV was unfindable, and searching <c>Image Document</c> returned every one of
+    /// them); contact parsing ran its regexes over it and found nothing, so a blank candidate was
+    /// created; and the file was reported to the recruiter as <b>Success</b>.</para>
+    ///
+    /// <para>Returning empty is the honest answer, and callers must treat it as "not processed"
+    /// rather than "processed, no text" — <see cref="Delivery.BulkResumeWorker"/> marks the file
+    /// <c>Skipped</c> with a reason. Both upload paths now reject images before reaching here, so
+    /// in practice this is only hit by a <b>scanned PDF</b>, which cannot be identified as one
+    /// until its text stream comes back empty.</para>
+    ///
+    /// <para>Restoring this path means adding real OCR — an engine plus Burmese training data, or
+    /// a vision model call. That is a new dependency and an open product decision (2026-08-29);
+    /// see <c>FEATURE-STATUS.md</c>. Until it is made, <b>do not</b> make this return a
+    /// placeholder again: a plausible-looking string is worse than an empty one, because only the
+    /// empty one is detectable.</para></summary>
     private async Task<string> ExtractFromImageOrScannedAsync(MemoryStream ms, string fileName, CancellationToken ct)
     {
         await Task.Yield();
-        string extension = Path.GetExtension(fileName).TrimStart('.').ToUpperInvariant();
-        if (string.IsNullOrEmpty(extension)) extension = "IMAGE";
-
-        int? width = null;
-        int? height = null;
-
-        byte[] bytes = ms.ToArray();
-        if (bytes.Length >= 24 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47)
-        {
-            width = (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
-            height = (bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23];
-        }
-
-        if (width.HasValue && height.HasValue)
-        {
-            return $"Image Document: {fileName} | Format: {extension} | Dimensions: {width}x{height} | Size: {ms.Length} bytes";
-        }
-
-        return $"Image Document: {fileName} | Format: {extension} | Size: {ms.Length} bytes";
+        _logger.LogInformation(
+            "No text could be extracted from {FileName}: it is an image or a scanned document and "
+            + "OCR is not enabled in this build.", fileName);
+        return string.Empty;
     }
 
     public static ParsedContactInfoDto ExtractContactInfo(string text)

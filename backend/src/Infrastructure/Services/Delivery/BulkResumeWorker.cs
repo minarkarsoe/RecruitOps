@@ -215,6 +215,25 @@ public sealed class BulkResumeWorker : BackgroundService
 
         var extraction = await extractor.ExtractTextAsync(buffer, file.FileName, file.ContentType, ct);
 
+        // No text means no CV — almost always a scanned PDF, which cannot be told apart from a
+        // text one until its stream comes back empty. There is no OCR in this build (2026-08-29),
+        // so this is terminal but NOT a failure: nothing went wrong and re-uploading the same file
+        // changes nothing. Skipping here is what stops the rest of this method from creating a
+        // candidate with no name, no email and no phone, and an application whose searchable
+        // resume text is blank.
+        if (string.IsNullOrWhiteSpace(extraction.ExtractedText))
+        {
+            _logger.LogInformation(
+                "CV {FileId} ({FileName}) yielded no text and was skipped; OCR is not enabled.",
+                file.Id, file.FileName);
+
+            return BulkFileOutcome.Skipped(
+                "No readable text was found in this file. It is most likely a scan or a photo — "
+                + "text recognition is not enabled on this installation, so it could not be read. "
+                + "The file is kept; re-upload it as a text PDF or a Word document to import it.",
+                clock.GetUtcNow());
+        }
+
         var parsed = extraction.ParsedContactInfo;
         var email = ContactNormalizer.Email(parsed?.Email);
         var phone = ContactNormalizer.Phone(parsed?.Phone);
@@ -370,6 +389,15 @@ public sealed class BulkResumeWorker : BackgroundService
                 file.CompletedAt = now;
                 break;
 
+            case BulkFileOutcomeKind.Skipped:
+                file.Status = BulkFileStatus.Skipped;
+                // Carried in LastError because that is the only field the status DTO surfaces per
+                // file, and the recruiter needs the reason more than the schema needs a tidy name.
+                // `Skipped` is not counted as a failure anywhere — see BulkResumeService's counts.
+                file.LastError = outcome.Error;
+                file.CompletedAt = outcome.CompletedAt ?? now;
+                break;
+
             case BulkFileOutcomeKind.Retry:
                 file.LastError = outcome.Error;
                 if (file.Attempts >= _options.MaxAttempts)
@@ -427,8 +455,16 @@ public sealed class BulkResumeWorker : BackgroundService
 }
 
 /// <summary>What happened to one CV.
-/// <para>Three outcomes, not four: there is no "Suppressed" here. A CV is never correctly left
-/// unprocessed — the reasons a file is not turned into a candidate are all failures.</para></summary>
+///
+/// <para>⚠️ This said <i>"Three outcomes, not four … A CV is never correctly left unprocessed —
+/// the reasons a file is not turned into a candidate are all failures."</i> That stopped being
+/// true on <b>2026-08-29</b>. A scanned PDF, with OCR not built, is precisely a CV correctly left
+/// unprocessed: nothing failed, there is simply no text to read and no engine to read it with.
+/// Calling that <c>Failed</c> would tell the recruiter to re-upload a file that will behave
+/// identically every time.</para>
+///
+/// <para>So there are four, and <see cref="BulkFileStatus.Skipped"/> — whose own comment said
+/// "nothing produces it today" — finally has a producer.</para></summary>
 internal readonly record struct BulkFileOutcome
 {
     private BulkFileOutcome(
@@ -458,6 +494,12 @@ internal readonly record struct BulkFileOutcome
     /// because retrying is just a slower way to tell the recruiter to upload it again.</summary>
     public static BulkFileOutcome Failed(string error) =>
         new(BulkFileOutcomeKind.Failed, error, null, null, null);
+
+    /// <summary>Correctly not processed. Terminal like <see cref="Failed"/>, but not an error, and
+    /// it must not be rendered as one — the file is intact and the recruiter did nothing wrong.
+    /// <paramref name="reason"/> is shown to them, so it explains rather than blames.</summary>
+    public static BulkFileOutcome Skipped(string reason, DateTimeOffset at) =>
+        new(BulkFileOutcomeKind.Skipped, reason, null, null, at);
 }
 
 internal enum BulkFileOutcomeKind
@@ -465,4 +507,5 @@ internal enum BulkFileOutcomeKind
     Success,
     Retry,
     Failed,
+    Skipped,
 }

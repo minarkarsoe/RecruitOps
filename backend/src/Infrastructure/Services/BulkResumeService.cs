@@ -31,8 +31,20 @@ public class BulkResumeService : IBulkResumeService
     /// <para>Deliberately <b>not</b> configurable, unlike the size limit next to it. An operator
     /// who could add <c>.rtf</c> here would be enabling a format the extractor cannot parse, and
     /// every such file would fail three times before being given up on. The list is a fact about
-    /// the code, not a deployment preference.</para></summary>
-    private static readonly string[] AllowedExtensions = [".pdf", ".docx", ".png", ".jpg", ".jpeg"];
+    /// the code, not a deployment preference.</para>
+    ///
+    /// <para>⚠️ <c>.png</c>, <c>.jpg</c> and <c>.jpeg</c> were removed on <b>2026-08-29</b> — by
+    /// the rule above, which they had always broken. <b>There is no OCR in this codebase</b>: the
+    /// extractor's image path returned a fabricated <c>"Image Document: … | Dimensions: …"</c>
+    /// string, so an uploaded photo produced a blank candidate, poisoned the search index, and
+    /// still reported <b>Success</b>. Rejecting at upload is the honest failure — the recruiter
+    /// finds out while the file is in front of them, not never.</para>
+    ///
+    /// <para>Re-add these three <b>only</b> together with a working OCR path. Product decision is
+    /// open (2026-08-29); see <c>FEATURE-STATUS.md</c>. A scanned <b>PDF</b> still gets through
+    /// here — it is indistinguishable from a text PDF until parsed — and is marked <c>Skipped</c>
+    /// by <see cref="Delivery.BulkResumeWorker"/>.</para></summary>
+    private static readonly string[] AllowedExtensions = [".pdf", ".docx"];
 
     private readonly AppDbContext _db;
     private readonly IDepartmentAccess _access;
