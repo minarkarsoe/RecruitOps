@@ -147,56 +147,72 @@
     </div>
 
     <!-- ======================= BOARD ======================= -->
+      <!-- ⚠️ CARD TYPE RAISED ONE STEP, 2026-08-29, on the product owner's reading of the shipped
+           board: "the cards are too small to read".
+
+           This screen originally specified name `text-base` (14px), contact and cover note
+           `text-sm` (13px), chips `text-2xs` (11px), in 264px columns. The React board was
+           faithful to it — which is exactly why the fix could not live only in the code. Leaving
+           the kit at the old scale would have made `design/` and the app disagree, and the next
+           person to "correct" the app against the kit would have reverted the readability.
+
+           Now: name 16px semibold · contact and note 15px · chips 13px · columns 344px. The
+           column width is the governing number — 264px is what forced 13px type and the
+           truncation that came with it.
+
+           Scoped to the BOARD region only. The toolbar, nav rail and drawer are unchanged: the
+           complaint was about cards, and bumping a whole screen because one component was wrong
+           is how a type scale stops meaning anything. -->
     <div class="flex-1 min-h-0 flex">
       <div id="board" class="flex-1 min-w-0 overflow-x-auto board-scroll">
         <div class="flex gap-3 p-4 h-full items-stretch min-w-max">
 
           <!-- Sourced -->
-          <section class="board-col w-[264px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
+          <section class="board-col w-[344px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
             <header class="flex items-center gap-2 px-3 h-11 border-b border-line shrink-0">
               <span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>
-              <h2 class="text-sm font-semibold">Sourced</h2>
+              <h2 class="text-md font-semibold">Sourced</h2>
               <span class="ml-auto font-mono text-xs tnum text-ink-500">6</span>
             </header>
             <div class="p-2 space-y-2 overflow-y-auto">
               <article class="card-draggable rounded-md border border-line bg-white p-2.5 hover:border-line-strong transition-colors">
-                <p class="text-base font-medium leading-5">Daw Sandar Myint</p>
-                <p class="mt-0.5 text-sm text-ink-600">Credit analyst · 6 yrs</p>
+                <p class="text-lg font-semibold leading-snug">Daw Sandar Myint</p>
+                <p class="mt-0.5 text-md text-ink-600">Credit analyst · 6 yrs</p>
                 <div class="mt-2 flex items-center gap-1.5">
-                  <span class="inline-flex items-center h-5 px-2 rounded-full bg-canvas border border-line text-2xs text-ink-600">LinkedIn</span>
+                  <span class="inline-flex items-center h-5 px-2 rounded-full bg-canvas border border-line text-sm text-ink-600">LinkedIn</span>
                 </div>
               </article>
               <article class="card-draggable rounded-md border border-line bg-white p-2.5 hover:border-line-strong transition-colors">
-                <p class="text-base font-medium leading-5">U Zaw Lin Htet</p>
-                <p class="mt-0.5 text-sm text-ink-600">Risk officer · 4 yrs</p>
+                <p class="text-lg font-semibold leading-snug">U Zaw Lin Htet</p>
+                <p class="mt-0.5 text-md text-ink-600">Risk officer · 4 yrs</p>
                 <div class="mt-2 flex items-center gap-1.5">
-                  <span class="inline-flex items-center h-5 px-2 rounded-full bg-canvas border border-line text-2xs text-ink-600">Referral</span>
+                  <span class="inline-flex items-center h-5 px-2 rounded-full bg-canvas border border-line text-sm text-ink-600">Referral</span>
                 </div>
               </article>
             </div>
           </section>
 
           <!-- Applied -->
-          <section class="board-col w-[264px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
+          <section class="board-col w-[344px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
             <header class="flex items-center gap-2 px-3 h-11 border-b border-line shrink-0">
               <span class="w-1.5 h-1.5 rounded-full bg-info-500"></span>
-              <h2 class="text-sm font-semibold">Applied</h2>
+              <h2 class="text-md font-semibold">Applied</h2>
               <span class="ml-auto font-mono text-xs tnum text-ink-500">14</span>
             </header>
             <div class="p-2 space-y-2 overflow-y-auto">
               <article class="card-draggable rounded-md border border-line bg-white p-2.5 hover:border-line-strong transition-colors">
-                <p class="text-base font-medium leading-5">Ma Thiri Aung</p>
-                <p class="mt-0.5 text-sm text-ink-600">Credit analyst · 8 yrs</p>
+                <p class="text-lg font-semibold leading-snug">Ma Thiri Aung</p>
+                <p class="mt-0.5 text-md text-ink-600">Credit analyst · 8 yrs</p>
                 <div class="mt-2 flex items-center gap-1.5 flex-wrap">
-                  <span class="inline-flex items-center h-5 px-2 rounded-full bg-info-50 text-info-700 text-2xs font-medium">CV parsed</span>
+                  <span class="inline-flex items-center h-5 px-2 rounded-full bg-info-50 text-info-700 text-sm font-medium">CV parsed</span>
                   <!-- Burmese needs a taller line box than the 20px English chip, or the
                        diacritics clip. Any chip that can hold Burmese gets .mm and h-6. -->
-                  <span class="mm inline-flex items-center h-6 px-2 rounded-full bg-canvas border border-line text-2xs text-ink-600">မြန်မာ</span>
+                  <span class="mm inline-flex items-center h-6 px-2 rounded-full bg-canvas border border-line text-sm text-ink-600">မြန်မာ</span>
                 </div>
               </article>
               <article class="card-draggable rounded-md border border-line bg-white p-2.5 hover:border-line-strong transition-colors">
-                <p class="text-base font-medium leading-5">U Myo Set Paing</p>
-                <p class="mt-0.5 text-sm text-ink-600">Analyst · 3 yrs</p>
+                <p class="text-lg font-semibold leading-snug">U Myo Set Paing</p>
+                <p class="mt-0.5 text-md text-ink-600">Analyst · 3 yrs</p>
                 <div class="mt-2 flex items-center gap-1.5">
                   <span class="inline-flex items-center h-5 px-2 rounded-full bg-warn-50 text-warn-700 text-2xs font-medium">Possible duplicate</span>
                 </div>
@@ -209,53 +225,53 @@
           </section>
 
           <!-- Screening -->
-          <section class="board-col w-[264px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
+          <section class="board-col w-[344px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
             <header class="flex items-center gap-2 px-3 h-11 border-b border-line shrink-0">
               <span class="w-1.5 h-1.5 rounded-full bg-info-500"></span>
-              <h2 class="text-sm font-semibold">Screening</h2>
+              <h2 class="text-md font-semibold">Screening</h2>
               <span class="ml-auto font-mono text-xs tnum text-ink-500">5</span>
             </header>
             <div class="p-2 space-y-2 overflow-y-auto">
               <article class="card-draggable rounded-md border border-line bg-white p-2.5 hover:border-line-strong transition-colors">
-                <p class="text-base font-medium leading-5">Daw Nway Nway Oo</p>
-                <p class="mt-0.5 text-sm text-ink-600">Senior analyst · 9 yrs</p>
+                <p class="text-lg font-semibold leading-snug">Daw Nway Nway Oo</p>
+                <p class="mt-0.5 text-md text-ink-600">Senior analyst · 9 yrs</p>
               </article>
             </div>
           </section>
 
           <!-- Shortlisted — selected column -->
-          <section class="board-col w-[264px] shrink-0 rounded-lg bg-white border border-brand-200 ring-1 ring-brand-700/10 flex flex-col">
+          <section class="board-col w-[344px] shrink-0 rounded-lg bg-white border border-brand-200 ring-1 ring-brand-700/10 flex flex-col">
             <header class="flex items-center gap-2 px-3 h-11 border-b border-line shrink-0">
               <span class="w-1.5 h-1.5 rounded-full bg-brand-700"></span>
-              <h2 class="text-sm font-semibold">Shortlisted</h2>
+              <h2 class="text-md font-semibold">Shortlisted</h2>
               <span class="ml-auto font-mono text-xs tnum text-ink-500">3</span>
             </header>
             <div class="p-2 space-y-2 overflow-y-auto">
               <article class="card-draggable rounded-md border-2 border-brand-700 bg-white p-2.5 shadow-sm">
-                <p class="text-base font-medium leading-5">Ma Ei Thandar Kyaw</p>
-                <p class="mt-0.5 text-sm text-ink-600">Credit analyst · 7 yrs</p>
+                <p class="text-lg font-semibold leading-snug">Ma Ei Thandar Kyaw</p>
+                <p class="mt-0.5 text-md text-ink-600">Credit analyst · 7 yrs</p>
                 <div class="mt-2 flex items-center gap-1.5">
                   <span class="inline-flex items-center h-5 px-2 rounded-full bg-brand-50 text-brand-800 text-2xs font-medium">Panel set</span>
                 </div>
               </article>
               <article class="card-draggable rounded-md border border-line bg-white p-2.5 hover:border-line-strong transition-colors">
-                <p class="text-base font-medium leading-5">U Aung Kaung Myat</p>
-                <p class="mt-0.5 text-sm text-ink-600">Analyst · 5 yrs</p>
+                <p class="text-lg font-semibold leading-snug">U Aung Kaung Myat</p>
+                <p class="mt-0.5 text-md text-ink-600">Analyst · 5 yrs</p>
               </article>
             </div>
           </section>
 
           <!-- Interview -->
-          <section class="board-col w-[264px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
+          <section class="board-col w-[344px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
             <header class="flex items-center gap-2 px-3 h-11 border-b border-line shrink-0">
               <span class="w-1.5 h-1.5 rounded-full bg-warn-500"></span>
-              <h2 class="text-sm font-semibold">Interview</h2>
+              <h2 class="text-md font-semibold">Interview</h2>
               <span class="ml-auto font-mono text-xs tnum text-ink-500">2</span>
             </header>
             <div class="p-2 space-y-2 overflow-y-auto">
               <article class="card-draggable rounded-md border border-line bg-white p-2.5 hover:border-line-strong transition-colors">
-                <p class="text-base font-medium leading-5">Daw Hnin Wai Phyo</p>
-                <p class="mt-0.5 text-sm text-ink-600">Round 2 · 19 Aug</p>
+                <p class="text-lg font-semibold leading-snug">Daw Hnin Wai Phyo</p>
+                <p class="mt-0.5 text-md text-ink-600">Round 2 · 19 Aug</p>
                 <div class="mt-2 flex items-center gap-1.5">
                   <span class="inline-flex items-center h-5 px-2 rounded-full bg-warn-50 text-warn-700 text-2xs font-medium">2 scorecards due</span>
                 </div>
@@ -264,29 +280,29 @@
           </section>
 
           <!-- Offer -->
-          <section class="board-col w-[264px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
+          <section class="board-col w-[344px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
             <header class="flex items-center gap-2 px-3 h-11 border-b border-line shrink-0">
               <span class="w-1.5 h-1.5 rounded-full bg-warn-500"></span>
-              <h2 class="text-sm font-semibold">Offer</h2>
+              <h2 class="text-md font-semibold">Offer</h2>
               <span class="ml-auto font-mono text-xs tnum text-ink-500">1</span>
             </header>
             <div class="p-2 space-y-2 overflow-y-auto">
               <article class="card-draggable rounded-md border border-line bg-white p-2.5 hover:border-line-strong transition-colors">
-                <p class="text-base font-medium leading-5">U Kyaw Swar Lin</p>
-                <p class="mt-0.5 text-sm text-ink-600">Sent 16 Aug</p>
+                <p class="text-lg font-semibold leading-snug">U Kyaw Swar Lin</p>
+                <p class="mt-0.5 text-md text-ink-600">Sent 16 Aug</p>
               </article>
             </div>
           </section>
 
           <!-- Hired — empty state that teaches -->
-          <section class="board-col w-[264px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
+          <section class="board-col w-[344px] shrink-0 rounded-lg bg-white border border-line flex flex-col">
             <header class="flex items-center gap-2 px-3 h-11 border-b border-line shrink-0">
               <span class="w-1.5 h-1.5 rounded-full bg-positive-500"></span>
-              <h2 class="text-sm font-semibold">Hired</h2>
+              <h2 class="text-md font-semibold">Hired</h2>
               <span class="ml-auto font-mono text-xs tnum text-ink-500">0</span>
             </header>
             <div class="p-4">
-              <p class="text-sm text-ink-600">
+              <p class="text-md text-ink-600">
                 Nobody yet. Moving a candidate here is <span class="font-medium text-ink-900">final</span> —
                 it closes the requisition and feeds time-to-hire.
               </p>
