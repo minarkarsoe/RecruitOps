@@ -45,18 +45,30 @@ does. **Before building or changing any screen, open the matching file in `desig
 `design/public/` and build against it.** Do not invent a layout when one is already drawn; if the
 screen you need is not there, say so rather than improvising a twenty-sixth style.
 
-- `design/internal/index.html` indexes all 26 screens.
+- `design/internal/index.html` indexes the **21 internal screens** (plus the component sheet).
+  `design/public/` holds 4 more — `jobs`, `job`, `apply`, `offer-portal`. Counted 2026-08-29;
+  this line said "26 screens", which is the total HTML file count across both folders, not what
+  the internal index lists.
 - `design/internal/components.html` is the component sheet — buttons, inputs, pills, tables, empty
   and loading states.
 - `design/internal/ds.js` holds the **V1.0 tokens** (ADR-0025) and `ds.css` the few things
   utilities cannot express (the approval-chain rail, Burmese line-height, focus ring, skeletons).
 
-⚠️ **The design kit and the running apps do not yet share a token vocabulary, and this is not
-cosmetic drift — the class names differ.** The kit uses `brand-*`, `ink-*`, `canvas`, `line`,
-`positive/warn/critical`; `packages/ui/tailwind-preset.js` still ships "Clear Pipeline" —
-`primary-*`, `surface-*`, `line-200`, `success/warning/danger/accent`. A screen copied from the
-kit renders **unstyled**, not merely off-brand. **ADR-0025 step 3 is the prerequisite** for this
-rule to mean anything; until it lands, translating by hand is how the two systems drift for good.
+✅ **The kit and the apps now share one token vocabulary — copy from the kit directly.**
+`brand-*`, `ink-*`, `canvas`, `line`, `positive/warn/critical` all resolve in
+`packages/ui/tailwind-preset.js`. ADR-0025 step 3 landed 2026-08-27.
+
+> **This section said the opposite until 2026-08-29**, warning that a screen copied from the kit
+> "renders **unstyled**, not merely off-brand" and that step 3 was still the prerequisite. It had
+> been false for two days. Re-measured 2026-08-29: every legacy class in the whole SPA —
+> `bg-primary-*`, `text-surface-*`, `success/warning/danger/accent` — is **38 usages across
+> exactly 3 files**, all inside the two orphan folders the product owner parked
+> (`features/interviews/`, `features/requisitions/`). **Live code: zero.**
+>
+> Left as a record, because this is the second warning in this file to outlive its truth (see the
+> LSP warm-up note below). Both were undated absolutes about tooling, and both cost work before
+> anyone tested them. **When a ⚠️ here contradicts what you can measure in thirty seconds, measure
+> — then fix this file in the same change.**
 
 ## Stack
 
