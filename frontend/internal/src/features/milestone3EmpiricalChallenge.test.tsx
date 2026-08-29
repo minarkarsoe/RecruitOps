@@ -115,7 +115,7 @@ describe('Milestone 3 Empirical Challenge Suite', () => {
       expect(screen.getByRole('button', { name: /Overview/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /CV Viewer/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Stage History/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Scorecards/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Interviews/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Notes & Debrief/i })).toBeInTheDocument();
     });
 
@@ -177,7 +177,7 @@ describe('Milestone 3 Empirical Challenge Suite', () => {
       expect(screen.getByText(/Recruiter Bob/)).toBeInTheDocument();
 
       // Tab 4: Scorecards
-      const scorecardsTab = screen.getByRole('button', { name: /Scorecards/i });
+      const scorecardsTab = screen.getByRole('button', { name: /Interviews/i });
       await user.click(scorecardsTab);
       expect(screen.getByText('Round 1')).toBeInTheDocument();
       expect(screen.getByText(/Jane Staff Eng, Dave Tech Lead/)).toBeInTheDocument();

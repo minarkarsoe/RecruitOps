@@ -71,7 +71,7 @@ describe('Empirical Stress Testing Suite (Milestone 3 Retry 2)', () => {
       expect(screen.getByText('No stage history recorded yet.')).toBeInTheDocument();
 
       // Switch to Scorecards tab button
-      await user.click(screen.getByRole('button', { name: /Scorecards/i }));
+      await user.click(screen.getByRole('button', { name: /Interviews/i }));
       expect(screen.getByText('No interview rounds scheduled yet.')).toBeInTheDocument();
     });
 

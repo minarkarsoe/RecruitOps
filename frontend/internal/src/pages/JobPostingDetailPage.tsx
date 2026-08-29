@@ -2,61 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button, Card, StatusPill } from '@recruitops/ui';
 import type {
-  JobPostingDetail, PipelineItem, PipelineStatus, UpdateJobPostingRequest,
+  JobPostingDetail, PipelineItem, PipelineStatus, StageHistoryItem, UpdateJobPostingRequest,
 } from '@recruitops/types';
-import { parseFormFields } from '@recruitops/types';
 import { api } from '../lib/api';
 import { auth, hasPermission } from '../lib/auth';
 import { FormFieldBuilder } from '../components/FormFieldBuilder';
 import { ApplicationDebrief } from '../components/ApplicationDebrief';
 import { BulkCvUploadModal } from '../features/pipeline/BulkCvUploadModal';
-
-/**
- * Answers to the posting's custom questions (Module 2.2).
- *
- * Labels are looked up in the CURRENT schema. If a question was deleted after someone
- * applied, their answer is still shown — under its raw key rather than a label. Dropping it
- * would be tidier and would also quietly misrepresent what the candidate actually told us.
- */
-function CustomAnswers({
-  answersJson, schemaJson,
-}: {
-  answersJson: string | null;
-  schemaJson: string | null;
-}) {
-  if (!answersJson) return null;
-
-  let answers: Record<string, unknown>;
-  try {
-    answers = JSON.parse(answersJson) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-
-  const entries = Object.entries(answers);
-  if (entries.length === 0) return null;
-
-  const labels = new Map(parseFormFields(schemaJson).map((f) => [f.key, f.label]));
-
-  return (
-    <dl className="mt-2 grid max-w-[52ch] grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-sm">
-      {entries.map(([key, value]) => (
-        <div key={key} className="contents">
-          <dt className="text-ink-400">{labels.get(key) ?? key}</dt>
-          <dd className="text-ink-600">
-            {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-/** The order candidates actually move through. Sourced first because a recruiter can add
- *  someone who never applied; Hired/Rejected last because they are terminal. */
-const STAGES: PipelineStatus[] = [
-  'Sourced', 'Applied', 'Screening', 'Shortlisted', 'Interview', 'Offer', 'Hired', 'Rejected',
-];
+import { PipelineKanbanBoard } from '../features/pipeline/PipelineKanbanBoard';
+import { CandidateSlideOver } from '../features/pipeline/CandidateSlideOver';
 
 export function JobPostingDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -67,11 +21,35 @@ export function JobPostingDetailPage() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<UpdateJobPostingRequest | null>(null);
   const session = auth.get();
-  // Which pipeline rows have their interview panel open. A set rather than a single id:
-  // comparing two candidates' rounds side by side is the normal thing to want, and an
-  // accordion that closes the other one makes that impossible.
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+
+  // ── The board's selection, added 2026-08-29 when the kanban was wired ──────────────────
+  //
+  // `design/internal/board.html`: "Detail opens beside the board rather than replacing it, so
+  // the recruiter never loses their place in the pipeline." One id, not a set — a drawer beside
+  // the board is inherently one-at-a-time, and the previous row-expander's set existed to allow
+  // comparing two candidates' rounds, which the board does better by keeping both cards visible.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [stageHistory, setStageHistory] = useState<StageHistoryItem[]>([]);
+  const [boardSearch, setBoardSearch] = useState('');
+
+  const selected = pipeline.find((p) => p.id === selectedId) ?? null;
+
+  // History is per candidate, so it is fetched on selection rather than with the board — forty
+  // cards would otherwise mean forty requests before anyone has clicked anything. Failure is
+  // deliberately quiet: an empty Stage History tab is a worse outcome than an error banner over
+  // a drawer the recruiter opened to read something else.
+  useEffect(() => {
+    if (!selectedId) {
+      setStageHistory([]);
+      return;
+    }
+    let cancelled = false;
+    api<StageHistoryItem[]>(`/applications/${selectedId}/history`)
+      .then((h) => { if (!cancelled) setStageHistory(h); })
+      .catch(() => { if (!cancelled) setStageHistory([]); });
+    return () => { cancelled = true; };
+  }, [selectedId]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -326,87 +304,57 @@ export function JobPostingDetailPage() {
           </div>
 
 
-          {pipeline.length === 0 ? (
-            <p className="text-md text-ink-600">No applications yet.</p>
-          ) : (
-            <ul className="divide-y divide-line">
-              {pipeline.map((item) => {
-                const terminal = item.status === 'Hired' || item.status === 'Rejected';
-                const open = expanded.has(item.id);
-                return (
-                  <li key={item.id} className="py-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-semibold">{item.candidateName}</p>
-                      <p className="text-sm text-ink-600">
-                        {item.email ?? item.phone} · applied{' '}
-                        {new Date(item.appliedAt).toLocaleDateString()}
-                      </p>
-                      {/* Answers to the posting's custom questions. Labels come from the
-                          CURRENT schema, so a question deleted after this person applied
-                          shows as its raw key rather than silently disappearing — the
-                          answer was really given and hiding it would misrepresent them. */}
-                      <CustomAnswers
-                        answersJson={item.customFieldsJson}
-                        schemaJson={posting.applicationFormFieldsJson}
-                      />
-                      {item.coverNote && (
-                        <p className="mt-1 max-w-[52ch] rounded-md bg-canvas p-2 text-sm italic text-ink-600">
-                          {item.coverNote}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <StatusPill status={item.status} />
-                      {/* Terminal stages have no dropdown at all: the API refuses the move,
-                          and offering it would only produce a confusing error. */}
-                      {!terminal && hasPermission(session, 'permission:applications:applications:move_stage') && (
-                        <select
-                          className="h-8 rounded-md border border-line px-2 text-sm"
-                          value=""
-                          disabled={busy}
-                          onChange={(e) => e.target.value && moveStage(item.id, e.target.value as PipelineStatus)}
-                        >
-                          <option value="">Move to…</option>
-                          {STAGES.filter((s) => s !== item.status).map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                      )}
-                      {/* Offered on every row, terminal ones included: a hired candidate's
-                          interview record is exactly what someone comes back to read. */}
-                      <button
-                        type="button"
-                        aria-expanded={open}
-                        className="h-8 rounded-md border border-line px-2 text-sm font-semibold text-brand-700 hover:bg-canvas"
-                        onClick={() => setExpanded((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(item.id)) next.delete(item.id);
-                          else next.add(item.id);
-                          return next;
-                        })}
-                      >
-                        {open ? 'Hide interviews' : 'Interviews'}
-                      </button>
-                    </div>
-                    </div>
+          {/* The kanban from `design/internal/board.html`, wired 2026-08-29. It replaces a flat
+              list with a "Move to…" select per row — which worked, but made the one question the
+              screen exists to answer ("where is everyone?") something you had to reconstruct by
+              reading. The board answers it by shape.
 
-                    {/* Mounted only while open, so a board of forty candidates does not fire
-                        forty interview requests on load. Scheduling moves the stage, so a
-                        change here has to reload the board, not just this row. */}
-                    {open && (
-                      <ApplicationDebrief
-                        applicationId={item.id}
-                        onChanged={() => { load().catch(() => { /* surfaced by the row */ }); }}
-                      />
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+              `onMoveStage` is passed only with the permission, so a hiring manager gets a
+              read-only board rather than controls that 403. Terminal stages are the board's own
+              rule (the API refuses the move, so offering it would only produce an error). */}
+          <PipelineKanbanBoard
+            postingId={id}
+            items={pipeline}
+            applicationFormFieldsJson={posting.applicationFormFieldsJson}
+            isLoading={false}
+            isMoving={busy}
+            searchQuery={boardSearch}
+            onSearchQueryChange={setBoardSearch}
+            onSelectCandidate={setSelectedId}
+            onMoveStage={
+              hasPermission(session, 'permission:applications:applications:move_stage')
+                ? moveStage
+                : undefined
+            }
+          />
         </Card>
       </div>
+
+      {/* The board's detail drawer. `interviewsSlot` is the load-bearing prop: the drawer's own
+          Interviews tab can only *list* rounds, while `ApplicationDebrief` is what schedules,
+          reschedules, edits a panel and cancels. Wiring the drawer without it would have looked
+          like a finished screen and silently removed interview scheduling from the pipeline —
+          the flow, not just a control. board.html puts "Schedule interview" in the drawer, so
+          this is also where the kit says it belongs.
+
+          Scheduling moves the stage, so `onChanged` reloads the whole board rather than one card. */}
+      <CandidateSlideOver
+        candidate={selected}
+        jobPostingId={id}
+        isOpen={selected !== null}
+        onClose={() => setSelectedId(null)}
+        stageHistory={stageHistory}
+        applicationFormFieldsJson={posting.applicationFormFieldsJson}
+        onProfileUpdated={() => { load().catch(() => {}); }}
+        interviewsSlot={
+          selected ? (
+            <ApplicationDebrief
+              applicationId={selected.id}
+              onChanged={() => { load().catch(() => { /* surfaced by the page banner */ }); }}
+            />
+          ) : undefined
+        }
+      />
 
       <BulkCvUploadModal
         jobPostingId={id ?? ''}

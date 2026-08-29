@@ -65,7 +65,16 @@ export interface PipelineKanbanBoardProps {
   items: PipelineItem[];
   applicationFormFieldsJson?: string | null;
   onMoveStage?: (applicationId: string, toStatus: PipelineStatus) => Promise<void>;
-  onSelectCandidate?: (candidateId: string) => void;
+  /**
+   * Receives the **application** id (`PipelineItem.id`), not the candidate id.
+   *
+   * It handed back `candidateId` until 2026-08-29, which nothing noticed while the board had no
+   * consumer. Everything a caller opens from a card is keyed by application — the detail drawer,
+   * `GET /applications/{id}/history`, and `ApplicationDebrief` — and a candidate who applied to
+   * two postings has one candidate id across both, so the candidate id cannot identify the row
+   * that was clicked.
+   */
+  onSelectCandidate?: (applicationId: string) => void;
   isLoading?: boolean;
   isMoving?: boolean;
   searchQuery?: string;
@@ -157,7 +166,7 @@ export function PipelineKanbanBoard({
                   stageItems.map((candidate) => (
                     <article
                       key={candidate.id}
-                      onClick={() => onSelectCandidate?.(candidate.candidateId || candidate.id)}
+                      onClick={() => onSelectCandidate?.(candidate.id)}
                       className="cursor-pointer rounded-md border border-line bg-white p-2.5 transition-colors hover:border-line-strong"
                     >
                       <p className="text-base font-medium leading-5">{candidate.candidateName}</p>

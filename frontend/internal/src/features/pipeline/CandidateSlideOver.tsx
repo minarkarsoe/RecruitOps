@@ -40,6 +40,16 @@ export interface CandidateSlideOverProps {
   initialTab?: string;
   className?: string;
   initialMatchAnalysis?: CandidateMatchAnalysis | null;
+  /**
+   * Replaces the built-in read-only interview list on the Interviews tab.
+   *
+   * This drawer can only *show* interview rounds; `ApplicationDebrief` is what schedules,
+   * reschedules, edits a panel and cancels. `design/internal/board.html` puts "Schedule
+   * interview" in the drawer, so when the drawer is opened from the pipeline board the page
+   * passes the real thing in here. Without the slot the drawer would look complete while
+   * quietly dropping scheduling out of the pipeline — the flow, not just a control.
+   */
+  interviewsSlot?: ReactNode;
 }
 
 // The drawer's section label, straight out of `design/internal/board.html`. This is the ONE
@@ -436,6 +446,7 @@ export function CandidateSlideOver({
   initialTab = 'overview',
   className = '',
   initialMatchAnalysis = null,
+  interviewsSlot,
 }: CandidateSlideOverProps) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [matchAnalysis, setMatchAnalysis] = useState<CandidateMatchAnalysis | null>(initialMatchAnalysis);
@@ -506,8 +517,12 @@ export function CandidateSlideOver({
                   <TabsTrigger value="history" count={stageHistory.length}>
                     Stage History
                   </TabsTrigger>
-                  <TabsTrigger value="scorecards" count={interviews.length}>
-                    Scorecards
+                  {/* "Interviews" is the kit's label (board.html), and it is the accurate one
+                      once this tab can schedule as well as show. The count is dropped when the
+                      slot is supplied, because the slot loads its own rounds and a stale zero
+                      beside a populated list is worse than no number. */}
+                  <TabsTrigger value="scorecards" count={interviewsSlot ? undefined : interviews.length}>
+                    Interviews
                   </TabsTrigger>
                   <TabsTrigger value="notes">Notes & Debrief</TabsTrigger>
                 </TabsList>
@@ -648,7 +663,7 @@ export function CandidateSlideOver({
               {/* Tab 4: Scorecard Summaries */}
               <TabsContent value="scorecards" className="space-y-4">
                 <SectionLabel>Interview Rounds &amp; Panel Scorecards</SectionLabel>
-                {interviews.length === 0 ? (
+                {interviewsSlot ?? (interviews.length === 0 ? (
                   <p className="text-sm text-ink-600">No interview rounds scheduled yet.</p>
                 ) : (
                   <div className="space-y-3">
@@ -684,7 +699,7 @@ export function CandidateSlideOver({
                       );
                     })}
                   </div>
-                )}
+                ))}
               </TabsContent>
 
               {/* Tab 5: Notes & Debrief */}

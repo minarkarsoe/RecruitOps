@@ -1,11 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderHook, act } from '@testing-library/react';
 import type { PipelineItem, StageHistoryItem } from '@recruitops/types';
 import { PipelineKanbanBoard } from './PipelineKanbanBoard';
 import { CandidateSlideOver } from './CandidateSlideOver';
-import { usePipeline } from './usePipeline';
 
 const { apiMock } = vi.hoisted(() => ({ apiMock: vi.fn() }));
 
@@ -69,7 +67,10 @@ describe('PipelineKanbanBoard', () => {
     render(<PipelineKanbanBoard items={mockPipelineItems} onSelectCandidate={onSelectCandidate} />);
 
     await user.click(screen.getByText('Alice Smith'));
-    expect(onSelectCandidate).toHaveBeenCalledWith('cand-1');
+    // The APPLICATION id, not the candidate id. A candidate who applied to two postings has one
+    // candidate id across both, so it cannot identify the row that was clicked — and the drawer,
+    // the history endpoint and ApplicationDebrief are all keyed by application.
+    expect(onSelectCandidate).toHaveBeenCalledWith('app-1');
   });
 
   it('triggers onMoveStage when stage dropdown is changed', async () => {
@@ -120,26 +121,5 @@ describe('CandidateSlideOver', () => {
 
     expect(screen.getByText('Moved to Screening')).toBeInTheDocument();
     expect(screen.getByText(/Recruiter Jane/)).toBeInTheDocument();
-  });
-});
-
-describe('usePipeline hook', () => {
-  it('loads pipeline and filters by search query', async () => {
-    apiMock.mockResolvedValueOnce(mockPipelineItems);
-
-    const { result } = renderHook(() => usePipeline({ postingId: 'posting-1' }));
-
-    await act(async () => {
-      await result.current.loadPipeline();
-    });
-
-    expect(result.current.pipeline).toHaveLength(2);
-
-    act(() => {
-      result.current.setSearchQuery('Alice');
-    });
-
-    expect(result.current.filteredPipeline).toHaveLength(1);
-    expect(result.current.filteredPipeline[0].candidateName).toBe('Alice Smith');
   });
 });

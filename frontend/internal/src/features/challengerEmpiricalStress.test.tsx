@@ -134,7 +134,7 @@ describe('Challenger Empirical Stress Suite — Milestone 3 Modules', () => {
       expect(screen.getByText(/Recruiter Admin/i)).toBeInTheDocument();
 
       // Scorecards tab
-      fireEvent.click(screen.getByRole('button', { name: /Scorecards/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Interviews/i }));
       expect(screen.getByText('Round 1')).toBeInTheDocument();
       expect(screen.getByText(/Interviewer One, Interviewer Two/i)).toBeInTheDocument();
 

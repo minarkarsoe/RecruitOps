@@ -8,6 +8,57 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### 🧹 The orphans, decided — delete the duplicates, wire the pipeline
+
+The product owner's call, after the audit put a number on it: **go by the design, remove what is
+not needed, and keep the workflow correct.**
+
+Answering "is anything else duplicated?" properly needed an import-graph walk from `main.tsx`,
+not a grep. Barrel files hide the chain: `features/pipeline/index.ts` imports every orphan, so
+each one *looked* imported while the barrel itself had no importer. Transitively, **20 files were
+unreachable — 3,268 LOC.**
+
+**Deleted** (all zero-importer): `features/interviews/` (604 LOC — a duplicate of the shipped
+`InterviewDetailPage`, same `blindedUntilYouSubmit`/`hiddenCount` API), `features/requisitions/`
+(660 LOC — richer than the shipped page but drawn by nobody; there is no requisitions-list screen
+in the kit), `FeatureGate` (a second gating mechanism; the Sidebar does it inline),
+`services/permissionService.ts`, `types/rbac.ts`, and later `usePipeline` + the pipeline barrel,
+which duplicated fetching the page does inline.
+
+**Wired**: `PipelineKanbanBoard` + `CandidateSlideOver` into `/jobpostings/:id`, from
+`design/internal/board.html`. The row list with a per-row "Move to…" select is gone; the board
+answers "where is everyone?" by shape, and the drawer opens beside it — the kit's own words:
+*"Detail opens beside the board rather than replacing it, so the recruiter never loses their
+place in the pipeline."*
+
+**Two bugs the wiring itself surfaced**, both invisible while the components had no consumer:
+
+1. `onSelectCandidate` handed back the **candidate** id. Everything opened from a card is keyed
+   by **application** — the drawer, `GET /applications/{id}/history`, `ApplicationDebrief` — and
+   a candidate who applied twice has one candidate id across both rows. The drawer simply never
+   opened. A component's API cannot be wrong until something calls it.
+2. The drawer can only *list* interview rounds; `ApplicationDebrief` is what schedules them.
+   Wiring the drawer as-is would have produced a finished-looking screen that **silently dropped
+   interview scheduling out of the pipeline** — a step of the workflow, not a control. Fixed with
+   an `interviewsSlot` prop, which is also where `board.html` puts "Schedule interview".
+
+Four new tests, both mutations killed (drop the slot → 1; revert the id → 3). The board's tab is
+now labelled "Interviews", the kit's word and the accurate one once it can schedule.
+
+**ADR-0025 step 3 closed** in the same change: the last 38 legacy token usages lived in the two
+deleted folders, which was the compat block's own exit condition. Removing it was *not* a no-op —
+`bg-zinc-100` shifted hue, because the class really was emitted, **from a comment**. Tailwind's
+content scanner is a regex over the file, not a parser, so a class name in prose is a usage.
+Reworded (twice — the first rewording quoted the class while explaining the problem). Final build
+diff: exactly one rule removed, `.bg-zinc-100`, which no element carries.
+
+**Nothing under `src/` is unreachable from `main.tsx` any more** apart from test fixtures and a
+test-only re-export shim. Verified in the built bundle, which is where this thread started:
+`AI Smart Match Analysis`, `Analyze Fit`, `Generate AI Summary`, `match-candidate` and
+`executive-summary` are all present. The AI surface ships.
+
+**Frontend 457 → 435 tests, 51 → 49 files.** Fewer tests and more covered software.
+
 ### ⏸ OCR paused — an image is now refused, instead of silently becoming a blank candidate
 
 Product owner's call: pause it, decide build-vs-buy later. "Pause" cannot mean *leave it as it

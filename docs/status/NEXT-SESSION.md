@@ -663,48 +663,21 @@ active route never folds; no folding at 64px, where there is no heading to fold.
 why someone wants a thing is not a sentence postponing it.
 
 ### 5. Smaller, whenever
-- **Delete or wire up the orphaned feature folders** — `features/requisitions/`,
-  `features/interviews/`, and four of the five files in `features/pipeline/`. Zero importers
-  repo-wide; tests that pass while proving nothing about the shipped app. Re-measured 2026-08-25,
-  and it is wider than this entry used to claim — the table in §0 lists every one.
-  **Parked by the product owner on 2026-08-25**; ask before acting on it.
+- ~~**Delete or wire up the orphaned feature folders**~~ ✅ **decided and done 2026-08-29.**
+  Product owner: delete the duplicates, wire the pipeline. `features/interviews/` and
+  `features/requisitions/` deleted (duplicate / undesigned); `PipelineKanbanBoard` and
+  `CandidateSlideOver` wired into `/jobpostings/:id` from `board.html`. `usePipeline` and the
+  pipeline barrel went too — the page fetches inline, and two implementations of one rule is what
+  the sweep was for. **Nothing under `src/` is unreachable from `main.tsx` now** except test
+  fixtures and a test-only shim.
 
-  > 📏 **Measured against the running container, 2026-08-29.** Previous counts came from import
-  > graphs; this one came from the bytes nginx serves. Method: `grep -F` a UI string in
-  > `/usr/share/nginx/html/assets/*.js`, validated first on strings known to ship
-  > (`Reporting & Analytics`, `Hide interviews`, `Sign out` — all found), so absence means
-  > absence rather than minification.
-  >
-  > | string | in the shipped bundle |
-  > |---|---|
-  > | `AI Smart Match Analysis`, `Analyze Fit` | ❌ |
-  > | `Generate AI Summary` | ❌ |
-  > | `parse-resume`, `match-candidate`, `executive-summary`, `document-prep`, `burmese-localization` | ❌ |
-  > | `resumes/bulk` | ✅ |
-  >
-  > **Not one of the five AI endpoints is reachable from the shipped SPA.** The only AI a user
-  > can trigger is bulk CV ingestion, which runs server-side. `features/pipeline/` is mixed, not
-  > orphaned wholesale: `BulkCvUploadModal` ships (imported by `JobPostingDetailPage`);
-  > `CandidateSlideOver`, `SmartMatchBreakdown`, `ExecutiveSummaryPanel`, `PipelineKanbanBoard`
-  > and `usePipeline` do not.
-  >
-  > **84 of the 456 frontend tests (18%) exercise components the browser never loads.** That is
-  > the number to decide against — the cost of parking is not the dead files, it is that nearly
-  > a fifth of the suite reports on software nobody runs.
-  >
-  > ⚠️ This re-frames the three AI contract fixes of 2026-08-28/29. Each was a real defect in
-  > the code and each is worth having fixed, but **no user was ever shown the wrong Smart Match
-  > badge**, because no route renders it. Said plainly so the CHANGELOG's "what the recruiter
-  > saw" table is read as *what the component does*, not as a shipped incident.
-  >
-  > One good-news correction from the same sweep: the string `Blind` is absent from the bundle
-  > too, but that is only the orphaned `BlindScorecardDrawer`'s wording. The **shipped**
-  > `pages/InterviewDetailPage` implements ADR-0017 §3 properly — `blindedUntilYouSubmit`,
-  > `hiddenCount`, and the "submitted evaluations cannot be changed" state. No product gap.
-- **The kit draws a kanban pipeline; the app ships a table.** `design/internal/board.html` is
-  titled "Pipeline board" and `features/pipeline/PipelineKanbanBoard.tsx` exists — orphaned.
-  What ships is `JobPostingDetailPage`'s row list with a stage `<select>`. Decide which one is
-  the product before either is restyled again.
+  > Two lessons worth keeping. **A barrel file defeats a grep-based dead-code check** — every
+  > orphan looked imported because `index.ts` imported it, while the barrel had no importer;
+  > walk the import graph from `main.tsx` instead. And **a component's API cannot be wrong until
+  > something calls it**: wiring the board immediately exposed that `onSelectCandidate` returned
+  > the candidate id where every consumer needs the application id, a bug 49 passing tests had
+  > no way to notice.
+
 - **`frontend/public` has no `app/not-found.tsx`** — a candidate following a withdrawn job link
   gets Next.js's built-in 404: no layout, no fonts, no company name. `design/public/` does not
   draw this screen, so it needs designing before building.
