@@ -35,17 +35,30 @@ public class InterviewService : IInterviewService
         _clock = clock;
     }
 
-    /// <summary>Statuses shown when the caller asks for no particular one: <b>everything except
-    /// Cancelled</b>. A cancelled round is kept in the record — it is the reason a candidate was
-    /// asked to move twice, so deleting it would lose history — and left out of the default view,
-    /// where it would bury the rounds that are actually happening. Recoverable from the filter.
+    /// <summary>A round is <b>concluded</b> when nobody has to do anything about it again.
+    /// Both are kept in the record and both are recoverable from the status filter — hidden is
+    /// not deleted. A cancelled round in particular is the reason a candidate was asked to move
+    /// twice, so losing it would lose the history that explains the pipeline.</summary>
+    private static readonly InterviewStatus[] ConcludedStatuses =
+        [InterviewStatus.Cancelled, InterviewStatus.Completed];
+
+    /// <summary>Statuses shown when the caller asks for no particular one: <b>the rounds that
+    /// have not concluded</b> — today, Scheduled and NoShow.
     ///
-    /// <para>Expressed as an exclusion rather than a list of two so that a status added to the
-    /// enum later shows up by default instead of silently vanishing from every list — the same
-    /// reasoning as the nav rail storing which groups are shut rather than which are open.
-    /// <c>NoShow</c> is here because of it.</para></summary>
+    /// <para>⚠️ Until 2026-08-29 this excluded only <c>Cancelled</c>, so the default view
+    /// included completed rounds. The screen above it labels this view <b>"Upcoming"</b>, which
+    /// made "Upcoming" and "All" return the same rows: on 29 August a recruiter was shown rounds
+    /// that had finished on the 17th. The behaviour was deliberate and pinned by a test; the
+    /// label is what nobody had compared it to.</para>
+    ///
+    /// <para><c>NoShow</c> stays in, and that is the reason this is an <i>exclusion</i> and not a
+    /// hand-written pair: a status added to the enum later shows up by default rather than
+    /// silently vanishing from every list. It is also the reason the cut is "concluded" rather
+    /// than a date — a <b>Scheduled round whose time has passed</b> is not upcoming in the
+    /// calendar sense, but it is precisely the round someone has to chase, and a date filter
+    /// would hide exactly the work that needs doing.</para></summary>
     private static readonly InterviewStatus[] DefaultStatuses =
-        Enum.GetValues<InterviewStatus>().Where(s => s != InterviewStatus.Cancelled).ToArray();
+        Enum.GetValues<InterviewStatus>().Where(s => !ConcludedStatuses.Contains(s)).ToArray();
 
     public async Task<IReadOnlyList<InterviewListItemDto>> ListAsync(
         IReadOnlyCollection<string>? statuses = null,

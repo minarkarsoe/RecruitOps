@@ -8,6 +8,38 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### 🔎 "Upcoming" was showing last week's interviews — and the board cards were unreadable
+
+Both found by using the screens, minutes apart, after everything about them was green.
+
+**The filter.** "Upcoming" and "All" returned the same three rows. The tab sends no `status`, and
+`InterviewService` read that as *every status except Cancelled*, so a recruiter opening Upcoming
+on 29 August saw rounds that had finished on the 17th and 20th. The behaviour was deliberate,
+commented on both sides, and pinned by a backend test named
+`The_Default_View_Is_Everything_Except_Cancelled` — which asserted the completed round **was**
+there. Everything agreed with everything except the word on the tab.
+
+Fixed in the service default rather than the tab, so the meaning stays in one place (the reason
+the frontend test already forbids restating it). The default is now **"rounds that have not
+concluded"** — Cancelled and Completed both out, both one click away. Two details kept
+deliberately: it stays an *exclusion*, so a status added to the enum later appears by default
+instead of vanishing; and it cuts on **status, not date**, because a Scheduled round whose time
+has passed is precisely the round someone must chase — a date filter would hide the work.
+Live afterwards: **Upcoming 1 · Completed 2 · All 3.**
+
+**The cards.** Too small to read, with text cut off. The contact line was `truncate`d to one
+clipped line and the cover note `line-clamp-2` — the latter cut mid-sentence *and* left a sliver
+of the third line showing, which reads as a rendering fault rather than a summary. The real
+constraint was the 264px column, which is what forced 13px type and truncation; widening it to
+304px is what let the rest be honest. Type up one step throughout, both truncations gone.
+
+That test asserts CSS classes, normally a smell, and is right here for a specific reason: both
+truncations are **CSS-only**, so the whole string sits in the DOM either way and
+`getByText(longNote)` passes whether or not a human can read it. A text assertion cannot tell
+*rendered* from *readable*. Mutation-proved by restoring each class.
+
+**Backend 678 · frontend 437.**
+
 ### 👁 Opened the wired board in a browser — and it found what the tests could not
 
 The board, the drawer and the Smart Match fix all confirmed against the running stack for the

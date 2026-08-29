@@ -19,9 +19,18 @@ import { api } from '../lib/api';
 //      evaluation goes through the detail screen, where the blind rule (ADR-0017 §3) is applied.
 //      A "recommendation" column here would route around it.
 //
-//   2. Cancelled rounds are kept and hidden. A cancelled round is the reason a candidate was
-//      asked to move twice, so it stays in the record; showing it by default would bury the
-//      rounds that are actually happening.
+//   2. Concluded rounds are kept and hidden. Cancelled and Completed both stay in the record —
+//      a cancelled round is the reason a candidate was asked to move twice — and both are out of
+//      the default view, where they would bury the rounds that still need something. Each is one
+//      click away on its own tab.
+//
+//      ⚠️ Until 2026-08-29 the default excluded only Cancelled, so this tab — labelled
+//      "Upcoming" — returned exactly the same rows as "All", completed rounds included. The
+//      behaviour was deliberate and pinned by a test on both sides; the LABEL is what nobody had
+//      compared it to, and it took thirty seconds of using the screen to see. The cut is
+//      "concluded" rather than a date on purpose: a Scheduled round whose time has passed is not
+//      upcoming in the calendar sense, but it is the one someone has to chase, and a date filter
+//      would hide precisely the work that needs doing.
 
 /** In the order the design draws them. `all` is last because it is the escape hatch, not a view. */
 const STATUS_FILTERS: { value: InterviewStatus | 'default' | 'all'; label: string }[] = [

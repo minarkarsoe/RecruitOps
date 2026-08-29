@@ -172,20 +172,35 @@ public class InterviewListTests : IClassFixture<CustomWebAppFactory>
         Assert.Contains(withCancelled, i => i.Id == interview.Id);
     }
 
+    // ⚠️ REWRITTEN 2026-08-29. This was `The_Default_View_Is_Everything_Except_Cancelled`, and it
+    // asserted that a **Completed** round appears in the default list. That is what the service
+    // did, so the test passed — while the screen above it labelled that same default "Upcoming".
+    // Using the page found it in seconds: "Upcoming" and "All" returned identical rows, and a
+    // recruiter opening Upcoming on 29 August was shown rounds that finished on the 17th.
+    //
+    // The exclusion form is kept, and for the original reason: written as "Scheduled or
+    // Completed" a status added to the enum later would silently vanish from every list. It now
+    // excludes both *concluded* statuses instead of only Cancelled, so `NoShow` — a round that
+    // still needs someone to do something — stays in.
     [Fact]
-    public async Task The_Default_View_Is_Everything_Except_Cancelled()
+    public async Task The_Default_View_Is_Rounds_That_Have_Not_Concluded()
     {
-        // Pins the exclusion, not a hand-written pair. `NoShow` exists and must not vanish from
-        // every list because the default was written as "Scheduled or Completed" — the same
-        // reasoning as the nav rail storing which groups are shut rather than which are open.
         var (_, applicationId) = await _scenario.ApplicationAsync("List — default statuses");
         var interview = await _scenario.ScheduleAsync(applicationId);
+
+        // Scheduled: in, obviously.
+        Assert.Contains(await ListAsync(_scenario.Recruiter()), i => i.Id == interview.Id);
 
         var complete = await _scenario.Recruiter().PostAsJsonAsync(
             $"/api/interviews/{interview.Id}/complete", new CompleteInterviewRequest());
         complete.EnsureSuccessStatusCode();
 
-        Assert.Contains(await ListAsync(_scenario.Recruiter()), i => i.Id == interview.Id);
+        // Completed: out of the default view — nothing is upcoming about it.
+        Assert.DoesNotContain(await ListAsync(_scenario.Recruiter()), i => i.Id == interview.Id);
+
+        // Kept and recoverable, exactly like Cancelled. Hidden is not deleted.
+        var completed = await ListAsync(_scenario.Recruiter(), "?status=Completed");
+        Assert.Contains(completed, i => i.Id == interview.Id);
     }
 
     [Fact]
