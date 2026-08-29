@@ -60,6 +60,37 @@ describe('PipelineKanbanBoard', () => {
     expect(screen.getByText(/Excited about the role!/)).toBeInTheDocument();
   });
 
+  // ── Card legibility, 2026-08-29 ────────────────────────────────────────────────────────
+  //
+  // The product owner read the board on screen and said the cards were too small to read, with
+  // text cut off. Both were true: the contact line was `truncate`d to one clipped line and the
+  // cover note was `line-clamp-2`, which cut mid-sentence and left a sliver of the third line
+  // showing — that last part reads as a rendering fault, not a deliberate summary.
+  //
+  // These assert CSS classes, which is normally a smell. It is the right test here precisely
+  // because BOTH truncations are CSS-only: `truncate` and `line-clamp-2` leave the full string
+  // in the DOM, so `getByText(longNote)` passes whether the reader can see it or not. A text
+  // assertion cannot tell the difference between rendered and readable.
+  it('shows the whole cover note and contact line — no CSS truncation', () => {
+    const longNote =
+      'Six years of product design, most recently on an HR SaaS product. Portfolio attached, '
+      + 'and I can share the case study behind the onboarding redesign if that is useful.';
+
+    render(
+      <PipelineKanbanBoard
+        items={[{ ...mockPipelineItems[0], coverNote: longNote, email: 'a.very.long.address@some-quite-long-company-domain.example.com' }]}
+      />
+    );
+
+    const note = screen.getByText(new RegExp(longNote.slice(0, 40)));
+    expect(note.className).not.toMatch(/line-clamp/);
+
+    const contact = screen.getByText('a.very.long.address@some-quite-long-company-domain.example.com');
+    expect(contact.className).not.toMatch(/truncate/);
+    // And it has to be allowed to wrap, or removing `truncate` just pushes it out of the card.
+    expect(contact.className).toMatch(/break-words/);
+  });
+
   it('triggers onSelectCandidate when candidate card is clicked', async () => {
     const onSelectCandidate = vi.fn();
     const user = userEvent.setup();

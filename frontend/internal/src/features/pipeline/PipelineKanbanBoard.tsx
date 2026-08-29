@@ -144,11 +144,11 @@ export function PipelineKanbanBoard({
           return (
             <section
               key={stage}
-              className="flex w-[264px] shrink-0 snap-start flex-col rounded-lg border border-line bg-white"
+              className="flex w-[304px] shrink-0 snap-start flex-col rounded-lg border border-line bg-white"
             >
               <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
                 <span className={`h-1.5 w-1.5 rounded-full ${STAGE_DOT[stage]}`} aria-hidden="true" />
-                <h3 className="text-sm font-semibold">{stage}</h3>
+                <h3 className="text-base font-semibold">{stage}</h3>
                 <span className="ml-auto font-mono text-xs tnum text-ink-500">{stageItems.length}</span>
               </header>
 
@@ -169,24 +169,24 @@ export function PipelineKanbanBoard({
                       onClick={() => onSelectCandidate?.(candidate.id)}
                       className="cursor-pointer rounded-md border border-line bg-white p-2.5 transition-colors hover:border-line-strong"
                     >
-                      <p className="text-base font-medium leading-5">{candidate.candidateName}</p>
-                      <p className="mt-0.5 truncate text-sm text-ink-600">
+                      <p className="text-md font-semibold leading-snug text-ink-900">{candidate.candidateName}</p>
+                      <p className="mt-1 break-words text-base leading-snug text-ink-600">
                         {candidate.email || candidate.phone || 'No contact specified'}
                       </p>
 
                       {candidate.coverNote && (
-                        <p className="mt-2 line-clamp-2 rounded-md border border-line bg-canvas p-2 text-sm text-ink-600">
+                        <p className="mt-2 whitespace-pre-line rounded-md border border-line bg-canvas p-2 text-base leading-snug text-ink-700">
                           &ldquo;{candidate.coverNote}&rdquo;
                         </p>
                       )}
 
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {candidate.source && (
-                          <span className="inline-flex h-5 items-center rounded-full border border-line bg-canvas px-2 text-2xs text-ink-600">
+                          <span className="inline-flex h-6 items-center rounded-full border border-line bg-canvas px-2 text-xs text-ink-600">
                             {candidate.source}
                           </span>
                         )}
-                        <span className="font-mono text-2xs tnum text-ink-500">
+                        <span className="font-mono text-xs tnum text-ink-500">
                           {candidate.appliedAt
                             ? new Date(candidate.appliedAt).toLocaleDateString(undefined, {
                                 day: 'numeric',
@@ -200,7 +200,7 @@ export function PipelineKanbanBoard({
                         <div className="mt-2 border-t border-line pt-2" onClick={(e) => e.stopPropagation()}>
                           <select
                             aria-label={`Move ${candidate.candidateName} to stage`}
-                            className="h-7 w-full rounded-md border border-line bg-white px-1.5 text-sm text-ink-600
+                            className="h-8 w-full rounded-md border border-line bg-white px-2 text-base text-ink-600
                               transition-colors hover:border-line-strong focus:border-brand-700 focus:outline-none"
                             value=""
                             disabled={isMoving}
