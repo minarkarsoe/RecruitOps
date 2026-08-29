@@ -11,8 +11,15 @@ import { Card } from '@recruitops/ui';
 // where full-colour vision can separate them, so the distinction was not even legible.
 //
 // The tab strip is the kit's detented filter group — one bordered track, active segment filled
-// `bg-ink-900`. It replaces a grey `bg-zinc-100` pill holding a white "raised" tab, which is the
-// opposite polarity to every other selected control in the app.
+// with the ink-900 token. It replaces a grey pill (the old zinc-100 alias) holding a white
+// "raised" tab, which is the opposite polarity to every other selected control in the app.
+//
+// ⚠️ Both token names in that sentence used to be written as literal utility class strings.
+// Tailwind's content scanner is a regex over the file, not a parser — it cannot tell a comment
+// from JSX — so it kept emitting a background rule for the old grey step that no element has
+// ever carried. That single phantom was the entire remaining "usage" blocking the preset's
+// compat block, and it survived one attempt to remove it because the removal comment quoted
+// the class name again. Describe tokens in prose; never spell a live utility class in one.
 
 type Tab = 'stages' | 'departments' | 'postings';
 

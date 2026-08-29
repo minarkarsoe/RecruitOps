@@ -61,68 +61,22 @@ export default {
           300: '#CBD5E1',
         },
 
-        // ======================================================================================
-        // COMPATIBILITY LAYER — temporary, and it has an exit condition.
+        // The V1.0 → legacy compatibility layer stood here and is GONE (2026-08-29).
         //
-        // ADR-0025 step 3 moves ~1,120 class usages in the two frontends off these names. Doing
-        // that in one commit would be one enormous unreviewable diff; doing it without these
-        // aliases would leave the apps unstyled between commits. So the palette flips once,
-        // here, and the screens follow one area at a time.
+        // It aliased `primary/success/warning/danger/accent/surface` and the `zinc/cyan/teal`
+        // ramps onto their V1.0 equivalents so the two frontends could migrate a screen at a
+        // time instead of in one unreviewable diff. Its exit condition was "delete when the
+        // count is zero", and the count reached zero when the two orphan feature folders that
+        // held the last 38 usages were deleted — `features/interviews/` and
+        // `features/requisitions/`, neither of which had ever been reachable from `main.tsx`.
         //
-        // Every entry below points at its V1.0 equivalent, so the app is already ON V1.0 colours
-        // — only the class NAMES are old. Nothing here introduces a colour the kit does not have.
+        // Verified before removal, not assumed: every alias measured 0 live class usages
+        // (the one `zinc` hit was comment prose in `features/analytics/TimeToHireChart.tsx`,
+        // the over-reporting the old note itself warned about), and the built CSS is
+        // byte-identical with the block present and absent — Tailwind emitted nothing from it.
         //
-        // ⚠️ DELETE THIS BLOCK when the count is zero. To check:
-        //     grep -rEo "(primary|success|warning|danger|accent|surface|zinc|cyan|teal)-[0-9]+" \
-        //       --include=*.ts --include=*.tsx --include=*.css \
-        //       frontend/internal/src frontend/public/app packages/ui/src | wc -l
-        //
-        // ⚠️⚠️ THAT COUNT OVER-REPORTS AND CANNOT REACH ZERO AS WRITTEN. It matches comment prose
-        // as well as class names. Measured 2026-08-27 it says **43**, of which only **38** are
-        // live classes; the other five are `//` lines in `features/analytics/` recording the old
-        // chart palette that failed the CVD validator (`teal-500`, `emerald-500`, `zinc-100`).
-        // Analytics itself is fully migrated. Check per-file before believing the total:
-        //     ... | sed 's/:.*//' | sort | uniq -c | sort -rn
-        //
-        // The live 38 sit ENTIRELY inside the two orphan folders parked by the product owner on
-        // 2026-08-25 — `features/interviews/BlindScorecardDrawer.tsx` (24) and
-        // `features/requisitions/` (14). This block is blocked on that decision and nothing else.
-        //
-        // ⚠️ The `--include` filters and `public/app` are load-bearing. Pointed at
-        // `frontend/public`, this grep also reads `.next/` — the build output, which contains
-        // compiled copies of the same classes and can never reach zero however much source is
-        // migrated. Measured 2026-08-25: `frontend/public` reports 78, of which 66 are build
-        // artifacts and 12 are real. A count that cannot reach zero is not an exit condition.
-        //
-        // Do NOT add anything to this block. A new screen that needs a token it does not have is
-        // a screen that should be using the V1.0 name.
-        // ======================================================================================
-        primary: { 700: '#0F766E', 600: '#0D9488', 100: '#CCFBF1' },   // → brand
-        success: { 700: '#047857', 600: '#10B981', 100: '#D1FAE5' },   // → positive
-        warning: { 700: '#B45309', 600: '#F59E0B', 100: '#FEF3C7' },   // → warn
-        danger:  { 700: '#B91C1C', 600: '#EF4444', 100: '#FEE2E2' },   // → critical
-        accent:  { 700: '#B45309', 500: '#F59E0B', 100: '#FEF3C7' },   // → warn (it always was)
-        surface: {
-          0: '#FFFFFF',
-          50: '#F8FAFC',    // → canvas
-          100: '#F1F5F9',   // 13 usages emitted no CSS before this change
-          200: '#E2E8F0',   // 1 usage, same
-        },
-        // Three ramps aliased onto slate/teal. `zinc` had 147 usages; `cyan` and `teal` were
-        // the old brand ramp under Tailwind's own names, which is why they existed at all.
-        zinc: {
-          50: '#F8FAFC', 100: '#F1F5F9', 200: '#E2E8F0', 300: '#CBD5E1', 400: '#94A3B8',
-          500: '#64748B', 600: '#475569', 700: '#334155', 800: '#1E293B', 900: '#0F172A',
-          950: '#020617',
-        },
-        cyan: {
-          50: '#F0FDFA', 100: '#CCFBF1', 200: '#99F6E4',
-          500: '#14B8A6', 600: '#0D9488', 700: '#0F766E', 800: '#115E59', 900: '#134E4A',
-        },
-        teal: {
-          50: '#F0FDFA', 100: '#CCFBF1', 200: '#99F6E4',
-          500: '#14B8A6', 600: '#0D9488', 700: '#0F766E', 800: '#115E59', 900: '#134E4A',
-        },
+        // ADR-0025 step 3 is closed. Do not re-add these names: a screen that wants one is a
+        // screen that should be using the V1.0 token.
       },
 
       // Operate mode: one family carries headings, labels, data and body. No display face — a
