@@ -1,7 +1,15 @@
 # Module 2 — Applicant Tracking System (ATS) & Sourcing
 
-**Status:** 🚧 Partial — **2.1, 2.2 (basic), 2.5 (list), 2.7 built**; 2.3 OCR, 2.4 Smart
-Match and 2.6 search not started.
+**Status:** 🚧 Partial — re-measured 2026-08-29 against the shipped container, because this line
+had drifted in **both** directions at once.
+
+| | |
+|---|---|
+| 2.1 · 2.2 · 2.7 | ✅ built |
+| 2.6 search | ✅ built — `SearchService` + `pg_trgm`. This line used to say "not started" |
+| 2.3 upload | 🚧 **PDF/DOCX text only. There is no OCR** — images and scanned PDFs return a metadata placeholder, not text |
+| 2.4 Smart Match | 🚧 **API works; no UI reaches it.** `SmartMatchBreakdown` has zero production importers, so it is absent from the bundle |
+| 2.5 pipeline | 🚧 **list only.** The Kanban board and the 360° candidate view are both written and both orphaned |
 **Priority:** Core — this is the product's daily-use surface.
 
 ## Built so far

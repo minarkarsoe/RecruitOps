@@ -8,6 +8,45 @@ Format: what changed · why · what it touched.
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
+### 📋 Status docs corrected — and a second thing that was never built at all
+
+Asked to fix the AI status after the audit found no AI endpoint reachable from the SPA. Doing it
+surfaced that `FEATURE-STATUS.md` and the Module 2 doc had **drifted in opposite directions**, so
+neither could be trusted as the answer to "what is built".
+
+`FEATURE-STATUS` claimed **"2.1–2.7 all built · ✅ API + UI"**. The module doc claimed 2.6 search
+was **"not started"** when `SearchService` and `pg_trgm` have shipped for weeks. One over-claimed,
+one under-claimed, and the two had never been read against each other.
+
+Both now say the same measured thing: 2.1/2.2/2.6/2.7 built · **2.4 Smart Match is API-only** ·
+**2.5 ships as a list**, its Kanban board and 360° view written and orphaned · **2.3 has no OCR**.
+
+That last one was not in either document. `DocumentTextExtractor.ExtractFromImageOrScannedAsync`
+does **no character recognition** — it reads the PNG header and returns
+
+```
+Image Document: cv.png | Format: PNG | Dimensions: 800x600 | Size: 41213 bytes
+```
+
+That is the path for every `.png` / `.jpg` / `.jpeg` **and every PDF with an empty text stream**,
+i.e. every scanned CV. Nothing about it is visible to the recruiter:
+
+- the placeholder is stored as `ResumeExtractedText`, so it is what **trigram search indexes** — a
+  photographed Burmese CV cannot be found, and searching `Image Document` returns all of them;
+- contact parsing is regex over that same string, so name/email/phone come back empty and a
+  **blank candidate is created**;
+- the file is reported **Success**, not Skipped.
+
+The known-gaps row said *"Burmese OCR accuracy unverified — deferred"*, which reads as *OCR exists
+and nobody measured it*. There is nothing to measure. Rewritten, and ADR-0009's evaluation plan
+noted as un-startable until an engine exists. **Not fixed here** — real OCR means a new dependency
+(Tesseract + Burmese traineddata, or a vision model call), and CLAUDE.md says ask first.
+
+> Twice in two days a status line has been more optimistic than the code, and both times the
+> check that caught it was cheap: read the function, or grep the shipped bundle. The pattern is
+> the same one behind the three AI contracts — **a claim nobody had compared to the thing it
+> describes.**
+
 ### 🎯 `matchCandidate` — the third fictional contract, and the first one users could *see*
 
 The last AI endpoint written in the old style, checked with the method that had worked twice
