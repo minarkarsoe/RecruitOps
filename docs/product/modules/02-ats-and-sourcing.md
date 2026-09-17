@@ -6,10 +6,10 @@ had drifted in **both** directions at once.
 | | |
 |---|---|
 | 2.1 · 2.2 · 2.7 | ✅ built |
-| 2.6 search | ✅ built — `SearchService` + `pg_trgm`. This line used to say "not started" |
+| 2.6 search | 🚧 keyword search built — `SearchService` + `pg_trgm`, the Ctrl+K palette. **No age / gender / previous-position filters** and no talent-pool screen. Result links fixed 2026-09-17: candidate and posting results used to land on /requisitions |
 | 2.3 upload | ⏸ **PDF/DOCX text only. There is no OCR** — paused by the product owner 2026-08-29. Images are rejected at upload; a scanned PDF is marked `Skipped` with a reason rather than imported as a blank candidate. The spec text below still describes the intended feature |
-| 2.4 Smart Match | 🚧 **API works; no UI reaches it.** `SmartMatchBreakdown` has zero production importers, so it is absent from the bundle |
-| 2.5 pipeline | 🚧 **list only.** The Kanban board and the 360° candidate view are both written and both orphaned |
+| 2.4 Smart Match | 🚧 per-candidate "Analyze Fit" in the board drawer (wired 2026-08-29). AI only — no key means 402 and no score; the keyless local baseline ADR-0008 asks for is unbuilt, and there is no "Recommended Candidates" list for a vacancy |
+| 2.5 pipeline | 🚧 Kanban board + drawer on `/jobpostings/:id` (wired 2026-08-29; the list view was removed). The drawer shows **this** application only — no "previously applied positions", because there is no candidate page or `GET /api/candidates` |
 **Priority:** Core — this is the product's daily-use surface.
 
 ## Built so far

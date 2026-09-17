@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Button, Card, StatusPill } from '@recruitops/ui';
 import type {
   JobPostingDetail, PipelineItem, PipelineStatus, StageHistoryItem, UpdateJobPostingRequest,
@@ -29,10 +29,35 @@ export function JobPostingDetailPage() {
   // the recruiter never loses their place in the pipeline." One id, not a set — a drawer beside
   // the board is inherently one-at-a-time, and the previous row-expander's set existed to allow
   // comparing two candidates' rounds, which the board does better by keeping both cards visible.
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  //
+  // `?application=` opens the drawer on arrival. It is how a candidate search result lands here:
+  // there is no candidate page, so `SearchService` links to one of their applications on its
+  // board. Followed on change as well as on mount, because the palette can move this same page
+  // to another candidate without remounting it. Once the drawer is closed or another card is
+  // chosen the parameter is dropped, so a reload shows the board the user left rather than
+  // reopening the result they arrived from.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedApplication = searchParams.get('application');
+  const [selectedId, setSelectedId] = useState<string | null>(linkedApplication);
   const [stageHistory, setStageHistory] = useState<StageHistoryItem[]>([]);
   const [boardSearch, setBoardSearch] = useState('');
 
+  useEffect(() => {
+    if (linkedApplication) setSelectedId(linkedApplication);
+  }, [linkedApplication]);
+
+  const selectApplication = (applicationId: string | null) => {
+    setSelectedId(applicationId);
+    if (linkedApplication) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('application');
+        return next;
+      }, { replace: true });
+    }
+  };
+
+  // An id that is not on this board opens nothing: a stale link is a closed drawer, not an error.
   const selected = pipeline.find((p) => p.id === selectedId) ?? null;
 
   // History is per candidate, so it is fetched on selection rather than with the board — forty
@@ -320,7 +345,7 @@ export function JobPostingDetailPage() {
             isMoving={busy}
             searchQuery={boardSearch}
             onSearchQueryChange={setBoardSearch}
-            onSelectCandidate={setSelectedId}
+            onSelectCandidate={selectApplication}
             onMoveStage={
               hasPermission(session, 'permission:applications:applications:move_stage')
                 ? moveStage
@@ -342,7 +367,7 @@ export function JobPostingDetailPage() {
         candidate={selected}
         jobPostingId={id}
         isOpen={selected !== null}
-        onClose={() => setSelectedId(null)}
+        onClose={() => selectApplication(null)}
         stageHistory={stageHistory}
         applicationFormFieldsJson={posting.applicationFormFieldsJson}
         onProfileUpdated={() => { load().catch(() => {}); }}

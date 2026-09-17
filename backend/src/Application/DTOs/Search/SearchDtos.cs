@@ -21,7 +21,13 @@ public record SearchQueryParameters(
 /// <param name="Title">Primary display title (Candidate FullName, JobPosting Title, Requisition Title).</param>
 /// <param name="Subtitle">Secondary context string (e.g. Candidate Email/Phone, JobPosting Location/EmploymentType, Requisition Department/Status).</param>
 /// <param name="DescriptionSnippet">Extracted text snippet (~180 chars) with search terms enclosed in &lt;mark&gt; HTML tags.</param>
-/// <param name="TargetUrl">Frontend detail page route (e.g. "/candidates/{id}", "/jobs/{id}", "/requisitions/{id}").</param>
+/// <param name="TargetUrl">
+/// A route in the internal SPA (<c>frontend/internal/src/App.tsx</c>) — "/jobpostings/{id}",
+/// "/requisitions/{id}", and for a candidate "/jobpostings/{posting}?application={id}" or
+/// "/interviews/{id}". Null for a candidate with nowhere the caller can open them.
+/// <c>App.routes.test.tsx</c> pins that each shape reaches a real page; this used to send
+/// "/jobs/…" and "/candidates/…", neither of which the SPA serves.
+/// </param>
 /// <param name="DepartmentId">Owning department ID, if applicable.</param>
 /// <param name="DepartmentName">Owning department name, if applicable.</param>
 /// <param name="RelevanceScore">Relevance score from 0.0 to 100.0.</param>
@@ -32,7 +38,7 @@ public record SearchResultItemDto(
     string Title,
     string Subtitle,
     string? DescriptionSnippet,
-    string TargetUrl,
+    string? TargetUrl,
     Guid? DepartmentId,
     string? DepartmentName,
     double RelevanceScore,

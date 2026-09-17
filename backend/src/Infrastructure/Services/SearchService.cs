@@ -169,31 +169,45 @@ public class SearchService : ISearchService
             UserId: userId.Value);
     }
 
-    private record AppTextData(Guid CandidateId, string? ResumeExtractedText, string? CoverNote, string? CustomFieldsJson);
+    private record AppTextData(
+        Guid ApplicationId, Guid CandidateId, Guid JobPostingId, DateTimeOffset AppliedAt,
+        string? ResumeExtractedText, string? CoverNote, string? CustomFieldsJson);
+
+    private record PanelSeat(Guid InterviewId, Guid JobApplicationId, DateTimeOffset ScheduledStart);
 
     private async Task<List<SearchResultItemDto>> SearchCandidatesAsync(ScopeContext scope, string searchTerm, CancellationToken ct)
     {
         HashSet<Guid>? allowedCandidateIds = null;
 
+        // Both only matter to a scoped or excluded caller, and both decide where a result links as
+        // well as whether it appears — so they are read once, up here, rather than per branch.
+        var panelSeats = new List<PanelSeat>();
+        List<Guid>? deptPostingIds = null;
+
+        if (scope.IsExcludedFromCandidateData || scope.IsDepartmentScoped)
+        {
+            panelSeats = await _db.InterviewParticipants
+                .AsNoTracking()
+                .Where(ip => ip.UserId == scope.UserId)
+                .Join(_db.Interviews.AsNoTracking(), ip => ip.InterviewId, i => i.Id,
+                    (ip, i) => new PanelSeat(i.Id, i.JobApplicationId, i.ScheduledStart))
+                .ToListAsync(ct);
+        }
+
+        var panelAppIds = panelSeats.Select(s => s.JobApplicationId).Distinct().ToList();
+
         if (scope.IsExcludedFromCandidateData)
         {
             // Approver role (ADR-0018): Strictly excluded from candidate data
             // Exception: Candidate has an application where user is an interview participant
-            var participantAppIds = await _db.InterviewParticipants
-                .AsNoTracking()
-                .Where(ip => ip.UserId == scope.UserId)
-                .Join(_db.Interviews.AsNoTracking(), ip => ip.InterviewId, i => i.Id, (ip, i) => i.JobApplicationId)
-                .Distinct()
-                .ToListAsync(ct);
-
-            if (!participantAppIds.Any())
+            if (!panelAppIds.Any())
             {
                 return new List<SearchResultItemDto>();
             }
 
             var candIds = await _db.JobApplications
                 .AsNoTracking()
-                .Where(a => participantAppIds.Contains(a.Id))
+                .Where(a => panelAppIds.Contains(a.Id))
                 .Select(a => a.CandidateId)
                 .Distinct()
                 .ToListAsync(ct);
@@ -204,22 +218,16 @@ public class SearchService : ISearchService
         {
             // HiringManager role (ADR-0003 & ADR-0017 §4):
             // Candidate reached if has application in allowed departments OR user is an interview participant
-            var participantAppIds = await _db.InterviewParticipants
-                .AsNoTracking()
-                .Where(ip => ip.UserId == scope.UserId)
-                .Join(_db.Interviews.AsNoTracking(), ip => ip.InterviewId, i => i.Id, (ip, i) => i.JobApplicationId)
-                .Distinct()
-                .ToListAsync(ct);
-
-            var deptPostingIds = await _db.JobPostings
+            var postingIds = await _db.JobPostings
                 .AsNoTracking()
                 .Where(p => scope.AllowedDepartmentIds.Contains(p.DepartmentId))
                 .Select(p => p.Id)
                 .ToListAsync(ct);
+            deptPostingIds = postingIds;
 
             var candIds = await _db.JobApplications
                 .AsNoTracking()
-                .Where(a => deptPostingIds.Contains(a.JobPostingId) || participantAppIds.Contains(a.Id))
+                .Where(a => postingIds.Contains(a.JobPostingId) || panelAppIds.Contains(a.Id))
                 .Select(a => a.CandidateId)
                 .Distinct()
                 .ToListAsync(ct);
@@ -239,10 +247,31 @@ public class SearchService : ISearchService
 
         var candIdsList = candidates.Select(c => c.Id).ToList();
 
-        var candidateApps = await _db.JobApplications
+        // Only the applications the caller may read. The filter above decides which PEOPLE a
+        // scoped caller sees; it says nothing about which of their applications. Until 2026-09-17
+        // this loaded all of them, so the match, the score and the quoted snippet could come from
+        // an application in another department (ADR-0003), or — for someone whose only reach is a
+        // panel seat — from an application they were never on the panel for (ADR-0017 §4,
+        // ADR-0018). Filtered here, in the query, so text the caller cannot read never leaves
+        // the database. Same reach as the candidate filter: change them together.
+        IQueryable<JobApplication> appQuery = _db.JobApplications
             .AsNoTracking()
-            .Where(a => candIdsList.Contains(a.CandidateId))
-            .Select(a => new AppTextData(a.CandidateId, a.ResumeExtractedText, a.CoverNote, a.CustomFieldsJson))
+            .Where(a => candIdsList.Contains(a.CandidateId));
+
+        if (scope.IsExcludedFromCandidateData)
+        {
+            appQuery = appQuery.Where(a => panelAppIds.Contains(a.Id));
+        }
+        else if (scope.IsDepartmentScoped)
+        {
+            var postingIds = deptPostingIds ?? new List<Guid>();
+            appQuery = appQuery.Where(a => postingIds.Contains(a.JobPostingId) || panelAppIds.Contains(a.Id));
+        }
+
+        var candidateApps = await appQuery
+            .Select(a => new AppTextData(
+                a.Id, a.CandidateId, a.JobPostingId, a.AppliedAt,
+                a.ResumeExtractedText, a.CoverNote, a.CustomFieldsJson))
             .ToListAsync(ct);
 
         var appsByCandidate = candidateApps
@@ -311,7 +340,7 @@ public class SearchService : ISearchService
                     Title: cand.FullName,
                     Subtitle: subtitle,
                     DescriptionSnippet: snippet,
-                    TargetUrl: $"/candidates/{cand.Id}",
+                    TargetUrl: CandidateTargetUrl(scope, apps, panelSeats, deptPostingIds),
                     DepartmentId: null,
                     DepartmentName: null,
                     RelevanceScore: score,
@@ -320,6 +349,45 @@ public class SearchService : ISearchService
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Where a candidate result opens. The SPA has no candidate page, so a candidate is opened
+    /// through one of their applications: on that posting's board with the drawer open
+    /// (<c>/jobpostings/{posting}?application={application}</c>), or — when the caller's only
+    /// reach is an interview panel — on that round (<c>/interviews/{id}</c>). Null when there
+    /// is neither, rather than a link to nowhere.
+    /// </summary>
+    /// <remarks>
+    /// This used to be <c>/candidates/{id}</c>, a route the SPA never had, so every candidate
+    /// result fell through to /requisitions. The link has to be somewhere the caller can
+    /// actually go: a board in another department (ADR-0003), or any board for an Approver
+    /// (ADR-0018), would 404 — and would hand over a posting id they have no business holding.
+    /// So the choice below follows the same reach rules as the filter above; change them together.
+    /// </remarks>
+    private static string? CandidateTargetUrl(
+        ScopeContext scope, List<AppTextData> apps, List<PanelSeat> panelSeats, List<Guid>? deptPostingIds)
+    {
+        var onABoard = scope.IsExcludedFromCandidateData
+            ? Enumerable.Empty<AppTextData>()
+            : scope.IsDepartmentScoped
+                // Fails closed: a scoped caller with no posting list reaches no board.
+                ? apps.Where(a => deptPostingIds?.Contains(a.JobPostingId) == true)
+                : apps;
+
+        var board = onABoard.OrderByDescending(a => a.AppliedAt).FirstOrDefault();
+        if (board is not null)
+        {
+            return $"/jobpostings/{board.JobPostingId}?application={board.ApplicationId}";
+        }
+
+        var applicationIds = apps.Select(a => a.ApplicationId).ToHashSet();
+        var seat = panelSeats
+            .Where(s => applicationIds.Contains(s.JobApplicationId))
+            .OrderByDescending(s => s.ScheduledStart)
+            .FirstOrDefault();
+
+        return seat is null ? null : $"/interviews/{seat.InterviewId}";
     }
 
     private async Task<List<SearchResultItemDto>> SearchJobPostingsAsync(ScopeContext scope, string searchTerm, CancellationToken ct)
@@ -374,7 +442,7 @@ public class SearchService : ISearchService
                     Title: p.Title,
                     Subtitle: subtitle,
                     DescriptionSnippet: snippet,
-                    TargetUrl: $"/jobs/{p.Id}",
+                    TargetUrl: $"/jobpostings/{p.Id}",
                     DepartmentId: p.DepartmentId,
                     DepartmentName: deptName,
                     RelevanceScore: score,

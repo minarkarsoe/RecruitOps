@@ -143,6 +143,243 @@ public class SearchApiTests : IClassFixture<CustomWebAppFactory>
 
         db.JobApplications.AddRange(app1, app2);
         db.SaveChanges();
+
+        // 5. Link targets. A candidate who applied to Sales first and Finance later, so "the most
+        //    recent application" and "the most recent one a Sales manager can reach" differ.
+        var dual = new Candidate
+        {
+            TenantId = _factory.TenantA,
+            FullName = "Thura Dual Applicant",
+            Email = "search.dual@alpha.test",
+            Source = SourceChannel.Direct
+        };
+        // Reached only through an interview panel — by the Sales manager and the Finance approver.
+        var panelOnly = new Candidate
+        {
+            TenantId = _factory.TenantA,
+            FullName = "Nandar Panel Only",
+            Email = "search.panel@alpha.test",
+            Source = SourceChannel.Direct
+        };
+        db.Candidates.AddRange(dual, panelOnly);
+        db.SaveChanges();
+
+        var dualSales = new JobApplication
+        {
+            TenantId = _factory.TenantA, JobPostingId = salesPosting.Id, CandidateId = dual.Id,
+            Status = PipelineStatus.Applied, Source = SourceChannel.Direct,
+            AppliedAt = now.AddDays(-10), ResumeExtractedText = "Linktarget dual applicant CV."
+        };
+        var dualFinance = new JobApplication
+        {
+            TenantId = _factory.TenantA, JobPostingId = finPosting.Id, CandidateId = dual.Id,
+            Status = PipelineStatus.Applied, Source = SourceChannel.Direct,
+            AppliedAt = now.AddDays(-1), ResumeExtractedText = "Linktarget dual applicant CV.",
+            // Written to Finance only. A Sales manager sees this candidate through the Sales
+            // application, and that is all they are entitled to read.
+            CoverNote = "Financeonly note about the treasury role."
+        };
+        var panelApp = new JobApplication
+        {
+            TenantId = _factory.TenantA, JobPostingId = finPosting.Id, CandidateId = panelOnly.Id,
+            Status = PipelineStatus.Interview, Source = SourceChannel.Direct,
+            AppliedAt = now.AddDays(-3), ResumeExtractedText = "Panelreach candidate CV."
+        };
+        db.JobApplications.AddRange(dualSales, dualFinance, panelApp);
+        db.SaveChanges();
+
+        var olderRound = new Interview
+        {
+            TenantId = _factory.TenantA, JobApplicationId = panelApp.Id, Round = 1,
+            ScheduledStart = now.AddDays(-2), Status = InterviewStatus.Completed
+        };
+        var laterRound = new Interview
+        {
+            TenantId = _factory.TenantA, JobApplicationId = panelApp.Id, Round = 2,
+            ScheduledStart = now.AddDays(2)
+        };
+        db.Interviews.AddRange(olderRound, laterRound);
+        db.SaveChanges();
+
+        foreach (var round in new[] { olderRound, laterRound })
+        {
+            db.InterviewParticipants.AddRange(
+                new InterviewParticipant { TenantId = _factory.TenantA, InterviewId = round.Id, UserId = _factory.HiringManagerUserId },
+                new InterviewParticipant { TenantId = _factory.TenantA, InterviewId = round.Id, UserId = _factory.FinanceApproverUserId });
+        }
+        db.SaveChanges();
+
+        // 6. An Approver on ONE of a candidate's panels. The panel grants that application
+        //    (ADR-0017 §4); the candidate's other application stays out of reach (ADR-0018).
+        var twoApps = new Candidate
+        {
+            TenantId = _factory.TenantA,
+            FullName = "Min Thant Panelled",
+            Email = "search.twoapps@alpha.test",
+            Source = SourceChannel.Direct
+        };
+        db.Candidates.Add(twoApps);
+        db.SaveChanges();
+
+        var panelledApp = new JobApplication
+        {
+            TenantId = _factory.TenantA, JobPostingId = finPosting.Id, CandidateId = twoApps.Id,
+            Status = PipelineStatus.Interview, Source = SourceChannel.Direct,
+            AppliedAt = now.AddDays(-4), ResumeExtractedText = "Approverseat CV."
+        };
+        var otherApp = new JobApplication
+        {
+            TenantId = _factory.TenantA, JobPostingId = salesPosting.Id, CandidateId = twoApps.Id,
+            Status = PipelineStatus.Applied, Source = SourceChannel.Direct,
+            AppliedAt = now.AddDays(-1), CoverNote = "Unpanelled note for the sales role."
+        };
+        db.JobApplications.AddRange(panelledApp, otherApp);
+        db.SaveChanges();
+
+        var approverRound = new Interview
+        {
+            TenantId = _factory.TenantA, JobApplicationId = panelledApp.Id, Round = 1,
+            ScheduledStart = now.AddDays(1)
+        };
+        db.Interviews.Add(approverRound);
+        db.SaveChanges();
+
+        db.InterviewParticipants.Add(new InterviewParticipant
+        {
+            TenantId = _factory.TenantA, InterviewId = approverRound.Id, UserId = _factory.FinanceApproverUserId
+        });
+        db.SaveChanges();
+    }
+
+    private async Task<SearchResultItemDto> OnlyCandidateAsync(HttpClient client, string q)
+    {
+        var res = await client.GetAsync($"/api/search?q={q}&category=Candidates");
+        res.EnsureSuccessStatusCode();
+        var dto = await res.Content.ReadFromJsonAsync<SearchResponseDto>();
+        return Assert.Single(dto!.Items);
+    }
+
+    private (JobApplication Sales, JobApplication Finance, Interview LaterRound) LinkTargets()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var dualId = db.Candidates.IgnoreQueryFilters().Single(c => c.Email == "search.dual@alpha.test").Id;
+        var panelId = db.Candidates.IgnoreQueryFilters().Single(c => c.Email == "search.panel@alpha.test").Id;
+        var salesPostingId = db.JobPostings.IgnoreQueryFilters().Single(p => p.Title == "Software Architect Vacancy").Id;
+        var dualApps = db.JobApplications.IgnoreQueryFilters().Where(a => a.CandidateId == dualId).ToList();
+        var panelAppId = db.JobApplications.IgnoreQueryFilters().Single(a => a.CandidateId == panelId).Id;
+        var laterRound = db.Interviews.IgnoreQueryFilters().Single(i => i.JobApplicationId == panelAppId && i.Round == 2);
+        return (
+            dualApps.Single(a => a.JobPostingId == salesPostingId),
+            dualApps.Single(a => a.JobPostingId != salesPostingId),
+            laterRound);
+    }
+
+    // ── Where a result goes when it is clicked ────────────────────────────────────────────
+    //
+    // `TargetUrl` is a route in the internal SPA, and until 2026-09-17 two of the three kinds
+    // pointed at routes that do not exist: `/jobs/{id}` (the SPA serves `/jobpostings/:id`) and
+    // `/candidates/{id}` (there is no candidate page at all). Both fell through the SPA's `*`
+    // catch-all to /requisitions, silently. The palette's own test fed it `/jobpostings/...`,
+    // which is what the SPA wanted rather than what this service sent.
+    //
+    // These strings are asserted EXACTLY, and `App.routes.test.tsx` asserts the same shapes
+    // resolve to a real page. Change one side, change the other.
+
+    [Fact]
+    public async Task Posting_And_Requisition_Results_Link_To_Routes_The_Spa_Serves()
+    {
+        var client = ClientFor(Roles.Admin, _factory.AdminUserId);
+        var res = await client.GetAsync("/api/search?q=Architect");
+        var dto = await res.Content.ReadFromJsonAsync<SearchResponseDto>();
+
+        var posting = Assert.Single(dto!.Items, i => i.Category == "Postings");
+        Assert.Equal($"/jobpostings/{posting.Id}", posting.TargetUrl);
+
+        var requisition = Assert.Single(dto.Items, i => i.Category == "Requisitions");
+        Assert.Equal($"/requisitions/{requisition.Id}", requisition.TargetUrl);
+    }
+
+    [Fact]
+    public async Task A_Candidate_Result_Opens_Their_Most_Recent_Application_On_Its_Board()
+    {
+        var (_, finance, _) = LinkTargets();
+        var item = await OnlyCandidateAsync(ClientFor(Roles.Recruiter, _factory.RecruiterUserId), "Linktarget");
+
+        Assert.Equal($"/jobpostings/{finance.JobPostingId}?application={finance.Id}", item.TargetUrl);
+    }
+
+    [Fact]
+    public async Task A_Scoped_Managers_Candidate_Link_Is_An_Application_In_Their_Own_Department()
+    {
+        // The Finance application is newer, and a Sales manager cannot open that board. Linking
+        // to it would be a dead end at best, and a Finance posting id handed to Sales at worst.
+        var (sales, _, _) = LinkTargets();
+        var item = await OnlyCandidateAsync(ClientFor(Roles.HiringManager, _factory.HiringManagerUserId), "Linktarget");
+
+        Assert.Equal($"/jobpostings/{sales.JobPostingId}?application={sales.Id}", item.TargetUrl);
+    }
+
+    [Fact]
+    public async Task Reach_Through_A_Panel_Only_Links_To_The_Interview_Not_The_Board()
+    {
+        // ADR-0017 §4: panel membership grants one application, not the posting around it — so
+        // the board would 404, and /interviews/:id is the page built for exactly this caller.
+        var (_, _, laterRound) = LinkTargets();
+
+        var manager = await OnlyCandidateAsync(ClientFor(Roles.HiringManager, _factory.HiringManagerUserId), "Panelreach");
+        Assert.Equal($"/interviews/{laterRound.Id}", manager.TargetUrl);
+
+        // ADR-0018: an Approver never reaches a board, even on a panel.
+        var approver = await OnlyCandidateAsync(ClientFor(Roles.Approver, _factory.FinanceApproverUserId), "Panelreach");
+        Assert.Equal($"/interviews/{laterRound.Id}", approver.TargetUrl);
+    }
+
+    // ── What a match may be made from ─────────────────────────────────────────────────────
+    //
+    // Reach decides WHICH candidates a scoped caller sees. Until 2026-09-17 the text search then
+    // ran over every application those candidates had, so it could match on — and quote — an
+    // application the caller had no right to read. Each pair below proves the term IS findable
+    // (by a company-wide role) before asserting a scoped caller cannot find it; without that, a
+    // term nobody can find would pass the negative case for the wrong reason.
+
+    private async Task<SearchResponseDto> SearchAsync(HttpClient client, string q)
+    {
+        var res = await client.GetAsync($"/api/search?q={q}&category=Candidates");
+        res.EnsureSuccessStatusCode();
+        return (await res.Content.ReadFromJsonAsync<SearchResponseDto>())!;
+    }
+
+    [Fact]
+    public async Task A_Scoped_Manager_Cannot_Match_On_Text_From_Another_Departments_Application()
+    {
+        var admin = await OnlyCandidateAsync(ClientFor(Roles.Admin, _factory.AdminUserId), "Financeonly");
+        Assert.Contains("Financeonly", admin.DescriptionSnippet);
+
+        // The Sales manager may see this candidate — through the Sales application — but the
+        // phrase exists only on the Finance one.
+        var manager = await SearchAsync(ClientFor(Roles.HiringManager, _factory.HiringManagerUserId), "Financeonly");
+        Assert.Empty(manager.Items);
+
+        // Still found through what they can read.
+        var reachable = await OnlyCandidateAsync(ClientFor(Roles.HiringManager, _factory.HiringManagerUserId), "Linktarget");
+        Assert.Equal("Thura Dual Applicant", reachable.Title);
+    }
+
+    [Fact]
+    public async Task A_Panel_Seat_Opens_That_Application_Only()
+    {
+        var admin = await OnlyCandidateAsync(ClientFor(Roles.Admin, _factory.AdminUserId), "Unpanelled");
+        Assert.Equal("Min Thant Panelled", admin.Title);
+
+        var approverClient = ClientFor(Roles.Approver, _factory.FinanceApproverUserId);
+
+        // The application they sit on the panel for is readable…
+        var panelled = await OnlyCandidateAsync(approverClient, "Approverseat");
+        Assert.Contains("Approverseat", panelled.DescriptionSnippet);
+
+        // …the candidate's other one is not.
+        Assert.Empty((await SearchAsync(approverClient, "Unpanelled")).Items);
     }
 
     [Fact]

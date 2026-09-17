@@ -23,7 +23,8 @@ export function AppLayout() {
       item.subtitle ||
       (item.descriptionSnippet ? item.descriptionSnippet.replace(/<[^>]+>/g, '') : undefined),
     category: item.category === 'Postings' ? 'Job Postings' : item.category,
-    path: item.targetUrl,
+    // Null for a candidate with nothing the caller may open; the palette then only closes.
+    path: item.targetUrl ?? undefined,
   }));
 
   function signOut() {

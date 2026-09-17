@@ -1037,7 +1037,12 @@ export interface SearchResultItem {
   title: string;
   subtitle: string;
   descriptionSnippet: string | null;
-  targetUrl: string;
+  /**
+   * A route in `frontend/internal`. For a candidate, their board with `?application=` or the
+   * interview they are on the panel of — and null when the caller has neither to open.
+   * Mirrors `SearchResultItemDto.TargetUrl`.
+   */
+  targetUrl: string | null;
   departmentId: string | null;
   departmentName: string | null;
   relevanceScore: number;
