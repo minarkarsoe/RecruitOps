@@ -62,7 +62,15 @@ posting page. The palette test now uses the real shapes and the real routes, and
 navigation it only claimed. All failed before the fix; mutation-checked (a scoped manager given
 any board fails 2, an Approver given a board fails 1, not clearing the parameter fails 1).
 
-⚠️ **Not yet eyeballed in a browser** — logging in is a human step.
+✅ **Verified in Chrome the same day**, against the rebuilt API, as an HrDirector: a candidate
+result opens the Sales Executive board with Ma Yamin Thu's drawer and `?application=` in the URL;
+Escape closes it and drops the parameter, and a reload shows the board with no drawer; a posting
+result lands on `/jobpostings/{id}`; choosing another candidate from the palette while a drawer
+is open switches the drawer without a reload. No console errors. Not driven as a scoped role —
+that path is covered by the API tests only.
+> Worth knowing if you drive the palette with a script: typing straight after Ctrl+K, before the
+> input has focus, loses the text, and Enter then fires whichever static command the mouse is
+> resting on. That looked exactly like this bug coming back.
 
 **Backend 682 (62 + 620) · frontend 446 internal + 24 public · typecheck clean.**
 
