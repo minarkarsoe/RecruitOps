@@ -5,6 +5,28 @@ Format: what changed · why · what it touched.
 
 ## 2026-09-17 (latest)
 
+### 🔒 Search quoted text from applications the caller could not read
+
+Found by the security review of the link fix below; it predates that fix.
+`SearchService.SearchCandidatesAsync` scoped **which candidates** a caller sees, then loaded
+**every** application those candidates had and matched, scored and quoted across all of them.
+Reproduced before fixing: a Sales Hiring Manager searching a phrase that exists only in a
+candidate's **Finance** cover note got the candidate back with the snippet *"Financeonly note
+about the treasury role."*; an Approver on one of a candidate's panels got a snippet from the
+candidate's **other** application. Contrary to ADR-0003 and ADR-0018.
+
+**Fix:** the application query is filtered in SQL to what the caller may read — a scoped
+caller's department postings plus the applications they sit on a panel for; for an excluded
+caller, the panel applications only. Text the caller cannot read no longer leaves the database,
+so the match, the relevance score and the snippet all come from readable applications.
+
+**Tests:** +2 in `SearchApiTests`, each first proving an Admin *can* find the phrase so the
+negative case cannot pass because nobody can. Both failed before the fix. Three mutations: drop
+the excluded-caller filter (1 fails), drop the department filter (1 fails), drop panel reach from
+the scoped filter — over-restricting — (1 fails).
+
+⚠️ Security-relevant — wants a human read before merge. **Backend 684 (62 + 622).**
+
 ### 🔗 Search results for candidates and postings led to /requisitions
 
 Found while auditing Module 2 against its spec. **Only requisition results went where they said.**
