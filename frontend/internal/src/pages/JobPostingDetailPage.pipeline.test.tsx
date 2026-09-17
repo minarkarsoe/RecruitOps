@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { JobPostingDetailPage } from './JobPostingDetailPage';
 import type { JobPostingDetail, PipelineItem } from '@recruitops/types';
 import * as apiModule from '../lib/api';
@@ -63,11 +63,16 @@ function candidate(over: Partial<PipelineItem> = {}): PipelineItem {
   };
 }
 
-function renderPage() {
+function Location() {
+  const { search } = useLocation();
+  return <output data-testid="location-search">{search}</output>;
+}
+
+function renderPage(entry = '/jobpostings/post-1') {
   return render(
-    <MemoryRouter initialEntries={['/jobpostings/post-1']}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
-        <Route path="/jobpostings/:id" element={<JobPostingDetailPage />} />
+        <Route path="/jobpostings/:id" element={<><JobPostingDetailPage /><Location /></>} />
       </Routes>
     </MemoryRouter>
   );
@@ -182,6 +187,46 @@ describe('JobPostingDetailPage — the pipeline board', () => {
 
     await user.click(screen.getByRole('button', { name: /Notes & Debrief/i }));
     expect(await screen.findByPlaceholderText(/Add a note/i)).toBeInTheDocument();
+  });
+
+  // ── `?application=` — where a candidate search result lands ─────────────────────────────
+  //
+  // There is no candidate page, so `SearchService` links a candidate to one of their
+  // applications on its board. Until 2026-09-17 it linked to `/candidates/{id}`, which the SPA
+  // has never served, and every candidate result dropped the user on /requisitions.
+
+  it('opens the drawer on the application named in ?application=', async () => {
+    mockApi([
+      candidate({ id: 'app-1', candidateName: 'Daw Hnin Yu' }),
+      candidate({ id: 'app-2', candidateId: 'cand-2', candidateName: 'U Kyaw Swar', email: 'kyaw.swar@example.com' }),
+    ]);
+    renderPage('/jobpostings/post-1?application=app-2');
+
+    // The drawer header is the only place the email line renders — a card does not show it.
+    expect(await screen.findByText(/kyaw\.swar@example\.com · /)).toBeInTheDocument();
+    expect(screen.queryByText(/hnin\.yu@example\.com · /)).toBeNull();
+  });
+
+  it('opens nothing for an application that is not on this board', async () => {
+    mockApi([candidate()]);
+    renderPage('/jobpostings/post-1?application=app-elsewhere');
+
+    expect(await screen.findByText('Daw Hnin Yu')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /AI Insights/i })).toBeNull();
+  });
+
+  it('drops ?application= when the drawer closes, so a reload does not reopen it', async () => {
+    const user = userEvent.setup();
+    mockApi([candidate()]);
+    renderPage('/jobpostings/post-1?application=app-1');
+
+    expect(await screen.findByRole('button', { name: /AI Insights/i })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /AI Insights/i })).toBeNull();
+    });
+    expect(screen.getByTestId('location-search')).toHaveTextContent(/^$/);
   });
 
   it('withholds stage controls from a user without move_stage', async () => {

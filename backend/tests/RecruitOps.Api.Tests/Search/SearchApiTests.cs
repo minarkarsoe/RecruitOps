@@ -143,6 +143,152 @@ public class SearchApiTests : IClassFixture<CustomWebAppFactory>
 
         db.JobApplications.AddRange(app1, app2);
         db.SaveChanges();
+
+        // 5. Link targets. A candidate who applied to Sales first and Finance later, so "the most
+        //    recent application" and "the most recent one a Sales manager can reach" differ.
+        var dual = new Candidate
+        {
+            TenantId = _factory.TenantA,
+            FullName = "Thura Dual Applicant",
+            Email = "search.dual@alpha.test",
+            Source = SourceChannel.Direct
+        };
+        // Reached only through an interview panel — by the Sales manager and the Finance approver.
+        var panelOnly = new Candidate
+        {
+            TenantId = _factory.TenantA,
+            FullName = "Nandar Panel Only",
+            Email = "search.panel@alpha.test",
+            Source = SourceChannel.Direct
+        };
+        db.Candidates.AddRange(dual, panelOnly);
+        db.SaveChanges();
+
+        var dualSales = new JobApplication
+        {
+            TenantId = _factory.TenantA, JobPostingId = salesPosting.Id, CandidateId = dual.Id,
+            Status = PipelineStatus.Applied, Source = SourceChannel.Direct,
+            AppliedAt = now.AddDays(-10), ResumeExtractedText = "Linktarget dual applicant CV."
+        };
+        var dualFinance = new JobApplication
+        {
+            TenantId = _factory.TenantA, JobPostingId = finPosting.Id, CandidateId = dual.Id,
+            Status = PipelineStatus.Applied, Source = SourceChannel.Direct,
+            AppliedAt = now.AddDays(-1), ResumeExtractedText = "Linktarget dual applicant CV."
+        };
+        var panelApp = new JobApplication
+        {
+            TenantId = _factory.TenantA, JobPostingId = finPosting.Id, CandidateId = panelOnly.Id,
+            Status = PipelineStatus.Interview, Source = SourceChannel.Direct,
+            AppliedAt = now.AddDays(-3), ResumeExtractedText = "Panelreach candidate CV."
+        };
+        db.JobApplications.AddRange(dualSales, dualFinance, panelApp);
+        db.SaveChanges();
+
+        var olderRound = new Interview
+        {
+            TenantId = _factory.TenantA, JobApplicationId = panelApp.Id, Round = 1,
+            ScheduledStart = now.AddDays(-2), Status = InterviewStatus.Completed
+        };
+        var laterRound = new Interview
+        {
+            TenantId = _factory.TenantA, JobApplicationId = panelApp.Id, Round = 2,
+            ScheduledStart = now.AddDays(2)
+        };
+        db.Interviews.AddRange(olderRound, laterRound);
+        db.SaveChanges();
+
+        foreach (var round in new[] { olderRound, laterRound })
+        {
+            db.InterviewParticipants.AddRange(
+                new InterviewParticipant { TenantId = _factory.TenantA, InterviewId = round.Id, UserId = _factory.HiringManagerUserId },
+                new InterviewParticipant { TenantId = _factory.TenantA, InterviewId = round.Id, UserId = _factory.FinanceApproverUserId });
+        }
+        db.SaveChanges();
+    }
+
+    private async Task<SearchResultItemDto> OnlyCandidateAsync(HttpClient client, string q)
+    {
+        var res = await client.GetAsync($"/api/search?q={q}&category=Candidates");
+        res.EnsureSuccessStatusCode();
+        var dto = await res.Content.ReadFromJsonAsync<SearchResponseDto>();
+        return Assert.Single(dto!.Items);
+    }
+
+    private (JobApplication Sales, JobApplication Finance, Interview LaterRound) LinkTargets()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var dualId = db.Candidates.IgnoreQueryFilters().Single(c => c.Email == "search.dual@alpha.test").Id;
+        var panelId = db.Candidates.IgnoreQueryFilters().Single(c => c.Email == "search.panel@alpha.test").Id;
+        var salesPostingId = db.JobPostings.IgnoreQueryFilters().Single(p => p.Title == "Software Architect Vacancy").Id;
+        var dualApps = db.JobApplications.IgnoreQueryFilters().Where(a => a.CandidateId == dualId).ToList();
+        var panelAppId = db.JobApplications.IgnoreQueryFilters().Single(a => a.CandidateId == panelId).Id;
+        var laterRound = db.Interviews.IgnoreQueryFilters().Single(i => i.JobApplicationId == panelAppId && i.Round == 2);
+        return (
+            dualApps.Single(a => a.JobPostingId == salesPostingId),
+            dualApps.Single(a => a.JobPostingId != salesPostingId),
+            laterRound);
+    }
+
+    // ── Where a result goes when it is clicked ────────────────────────────────────────────
+    //
+    // `TargetUrl` is a route in the internal SPA, and until 2026-09-17 two of the three kinds
+    // pointed at routes that do not exist: `/jobs/{id}` (the SPA serves `/jobpostings/:id`) and
+    // `/candidates/{id}` (there is no candidate page at all). Both fell through the SPA's `*`
+    // catch-all to /requisitions, silently. The palette's own test fed it `/jobpostings/...`,
+    // which is what the SPA wanted rather than what this service sent.
+    //
+    // These strings are asserted EXACTLY, and `App.routes.test.tsx` asserts the same shapes
+    // resolve to a real page. Change one side, change the other.
+
+    [Fact]
+    public async Task Posting_And_Requisition_Results_Link_To_Routes_The_Spa_Serves()
+    {
+        var client = ClientFor(Roles.Admin, _factory.AdminUserId);
+        var res = await client.GetAsync("/api/search?q=Architect");
+        var dto = await res.Content.ReadFromJsonAsync<SearchResponseDto>();
+
+        var posting = Assert.Single(dto!.Items, i => i.Category == "Postings");
+        Assert.Equal($"/jobpostings/{posting.Id}", posting.TargetUrl);
+
+        var requisition = Assert.Single(dto.Items, i => i.Category == "Requisitions");
+        Assert.Equal($"/requisitions/{requisition.Id}", requisition.TargetUrl);
+    }
+
+    [Fact]
+    public async Task A_Candidate_Result_Opens_Their_Most_Recent_Application_On_Its_Board()
+    {
+        var (_, finance, _) = LinkTargets();
+        var item = await OnlyCandidateAsync(ClientFor(Roles.Recruiter, _factory.RecruiterUserId), "Linktarget");
+
+        Assert.Equal($"/jobpostings/{finance.JobPostingId}?application={finance.Id}", item.TargetUrl);
+    }
+
+    [Fact]
+    public async Task A_Scoped_Managers_Candidate_Link_Is_An_Application_In_Their_Own_Department()
+    {
+        // The Finance application is newer, and a Sales manager cannot open that board. Linking
+        // to it would be a dead end at best, and a Finance posting id handed to Sales at worst.
+        var (sales, _, _) = LinkTargets();
+        var item = await OnlyCandidateAsync(ClientFor(Roles.HiringManager, _factory.HiringManagerUserId), "Linktarget");
+
+        Assert.Equal($"/jobpostings/{sales.JobPostingId}?application={sales.Id}", item.TargetUrl);
+    }
+
+    [Fact]
+    public async Task Reach_Through_A_Panel_Only_Links_To_The_Interview_Not_The_Board()
+    {
+        // ADR-0017 §4: panel membership grants one application, not the posting around it — so
+        // the board would 404, and /interviews/:id is the page built for exactly this caller.
+        var (_, _, laterRound) = LinkTargets();
+
+        var manager = await OnlyCandidateAsync(ClientFor(Roles.HiringManager, _factory.HiringManagerUserId), "Panelreach");
+        Assert.Equal($"/interviews/{laterRound.Id}", manager.TargetUrl);
+
+        // ADR-0018: an Approver never reaches a board, even on a panel.
+        var approver = await OnlyCandidateAsync(ClientFor(Roles.Approver, _factory.FinanceApproverUserId), "Panelreach");
+        Assert.Equal($"/interviews/{laterRound.Id}", approver.TargetUrl);
     }
 
     [Fact]

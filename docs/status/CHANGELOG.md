@@ -3,7 +3,48 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-08-26 → 2026-08-28 (latest)
+## 2026-09-17 (latest)
+
+### 🔗 Search results for candidates and postings led to /requisitions
+
+Found while auditing Module 2 against its spec. **Only requisition results went where they said.**
+`SearchService` wrote SPA routes as C# strings: `/jobs/{id}` for a posting (the SPA serves
+`/jobpostings/:id`) and `/candidates/{id}` for a candidate (the SPA has **no candidate page at
+all**). Both matched nothing, fell through the router's `*` catch-all, and put the user on
+/requisitions without a word.
+
+**Why nothing caught it:** the two sides were never compared. `CommandPalette.test.tsx` fed the
+palette `/jobpostings/...` — what the SPA wanted, not what the service sent — and for candidates
+it declared a `candidates/:id` route inside the test's own router, so it navigated somewhere
+that exists only in the test. Its "route updates" comment was never asserted.
+
+**Fix.**
+- Postings link to `/jobpostings/{id}`.
+- A candidate opens through one of their applications, chosen by the **same reach rules** the
+  search filter already applies: the most recent one on a board the caller can open
+  (`/jobpostings/{posting}?application={id}`); for a caller whose only reach is an interview panel
+  — a Hiring Manager from another department, or any Approver (ADR-0017 §4, ADR-0018) — the
+  latest round they sit on (`/interviews/{id}`); **null** when there is neither, instead of a link
+  to nowhere. `SearchResultItemDto.TargetUrl` and `packages/types` are now nullable.
+- `JobPostingDetailPage` opens its drawer from `?application=`, follows it when the palette moves
+  the same page to another candidate, and drops it once the drawer is closed or another card is
+  chosen, so a reload shows the board rather than the old result.
+- `App.tsx` split into `App` + `AppRoutes` so the route table can be mounted at a URL in a test.
+
+**Tests.** Backend +4 (`SearchApiTests`): exact link shapes; a Sales manager is linked to the
+older Sales application, not the newer Finance one; panel-only reach links to the interview for
+a Hiring Manager and an Approver. Frontend +9: `App.routes.test.tsx` mounts the real route table
+at each shape the service sends — and at the two it used to send, which still land on the
+catch-all, proving the harness can tell a dead link from a live one; three deep-link cases on the
+posting page. The palette test now uses the real shapes and the real routes, and asserts the
+navigation it only claimed. All failed before the fix; mutation-checked (a scoped manager given
+any board fails 2, an Approver given a board fails 1, not clearing the parameter fails 1).
+
+⚠️ **Not yet eyeballed in a browser** — logging in is a human step.
+
+**Backend 682 (62 + 620) · frontend 446 internal + 24 public · typecheck clean.**
+
+## 2026-08-26 → 2026-08-28
 
 > Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
 > which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.

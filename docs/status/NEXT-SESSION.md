@@ -662,6 +662,16 @@ active route never folds; no folding at 64px, where there is no heading to fold.
 *defer it* when it was the **reason** for wanting it. Worth remembering: a sentence explaining
 why someone wants a thing is not a sentence postponing it.
 
+### 4c. 🔎 Module 2 has no candidate page — the biggest ATS gap (found 2026-09-17)
+
+`GET /api/candidates` is a stub and the SPA has no `/candidates` route, although
+`design/internal/talent-pool.html` draws the screen. It blocks 2.5's "previously applied
+positions", 2.6's filters (age/gender needs the owner's answer first — §4) and the merge UI.
+Same day: **search result links were fixed** — candidate and posting results had been landing on
+/requisitions (CHANGELOG 2026-09-17). When the talent pool exists, a candidate result should link
+to it instead of borrowing an application; change `SearchService.CandidateTargetUrl`,
+`SearchApiTests` and `App.routes.test.tsx` together.
+
 ### 5. Smaller, whenever
 - ~~**Delete or wire up the orphaned feature folders**~~ ✅ **decided and done 2026-08-29.**
   Product owner: delete the duplicates, wire the pipeline. `features/interviews/` and

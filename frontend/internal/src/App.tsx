@@ -23,75 +23,86 @@ import { DeliveryLogPage } from './pages/DeliveryLogPage';
 export function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-
-        <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
-          {/* Requisitions (all roles) */}
-          <Route path="/requisitions" element={<RequisitionsPage />} />
-          {/* "new" is declared before ":id" so it isn't swallowed by the param route. */}
-          <Route path="/requisitions/new" element={<RequisitionFormPage mode="create" />} />
-          <Route path="/requisitions/:id" element={<RequisitionDetailPage />} />
-          <Route path="/requisitions/:id/edit" element={<RequisitionFormPage mode="edit" />} />
-
-          {/* Module 2 — postings and pipeline */}
-          <Route path="/jobpostings" element={<JobPostingsPage />} />
-          <Route path="/jobpostings/:id" element={<JobPostingDetailPage />} />
-
-          {/* Module 3 — the interviews list. Unguarded by a permission route for the same
-              reason the API's read endpoints are InternalUser rather than RecruitmentStaff:
-              a panel member is very often a Hiring Manager from another department, and the
-              access rule is the service's department-or-panel predicate, not a role gate. */}
-          <Route path="/interviews" element={<InterviewsPage />} />
-
-          {/* Module 3 — one interview round. Not nested under a posting: a panel member
-              from another department reaches this round and nothing else around it
-              (ADR-0017 §4), so the URL must not imply access to the posting. */}
-          <Route path="/interviews/:id" element={<InterviewDetailPage />} />
-
-          {/* Approver / Admin inbox */}
-          <Route path="/inbox" element={<InboxPage />} />
-
-          {/* Admin + Recruiter + HrDirector */}
-          <Route path="/jdtemplates" element={<JdTemplatesPage />} />
-          {/* Readable by any internal user — an interviewer should be able to see what they
-              will be asked before the day; the page hides its editing affordances itself. */}
-          <Route path="/scorecardtemplates" element={<ScorecardTemplatesPage />} />
-
-          {/* Admin only */}
-          <Route path="/approvalchains" element={<ApprovalChainsPage />} />
-          <Route path="/departments" element={<DepartmentsPage />} />
-
-          {/* Module 4 — User Directory & Role Builder */}
-          <Route
-            path="/users"
-            element={
-              <RequirePermission permission="permission:users:users:read">
-                <UsersPage />
-              </RequirePermission>
-            }
-          />
-          <Route
-            path="/roles"
-            element={
-              <RequirePermission permission="permission:roles:roles:read">
-                <RolesPage />
-              </RequirePermission>
-            }
-          />
-          {/* Module 5 — Reporting & Analytics */}
-          <Route path="/analytics" element={<AnalyticsPage />} />
-
-          {/* ADR-0026 — the delivery log. No <RequirePermission> wrapper: reach here is not a
-              permission but a role-and-department question, and it is answered server-side
-              (ADR-0003 / ADR-0018). An Approver gets an empty log rather than a 403, which is
-              correct — they are allowed to ask, and the answer is nothing. */}
-          <Route path="/delivery" element={<DeliveryLogPage />} />
-        </Route>
-
-        <Route path="*" element={<Navigate to="/requisitions" replace />} />
-      </Routes>
+      <AppRoutes />
     </BrowserRouter>
+  );
+}
+
+/**
+ * The route table, apart from the browser router so a test can mount it at a URL.
+ * `SearchService` writes links into this table as strings — `App.routes.test.tsx` pins that
+ * each one reaches a page rather than the catch-all at the bottom.
+ */
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+
+      <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
+        {/* Requisitions (all roles) */}
+        <Route path="/requisitions" element={<RequisitionsPage />} />
+        {/* "new" is declared before ":id" so it isn't swallowed by the param route. */}
+        <Route path="/requisitions/new" element={<RequisitionFormPage mode="create" />} />
+        <Route path="/requisitions/:id" element={<RequisitionDetailPage />} />
+        <Route path="/requisitions/:id/edit" element={<RequisitionFormPage mode="edit" />} />
+
+        {/* Module 2 — postings and pipeline */}
+        <Route path="/jobpostings" element={<JobPostingsPage />} />
+        <Route path="/jobpostings/:id" element={<JobPostingDetailPage />} />
+
+        {/* Module 3 — the interviews list. Unguarded by a permission route for the same
+            reason the API's read endpoints are InternalUser rather than RecruitmentStaff:
+            a panel member is very often a Hiring Manager from another department, and the
+            access rule is the service's department-or-panel predicate, not a role gate. */}
+        <Route path="/interviews" element={<InterviewsPage />} />
+
+        {/* Module 3 — one interview round. Not nested under a posting: a panel member
+            from another department reaches this round and nothing else around it
+            (ADR-0017 §4), so the URL must not imply access to the posting. */}
+        <Route path="/interviews/:id" element={<InterviewDetailPage />} />
+
+        {/* Approver / Admin inbox */}
+        <Route path="/inbox" element={<InboxPage />} />
+
+        {/* Admin + Recruiter + HrDirector */}
+        <Route path="/jdtemplates" element={<JdTemplatesPage />} />
+        {/* Readable by any internal user — an interviewer should be able to see what they
+            will be asked before the day; the page hides its editing affordances itself. */}
+        <Route path="/scorecardtemplates" element={<ScorecardTemplatesPage />} />
+
+        {/* Admin only */}
+        <Route path="/approvalchains" element={<ApprovalChainsPage />} />
+        <Route path="/departments" element={<DepartmentsPage />} />
+
+        {/* Module 4 — User Directory & Role Builder */}
+        <Route
+          path="/users"
+          element={
+            <RequirePermission permission="permission:users:users:read">
+              <UsersPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="/roles"
+          element={
+            <RequirePermission permission="permission:roles:roles:read">
+              <RolesPage />
+            </RequirePermission>
+          }
+        />
+        {/* Module 5 — Reporting & Analytics */}
+        <Route path="/analytics" element={<AnalyticsPage />} />
+
+        {/* ADR-0026 — the delivery log. No <RequirePermission> wrapper: reach here is not a
+            permission but a role-and-department question, and it is answered server-side
+            (ADR-0003 / ADR-0018). An Approver gets an empty log rather than a 403, which is
+            correct — they are allowed to ask, and the answer is nothing. */}
+        <Route path="/delivery" element={<DeliveryLogPage />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/requisitions" replace />} />
+    </Routes>
   );
 }
 

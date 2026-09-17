@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AppLayout } from '../../../components/AppLayout';
 import { auth } from '../../../lib/auth';
 import { searchApi } from '../searchApi';
@@ -73,7 +73,7 @@ describe('CommandPalette Feature & Keyboard Navigation Test Suite', () => {
           title: 'Aung Kyaw',
           subtitle: 'aung.kyaw@example.com | Senior Software Engineer',
           descriptionSnippet: 'Experienced React & .NET <mark>engineer</mark>',
-          targetUrl: '/candidates/cand-101',
+          targetUrl: '/jobpostings/jp-303?application=app-101',
           departmentId: 'dept-1',
           departmentName: 'Engineering',
           relevanceScore: 95.0,
@@ -169,7 +169,10 @@ describe('CommandPalette Feature & Keyboard Navigation Test Suite', () => {
           title: 'Hla Hla',
           subtitle: 'hla@example.com',
           descriptionSnippet: 'Senior Frontend Developer',
-          targetUrl: '/candidates/cand-77',
+          // The shape SearchService sends. This fixture used to say `/candidates/cand-77` and
+          // the router below declared a `candidates/:id` route the app has never had — so the
+          // test could not notice that every real candidate result went to /requisitions.
+          targetUrl: '/jobpostings/jp-9?application=app-77',
           relevanceScore: 99.0,
           createdAt: '2026-08-01T10:00:00Z',
         },
@@ -179,11 +182,17 @@ describe('CommandPalette Feature & Keyboard Navigation Test Suite', () => {
       totalPages: 1,
     });
 
+    function Board() {
+      const { search } = useLocation();
+      return <div data-testid="posting-board">{search}</div>;
+    }
+
     render(
       <MemoryRouter initialEntries={['/']}>
         <Routes>
           <Route path="/" element={<AppLayout />}>
-            <Route path="candidates/:id" element={<div data-testid="candidate-detail-page">Candidate 360 View</div>} />
+            {/* Only routes App.tsx really declares. */}
+            <Route path="jobpostings/:id" element={<Board />} />
             <Route path="requisitions" element={<div data-testid="requisitions-page">Requisitions Page</div>} />
           </Route>
         </Routes>
@@ -206,8 +215,9 @@ describe('CommandPalette Feature & Keyboard Navigation Test Suite', () => {
     // Press Enter to select active item
     fireEvent.keyDown(window, { key: 'Enter' });
 
-    // Modal closes and route updates
+    // Modal closes and route updates — the second half was claimed here and never asserted.
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('posting-board')).toHaveTextContent('?application=app-77');
   });
 
   it('4. clears input instantly when typing empty string or clicking clear button', async () => {
