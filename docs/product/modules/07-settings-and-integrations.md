@@ -74,9 +74,11 @@ choice.
 
 | Event | When |
 |---|---|
-| Signed in / sign-in failed | every attempt through `/api/auth/login` — a failure says why (wrong password, no active account) |
-| User created, renamed, role changed, deactivated, reactivated | through the user directory, and the first Administrator created at install |
-| Role created, changed, deleted | a change lists what moved: name, base role, active, permissions added and removed, and holders whose access moved with it |
+| Signed in / sign-in failed | every sign-in that reaches the password check — a failure says why (wrong password, deactivated, no account). Failures for unknown emails are rolled up per client address (ADR-0027 §7); attempts already throttled (429) are not recorded |
+| Stolen session token used | a rotated refresh token came back — someone else held a copy; every session the user had is ended (ADR-0028) |
+| User created, renamed, role changed, deactivated, reactivated | through the user directory, and the first Administrator created at install. Deactivating ends the user's sessions, and says how many |
+| Department access changed | who belongs to a department — which requisitions a Hiring Manager reaches (ADR-0003) |
+| Role created, changed, deleted | a change lists what moved: name, base role, active, permissions added and removed, and holders whose access moved with it. The system's own changes at startup — system roles created or granted new permissions on an upgrade — are recorded as `System (startup)` |
 | Access change refused | the grantor ceiling turned a request away (ADR-0021) — someone tried to give what they do not hold |
 
 Each entry keeps **who** (and their name at the time), **what** (a one-line summary plus the

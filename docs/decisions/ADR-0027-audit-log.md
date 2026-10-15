@@ -39,7 +39,10 @@ not per company, and not readable by the people asking.
    the target (type, id, name at the time); a one-line summary written for a person; the
    before/after details as JSON; the client IP and the request's trace id — the same id
    problem-details error responses show, so a support ticket links to the entry. **Never**
-   passwords, tokens, or business content.
+   passwords, tokens, or business content. For a sign-in with no matching account, what was typed
+   is kept only if it is a plain email address — no whitespace, control or invisible formatting
+   characters, a dotted domain — because the field takes anything with an "@" and people paste
+   passwords into it; otherwise the entry says "(not an email address)".
 5. **Tenancy.** Entries carry the tenant they happened in. A failed sign-in for an email that
    matches no active account has no tenant; such entries are shown to every tenant's auditors.
    That is right for ADR-0004's one-company install and would leak attempted emails across
@@ -47,14 +50,41 @@ not per company, and not readable by the people asking.
 6. **Readers hold `permission:system:system:audit`** (Admin and HR Director by default), through
    `GET /api/audit-log`, newest first, filterable by category, action, actor, target and time.
    Reading is not itself audited yet.
-7. **Retention is forever,** per the design. Volume is bounded by the login rate limits (failed
-   sign-ins are the only entries an outsider can cause).
+7. **Retention is forever,** per the design — so what an outsider can cause is bounded on purpose.
+   Failed sign-ins for **real** accounts are recorded every time (the account throttle caps them at
+   five per fifteen minutes each). Failed sign-ins for **unknown** emails are not throttled by
+   account — a fresh email each try never trips it — so they are rolled up
+   (`UnknownSignInAuditGate`): per client (an IPv4 address, an IPv6 /64) the first in each
+   15-minute window is recorded with the count of those in between, and no more than 60 an hour
+   install-wide. Throttled attempts (429) never reach the password check and are not recorded.
+
+8. **What is recorded** (first slice, completed after the security review): sign-ins and failed
+   sign-ins; reuse of a stolen session token (ADR-0028); users created, renamed, role changed,
+   deactivated (with the sessions it ended) and reactivated; roles created, changed, deleted;
+   department membership (the ADR-0003 axis); grantor-ceiling refusals; and the system's own
+   changes — the first Administrator at install, and system roles created or granted new
+   permissions at startup (`System (startup)`).
+9. **Audit writes never decide a sign-in.** A failed sign-in's entry is written with no
+   cancellation and inside a try/catch: if the write fails, the caller still gets 401 and the
+   account throttle still counts it; the lost entry is logged as an error. A grantor-ceiling
+   refusal stays a refusal whatever happens to its entry.
 
 ## Consequences
 
-- Any new code path that changes users, roles or permissions must record an entry, or the log
-  silently has a hole. The services that change access today all do; the tests pin it.
-- The triggers are what make "append-only" true at the database. A DBA can still drop them —
+- Any new code path that changes users, roles, permissions or department membership must record an
+  entry, or the log silently has a hole. The services that change access today all do, and
+  `AuditLogTests` pins each one — but nothing yet *fails* when a new path forgets; a
+  SaveChanges-level check is a follow-up.
+- `permission:system:system:audit` existed before this ADR (described as "view audit logs and
+  metrics") with no endpoint behind it. Any custom role granted it before now reads the whole log —
+  check before deploying (NEXT-SESSION has the query).
+- **Run the API as a role that cannot drop them.** The triggers are what make "append-only" true
+  at the database, but the table's owner can disable them, and `docker-compose.prod.yml` runs the
+  API as the Postgres bootstrap superuser. A deployment that wants the guarantee to hold against
+  an application compromise runs migrations as an owner role and the API as a role with only
+  `INSERT, SELECT` on `AuditLogEntries`. The EF guard sits in the two `SaveChanges(bool…)`
+  overloads every other overload ends in. Triggers need PostgreSQL 11+ (`EXECUTE FUNCTION`).
+- A DBA can still drop the triggers —
   tamper-*evidence* (a hash chain, or shipping entries off the box) is the next step if a customer's
   compliance needs it, and is deliberately not built yet.
 - Erasure requests (a person asking to be forgotten) cannot be met by deleting entries; when they

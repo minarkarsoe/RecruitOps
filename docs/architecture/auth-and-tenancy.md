@@ -90,6 +90,22 @@ Supporting the same no-enumeration goal, `AuthService` verifies the supplied pas
 against a dummy hash when the account doesn't exist, so response time doesn't reveal which
 emails are registered.
 
+## Refresh tokens ([ADR-0028](../decisions/ADR-0028-refresh-token-hardening.md))
+
+Sign-in returns an 8-hour access token and a refresh token. `POST /api/auth/refresh` trades the
+refresh token for a new pair and **rotates** it: the old one is revoked, and presenting it again
+revokes every session the user has (reuse means someone else holds a copy).
+
+- **Hashed at rest.** The database stores a SHA-256 of each refresh token, never the token, so a
+  leaked backup or replica cannot be replayed as a session.
+- **Revoked on deactivation.** Deactivating a user revokes all their refresh tokens; reactivating
+  them does not bring the old sessions back — they sign in again.
+- **Absolute lifetime.** Each rotation lasts 14 days, but a session — everything descended from
+  one sign-in — ends `Jwt:SessionMaxDays` (default **30**) after that sign-in, however active.
+- **Rate-limited.** `/refresh` and `/revoke` are limited per client IP (`RateLimit:Refresh`,
+  60 per 60 s by default) like sign-in.
+- **Audited.** A reused (stolen) refresh token is recorded in the audit log (ADR-0027).
+
 ## Known gaps
 
 - `LoginThrottle` state is in-process: reset by a restart, not shared across replicas.
@@ -97,6 +113,7 @@ emails are registered.
 - `ReverseProxy:TrustForwardedHeaders` is off by default because the dev compose file
   publishes the API port. Until a deployment turns it on, the per-IP limiter treats all
   proxied traffic as a single caller.
-- No refresh token; the 8-hour access token is the only credential.
+- The SPA keeps the refresh token in `sessionStorage`, which script on the page can read. An
+  HttpOnly cookie would put it out of reach of XSS, at the price of CSRF handling (ADR-0028).
 - Login matches on **email alone**, so email must be unique across all companies.
   Same email at two companies needs a tenant selector (subdomain/slug).
