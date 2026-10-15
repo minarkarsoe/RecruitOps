@@ -144,13 +144,12 @@ public static class DbInitializer
             foreach (var user in usersWithoutRoleId)
             {
                 var roleCode = user.Role.ToString();
+                // Linking only. This used to set IsSuperAdmin for a SuperAdmin-role user, which made
+                // a SuperAdmin minted through the old "role": "0" path permanent on the next startup
+                // (ADR-0021). The flag is a grant, and seeding reference data grants nothing.
                 if (rolesByCode.TryGetValue(roleCode, out var matchedRole))
                 {
                     user.RoleId = matchedRole.Id;
-                    if (matchedRole.IsSuperAdmin)
-                    {
-                        user.IsSuperAdmin = true;
-                    }
                 }
             }
 

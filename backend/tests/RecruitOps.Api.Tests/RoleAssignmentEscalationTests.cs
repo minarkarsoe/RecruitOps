@@ -49,6 +49,12 @@ public class RoleAssignmentEscalationTests : IClassFixture<CustomWebAppFactory>
     [InlineData("0")]   // UserRole.SuperAdmin's underlying value
     [InlineData("1")]   // numeric parsing is refused outright, not just for SuperAdmin
     [InlineData("99")]  // undefined value — Enum.TryParse accepts it and yields (UserRole)99
+    [InlineData(" 0")]
+    [InlineData("00")]
+    [InlineData("-1")]
+    [InlineData("Admin,Recruiter")] // TryParse ORs flag-style lists together
+    [InlineData(" superadmin ")]
+    [InlineData("")]                // no role at all — it used to default to Recruiter
     public async Task Creating_A_User_Cannot_Name_SuperAdmin_Or_A_Numeric_Role(string role)
     {
         var res = await CreateUser(role: role);
@@ -77,6 +83,17 @@ public class RoleAssignmentEscalationTests : IClassFixture<CustomWebAppFactory>
     {
         var superAdmin = await SystemRole("SuperAdmin");
         var res = await CreateUser(roleId: superAdmin.Id);
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task The_SuperAdmin_System_Role_Cannot_Be_Given_To_An_Existing_User_By_Id()
+    {
+        var superAdmin = await SystemRole("SuperAdmin");
+        var created = await (await CreateUser(role: "Recruiter")).Content.ReadFromJsonAsync<UserDetailDto>();
+
+        var res = await Admin().PutAsJsonAsync($"/api/users/{created!.Id}",
+            new UpdateUserRequest("Directory Person", superAdmin.Id, null));
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
     }
 

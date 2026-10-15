@@ -213,7 +213,11 @@ public class UserService : IUserService
 
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
 
-        // Resolve role
+        // An explicit role, always. A missing one used to leave the entity default — Recruiter,
+        // company-wide reach into every candidate — which is a guess, not a decision (ADR-0021).
+        if (!request.RoleId.HasValue && string.IsNullOrWhiteSpace(request.Role))
+            throw new ArgumentException("A role is required.");
+
         await AssignRoleToUserAsync(user, request.RoleId, request.Role, ct);
 
         _db.Users.Add(user);
@@ -240,7 +244,15 @@ public class UserService : IUserService
 
         if (request.RoleId.HasValue || !string.IsNullOrWhiteSpace(request.Role))
         {
+            var (previousRole, previousRoleId) = (user.Role, user.RoleId);
+            var wasSuperAdmin = user.IsSuperAdmin || previousRole == UserRole.SuperAdmin;
+
             await AssignRoleToUserAsync(user, request.RoleId, request.Role, ct);
+
+            // Only an actual change is guarded: the edit dialog resends the current role with a
+            // new display name. Throwing before SaveChanges discards the tracked change.
+            if (user.Role != previousRole || user.RoleId != previousRoleId)
+                await GuardRoleChangeAsync(user, previousRole, wasSuperAdmin, ct);
         }
 
         await _db.SaveChangesAsync(ct);
@@ -300,6 +312,31 @@ public class UserService : IUserService
         _permissionEvaluator.InvalidateUserPermissionsCache(user.Id, user.TenantId);
 
         return await GetUserByIdAsync(user.Id, ct);
+    }
+
+    /// <summary>Role changes the directory refuses whoever asks (security review, 2026-10-15).</summary>
+    private async Task GuardRoleChangeAsync(User user, UserRole previousRole, bool wasSuperAdmin, CancellationToken ct)
+    {
+        // Promoting yourself is the escalation; demoting yourself is how the last Admin disappears.
+        if (_currentUser.UserId == user.Id)
+            throw new InvalidOperationException("You cannot change your own role. Ask another administrator.");
+
+        // SuperAdmin is provisioned out of band (ADR-0021), and its flag outlives a role change —
+        // a "demoted" SuperAdmin would keep bypassing every permission check.
+        if (wasSuperAdmin)
+            throw new InvalidOperationException("SuperAdmin accounts are not managed through the user directory.");
+
+        // The same floor deactivation already enforces: with SuperAdmin unassignable, there is no
+        // API route back from a company with no administrator.
+        if (previousRole == UserRole.Admin && user.Role != UserRole.Admin)
+        {
+            var otherActiveAdmins = await _db.Users
+                .AsNoTracking()
+                .CountAsync(u => u.Id != user.Id && u.IsActive
+                                 && (u.Role == UserRole.Admin || u.Role == UserRole.SuperAdmin || u.IsSuperAdmin), ct);
+            if (otherActiveAdmins == 0)
+                throw new InvalidOperationException("Cannot change the role of the last active Administrator.");
+        }
     }
 
     /// <summary>The system roles the tenant directory may hand out, by exact name.

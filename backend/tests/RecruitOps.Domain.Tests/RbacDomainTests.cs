@@ -228,7 +228,10 @@ public class RbacDomainTests
 
         var superAdminUser = await db.Users.IgnoreQueryFilters().FirstAsync(u => u.Email == "superadmin@example.com");
         Assert.NotNull(superAdminUser.RoleId);
-        Assert.True(superAdminUser.IsSuperAdmin);
+        // Linked, but not granted the flag: seeding reference data must not mint a SuperAdmin
+        // (ADR-0021, security review 2026-10-15). A SuperAdmin-role user is a SuperAdmin to the
+        // evaluator and the handler by role alone, so a legitimate one loses nothing.
+        Assert.False(superAdminUser.IsSuperAdmin);
 
         // Act 2: Idempotency check (run again second time)
         await DbInitializer.SeedPermissionsAndRolesAsync(db);
@@ -243,6 +246,29 @@ public class RbacDomainTests
         Assert.Equal(permissionsCount, await db.Permissions.IgnoreQueryFilters().CountAsync());
         Assert.Equal(rolesCount, await db.Roles.IgnoreQueryFilters().CountAsync());
         Assert.Equal(rolePermissionsCountRun2, await db.RolePermissions.IgnoreQueryFilters().CountAsync());
+    }
+
+    /// <summary>Security review, 2026-10-15: step 3 links users without a RoleId to their system
+    /// role, and used to set <c>IsSuperAdmin</c> on the way. A user minted as SuperAdmin through the
+    /// old <c>"role": "0"</c> path (ADR-0021) had no RoleId — so the next startup made the flag
+    /// permanent, and no API clears it. Linking is reference data; the flag is a grant.</summary>
+    [Fact]
+    public async Task DbInitializer_Links_Users_To_Their_Role_Without_Granting_The_SuperAdmin_Flag()
+    {
+        using var db = CreateDbContext();
+        var stray = new User
+        {
+            Id = Guid.NewGuid(), TenantId = Guid.NewGuid(), Email = "stray@example.test", DisplayName = "Stray",
+            Role = UserRole.SuperAdmin, RoleId = null, IsSuperAdmin = false, IsActive = true, PasswordHash = "x",
+        };
+        db.Users.Add(stray);
+        await db.SaveChangesAsync();
+
+        await DbInitializer.SeedPermissionsAndRolesAsync(db);
+
+        var after = await db.Users.IgnoreQueryFilters().SingleAsync(u => u.Id == stray.Id);
+        Assert.NotNull(after.RoleId);
+        Assert.False(after.IsSuperAdmin);
     }
 
     [Fact]
