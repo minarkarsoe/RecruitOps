@@ -47,6 +47,11 @@ public static class RoleScope
     /// an unparseable role is a misconfiguration, and a misconfiguration should not read like
     /// an Admin. The properties on <c>ICurrentUser</c> do exactly that.</para>
     /// </summary>
+    /// <para>Exact member names only. <c>Enum.TryParse</c> also accepted numeric strings, values no
+    /// member has, and comma-joined names — and an undefined value is neither scoped nor
+    /// excluded, the permissive answer (security review, 2026-10-15).</para>
     public static UserRole? Parse(string? role) =>
-        Enum.TryParse<UserRole>(role, ignoreCase: false, out var parsed) ? parsed : null;
+        role is not null && RoleNames.Contains(role) ? Enum.Parse<UserRole>(role) : null;
+
+    private static readonly HashSet<string> RoleNames = new(Enum.GetNames<UserRole>(), StringComparer.Ordinal);
 }
