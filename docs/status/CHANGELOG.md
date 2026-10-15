@@ -3,7 +3,30 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-15 (latest) — custom roles get a base role; nobody grants what they do not hold (ADR-0021 option A)
+## 2026-10-15 (latest) — the audit log (Module 7 §7.5, ADR-0027)
+
+**Why:** nothing recorded who changed access. ADR-0021 made roles changeable by delegates with a
+ceiling that refuses escalation, and both the changes and the refusals vanished with the response.
+
+- **Recorded:** sign-ins (success, and failure with the reason — wrong password, no account,
+  deactivated; never the password), users created / renamed / role changed / deactivated /
+  reactivated, roles created / changed / deleted (a change lists name, base role, active,
+  permissions added and removed, and every holder whose access moved), grantor-ceiling refusals
+  (with the endpoint tried), and the first Administrator created at install. Each entry snapshots
+  who and what by name, and keeps the IP and the trace id error pages show.
+- **Append-only:** `AppDbContext` throws on a modified or deleted entry, and migration
+  `AddAuditLog` adds Postgres triggers refusing `UPDATE`/`DELETE`/`TRUNCATE` (verified on
+  Postgres 16). No foreign keys — deleting a role keeps its history.
+- **Atomic:** an entry is saved by the same `SaveChanges` as its change. Refusals and failed
+  sign-ins are written through a separate `DbContext` — a mutation test confirmed that writing a
+  refusal through the request's context commits the refused change.
+- **Read:** `GET /api/audit-log` (`permission:system:system:audit` — Admin and HR Director by
+  default), filterable by category (sign-ins, users, roles, refused), action, actor, target, time;
+  `/audit-log` in the SPA under Governance. The viewer was not drawn; it was drawn into
+  `design/internal/users-roles.html` from the kit's pieces and awaits a designer's review.
+- Smoke-tested end to end against Postgres: sign-ins, a role change and the refusal filter.
+
+## 2026-10-15 — custom roles get a base role; nobody grants what they do not hold (ADR-0021 option A)
 
 **Why:** every custom-role holder carried the `Recruiter` enum, so a role built only to approve
 requisitions reached the whole pipeline — every candidate, company-wide — through the role

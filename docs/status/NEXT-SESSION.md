@@ -14,6 +14,12 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 > anyone granting a permission or reach they do not hold —
 > [ADR-0021](../decisions/ADR-0021-role-assignment-and-custom-role-scope.md). Option B (moving the
 > remaining role-policy endpoints onto permissions) is the next step of ADR-0022 when it is wanted.
+> **Then the audit log** ([ADR-0027](../decisions/ADR-0027-audit-log.md), Module 7 §7.5): sign-ins,
+> user and role changes and ceiling refusals, append-only, at `/audit-log` for `system:audit`
+> holders. **Any new code that changes users, roles or permissions must call `IAuditTrail`** —
+> `RecordAsync` before its own `SaveChanges`; `RecordStandaloneAsync` only for events whose request
+> saves nothing. Its viewer was drawn into `design/internal/users-roles.html` for this — get a
+> designer to look at it. Next slices: exports, candidate-data reads, reads of the log itself.
 > Lessons, worth reading before touching auth:
 > - **Never parse an authorization value with `Enum.TryParse`** — it accepts numbers (`"0"` was
 >   SuperAdmin) and comma-joined names. Match exact names against an allow-list.

@@ -31,7 +31,7 @@ Company (tenant)
 Candidate
  └─ CandidateDocument (CV file + OCR text + parse status)
 
-Cross-cutting: ApprovalChain/Step · IntegrationConfig · RetentionPolicy · AuditLog · NotificationLog
+Cross-cutting: ApprovalChain/Step · IntegrationConfig · RetentionPolicy · AuditLogEntry (built, ADR-0027) · NotificationLog
 ```
 
 ## Entity inventory
@@ -69,7 +69,7 @@ Cross-cutting: ApprovalChain/Step · IntegrationConfig · RetentionPolicy · Aud
 `Scorecard` · `ScorecardCriterion` · `ScorecardResponse` · `Note` · `NoteMention` ·
 `OfferTemplate` · `Offer` · `OfferSignature` · `PreboardingRequest` · `PreboardingDocument` ·
 `RecruitmentPlan` · `HeadcountPlan` · `BudgetLine` · `BudgetSpend` · `PlanApproval` ·
-`IntegrationConfig` · `RetentionPolicy` · `AuditLog` · `NotificationLog`
+`IntegrationConfig` · `RetentionPolicy` · `AuditLogEntry` (built 2026-10-15 — append-only, no foreign keys, names snapshotted; ADR-0027) · `NotificationLog`
 
 ## Revised pipeline vocabulary
 
