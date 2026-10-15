@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, Card } from '@recruitops/ui';
 import type {
   ApprovalChain, CreateApprovalChainRequest,
-  DepartmentListItem, UserListItem,
+  DepartmentListItem, SelectableUser,
 } from '@recruitops/types';
 import { api } from '../lib/api';
 
@@ -17,7 +17,7 @@ const EMPTY_FORM: CreateApprovalChainRequest = {
 export function ApprovalChainsPage() {
   const [chains, setChains] = useState<ApprovalChain[] | null>(null);
   const [departments, setDepartments] = useState<DepartmentListItem[]>([]);
-  const [users, setUsers] = useState<UserListItem[]>([]);
+  const [users, setUsers] = useState<SelectableUser[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<CreateApprovalChainRequest>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +26,10 @@ export function ApprovalChainsPage() {
   useEffect(() => {
     api<ApprovalChain[]>('/approvalchains').then(setChains).catch(() => setChains([]));
     api<DepartmentListItem[]>('/departments').then(setDepartments).catch(() => {});
-    api<UserListItem[]>('/users').then(setUsers).catch(() => {});
+    // The picker directory (ADR-0019): active users, id + name + role, no emails. `/users` is the
+    // paged admin directory — reading it as an array blanked this page as soon as one chain
+    // existed (2026-10-15).
+    api<SelectableUser[]>('/users/selectable').then(setUsers).catch(() => {});
   }, []);
 
   function setStep(i: number, patch: Partial<StepDraft>) {
