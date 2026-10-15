@@ -1,6 +1,6 @@
 # ADR-0021 — Who can be given which role, and which enum a custom role holder carries
 
-**Status:** Accepted (SuperAdmin containment) · **Proposed** (custom-role enum — decision needed) · **Date:** 2026-10-15
+**Status:** Accepted — SuperAdmin containment, and **option A** for the custom-role enum (chosen by the product owner 2026-10-15) · **Date:** 2026-10-15
 **Relates to:** [ADR-0022](ADR-0022-permission-driven-requisition-authority.md), [ADR-0003](ADR-0003-department-scoping.md), [ADR-0018](ADR-0018-approver-candidate-data-exclusion.md), [ADR-0004](ADR-0004-single-tenant-deployment.md)
 **Found by:** driving the running stack against Postgres, then two security reviews
 
@@ -50,11 +50,10 @@ to *only* approve requisitions gives its holder the whole pipeline, company-wide
    an enum with no `RolePermission` rows) serves system roles only: a custom role that is
    deactivated, emptied, or missing grants nothing — never the placeholder enum's matrix.
 
-**Custom roles remain assignable** (ADR-0022 depends on it) and their holders still carry
-`Recruiter`. That is unchanged — deliberately, so nothing that works today breaks — and is the
-decision below.
+**Custom roles remain assignable** (ADR-0022 depends on it). What enum their holders carry was
+the open question below, now decided.
 
-## Decision needed — what enum a custom role holder carries
+## Options considered — what enum a custom role holder carries
 
 | Option | A custom-role holder… | Effect on ADR-0022 roles | Cost |
 |---|---|---|---|
@@ -62,11 +61,50 @@ decision below.
 | **B. Finish ADR-0022** | is governed by the matrix everywhere: move the remaining role-policy endpoints to `[HasPermission]`, and give a custom role an explicit data scope for `RoleScope` | Works, and is the "real" RBAC | Large: every remaining endpoint, plus a second security review |
 | **C. A no-access enum** | carries an enum no role policy admits | Works for requisitions/chains; the holder reaches nothing else | Smallest, but a custom "Senior Recruiter" can no longer do recruiter work |
 
-**Recommendation: A now, B as ADR-0022 continues.** A is honest — the Role Builder can say
-"Recruiter + approve" — and stops the silent escalation without breaking anyone. B is where ADR-0022
-was heading anyway; A's base role becomes the data scope B needs.
+**Chosen: A now, B as ADR-0022 continues.** A is honest — the Role Builder says "Recruiter base +
+these permissions" — and stops the silent escalation without breaking anyone. B is where ADR-0022
+was heading anyway; A's base role becomes the data scope B needs. C survives inside A: an
+Interviewer base *is* the no-access enum.
 
-### Preconditions for A or B
+## Decision — option A (2026-10-15)
+
+1. **`Role.BaseRole`.** Every custom role has one, chosen when it is built: `HrDirector`,
+   `Recruiter`, `HiringManager`, `Approver` or `Interviewer`. **Never `Admin` or `SuperAdmin`**:
+   admin reach is given by assigning the Admin system role, where the user directory shows it.
+   System roles have none — their code is their enum.
+2. **A holder's enum is the role's base role while the role is active, and `Interviewer` while
+   it is not.** `Interviewer` is the enum no role policy admits, so a deactivated role grants
+   nothing on either axis ("in force" item 6 covers the matrix). Holders are re-synced whenever the
+   base role or the active flag changes; the session check ("in force" item 5) then retires their
+   tokens.
+3. **Existing custom roles migrate to a `Recruiter` base** — what their holders carried already,
+   so nothing changes until an Admin chooses otherwise. Holders of an inactive custom role move to
+   `Interviewer`.
+4. **The grantor ceiling** (precondition 1, below). Creating, editing or reactivating a role, and
+   assigning a role to or reactivating a user, require the actor to hold
+   - every permission being *added* (on assignment and reactivation: every permission the role
+     carries), and
+   - reach over the enum being given: `Admin ⊇ HrDirector ⊇ Recruiter ⊇ {HiringManager, Approver}
+     ⊇ Interviewer` (`RoleScope.Covers`). The order follows the role policies — `AdminOnly`,
+     `RecruitmentStaff`, `InternalUser` — plus the two scopes: HrDirector's company-wide
+     requisition authority over Recruiter, HiringManager's department scope, Approver's
+     candidate-data exclusion. `RoleScopeCoversTests` pins it against the live policies.
+
+   Managing — editing or deleting a role, changing a user's role, deactivating or reactivating a
+   user — also requires covering the *current* reach of that role or user: demoting is not a grant,
+   but a delegate should not be able to demote or lock out the people above them.
+
+   SuperAdmin is exempt. A refusal is a 403. The actor's role and SuperAdmin flag are read from the
+   token like every other authorization decision (safe because decision 5 of "in force" re-checks
+   both against the database on every request); what the actor holds comes from the evaluator.
+5. **Interviewer** (precondition 3) is the role with **no standing reach**: no role policy admits
+   it, and it reaches an application only by sitting on its panel (ADR-0017 §4). That is what it
+   was in code already; it is now the documented meaning.
+
+Precondition 2 (over-broad seed grants) applies to option B — moving endpoints onto permissions —
+and stays open with it.
+
+### Preconditions for A or B (as written before the decision)
 1. **A grantor ceiling.** A role change must require the target role's permissions to be a subset
    of the actor's; `roles:create`/`roles:update` must not grant what the actor lacks.
 2. **Fix over-broad seed grants** before any endpoint moves onto permissions.
