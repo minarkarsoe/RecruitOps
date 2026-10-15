@@ -50,6 +50,19 @@ public class ErrorHandlingTests : IClassFixture<CustomWebAppFactory>
         Assert.False(string.IsNullOrWhiteSpace(problem.RootElement.GetProperty("traceId").GetString()));
     }
 
+    /// <summary>Security review of the develop merge, A6: the exception handler clears the response
+    /// — headers included — before writing the 500, so headers set on the way in were lost.</summary>
+    [Fact]
+    public async Task An_Error_Response_Keeps_The_Security_Headers()
+    {
+        var res = await _client.GetAsync("/__throw");
+
+        Assert.Equal(HttpStatusCode.InternalServerError, res.StatusCode);
+        Assert.Equal("nosniff", res.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.Equal("DENY", res.Headers.GetValues("X-Frame-Options").Single());
+        Assert.Contains("frame-ancestors 'none'", res.Headers.GetValues("Content-Security-Policy").Single());
+    }
+
     /// <summary>Adds a route that throws, behind the app's own middleware — so the exception
     /// travels back out through exactly the pipeline a real one would.</summary>
     private sealed class ThrowingRouteFilter : IStartupFilter

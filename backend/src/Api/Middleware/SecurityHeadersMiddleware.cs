@@ -11,18 +11,39 @@ public class SecurityHeadersMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-        context.Response.Headers["X-Frame-Options"] = "DENY";
-        context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-        context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none';";
+        Apply(context, overwrite: true);
+
+        // The exception handler clears the response — headers included — before it writes a
+        // 500, so the headers above would be gone from exactly the responses most likely to leak
+        // something. Re-apply whatever is missing as the response starts; anything an endpoint
+        // set itself is left alone.
+        context.Response.OnStarting(() =>
+        {
+            Apply(context, overwrite: false);
+            return Task.CompletedTask;
+        });
+
+        await _next(context);
+    }
+
+    private static void Apply(HttpContext context, bool overwrite)
+    {
+        var headers = context.Response.Headers;
+        void Set(string name, string value)
+        {
+            if (overwrite || !headers.ContainsKey(name)) headers[name] = value;
+        }
+
+        Set("X-Content-Type-Options", "nosniff");
+        Set("X-Frame-Options", "DENY");
+        Set("Referrer-Policy", "strict-origin-when-cross-origin");
+        Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'; object-src 'none';");
 
         // Responses carry salaries, interview scores and candidate contact details: no browser or
         // intermediary cache keeps a copy (2026-10-15). An endpoint that sets its own caching
         // overwrites this when it writes its response.
         if (context.Request.Path.StartsWithSegments("/api"))
-            context.Response.Headers.CacheControl = "no-store";
-
-        await _next(context);
+            Set("Cache-Control", "no-store");
     }
 }
 
