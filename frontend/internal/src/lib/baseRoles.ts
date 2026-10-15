@@ -21,17 +21,17 @@ export const BASE_ROLES: ReadonlyArray<{
   {
     value: "HiringManager",
     label: "Hiring Manager",
-    reach: "Their own departments only.",
+    reach: "Their own departments only, plus candidates on interview panels they sit on.",
   },
   {
     value: "Approver",
     label: "Approver",
-    reach: "Requisitions to approve; no candidate data.",
+    reach: "Requisitions across every department, to approve them; no candidate data.",
   },
   {
     value: "Interviewer",
     label: "Interviewer",
-    reach: "Nothing beyond the permissions ticked below.",
+    reach: "The narrowest: their own departments only, and candidates only on panels they sit on.",
   },
 ];
 

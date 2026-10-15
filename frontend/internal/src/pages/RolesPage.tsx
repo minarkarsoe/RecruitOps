@@ -26,6 +26,10 @@ export function RolesPage() {
   const [formIsActive, setFormIsActive] = useState(true);
   // ADR-0021 option A: no default. A preselected base role is a decision nobody made.
   const [formBaseRole, setFormBaseRole] = useState<BaseRole | ''>('');
+  // What the server said when the modal opened — a save sends the base role only if it changed,
+  // so it cannot revert another admin's change made in the meantime.
+  const [loadedBaseRole, setLoadedBaseRole] = useState<BaseRole | ''>('');
+  const [holderCount, setHolderCount] = useState(0);
   const [isSystemRoleModal, setIsSystemRoleModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -70,6 +74,8 @@ export function RolesPage() {
     setFormPermissionCodes([]);
     setFormIsActive(true);
     setFormBaseRole('');
+    setLoadedBaseRole('');
+    setHolderCount(0);
     setIsSystemRoleModal(false);
     setFormError(null);
     setIsModalOpen(true);
@@ -83,12 +89,16 @@ export function RolesPage() {
     setFormName(roleItem.name);
     setFormCode(roleItem.code);
     setFormDescription(roleItem.description || '');
-    setFormIsActive(roleItem.isActive);
-    setFormBaseRole(roleItem.baseRole ?? '');
 
     try {
       const detail: RoleDetail = await roleService.getRoleById(roleItem.id);
       setFormPermissionCodes(detail.assignedPermissionCodes || []);
+      // From the detail, not the list item: the list can be stale, and a save of stale values
+      // would silently undo a change another admin just made.
+      setFormIsActive(detail.isActive);
+      setFormBaseRole(detail.baseRole ?? '');
+      setLoadedBaseRole(detail.baseRole ?? '');
+      setHolderCount(detail.userCount);
       setIsModalOpen(true);
     } catch (err: any) {
       setError(err.message || 'Failed to load role details.');
@@ -135,7 +145,8 @@ export function RolesPage() {
           description: formDescription.trim() || undefined,
           isActive: formIsActive,
           permissionCodes: formPermissionCodes,
-          baseRole: formBaseRole,
+          // Null keeps the stored base role (the API's contract).
+          baseRole: formBaseRole !== loadedBaseRole && formBaseRole ? formBaseRole : null,
         });
         showToast('Role permissions updated successfully.');
       }
@@ -391,6 +402,12 @@ export function RolesPage() {
                     {BASE_ROLES.find((r) => r.value === formBaseRole)?.reach ??
                       'Which screens and data holders can open at all. The permissions below decide what they can do there.'}
                   </p>
+                  {modalMode === 'edit' && holderCount > 0 && formBaseRole !== loadedBaseRole && (
+                    <p role="status" className="mt-1 text-xs font-medium text-warn-700">
+                      Saving changes what {holderCount} {holderCount === 1 ? 'person' : 'people'} with this role can
+                      reach, straight away — they will be asked to sign in again.
+                    </p>
+                  )}
                 </div>
               )}
 

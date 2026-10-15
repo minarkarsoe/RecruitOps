@@ -111,7 +111,7 @@ describe('RolesPage', () => {
     expect(offered).toEqual(['HrDirector', 'Recruiter', 'HiringManager', 'Approver', 'Interviewer']);
 
     fireEvent.change(picker, { target: { value: 'Approver' } });
-    expect(screen.getByText('Requisitions to approve; no candidate data.')).toBeInTheDocument();
+    expect(screen.getByText('Requisitions across every department, to approve them; no candidate data.')).toBeInTheDocument();
   });
 
   it('shows a custom role’s base role, and sends a changed one on save', async () => {
@@ -134,6 +134,37 @@ describe('RolesPage', () => {
         expect.objectContaining({ baseRole: 'Interviewer' }),
       ),
     );
+  });
+
+  // Security review of option A, finding 4: the modal seeded the base role from the (possibly
+  // stale) list and always sent it, so saving a description could undo another admin's change.
+  it('takes the base role from the fresh detail and sends none when it is unchanged', async () => {
+    (roleService.getRoleById as any).mockResolvedValue({ ...mockRoleDetail, baseRole: 'Approver', userCount: 3 });
+    (roleService.updateRole as any).mockResolvedValue(mockRoleDetail);
+    render(<RolesPage />);
+    await screen.findByText('Role Builder & Permissions');
+
+    fireEvent.click(screen.getByText('Edit Matrix'));
+    const picker = (await screen.findByLabelText(/Base role/)) as HTMLSelectElement;
+    expect(picker.value).toBe('Approver'); // the list item still says Recruiter
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() =>
+      expect(roleService.updateRole).toHaveBeenCalledWith('role-custom', expect.objectContaining({ baseRole: null })),
+    );
+  });
+
+  it('warns that a base-role change reaches the people holding the role', async () => {
+    (roleService.getRoleById as any).mockResolvedValue({ ...mockRoleDetail, userCount: 3 });
+    render(<RolesPage />);
+    await screen.findByText('Role Builder & Permissions');
+
+    fireEvent.click(screen.getByText('Edit Matrix'));
+    const picker = (await screen.findByLabelText(/Base role/)) as HTMLSelectElement;
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    fireEvent.change(picker, { target: { value: 'Interviewer' } });
+    expect(screen.getByRole('status')).toHaveTextContent('3 people');
   });
 
   it('opens view matrix for system role in read-only mode', async () => {
