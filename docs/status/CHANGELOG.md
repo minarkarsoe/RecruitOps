@@ -3,7 +3,34 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-15 (latest) — security fixes integrated from `claude/dreamy-babbage-0zfr37`
+## 2026-10-15 (latest) — custom roles get a base role; nobody grants what they do not hold (ADR-0021 option A)
+
+**Why:** every custom-role holder carried the `Recruiter` enum, so a role built only to approve
+requisitions reached the whole pipeline — every candidate, company-wide — through the role
+policies, whatever its matrix said. The product owner chose option A.
+
+- **A custom role has a base role**, required and chosen in the Role Builder: HR Director,
+  Recruiter, Hiring Manager, Approver or Interviewer — never Admin or SuperAdmin. Holders carry it as
+  their enum; while the role is **inactive** they carry `Interviewer`, which no role policy admits,
+  so deactivation withdraws reach as well as permissions. Changing a role's base role or active flag
+  re-syncs its holders, and the session check retires their tokens on the next request.
+- **Grantor ceiling.** Creating, editing or reactivating a role, assigning one, or reactivating a
+  user requires the actor to hold every permission being granted and to cover the reach being
+  given (`RoleScope.Covers`: Admin ⊇ HR Director ⊇ Recruiter ⊇ {Hiring Manager, Approver} ⊇
+  Interviewer); changing or deactivating someone also requires covering their current reach. A
+  non-Admin can no longer create an Admin; an Admin cannot grant `system:manage`. Refusals are 403.
+- **Migration `AddRoleBaseRole`**: existing custom roles get a Recruiter base (what their holders
+  already carried — nothing changes until an Admin picks); holders of an inactive custom role move to
+  Interviewer. Verified up and down on Postgres 16.
+- **UI:** Role Builder base-role picker (no default; says what each base reaches), base role on each
+  custom role card; the Users page labels custom roles "(Custom · Recruiter)". Design kit
+  `users-roles.html` gained the field.
+- `IPermissionEvaluator.GetRolePermissionsAsync` — what a role grants, answered in one place for both
+  a user's own set and the ceiling.
+- Tests: `CustomRoleBaseRoleTests`, `GrantorCeilingTests`, `RoleScopeCoversTests` (pins the order
+  against the live role policies), `CustomRoleBaseRoleDomainTests`; RolesPage/UsersPage tests.
+
+## 2026-10-15 — security fixes integrated from `claude/dreamy-babbage-0zfr37`
 
 **Why:** a session working from `main` (July 30) drove the stack as each role against real Postgres,
 found authorization defects, fixed them test-first and had two security reviews. Merged here into
@@ -45,7 +72,7 @@ Health/version endpoints, security-headers middleware, reference-data seeding, t
 switcher (develop made it real), CI test-count reporting, `docker-compose` running Development (its
 tripwire test), and `.agents/`.
 
-### ⚠️ Open — decision needed
+### ⚠️ Open — decision needed (decided the same day: option A, entry above)
 A custom role holder still carries the `Recruiter` enum, so reaches every role-policy endpoint
 (pipeline, candidates, interviews, postings…) whatever the matrix says. Unchanged here so ADR-0022's
 custom approver roles keep working. Options in ADR-0021 (recommended: an explicit base role).

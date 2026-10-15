@@ -8,10 +8,13 @@ pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
 
-> 🔐 **2026-10-15 — security fixes merged into develop** (CHANGELOG has the list). **One decision
-> waits on the product owner:** custom-role holders still carry the `Recruiter` enum and so reach the
-> whole role-policy surface — [ADR-0021](../decisions/ADR-0021-role-assignment-and-custom-role-scope.md)
-> lays out the options. Lessons from it, worth reading before touching auth:
+> 🔐 **2026-10-15 — security fixes merged into develop** (CHANGELOG has the list), then **ADR-0021
+> option A built** the same day: a custom role has a **base role** chosen in the Role Builder, its
+> holders carry that enum (Interviewer while the role is inactive), and a **grantor ceiling** stops
+> anyone granting a permission or reach they do not hold —
+> [ADR-0021](../decisions/ADR-0021-role-assignment-and-custom-role-scope.md). Option B (moving the
+> remaining role-policy endpoints onto permissions) is the next step of ADR-0022 when it is wanted.
+> Lessons, worth reading before touching auth:
 > - **Never parse an authorization value with `Enum.TryParse`** — it accepts numbers (`"0"` was
 >   SuperAdmin) and comma-joined names. Match exact names against an allow-list.
 > - **The suite never validated a real token** — `CustomWebAppFactory` swaps the JWT scheme for a
@@ -23,14 +26,19 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 >   `main` starts 90 commits behind. Check `git log origin/develop` before planning.
 > - **A custom role's empty matrix is empty** — the evaluator used to fall back to the holder's
 >   enum (Recruiter) whenever a role yielded no rows, so deactivating a role *granted*. Test a
->   custom-role holder with the `Recruiter` enum, which is what `AssignRoleToUserAsync` produces.
+>   custom-role holder with a `Recruiter` base, the case with the most to leak.
+> - **`RoleScope.Covers` is a hand-written copy of the role policies' reach.** Change a policy in
+>   `Program.cs` and `RoleScopeCoversTests` tells you whether the order still holds — believe it.
+> - **The test auth handler trusts its headers, the ceiling trusts claims.** Both are fine because
+>   production revalidates every token against the database; a test that fakes a SuperAdmin claim
+>   with no row is testing the same thing production would see.
 >
 > **Left open by the merge's security review** (none Critical/High; pick up before `uat`):
 > - **Audit existing installs for SuperAdmins minted through the old hole** — any user with
 >   `Role=SuperAdmin` or `IsSuperAdmin=true` that is not on an expected list. The fix stops new
 >   ones; it does not remove old ones, and the directory now refuses to demote them.
-> - **Grantor ceiling** (ADR-0021 precondition): anyone holding `users:users:create/update` can
->   create an Admin. The last-Admin floor is read-then-write, so two concurrent demotions both pass.
+> - ~~Grantor ceiling~~ — **built** (ADR-0021 option A). Still open: the last-Admin floor is
+>   read-then-write, so two concurrent demotions can both pass.
 > - **Refresh tokens** are stored in plaintext, survive deactivation (and revive on reactivation
 >   within 14 days), and `/api/auth/refresh` has no rate limit.
 > - **`/api/version` is anonymous** and now reports the exact build commit and environment.

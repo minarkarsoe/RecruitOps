@@ -1,7 +1,7 @@
 # Feature Status
 
 > 🔐 **2026-10-15 — security fixes merged** (see CHANGELOG). Suites on the merged code: **backend
-> 763/763** (76 domain + 687 api), **frontend 441/441** (50 files) + **public 24/24**, typecheck clean,
+> 827/827** (99 domain + 728 api), **frontend 445/445** (50 files) + **public 24/24**, typecheck clean,
 > both apps build. The SPA ran under its new CSP behind real nginx with zero violations.
 
 **Last updated:** 2026-08-18 (**status re-derived from the code, not from the previous version of this file** — the module table below was wrong about four modules; see the note under it. Suites re-run the same day: **backend 527/527**, frontend 342/342, typecheck clean. Also: **UI/UX design kit complete — 25 static screens across all seven modules**, in `design/internal/` and `design/public/`, indexed at `design/internal/index.html`; five spec gaps it surfaced are logged under Known gaps) · Previously 2026-08-17 (marketing landing page added; design system pivoted off the agency model and its contrast failures fixed — frontend now **342/342 Vitest green**, 43 files, 0 typecheck errors) · Previously 2026-08-13 (Delivery Readiness & Feature Flags complete — 507/507 backend tests + 318/318 frontend tests green, 0 typecheck errors) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
@@ -490,7 +490,8 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 
 | Issue | Severity | Where |
 |---|---|---|
-| **Custom-role holders carry the `Recruiter` enum** | 🟠 High — decision needed | Every role-policy endpoint (applications, candidates, interviews, postings, notes, search, analytics) admits them whatever their matrix says. ADR-0021 options; recommended: an explicit base role |
+| Custom-role holders carried the `Recruiter` enum | ✅ **fixed 2026-10-15** (ADR-0021 option A) | A custom role has a required **base role** (HR Director / Recruiter / Hiring Manager / Approver / Interviewer), chosen in the Role Builder; holders carry it, and `Interviewer` (no role-policy reach) while the role is inactive. Existing roles migrated to a Recruiter base — no change until an Admin picks. Migration `AddRoleBaseRole` |
+| No grantor ceiling | ✅ **fixed 2026-10-15** (ADR-0021 option A) | Creating/editing/assigning a role or reactivating a user requires holding every permission granted and covering the reach given (`Admin ⊇ HR Director ⊇ Recruiter ⊇ {Hiring Manager, Approver} ⊇ Interviewer`); a non-Admin can never create an Admin. 403 on refusal |
 | SuperAdmin minting via the user directory | ✅ **fixed 2026-10-15** | Never assignable; exact names; custom codes never parsed (ADR-0021) |
 | Role permission revocation never took effect | ✅ **fixed 2026-10-15** | Generation-keyed cache, absolute expiry, inactive roles grant nothing |
 | A JWT was never re-checked for 8h | ✅ **fixed 2026-10-15** | `OnTokenValidated` + `IUserSessionValidator`; tested on the real JWT scheme |
