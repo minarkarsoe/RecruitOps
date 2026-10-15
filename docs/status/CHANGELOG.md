@@ -29,6 +29,19 @@ policies, whatever its matrix said. The product owner chose option A.
   a user's own set and the ceiling.
 - Tests: `CustomRoleBaseRoleTests`, `GrantorCeilingTests`, `RoleScopeCoversTests` (pins the order
   against the live role policies), `CustomRoleBaseRoleDomainTests`; RolesPage/UsersPage tests.
+- **Security review of the change** (no Critical/High), fixed before merge:
+  - **Medium — Interviewer was company-wide in `RoleScope`.** The ceiling placed it below Hiring
+    Manager and Approver, but on permission-guarded requisitions an Interviewer-based role saw
+    every department, so a department-scoped delegate could hand out company-wide reach. Interviewer
+    is now department-scoped and excluded from candidate data — the narrowest on every axis — and
+    `RoleScopeCoversTests` no longer skips roles that no policy admits (the skip is how it missed
+    this).
+  - **Medium — widening a role's base role** now requires holding everything the role carries.
+  - Editing any user (a rename too) needs reach over them; the Role Builder reads the base role
+    from the fresh detail and sends it only when changed (a stale save could revert another
+    admin's change) and warns that a change reaches the role's holders; `HolderRole()` refuses a
+    stored Admin/SuperAdmin base; the migration keeps each role's holders on the enum they already
+    carry when they agree (a role coded `"4"` gave HiringManager before 2026-10-15).
 
 ## 2026-10-15 — security fixes integrated from `claude/dreamy-babbage-0zfr37`
 
