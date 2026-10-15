@@ -112,7 +112,8 @@ public class EmpiricalAuthorizationEngineChallengeTests : IClassFixture<CustomWe
             Name: roleName,
             Code: null,
             Description: "Tenant A secret custom role",
-            PermissionCodes: new[] { "permission:requisitions:requisitions:read" }
+            PermissionCodes: new[] { "permission:requisitions:requisitions:read" },
+            BaseRole: "Recruiter"
         );
 
         var createRes = await tenantAClient.PostAsJsonAsync("/api/roles", createReq);
@@ -196,7 +197,8 @@ public class EmpiricalAuthorizationEngineChallengeTests : IClassFixture<CustomWe
             Name: $"SuperAdmin Created Role {Guid.NewGuid():N}",
             Code: null,
             Description: "Bypass test role",
-            PermissionCodes: new[] { "permission:requisitions:requisitions:read" }
+            PermissionCodes: new[] { "permission:requisitions:requisitions:read" },
+            BaseRole: "Recruiter"
         );
         var createRoleRes = await superAdminClient.PostAsJsonAsync("/api/roles", createRoleReq);
         Assert.Equal(HttpStatusCode.Created, createRoleRes.StatusCode);

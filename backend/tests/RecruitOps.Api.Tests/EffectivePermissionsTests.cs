@@ -120,7 +120,7 @@ public class EffectivePermissionsTests : IClassFixture<CustomWebAppFactory>
     public async Task The_Login_Set_Agrees_With_The_Handler_For_A_Custom_Role_Holder()
     {
         var res = await Admin().PostAsJsonAsync("/api/roles", new CreateRoleRequest(
-            $"Narrow {Guid.NewGuid():N}", null, "test", new[] { "permission:roles:roles:read" }));
+            $"Narrow {Guid.NewGuid():N}", null, "test", new[] { "permission:roles:roles:read" }, "HiringManager"));
         res.EnsureSuccessStatusCode();
         var custom = (await res.Content.ReadFromJsonAsync<RoleDetailDto>())!;
 
@@ -134,7 +134,7 @@ public class EffectivePermissionsTests : IClassFixture<CustomWebAppFactory>
     public async Task The_User_Directory_Shows_The_Same_Effective_Set()
     {
         var res = await Admin().PostAsJsonAsync("/api/roles", new CreateRoleRequest(
-            $"Narrow {Guid.NewGuid():N}", null, "test", new[] { "permission:roles:roles:read" }));
+            $"Narrow {Guid.NewGuid():N}", null, "test", new[] { "permission:roles:roles:read" }, "HiringManager"));
         res.EnsureSuccessStatusCode();
         var custom = (await res.Content.ReadFromJsonAsync<RoleDetailDto>())!;
         var id = await InsertUserAsync(UserRole.HiringManager, custom.Id);

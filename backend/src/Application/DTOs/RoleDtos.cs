@@ -29,7 +29,8 @@ public record RoleListItemDto(
     bool IsSuperAdmin,
     bool IsActive,
     int UserCount,
-    int PermissionCount
+    int PermissionCount,
+    string? BaseRole
 );
 
 public record RoleDetailDto(
@@ -44,19 +45,25 @@ public record RoleDetailDto(
     IReadOnlyList<string> AssignedPermissionCodes,
     int UserCount,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt
+    DateTimeOffset? UpdatedAt,
+    string? BaseRole
 );
 
+/// <param name="BaseRole">Required: the system role whose reach holders get (ADR-0021 option A) —
+/// HrDirector, Recruiter, HiringManager, Approver or Interviewer.</param>
 public record CreateRoleRequest(
     string Name,
     string? Code,
     string? Description,
-    IReadOnlyList<string> PermissionCodes
+    IReadOnlyList<string> PermissionCodes,
+    string? BaseRole = null
 );
 
+/// <param name="BaseRole">Null keeps the current base role.</param>
 public record UpdateRoleRequest(
     string Name,
     string? Description,
     bool IsActive,
-    IReadOnlyList<string> PermissionCodes
+    IReadOnlyList<string> PermissionCodes,
+    string? BaseRole = null
 );

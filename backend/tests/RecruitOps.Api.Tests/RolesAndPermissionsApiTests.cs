@@ -83,7 +83,8 @@ public class RolesAndPermissionsApiTests : IClassFixture<CustomWebAppFactory>
             Name: $"Test Custom Role {Guid.NewGuid():N}",
             Code: $"CUSTOM_ROLE_{Guid.NewGuid():N}",
             Description: "Test Custom Role Description",
-            PermissionCodes: new[] { "permission:requisitions:requisitions:read", "permission:postings:postings:read" }
+            PermissionCodes: new[] { "permission:requisitions:requisitions:read", "permission:postings:postings:read" },
+            BaseRole: "Recruiter"
         );
 
         var response = await client.PostAsJsonAsync("/api/roles", request);
@@ -152,7 +153,8 @@ public class RolesAndPermissionsApiTests : IClassFixture<CustomWebAppFactory>
             Name: $"Updatable Custom Role {Guid.NewGuid():N}",
             Code: null,
             Description: "Before Update",
-            PermissionCodes: new[] { "permission:requisitions:requisitions:read" }
+            PermissionCodes: new[] { "permission:requisitions:requisitions:read" },
+            BaseRole: "Recruiter"
         );
 
         var createRes = await client.PostAsJsonAsync("/api/roles", createRequest);
@@ -193,7 +195,8 @@ public class RolesAndPermissionsApiTests : IClassFixture<CustomWebAppFactory>
             Name: $"Deletable Role {Guid.NewGuid():N}",
             Code: null,
             Description: "To be deleted",
-            PermissionCodes: new string[0]
+            PermissionCodes: new string[0],
+            BaseRole: "Interviewer"
         );
 
         var createRes = await client.PostAsJsonAsync("/api/roles", createRequest);

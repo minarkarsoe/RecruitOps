@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IPermissionEvaluator, PermissionEvaluator>();
         services.AddScoped<IUserSessionValidator, UserSessionValidator>();
+        services.AddScoped<IGrantorCeiling, GrantorCeiling>();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IFeatureFlagService, FeatureFlagService>();

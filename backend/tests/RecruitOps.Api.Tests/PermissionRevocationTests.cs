@@ -48,7 +48,7 @@ public class PermissionRevocationTests : IClassFixture<CustomWebAppFactory>
         UserRole holderEnum, params string[] permissions)
     {
         var res = await Admin().PostAsJsonAsync("/api/roles",
-            new CreateRoleRequest($"Permission Reader {Guid.NewGuid():N}", null, "test", permissions));
+            new CreateRoleRequest($"Permission Reader {Guid.NewGuid():N}", null, "test", permissions, holderEnum.ToString()));
         res.EnsureSuccessStatusCode();
         var role = (await res.Content.ReadFromJsonAsync<RoleDetailDto>())!;
 

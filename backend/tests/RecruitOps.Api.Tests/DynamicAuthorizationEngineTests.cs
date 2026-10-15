@@ -186,6 +186,8 @@ public class DynamicAuthorizationEngineTests
             => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
 
 
+        public Task<IReadOnlySet<string>> GetRolePermissionsAsync(Guid? roleId, RecruitOps.Domain.Enums.UserRole role, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
         public void InvalidateUserPermissionsCache(Guid userId, Guid tenantId) { }
         public void InvalidateRolePermissionsCache(Guid roleId) { }
     }

@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using RecruitOps.Application.Common;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Application.Interfaces;
+using RecruitOps.Domain;
 using RecruitOps.Domain.Entities;
+using RecruitOps.Domain.Enums;
 using RecruitOps.Infrastructure.Persistence;
 
 namespace RecruitOps.Infrastructure.Services;
@@ -13,12 +15,14 @@ public class RoleService : IRoleService
     private readonly AppDbContext _db;
     private readonly ICurrentTenant _tenant;
     private readonly IPermissionEvaluator _permissionEvaluator;
+    private readonly IGrantorCeiling _ceiling;
 
-    public RoleService(AppDbContext db, ICurrentTenant tenant, IPermissionEvaluator permissionEvaluator)
+    public RoleService(AppDbContext db, ICurrentTenant tenant, IPermissionEvaluator permissionEvaluator, IGrantorCeiling ceiling)
     {
         _db = db;
         _tenant = tenant;
         _permissionEvaluator = permissionEvaluator;
+        _ceiling = ceiling;
     }
 
     public async Task<IReadOnlyList<PermissionModuleDto>> GetPermissionsGroupedAsync(CancellationToken ct = default)
@@ -71,7 +75,8 @@ public class RoleService : IRoleService
             r.IsSuperAdmin,
             r.IsActive,
             r.Users.Count(u => u.IsActive),
-            r.RolePermissions.Count
+            r.RolePermissions.Count,
+            r.BaseRole?.ToString()
         )).ToList();
     }
 
@@ -136,7 +141,8 @@ public class RoleService : IRoleService
             assignedCodes,
             role.Users.Count(u => u.IsActive),
             role.CreatedAt,
-            role.UpdatedAt
+            role.UpdatedAt,
+            role.BaseRole?.ToString()
         );
     }
 
@@ -158,6 +164,18 @@ public class RoleService : IRoleService
         if (!char.IsAsciiLetterUpper(code[0])) code = "ROLE_" + code;
         return code.Length > 64 ? code[..64].TrimEnd('_') : code;
     }
+
+    /// <summary>Base roles by exact name — never <c>Enum.TryParse</c>, which also accepts numbers
+    /// (<c>"0"</c> is SuperAdmin) and comma-joined names (ADR-0021).</summary>
+    private static readonly IReadOnlyDictionary<string, UserRole> BaseRolesByName =
+        RoleScope.AssignableBaseRoles.ToDictionary(r => r.ToString(), StringComparer.OrdinalIgnoreCase);
+
+    private static UserRole ParseBaseRole(string? name) =>
+        !string.IsNullOrWhiteSpace(name) && BaseRolesByName.TryGetValue(name.Trim(), out var baseRole)
+            ? baseRole
+            : throw new ArgumentException(
+                $"Choose a base role for this custom role — one of: {string.Join(", ", BaseRolesByName.Keys)}. " +
+                "Admin access is given by assigning the Admin system role.");
 
     public async Task<RoleDetailDto> CreateRoleAsync(CreateRoleRequest request, CancellationToken ct = default)
     {
@@ -194,6 +212,9 @@ public class RoleService : IRoleService
             throw new InvalidOperationException($"Invalid permission code(s): {string.Join(", ", invalidCodes)}");
         }
 
+        var baseRole = ParseBaseRole(request.BaseRole);
+        await _ceiling.EnsureCanGrantAsync(baseRole, requestedCodes, ct);
+
         var role = new Role
         {
             Id = Guid.NewGuid(),
@@ -203,7 +224,8 @@ public class RoleService : IRoleService
             Description = request.Description?.Trim() ?? string.Empty,
             IsSystemRole = false,
             IsSuperAdmin = false,
-            IsActive = true
+            IsActive = true,
+            BaseRole = baseRole,
         };
 
         foreach (var perm in validPermissions)
@@ -226,12 +248,16 @@ public class RoleService : IRoleService
     {
         var role = await _db.Roles
             .Include(r => r.RolePermissions)
+                .ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 
         if (role is null) return null;
 
         if (role.IsSystemRole)
             throw new InvalidOperationException("System roles are pre-configured and immutable.");
+
+        // Editing — even only removing, or deactivating — changes what the role's holders reach.
+        await _ceiling.EnsureCanManageAsync(role.BaseRole ?? UserRole.Interviewer, ct);
 
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new InvalidOperationException("Role name is required.");
@@ -254,6 +280,17 @@ public class RoleService : IRoleService
             throw new InvalidOperationException($"Invalid permission code(s): {string.Join(", ", invalidCodes)}");
         }
 
+        var baseRole = request.BaseRole is null ? role.BaseRole : ParseBaseRole(request.BaseRole);
+
+        // Only what is being granted: resubmitting a permission the actor lacks — a rename does —
+        // is not a grant. Reactivating is: every permission the role carries comes back at once.
+        var reactivating = request.IsActive && !role.IsActive;
+        var heldBefore = role.RolePermissions.Select(rp => rp.Permission.Code).ToHashSet(StringComparer.Ordinal);
+        var granted = reactivating ? requestedCodes : requestedCodes.Where(c => !heldBefore.Contains(c)).ToList();
+        if (granted.Count > 0 || baseRole != role.BaseRole)
+            await _ceiling.EnsureCanGrantAsync(baseRole ?? UserRole.Interviewer, granted, ct);
+
+        role.BaseRole = baseRole;
         role.Name = trimmedName;
         role.Description = request.Description?.Trim() ?? string.Empty;
         role.IsActive = request.IsActive;
@@ -277,10 +314,27 @@ public class RoleService : IRoleService
             });
         }
 
+        await SyncHoldersAsync(role, ct);
+
         await _db.SaveChangesAsync(ct);
         _permissionEvaluator.InvalidateRolePermissionsCache(role.Id);
 
         return await GetRoleByIdAsync(role.Id, ct);
+    }
+
+    /// <summary>Holders carry the role's base role while it is active and Interviewer while it is
+    /// not (ADR-0021 option A). Their next request then fails the session check — the token's role
+    /// claim no longer matches — so the change reaches them at once, not in 8 hours.</summary>
+    private async Task SyncHoldersAsync(Role role, CancellationToken ct)
+    {
+        var holderRole = role.HolderRole();
+        var holders = await _db.Users
+            // A SuperAdmin's enum is provisioned out of band, never derived from a role.
+            .Where(u => u.RoleId == role.Id && u.Role != holderRole && u.Role != UserRole.SuperAdmin && !u.IsSuperAdmin)
+            .ToListAsync(ct);
+
+        foreach (var holder in holders)
+            holder.Role = holderRole;
     }
 
     public async Task<bool> DeleteRoleAsync(Guid id, CancellationToken ct = default)
@@ -293,6 +347,8 @@ public class RoleService : IRoleService
 
         if (role.IsSystemRole)
             throw new InvalidOperationException("Pre-configured system roles cannot be deleted.");
+
+        await _ceiling.EnsureCanManageAsync(role.BaseRole ?? UserRole.Interviewer, ct);
 
         var activeUsersCount = role.Users.Count(u => u.IsActive);
         if (activeUsersCount > 0)

@@ -77,6 +77,10 @@ public class UsersController : ControllerBase
         {
             return Conflict(new ProblemDetails { Title = "Cannot create user", Detail = ex.Message });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Refused("Cannot create user", ex);
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(new ProblemDetails { Title = "Invalid user payload", Detail = ex.Message });
@@ -98,6 +102,10 @@ public class UsersController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return Conflict(new ProblemDetails { Title = "Cannot update user", Detail = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Refused("Cannot update user", ex);
         }
         catch (ArgumentException ex)
         {
@@ -121,6 +129,10 @@ public class UsersController : ControllerBase
         {
             return Conflict(new ProblemDetails { Title = "Cannot deactivate user", Detail = ex.Message });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Refused("Cannot deactivate user", ex);
+        }
     }
 
     /// <summary>Reactivate user account.</summary>
@@ -139,5 +151,15 @@ public class UsersController : ControllerBase
         {
             return Conflict(new ProblemDetails { Title = "Cannot reactivate user", Detail = ex.Message });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Refused("Cannot reactivate user", ex);
+        }
     }
+
+    /// <summary>The grantor ceiling's refusal (ADR-0021 option A): the caller may use this
+    /// endpoint, but not to give what they do not hold or to manage someone above them.</summary>
+    private ObjectResult Refused(string title, UnauthorizedAccessException ex) =>
+        StatusCode(StatusCodes.Status403Forbidden,
+            new ProblemDetails { Title = title, Detail = ex.Message, Status = StatusCodes.Status403Forbidden });
 }

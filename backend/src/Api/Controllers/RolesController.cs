@@ -47,6 +47,14 @@ public class RolesController : ControllerBase
         {
             return Conflict(new ProblemDetails { Title = "Cannot create role", Detail = ex.Message });
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ProblemDetails { Title = "Cannot create role", Detail = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Refused("Cannot create role", ex);
+        }
     }
 
     /// <summary>Update custom tenant role metadata and permissions.</summary>
@@ -62,6 +70,14 @@ public class RolesController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new ProblemDetails { Title = "Cannot update role", Detail = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ProblemDetails { Title = "Cannot update role", Detail = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Refused("Cannot update role", ex);
         }
     }
 
@@ -79,5 +95,15 @@ public class RolesController : ControllerBase
         {
             return Conflict(new ProblemDetails { Title = "Cannot delete role", Detail = ex.Message });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Refused("Cannot delete role", ex);
+        }
     }
+
+    /// <summary>The grantor ceiling's refusal (ADR-0021 option A): the caller may use this
+    /// endpoint, but not to give what they do not hold or to manage someone above them.</summary>
+    private ObjectResult Refused(string title, UnauthorizedAccessException ex) =>
+        StatusCode(StatusCodes.Status403Forbidden,
+            new ProblemDetails { Title = title, Detail = ex.Message, Status = StatusCodes.Status403Forbidden });
 }

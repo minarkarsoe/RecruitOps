@@ -108,14 +108,14 @@ public class RoleAssignmentEscalationTests : IClassFixture<CustomWebAppFactory>
     /// <summary>Custom roles are assignable on develop (ADR-0022: a custom role holding
     /// <c>requisitions:approve</c> is how a tenant configures its approvers). What is pinned here is
     /// the escalation: whatever a custom role is called or coded, its holder is never a SuperAdmin.
-    /// The enum a custom-role holder gets (Recruiter) is the open ADR-0021 question — asserted so a
-    /// change to it is deliberate.</summary>
+    /// The holder carries the role's base role (ADR-0021 option A) — until then it was always
+    /// Recruiter, whatever the role was for.</summary>
     [Fact]
     public async Task A_Custom_Role_Is_Assignable_And_Never_Yields_SuperAdmin()
     {
         var customRes = await Admin().PostAsJsonAsync("/api/roles",
             new CreateRoleRequest($"Approver Lite {Guid.NewGuid():N}", null, "Approves only",
-                new[] { "permission:requisitions:requisitions:approve" }));
+                new[] { "permission:requisitions:requisitions:approve" }, "Approver"));
         customRes.EnsureSuccessStatusCode();
         var custom = (await customRes.Content.ReadFromJsonAsync<RoleDetailDto>())!;
 
@@ -126,7 +126,7 @@ public class RoleAssignmentEscalationTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal(custom.Id, user.RoleId);
         Assert.False(user.IsSuperAdmin);
         Assert.NotEqual("SuperAdmin", user.Role);
-        Assert.Equal("Recruiter", user.Role); // ADR-0021 (open): the enum a custom role holder gets
+        Assert.Equal("Approver", user.Role); // ADR-0021 option A: the base role it was built with
     }
 
     // ------------------------------------------------- what the feature is for

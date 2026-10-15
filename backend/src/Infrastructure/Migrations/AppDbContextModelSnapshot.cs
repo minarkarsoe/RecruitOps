@@ -1076,6 +1076,10 @@ namespace RecruitOps.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("BaseRole")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(100)

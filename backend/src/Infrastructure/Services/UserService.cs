@@ -16,19 +16,22 @@ public class UserService : IUserService
     private readonly ICurrentUser _currentUser;
     private readonly IPasswordHasher<User> _passwordHasher;
     private readonly IPermissionEvaluator _permissionEvaluator;
+    private readonly IGrantorCeiling _ceiling;
 
     public UserService(
         AppDbContext db,
         ICurrentTenant tenant,
         ICurrentUser currentUser,
         IPasswordHasher<User> passwordHasher,
-        IPermissionEvaluator permissionEvaluator)
+        IPermissionEvaluator permissionEvaluator,
+        IGrantorCeiling ceiling)
     {
         _db = db;
         _tenant = tenant;
         _currentUser = currentUser;
         _passwordHasher = passwordHasher;
         _permissionEvaluator = permissionEvaluator;
+        _ceiling = ceiling;
     }
 
     public async Task<PagedResult<UserListItemDto>> GetUsersAsync(UserQueryParameters queryParams, CancellationToken ct = default)
@@ -226,6 +229,7 @@ public class UserService : IUserService
             throw new ArgumentException("A role is required.");
 
         await AssignRoleToUserAsync(user, request.RoleId, request.Role, ct);
+        await EnsureCanGrantCurrentRoleAsync(user, ct);
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
@@ -259,7 +263,11 @@ public class UserService : IUserService
             // Only an actual change is guarded: the edit dialog resends the current role with a
             // new display name. Throwing before SaveChanges discards the tracked change.
             if (user.Role != previousRole || user.RoleId != previousRoleId)
+            {
                 await GuardRoleChangeAsync(user, previousRole, wasSuperAdmin, ct);
+                await _ceiling.EnsureCanManageAsync(previousRole, ct);
+                await EnsureCanGrantCurrentRoleAsync(user, ct);
+            }
         }
 
         await _db.SaveChangesAsync(ct);
@@ -314,6 +322,12 @@ public class UserService : IUserService
             }
         }
 
+        // Deactivating someone you do not outrank is managing them; reactivating anyone hands their
+        // role back, so it is a grant as well (ADR-0021 option A).
+        await _ceiling.EnsureCanManageAsync(user.Role, ct);
+        if (isActive)
+            await EnsureCanGrantCurrentRoleAsync(user, ct);
+
         user.IsActive = isActive;
         await _db.SaveChangesAsync(ct);
         _permissionEvaluator.InvalidateUserPermissionsCache(user.Id, user.TenantId);
@@ -364,6 +378,14 @@ public class UserService : IUserService
             : throw new ArgumentException(
                 $"Role '{name.Trim()}' cannot be assigned. Use one of: {string.Join(", ", AssignableSystemRoles.Keys)}.");
 
+    /// <summary>The grantor ceiling for the role <paramref name="user"/> now holds: its reach, and
+    /// every permission it carries.</summary>
+    private async Task EnsureCanGrantCurrentRoleAsync(User user, CancellationToken ct)
+    {
+        var permissions = await _permissionEvaluator.GetRolePermissionsAsync(user.RoleId, user.Role, ct);
+        await _ceiling.EnsureCanGrantAsync(user.Role, permissions, ct);
+    }
+
     private async Task AssignRoleToUserAsync(User user, Guid? roleId, string? roleName, CancellationToken ct)
     {
         if (roleId.HasValue)
@@ -377,15 +399,10 @@ public class UserService : IUserService
             }
 
             // A custom role's code is never parsed as a UserRole: Enum.TryParse accepted "0", and a
-            // custom role coded "0" made its holder a SuperAdmin (ADR-0021).
-            //
-            // ⚠️ OPEN — ADR-0021. A custom role still sets the enum to Recruiter, as before. Since
-            // ADR-0022 the requisition and approval-chain endpoints honour the custom matrix, but
-            // the role-policy endpoints (pipeline, candidates, interviews, postings, notes, search,
-            // analytics) read the enum — so every custom-role holder reaches all of them as a
-            // Recruiter, whatever their matrix says. Kept unchanged here so that ADR-0022's custom
-            // approver roles keep working; the fix is a product decision recorded in ADR-0021.
-            user.Role = role.IsSystemRole ? ParseAssignableRole(role.Code) : UserRole.Recruiter;
+            // custom role coded "0" made its holder a SuperAdmin (ADR-0021). Its holders carry the
+            // base role it was built with — until option A they all carried Recruiter, so a role
+            // built only to approve requisitions reached every candidate through the role policies.
+            user.Role = role.IsSystemRole ? ParseAssignableRole(role.Code) : role.HolderRole();
             user.RoleId = role.Id;
         }
         else if (!string.IsNullOrWhiteSpace(roleName))

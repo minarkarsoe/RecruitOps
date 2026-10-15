@@ -137,6 +137,8 @@ public class AppDbContext : DbContext
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);
             e.Property(x => x.Code).IsRequired().HasMaxLength(100);
             e.Property(x => x.Description).HasMaxLength(1000);
+            // Stored by name, like User.Role, so the two compare in SQL (ADR-0021 option A).
+            e.Property(x => x.BaseRole).HasConversion<string>().HasMaxLength(30);
 
             // TenantId + Code unique index (system roles have null TenantId)
             e.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();

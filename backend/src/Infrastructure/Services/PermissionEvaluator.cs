@@ -77,63 +77,70 @@ public sealed class PermissionEvaluator : IPermissionEvaluator
                 return (IReadOnlySet<string>)allPermissions.ToHashSet(StringComparer.OrdinalIgnoreCase);
             }
 
-            Guid? targetRoleId = user.RoleId;
-            string? systemRoleCode = user.Role.ToString();
+            return await GetRolePermissionsAsync(user.RoleId, user.Role, ct);
+        }) ?? (IReadOnlySet<string>)new HashSet<string>();
+    }
 
-            if (!targetRoleId.HasValue && !string.IsNullOrWhiteSpace(systemRoleCode))
-            {
-                var systemRole = await _db.Roles
-                    .AsNoTracking()
-                    .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(r => r.IsSystemRole && r.Code == systemRoleCode, ct);
+    /// <summary>What holding a role grants — the one place that answers it, for a user's own set
+    /// above and for the grantor ceiling, which must judge a role before anyone holds it.</summary>
+    public async Task<IReadOnlySet<string>> GetRolePermissionsAsync(Guid? roleId, Domain.Enums.UserRole role, CancellationToken ct = default)
+    {
+        Guid? targetRoleId = roleId;
+        string? systemRoleCode = role.ToString();
 
-                targetRoleId = systemRole?.Id;
-            }
-
-            // A custom role is the holder's whole matrix: their enum is only a placeholder
-            // (Recruiter — ADR-0021), so it must never fill in for the role. Found by the security
-            // review of the develop merge: an emptied or deactivated custom role fell through to
-            // the seed fallback below and granted everything a Recruiter has. A role id that
-            // matches no row is treated the same way — fail closed.
-            var holdsCustomRole = user.RoleId.HasValue && !await _db.Roles
+        if (!targetRoleId.HasValue && !string.IsNullOrWhiteSpace(systemRoleCode))
+        {
+            var systemRole = await _db.Roles
                 .AsNoTracking()
                 .IgnoreQueryFilters()
-                .AnyAsync(r => r.Id == user.RoleId.Value && r.IsSystemRole, ct);
+                .FirstOrDefaultAsync(r => r.IsSystemRole && r.Code == systemRoleCode, ct);
 
-            HashSet<string> permissionCodes = new(StringComparer.OrdinalIgnoreCase);
+            targetRoleId = systemRole?.Id;
+        }
 
-            if (targetRoleId.HasValue)
+        // A custom role is the holder's whole matrix: their enum is the role's base role, which
+        // gives reach through the role policies, never permissions (ADR-0021). Found by the
+        // security review of the develop merge: an emptied or deactivated custom role fell
+        // through to the seed fallback below and granted everything a Recruiter has. A role id
+        // that matches no row is treated the same way — fail closed.
+        var holdsCustomRole = roleId.HasValue && !await _db.Roles
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .AnyAsync(r => r.Id == roleId.Value && r.IsSystemRole, ct);
+
+        HashSet<string> permissionCodes = new(StringComparer.OrdinalIgnoreCase);
+
+        if (targetRoleId.HasValue)
+        {
+            var dbCodes = await _db.RolePermissions
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                // A deactivated role grants nothing.
+                .Where(rp => rp.RoleId == targetRoleId.Value && rp.Role.IsActive)
+                .Select(rp => rp.Permission.Code)
+                .ToListAsync(ct);
+
+            foreach (var c in dbCodes)
             {
-                var dbCodes = await _db.RolePermissions
-                    .AsNoTracking()
-                    .IgnoreQueryFilters()
-                    // A deactivated role grants nothing.
-                    .Where(rp => rp.RoleId == targetRoleId.Value && rp.Role.IsActive)
-                    .Select(rp => rp.Permission.Code)
-                    .ToListAsync(ct);
+                permissionCodes.Add(c);
+            }
+        }
 
-                foreach (var c in dbCodes)
+        // Fallback for unseeded test DBs or when user.Role enum is mapped without RolePermission rows:
+        if (permissionCodes.Count == 0 && !holdsCustomRole && !string.IsNullOrWhiteSpace(systemRoleCode))
+        {
+            var seedRole = RbacSeedData.GetSystemRoles()
+                .FirstOrDefault(r => r.Code.Equals(systemRoleCode, StringComparison.OrdinalIgnoreCase));
+            if (seedRole != null)
+            {
+                foreach (var code in seedRole.PermissionCodes)
                 {
-                    permissionCodes.Add(c);
+                    permissionCodes.Add(code);
                 }
             }
+        }
 
-            // Fallback for unseeded test DBs or when user.Role enum is mapped without RolePermission rows:
-            if (permissionCodes.Count == 0 && !holdsCustomRole && !string.IsNullOrWhiteSpace(systemRoleCode))
-            {
-                var seedRole = RbacSeedData.GetSystemRoles()
-                    .FirstOrDefault(r => r.Code.Equals(systemRoleCode, StringComparison.OrdinalIgnoreCase));
-                if (seedRole != null)
-                {
-                    foreach (var code in seedRole.PermissionCodes)
-                    {
-                        permissionCodes.Add(code);
-                    }
-                }
-            }
-
-            return (IReadOnlySet<string>)permissionCodes;
-        }) ?? (IReadOnlySet<string>)new HashSet<string>();
+        return permissionCodes;
     }
 
     public void InvalidateUserPermissionsCache(Guid userId, Guid tenantId)

@@ -54,4 +54,36 @@ public static class RoleScope
         role is not null && RoleNames.Contains(role) ? Enum.Parse<UserRole>(role) : null;
 
     private static readonly HashSet<string> RoleNames = new(Enum.GetNames<UserRole>(), StringComparer.Ordinal);
+
+    /// <summary>The base roles a custom role may be built on (ADR-0021 option A): every system
+    /// role below Admin. Admin reach is given by assigning the Admin system role, where the user
+    /// directory shows it; SuperAdmin is never given through the API at all.</summary>
+    public static IReadOnlyList<UserRole> AssignableBaseRoles { get; } = new[]
+    {
+        UserRole.HrDirector, UserRole.Recruiter, UserRole.HiringManager, UserRole.Approver, UserRole.Interviewer,
+    };
+
+    /// <summary>True when <paramref name="actor"/>'s reach includes everything
+    /// <paramref name="target"/>'s does — the grantor ceiling's question (ADR-0021 option A):
+    /// <c>Admin ⊇ HrDirector ⊇ Recruiter ⊇ {HiringManager, Approver} ⊇ Interviewer</c>.
+    ///
+    /// <para>Read off the role policies plus the two scopes above: Admin alone passes
+    /// <c>AdminOnly</c>; HrDirector and Recruiter share <c>RecruitmentStaff</c>, and HrDirector adds
+    /// company-wide authority over others' requisitions (<c>RequisitionService</c>); HiringManager
+    /// (department-scoped) and Approver (no candidate data) are each narrower than Recruiter and
+    /// neither covers the other; Interviewer passes no role policy. <c>RoleScopeCoversTests</c>
+    /// checks this order against the policies the API registers.</para></summary>
+    public static bool Covers(UserRole actor, UserRole target) =>
+        actor == target
+        || actor == UserRole.SuperAdmin
+        || DirectlyBelow.TryGetValue(actor, out var below) && below.Any(b => Covers(b, target));
+
+    private static readonly Dictionary<UserRole, UserRole[]> DirectlyBelow = new()
+    {
+        [UserRole.Admin] = new[] { UserRole.HrDirector },
+        [UserRole.HrDirector] = new[] { UserRole.Recruiter },
+        [UserRole.Recruiter] = new[] { UserRole.HiringManager, UserRole.Approver },
+        [UserRole.HiringManager] = new[] { UserRole.Interviewer },
+        [UserRole.Approver] = new[] { UserRole.Interviewer },
+    };
 }

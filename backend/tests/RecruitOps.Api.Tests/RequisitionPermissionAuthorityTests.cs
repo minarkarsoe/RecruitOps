@@ -192,7 +192,10 @@ public class RequisitionPermissionAuthorityTests : IClassFixture<CustomWebAppFac
             Name: $"Report Viewer {Guid.NewGuid():N}",
             Code: null,
             Description: "Read-only role that must NOT be able to raise requisitions.",
-            PermissionCodes: new[] { "permission:requisitions:requisitions:read" }));
+            PermissionCodes: new[] { "permission:requisitions:requisitions:read" },
+            // Recruiter base on purpose: Recruiter's seed matrix includes requisitions:create, so
+            // this is still the strongest case for "the custom matrix is final" (ADR-0021 option A).
+            BaseRole: "Recruiter"));
         roleRes.EnsureSuccessStatusCode();
         var readOnlyRole = (await roleRes.Content.ReadFromJsonAsync<RoleDetailDto>())!;
         Assert.DoesNotContain("permission:requisitions:requisitions:create", readOnlyRole.AssignedPermissionCodes);
@@ -207,8 +210,8 @@ public class RequisitionPermissionAuthorityTests : IClassFixture<CustomWebAppFac
         var viewer = (await userRes.Content.ReadFromJsonAsync<UserDetailDto>())!;
         Assert.DoesNotContain("permission:requisitions:requisitions:create", viewer.Permissions);
 
-        // The claim really does say "Recruiter" — pinned so this test keeps testing the
-        // actual escalation path rather than a hypothetical one.
+        // The claim really does say "Recruiter" — the base role chosen above — pinned so this test
+        // keeps testing the actual escalation path rather than a hypothetical one.
         Assert.Equal("Recruiter", viewer.Role);
 
         var client = ClientFor(viewer.Role, viewer.Id);
@@ -240,7 +243,8 @@ public class RequisitionPermissionAuthorityTests : IClassFixture<CustomWebAppFac
             Name: $"Finance Gatekeeper {Guid.NewGuid():N}",
             Code: null,
             Description: "Custom role granted only the approve permission.",
-            PermissionCodes: new[] { "permission:requisitions:requisitions:approve" }));
+            PermissionCodes: new[] { "permission:requisitions:requisitions:approve" },
+            BaseRole: "Approver"));
         roleRes.EnsureSuccessStatusCode();
         var customRole = await roleRes.Content.ReadFromJsonAsync<RoleDetailDto>();
         Assert.DoesNotContain("permission:requisitions:requisitions:read", customRole!.AssignedPermissionCodes);
@@ -288,11 +292,10 @@ public class RequisitionPermissionAuthorityTests : IClassFixture<CustomWebAppFac
         // The custom-role user — not any of the fixed UserRole literals — decides.
         // HasPermissionAsync resolves purely from the DB user's RoleId, not from this claim.
         // The Role claim itself must still be sent to mirror a real JWT (JwtTokenService
-        // always issues one from the legacy User.Role enum, ClaimTypes.Role); since the
-        // custom role's generated code doesn't parse to a UserRole, AssignRoleToUserAsync
-        // fell back user.Role to Recruiter — asserted below so this test breaks loudly if
-        // that fallback ever changes instead of silently sending the wrong claim.
-        Assert.Equal("Recruiter", customUser.Role);
+        // always issues one from the User.Role enum, ClaimTypes.Role). For a custom role that is
+        // the base role it was built with (ADR-0021 option A) — asserted below so this test
+        // breaks loudly if that ever changes instead of silently sending the wrong claim.
+        Assert.Equal("Approver", customUser.Role);
         var customClient = _factory.CreateClient();
         customClient.DefaultRequestHeaders.Add("X-Test-Tenant", _factory.TenantA.ToString());
         customClient.DefaultRequestHeaders.Add("X-Test-UserId", customUser.Id.ToString());
