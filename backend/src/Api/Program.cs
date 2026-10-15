@@ -5,6 +5,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -16,6 +17,34 @@ using RecruitOps.Infrastructure;
 using RecruitOps.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// --- Logging ---
+// Outside Development, one JSON object per line: an on-prem install's logs end up in whatever
+// the customer runs (journald, a file, a log shipper), and every one of those can parse JSON.
+// Scopes carry the request's TraceId, which ProblemDetails also returns to the caller — so
+// "it failed, here is the trace id" leads straight to the log lines.
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddJsonConsole(o =>
+    {
+        o.IncludeScopes = true;
+        o.UseUtcTimestamp = true;
+        o.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
+    });
+}
+
+// Access log: one line per request. Method, path, status and duration only — no query string
+// (a candidate search would put names in the log) and no headers (the bearer token).
+builder.Services.AddHttpLogging(o =>
+{
+    o.LoggingFields = HttpLoggingFields.RequestMethod | HttpLoggingFields.RequestPath
+                    | HttpLoggingFields.ResponseStatusCode | HttpLoggingFields.Duration;
+    o.CombineLogs = true;
+});
+
+// Unhandled exceptions become RFC 9457 problem details with a traceId, never the exception text.
+builder.Services.AddProblemDetails();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -193,6 +222,14 @@ builder.Services.AddCors(o => o.AddPolicy(DevCors, p =>
 
 var app = builder.Build();
 
+// Outermost, so it records the status the client finally received — including a 500 produced
+// by the exception handler below.
+app.UseHttpLogging();
+
+// Development keeps the developer exception page the host adds by default.
+if (!app.Environment.IsDevelopment())
+    app.UseExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -210,10 +247,13 @@ app.MapControllers();
 
 // Anonymous on purpose — they answer before anyone can sign in — and they carry nothing but a
 // status word: no version, no check names, no exception text (see DatabaseHealthCheck).
+// Probes are polled every few seconds; logging each one would bury the requests that matter.
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false })
-    .AllowAnonymous();
+    .AllowAnonymous()
+    .WithHttpLogging(HttpLoggingFields.None);
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") })
-    .AllowAnonymous();
+    .AllowAnonymous()
+    .WithHttpLogging(HttpLoggingFields.None);
 
 // Apply pending migrations before serving traffic (ADR-0004: unattended installs).
 // No-ops on the in-memory provider used by tests.

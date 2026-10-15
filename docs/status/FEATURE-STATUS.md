@@ -38,6 +38,7 @@ Per-company install, subdomain routing. **None of the operational prerequisites 
 | Automated EF migrations on startup | ✅ **done** — `InitialCreate` generated |
 | `/api/version` + customer/version registry | 🚧 **endpoint done 2026-10-15** — version + commit (signed-in only); the registry itself does not exist |
 | Liveness / readiness (`/health/live`, `/health/ready`) | ✅ **2026-10-15** — anonymous, status word only; readiness = database, verified 503 during a real Postgres outage |
+| Structured logs + error contract | ✅ **2026-10-15** — JSON console logs outside Development with per-request TraceId; one access line per request (method, path, status, duration — no query string, no headers); unhandled exceptions → problem details with `traceId`, never the exception text; SQL command logging off outside Development |
 | Support policy (latest, latest-1) | ⬜ |
 | Server sizing guide | ⬜ |
 | Backup/restore + upgrade runbooks | ⬜ |

@@ -67,6 +67,10 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 // ordering. Raised here so the per-ACCOUNT throttle can be tested on its own
                 // — LoginThrottleTests is what proves brute-force protection works.
                 ["RateLimit:Login:PermitLimit"] = "10000",
+
+                // One access-log line per request is right for an install and noise for a
+                // suite that makes thousands of them.
+                ["Logging:LogLevel:Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware"] = "Warning",
             }));
 
         builder.ConfigureTestServices(services =>
