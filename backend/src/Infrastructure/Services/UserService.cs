@@ -17,6 +17,7 @@ public class UserService : IUserService
     private readonly IPasswordHasher<User> _passwordHasher;
     private readonly IPermissionEvaluator _permissionEvaluator;
     private readonly IGrantorCeiling _ceiling;
+    private readonly IAuditTrail _audit;
 
     public UserService(
         AppDbContext db,
@@ -24,8 +25,10 @@ public class UserService : IUserService
         ICurrentUser currentUser,
         IPasswordHasher<User> passwordHasher,
         IPermissionEvaluator permissionEvaluator,
-        IGrantorCeiling ceiling)
+        IGrantorCeiling ceiling,
+        IAuditTrail audit)
     {
+        _audit = audit;
         _db = db;
         _tenant = tenant;
         _currentUser = currentUser;
@@ -232,6 +235,12 @@ public class UserService : IUserService
         await EnsureCanGrantCurrentRoleAsync(user, ct);
 
         _db.Users.Add(user);
+
+        var roleName = await RoleNameAsync(user.RoleId, ct);
+        await _audit.RecordAsync(AuditAction.UserCreated, AuditTarget.User(user.Id, user.DisplayName),
+            $"Created {user.DisplayName} ({user.Email}) as {DescribeRole(user.Role, roleName)}.",
+            new { user.Email, role = user.Role.ToString(), roleId = user.RoleId, roleName }, ct: ct);
+
         await _db.SaveChangesAsync(ct);
 
         return (await GetUserByIdAsync(user.Id, ct))!;
@@ -255,6 +264,7 @@ public class UserService : IUserService
         // over them, role change or not (security review of ADR-0021 option A, finding 5).
         await _ceiling.EnsureCanManageAsync(ManagedRole(user), ct);
 
+        var (nameBefore, roleBefore, roleIdBefore) = (user.DisplayName, user.Role, user.RoleId);
         user.DisplayName = trimmedDisplayName;
 
         if (request.RoleId.HasValue || !string.IsNullOrWhiteSpace(request.Role))
@@ -272,6 +282,8 @@ public class UserService : IUserService
                 await EnsureCanGrantCurrentRoleAsync(user, ct); // reach over them was checked above
             }
         }
+
+        await RecordUserUpdateAsync(user, nameBefore, roleBefore, roleIdBefore, ct);
 
         await _db.SaveChangesAsync(ct);
         _permissionEvaluator.InvalidateUserPermissionsCache(user.Id, user.TenantId);
@@ -332,6 +344,10 @@ public class UserService : IUserService
             await EnsureCanGrantCurrentRoleAsync(user, ct);
 
         user.IsActive = isActive;
+        await _audit.RecordAsync(isActive ? AuditAction.UserReactivated : AuditAction.UserDeactivated,
+            AuditTarget.User(user.Id, user.DisplayName),
+            $"{(isActive ? "Reactivated" : "Deactivated")} {user.DisplayName}.",
+            new { role = user.Role.ToString(), roleId = user.RoleId }, ct: ct);
         await _db.SaveChangesAsync(ct);
         _permissionEvaluator.InvalidateUserPermissionsCache(user.Id, user.TenantId);
 
@@ -380,6 +396,44 @@ public class UserService : IUserService
             ? role
             : throw new ArgumentException(
                 $"Role '{name.Trim()}' cannot be assigned. Use one of: {string.Join(", ", AssignableSystemRoles.Keys)}.");
+
+    /// <summary>One entry per save that changed something (ADR-0027): a role change if the role
+    /// moved — it is the entry people look for — otherwise a rename; nothing for an unchanged save.</summary>
+    private async Task RecordUserUpdateAsync(
+        User user, string nameBefore, UserRole roleBefore, Guid? roleIdBefore, CancellationToken ct)
+    {
+        var renamed = nameBefore != user.DisplayName;
+        var target = AuditTarget.User(user.Id, user.DisplayName);
+        var name = renamed ? new { from = nameBefore, to = user.DisplayName } : null;
+
+        if (user.Role != roleBefore || user.RoleId != roleIdBefore)
+        {
+            var (fromName, toName) = (await RoleNameAsync(roleIdBefore, ct), await RoleNameAsync(user.RoleId, ct));
+            await _audit.RecordAsync(AuditAction.UserRoleChanged, target,
+                $"Changed {user.DisplayName}’s role from {DescribeRole(roleBefore, fromName)} to {DescribeRole(user.Role, toName)}.",
+                new
+                {
+                    role = new { from = roleBefore.ToString(), to = user.Role.ToString() },
+                    roleId = new { from = roleIdBefore, to = user.RoleId },
+                    roleName = new { from = fromName, to = toName },
+                    name,
+                }, ct: ct);
+        }
+        else if (renamed)
+        {
+            await _audit.RecordAsync(AuditAction.UserUpdated, target,
+                $"Renamed {nameBefore} to {user.DisplayName}.", new { name }, ct: ct);
+        }
+    }
+
+    private async Task<string?> RoleNameAsync(Guid? roleId, CancellationToken ct) =>
+        roleId is { } id
+            ? await _db.Roles.AsNoTracking().IgnoreQueryFilters().Where(r => r.Id == id).Select(r => r.Name).FirstOrDefaultAsync(ct)
+            : null;
+
+    /// <summary>"Approver", or "“Finance Gatekeeper” (Approver)" for a custom role.</summary>
+    private static string DescribeRole(UserRole role, string? roleName) =>
+        roleName is null || roleName == role.ToString() ? role.ToString() : $"“{roleName}” ({role})";
 
     /// <summary>The reach the ceiling judges a user by: the SuperAdmin flag outranks the enum, which
     /// old data can leave on something lower (re-review of ADR-0021 option A, L3).</summary>

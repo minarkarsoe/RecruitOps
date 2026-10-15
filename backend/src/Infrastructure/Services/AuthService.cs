@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Application.Interfaces;
 using RecruitOps.Domain.Entities;
+using RecruitOps.Domain.Enums;
 using RecruitOps.Infrastructure.Persistence;
 
 namespace RecruitOps.Infrastructure.Services;
@@ -13,13 +14,16 @@ public class AuthService : IAuthService
     private readonly IPasswordHasher<User> _hasher;
     private readonly ITokenService _tokens;
     private readonly IPermissionEvaluator _permissions;
+    private readonly IAuditTrail _audit;
 
     public AuthService(
         AppDbContext db,
         IPasswordHasher<User> hasher,
         ITokenService tokens,
-        IPermissionEvaluator permissions)
+        IPermissionEvaluator permissions,
+        IAuditTrail audit)
     {
+        _audit = audit;
         _db = db;
         _hasher = hasher;
         _tokens = tokens;
@@ -59,12 +63,21 @@ public class AuthService : IAuthService
         {
             var (dummyUser, dummyHash) = DummyCredential.Value;
             _hasher.VerifyHashedPassword(dummyUser, dummyHash, request.Password);
+            await RecordFailedSignInAsync(email, ct);
             return null;
         }
 
         var result = _hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
         if (result == PasswordVerificationResult.Failed)
+        {
+            // The actor is whoever typed the password — not necessarily the account holder — so the
+            // entry is about the account (target) and attributed to the email tried, not the user.
+            await _audit.RecordStandaloneAsync(AuditAction.SignInFailed, AuditTarget.User(user.Id, user.DisplayName),
+                $"Sign-in failed for {user.DisplayName}: wrong password.",
+                new { email, reason = "wrong_password" },
+                actor: new AuditActor(null, email), tenantId: user.TenantId, ct: ct);
             return null;
+        }
 
         var tokenResult = _tokens.CreateTokens(user);
 
@@ -79,6 +92,9 @@ public class AuthService : IAuthService
         };
 
         _db.RefreshTokens.Add(refreshTokenEntity);
+        await _audit.RecordAsync(AuditAction.SignInSucceeded, AuditTarget.User(user.Id, user.DisplayName),
+            $"{user.DisplayName} signed in.", new { email, role = user.Role.ToString() },
+            actor: new AuditActor(user.Id, user.DisplayName), tenantId: user.TenantId, ct: ct);
         await _db.SaveChangesAsync(ct);
 
         var permissions = await _permissions.GetUserPermissionsAsync(user.Id, user.TenantId, ct);
@@ -92,6 +108,29 @@ public class AuthService : IAuthService
             user.DisplayName,
             user.Id,
             permissions.Order(StringComparer.Ordinal).ToArray());
+    }
+
+    /// <summary>No active account matched. Says whether the account exists but is deactivated —
+    /// the auditor needs that; the caller only ever gets 401 (ADR-0027). The password is never
+    /// recorded, not even a wrong one: it is often a real password one character off.</summary>
+    private async Task RecordFailedSignInAsync(string email, CancellationToken ct)
+    {
+        var known = await _db.Users.AsNoTracking().IgnoreQueryFilters()
+            .Where(u => u.Email.ToLower() == email)
+            .Select(u => new { u.Id, u.DisplayName, u.TenantId })
+            .FirstOrDefaultAsync(ct);
+
+        if (known is null)
+        {
+            await _audit.RecordStandaloneAsync(AuditAction.SignInFailed, null,
+                $"Sign-in failed for {email}: no account with this email.",
+                new { email, reason = "no_account" }, actor: new AuditActor(null, email), ct: ct);
+            return;
+        }
+
+        await _audit.RecordStandaloneAsync(AuditAction.SignInFailed, AuditTarget.User(known.Id, known.DisplayName),
+            $"Sign-in failed for {known.DisplayName}: the account is deactivated.",
+            new { email, reason = "deactivated" }, actor: new AuditActor(null, email), tenantId: known.TenantId, ct: ct);
     }
 
     public async Task<LoginResponse?> RefreshTokenAsync(RefreshRequest request, string? ipAddress = null, CancellationToken ct = default)

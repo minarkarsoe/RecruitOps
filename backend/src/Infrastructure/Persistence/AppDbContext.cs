@@ -50,6 +50,9 @@ public class AppDbContext : DbContext
     public DbSet<BulkUploadBatch> BulkUploadBatches => Set<BulkUploadBatch>();
     public DbSet<BulkUploadFile> BulkUploadFiles => Set<BulkUploadFile>();
 
+    // The audit log (ADR-0027). Append-only: see StampTenantAndTimestamps and the migration's triggers.
+    public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
+
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         StampTenantAndTimestamps();
@@ -74,6 +77,11 @@ public class AppDbContext : DbContext
 
         foreach (var entry in ChangeTracker.Entries())
         {
+            // ADR-0027: the audit log is the product's evidence that something happened. Nothing
+            // edits or deletes an entry — not a service, not a cascade. The database refuses too.
+            if (entry.Entity is AuditLogEntry && entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new InvalidOperationException("Audit log entries are append-only (ADR-0027).");
+
             if (entry.State == EntityState.Added
                 && entry.Entity is ITenantScoped scoped
                 && scoped.TenantId == Guid.Empty)
@@ -132,6 +140,23 @@ public class AppDbContext : DbContext
         });
 
         // ---------- Dynamic RBAC (Requirement R2) ----------
+        // ---------- Audit log (ADR-0027) ----------
+        // No foreign keys on purpose: deleting a role or user must not touch its history.
+        builder.Entity<AuditLogEntry>(e =>
+        {
+            e.Property(x => x.Action).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.ActorName).HasMaxLength(256);
+            e.Property(x => x.TargetType).HasMaxLength(40);
+            e.Property(x => x.TargetName).HasMaxLength(256);
+            e.Property(x => x.Summary).IsRequired().HasMaxLength(1000);
+            e.Property(x => x.DetailsJson).HasColumnType("jsonb");
+            e.Property(x => x.IpAddress).HasMaxLength(64);
+            e.Property(x => x.TraceId).HasMaxLength(128);
+            e.HasIndex(x => new { x.TenantId, x.OccurredAt });
+            e.HasIndex(x => x.TargetId);
+            e.HasIndex(x => x.ActorUserId);
+        });
+
         builder.Entity<Role>(e =>
         {
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);

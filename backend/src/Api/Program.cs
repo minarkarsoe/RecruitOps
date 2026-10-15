@@ -64,6 +64,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // see CurrentTenant for why that order is a security property (ADR-0026 §4).
 builder.Services.AddScoped<ICurrentTenant, CurrentTenant>();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<IRequestOrigin, HttpRequestOrigin>();
 
 // Background queues (ADR-0026). In-process, because ADR-0004 ships one instance per company —
 // which removes the problem a distributed scheduler exists to solve.

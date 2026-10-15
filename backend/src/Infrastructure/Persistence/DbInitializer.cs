@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using RecruitOps.Application.Interfaces;
 using RecruitOps.Domain.Entities;
 using RecruitOps.Domain.Enums;
 
@@ -96,6 +97,14 @@ public static class DbInitializer
         };
         admin.PasswordHash = hasher.HashPassword(admin, password);
         db.Users.Add(admin);
+
+        // The first Admin is the root of every later access change, so its creation is the first
+        // line of the audit log (ADR-0027). Same context, same save.
+        await sp.GetRequiredService<IAuditTrail>().RecordAsync(AuditAction.UserCreated,
+            AuditTarget.User(admin.Id, admin.DisplayName),
+            $"Created the first Administrator ({email}) from install configuration.",
+            new { email, role = admin.Role.ToString(), source = "Seed:AdminEmail" },
+            actor: new AuditActor(null, "System (install)"), tenantId: company.Id, ct: ct);
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Created the first Administrator account.");

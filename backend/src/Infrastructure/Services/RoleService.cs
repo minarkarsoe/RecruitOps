@@ -16,9 +16,13 @@ public class RoleService : IRoleService
     private readonly ICurrentTenant _tenant;
     private readonly IPermissionEvaluator _permissionEvaluator;
     private readonly IGrantorCeiling _ceiling;
+    private readonly IAuditTrail _audit;
 
-    public RoleService(AppDbContext db, ICurrentTenant tenant, IPermissionEvaluator permissionEvaluator, IGrantorCeiling ceiling)
+    public RoleService(
+        AppDbContext db, ICurrentTenant tenant, IPermissionEvaluator permissionEvaluator, IGrantorCeiling ceiling,
+        IAuditTrail audit)
     {
+        _audit = audit;
         _db = db;
         _tenant = tenant;
         _permissionEvaluator = permissionEvaluator;
@@ -239,6 +243,12 @@ public class RoleService : IRoleService
         }
 
         _db.Roles.Add(role);
+
+        var codes = validPermissions.Select(p => p.Code).Order(StringComparer.Ordinal).ToList();
+        await _audit.RecordAsync(AuditAction.RoleCreated, AuditTarget.Role(role.Id, role.Name),
+            $"Created role “{role.Name}” (base role {baseRole}) with {Count(codes.Count, "permission")}.",
+            new { role.Code, baseRole = baseRole.ToString(), permissions = codes }, ct: ct);
+
         await _db.SaveChangesAsync(ct);
 
         return (await GetRoleByIdAsync(role.Id, ct))!;
@@ -309,6 +319,8 @@ public class RoleService : IRoleService
         if (granted.Count > 0 || baseRole != role.BaseRole)
             await _ceiling.EnsureCanGrantAsync(baseRole ?? UserRole.Interviewer, granted, ct);
 
+        var (nameBefore, baseBefore, activeBefore) = (role.Name, role.BaseRole, role.IsActive);
+
         role.BaseRole = baseRole;
         role.Name = trimmedName;
         role.Description = request.Description?.Trim() ?? string.Empty;
@@ -333,7 +345,12 @@ public class RoleService : IRoleService
             });
         }
 
-        await SyncHoldersAsync(role, ct);
+        var moved = await SyncHoldersAsync(role, ct);
+
+        await RecordRoleUpdateAsync(role, nameBefore, baseBefore, activeBefore,
+            added: requestedCodes.Where(c => !heldBefore.Contains(c)).Order(StringComparer.Ordinal).ToList(),
+            removed: heldBefore.Where(c => !requestedCodes.Contains(c)).Order(StringComparer.Ordinal).ToList(),
+            moved, ct);
 
         await _db.SaveChangesAsync(ct);
         _permissionEvaluator.InvalidateRolePermissionsCache(role.Id);
@@ -341,14 +358,52 @@ public class RoleService : IRoleService
         return await GetRoleByIdAsync(role.Id, ct);
     }
 
+    /// <summary>One entry per save that changed something (ADR-0027) — a save of an unchanged role
+    /// records nothing. Holders whose access moved are listed, because "who could suddenly see the
+    /// pipeline" is the question this entry gets asked.</summary>
+    private async Task RecordRoleUpdateAsync(
+        Role role, string nameBefore, UserRole? baseBefore, bool activeBefore,
+        IReadOnlyList<string> added, IReadOnlyList<string> removed,
+        IReadOnlyList<(Guid Id, string Name, UserRole From)> moved, CancellationToken ct)
+    {
+        var parts = new List<string>();
+        if (nameBefore != role.Name) parts.Add($"renamed from “{nameBefore}”");
+        if (baseBefore != role.BaseRole) parts.Add($"base {baseBefore?.ToString() ?? "none"} → {role.BaseRole}");
+        if (activeBefore != role.IsActive) parts.Add(role.IsActive ? "reactivated" : "deactivated");
+        if (added.Count > 0) parts.Add($"{Count(added.Count, "permission")} added");
+        if (removed.Count > 0) parts.Add($"{Count(removed.Count, "permission")} removed");
+        if (parts.Count == 0 && moved.Count == 0) return;
+        if (moved.Count > 0) parts.Add($"{Count(moved.Count, "person", "people")}’s access moved");
+
+        await _audit.RecordAsync(AuditAction.RoleUpdated, AuditTarget.Role(role.Id, role.Name),
+            $"Changed role “{role.Name}”: {string.Join("; ", parts)}.",
+            new
+            {
+                name = nameBefore != role.Name ? new { from = nameBefore, to = role.Name } : null,
+                baseRole = baseBefore != role.BaseRole ? new { from = baseBefore?.ToString(), to = role.BaseRole?.ToString() } : null,
+                active = activeBefore != role.IsActive ? new { from = activeBefore, to = role.IsActive } : null,
+                permissionsAdded = added,
+                permissionsRemoved = removed,
+                holdersMoved = moved.Select(h => new { userId = h.Id, name = h.Name, from = h.From.ToString(), to = role.HolderRole().ToString() }),
+            }, ct: ct);
+    }
+
+    private static string Count(int n, string singular, string? plural = null) =>
+        $"{n} {(n == 1 ? singular : plural ?? singular + "s")}";
+
     /// <summary>Holders carry the role's base role while it is active and Interviewer while it is
     /// not (ADR-0021 option A). Their next request then fails the session check — the token's role
     /// claim no longer matches — so the change reaches them at once, not in 8 hours.</summary>
-    private async Task SyncHoldersAsync(Role role, CancellationToken ct)
+    private async Task<IReadOnlyList<(Guid Id, string Name, UserRole From)>> SyncHoldersAsync(Role role, CancellationToken ct)
     {
         var holderRole = role.HolderRole();
+        var moved = new List<(Guid, string, UserRole)>();
         foreach (var holder in await HoldersToSync(role.Id, holderRole).ToListAsync(ct))
+        {
+            moved.Add((holder.Id, holder.DisplayName, holder.Role));
             holder.Role = holderRole;
+        }
+        return moved;
     }
 
     /// <summary>A SuperAdmin's enum is provisioned out of band, never derived from a role. An Admin
@@ -376,6 +431,8 @@ public class RoleService : IRoleService
             throw new InvalidOperationException($"Cannot delete role '{role.Name}' because it is assigned to {activeUsersCount} active user(s).");
 
         _db.Roles.Remove(role);
+        await _audit.RecordAsync(AuditAction.RoleDeleted, AuditTarget.Role(role.Id, role.Name),
+            $"Deleted role “{role.Name}”.", new { role.Code, baseRole = role.BaseRole?.ToString() }, ct: ct);
         await _db.SaveChangesAsync(ct);
         _permissionEvaluator.InvalidateRolePermissionsCache(role.Id);
         return true;
