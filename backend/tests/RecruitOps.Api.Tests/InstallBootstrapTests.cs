@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using RecruitOps.Api.Auth;
 using RecruitOps.Application.DTOs;
 using Xunit;
@@ -66,6 +67,53 @@ public class InstallBootstrapTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, await LoginAsync(later, "second.admin@customer.test", StrongPassword));
         Assert.Equal(HttpStatusCode.OK, await LoginAsync(later, "first.admin@customer.test", StrongPassword));
+    }
+
+    [Fact]
+    public async Task A_Mixed_Case_Bootstrap_Email_Signs_In_As_Typed()
+    {
+        using var factory = new CustomWebAppFactory();
+        var app = Production(factory, "IT.Lead@Customer.Test", StrongPassword);
+
+        Assert.Equal(HttpStatusCode.OK, await LoginAsync(app, "IT.Lead@Customer.Test", StrongPassword));
+    }
+
+    [Theory]
+    [InlineData("admin")]           // not an address: login's [EmailAddress] would never accept it
+    [InlineData("admin@")]
+    [InlineData("@customer.test")]
+    public void A_Malformed_Bootstrap_Email_Stops_Startup(string email)
+    {
+        using var factory = new CustomWebAppFactory();
+        Assert.ThrowsAny<Exception>(() => Production(factory, email, StrongPassword).CreateClient());
+    }
+
+    [Fact]
+    public void A_Bootstrap_Email_Longer_Than_The_Column_Stops_Startup_With_A_Clear_Message()
+    {
+        using var factory = new CustomWebAppFactory();
+        var tooLong = new string('a', 250) + "@customer.test";
+        var ex = Assert.ThrowsAny<Exception>(() => Production(factory, tooLong, StrongPassword).CreateClient());
+        Assert.Contains("Seed:AdminEmail", ex.ToString());
+    }
+
+    /// <summary>Second security review (b)-1: <c>.env.example</c> ships a signing key, and nothing
+    /// stopped an install using it — anyone who has read the repository could then mint tokens.</summary>
+    [Theory]
+    [InlineData("dev-only-signing-key-change-me-at-least-32-chars")] // the published example
+    [InlineData("too-short-key")]
+    public void Production_Refuses_A_Known_Or_Short_Signing_Key(string key)
+    {
+        using var factory = new CustomWebAppFactory();
+        var app = factory.WithWebHostBuilder(b =>
+        {
+            b.UseEnvironment("Production");
+            // An app-configuration source, added after the factory's own in-memory Jwt:Key — a
+            // host setting (UseSetting) would be outranked by it and test nothing.
+            b.ConfigureAppConfiguration((_, cfg) =>
+                cfg.AddInMemoryCollection(new Dictionary<string, string?> { ["Jwt:Key"] = key }));
+        });
+        Assert.ThrowsAny<Exception>(() => app.CreateClient());
     }
 
     [Fact]

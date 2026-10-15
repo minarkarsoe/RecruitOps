@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -46,6 +47,12 @@ public static class DbInitializer
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
             return; // nothing to seed without explicit, non-committed credentials
 
+        // An address login will accept and the column can hold — otherwise this creates an
+        // account nobody can sign in to, or fails deep in the database layer.
+        if (email.Length > 256 || !MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
+            throw new InvalidOperationException(
+                "Seed:AdminEmail must be a single email address of at most 256 characters.");
+
         if (firstRunOnly)
         {
             if (await db.Users.IgnoreQueryFilters().AnyAsync(ct))
@@ -60,13 +67,19 @@ public static class DbInitializer
                 throw new InvalidOperationException(
                     $"Seed:AdminPassword must be at least {MinimumBootstrapPasswordLength} characters.");
         }
-        else if (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == email, ct))
+        else if (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email.ToLower() == email, ct))
         {
             return;
         }
 
-        var company = new Company { Name = "Default Company", Slug = "default" };
-        db.Companies.Add(company);
+        // Reused when present. The Development path used to add a second "default" company for a
+        // new seed email, which the unique slug index refuses — and the API then never started.
+        var company = await db.Companies.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Slug == "default", ct);
+        if (company is null)
+        {
+            company = new Company { Name = "Default Company", Slug = "default" };
+            db.Companies.Add(company);
+        }
 
         var adminRole = await db.Roles
             .IgnoreQueryFilters()

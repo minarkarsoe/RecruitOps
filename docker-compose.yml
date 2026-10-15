@@ -49,7 +49,10 @@ services:
       db:
         condition: service_healthy
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      # Production unless .env says otherwise. .env.example opts local development in; an install
+      # that writes its own .env gets JSON logs, the error contract, no Swagger, no dev CORS, the
+      # first-run-only admin bootstrap and the signing-key check.
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-recruitops};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
       Jwt__Issuer: recruitops
       Jwt__Audience: recruitops-api

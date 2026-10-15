@@ -41,9 +41,13 @@ public class AuthService : IAuthService
         // Pre-authentication: there is no tenant context yet, so bypass the tenant
         // query filter to find the user. (Email is treated as unique per user for now;
         // multi-tenant same-email login needs a tenant selector — see TODO in docs.)
+        // Case-insensitive and trimmed: the directory stores emails lowercased, so an exact match
+        // turned "Aung@Corp.com" into a wrong-password error (second security review, 2026-10-15).
+        // ToLower() on the column also matches rows written before emails were normalised.
+        var email = request.Email.Trim().ToLowerInvariant();
         var user = await _db.Users
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.Email == request.Email && u.IsActive, ct);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email && u.IsActive, ct);
 
         if (user is null)
         {

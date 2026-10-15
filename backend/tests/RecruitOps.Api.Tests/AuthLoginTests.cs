@@ -30,6 +30,18 @@ public class AuthLoginTests : IClassFixture<CustomWebAppFactory>
         Assert.Contains(jwt.Claims, c => c.Value == "Admin");
     }
 
+    /// <summary>The directory stores emails lowercased, but login compared them exactly — so anyone
+    /// who typed a capital letter got "wrong password" (second security review, 2026-10-15).</summary>
+    [Theory]
+    [InlineData("Admin@Alpha.Test")]
+    [InlineData("  ADMIN@ALPHA.TEST ")]
+    public async Task Email_Case_And_Surrounding_Spaces_Do_Not_Matter(string typed)
+    {
+        var res = await _factory.CreateClient().PostAsJsonAsync("/api/auth/login",
+            new LoginRequest { Email = typed, Password = CustomWebAppFactory.AdminPassword });
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+    }
+
     [Fact]
     public async Task Wrong_Password_Is_401()
     {

@@ -107,7 +107,15 @@ builder.Services
                                   userId, tenantId, principal.FindFirstValue(ClaimTypes.Role), superAdmin,
                                   context.HttpContext.RequestAborted);
 
-                if (!current) context.Fail("This session is no longer valid. Sign in again.");
+                if (!current)
+                {
+                    // The trace an operator needs to see a deactivated account's token being
+                    // replayed. The user id only — never the token.
+                    context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("RecruitOps.Auth.SessionValidation")
+                        .LogWarning("Rejected a token for user {UserId}: the account no longer matches it.", sub);
+                    context.Fail("This session is no longer valid. Sign in again.");
+                }
             },
         };
     });
@@ -256,6 +264,19 @@ if (corsOrigins.Length > 0)
 }
 
 var app = builder.Build();
+
+// Outside Development, refuse to start with a signing key anyone could know. .env.example ships
+// one, and an install that copied it would accept tokens minted by anyone who has read the
+// repository (second security review, 2026-10-15). Checked after Build() so every
+// configuration source — environment, files, a test host's settings — has been applied.
+if (!app.Environment.IsDevelopment())
+{
+    const string PublishedExampleKey = "dev-only-signing-key-change-me-at-least-32-chars";
+    var signingKey = app.Configuration["Jwt:Key"] ?? string.Empty;
+    if (Encoding.UTF8.GetByteCount(signingKey) < 32 || signingKey == PublishedExampleKey)
+        throw new InvalidOperationException(
+            "Jwt:Key must be a secret of at least 32 bytes, not the example value. Generate one per install.");
+}
 
 // Outermost, so it records the status the client finally received — including a 500 produced
 // by the exception handler below.
