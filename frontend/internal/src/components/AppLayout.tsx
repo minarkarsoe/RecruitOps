@@ -2,7 +2,6 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   auth, hasPermission, isSuperAdmin,
 } from '../lib/auth';
-import { TenantSwitcherBar } from './TenantSwitcherBar';
 
 // Internal app shell: fixed 240px sidebar + fluid content, max-width 1280 (design system §4).
 
@@ -24,7 +23,6 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <TenantSwitcherBar />
       <div className="flex flex-1">
         <aside className="w-60 shrink-0 border-r border-line-200 bg-surface-0 p-4">
           <div className="mb-6 px-3">

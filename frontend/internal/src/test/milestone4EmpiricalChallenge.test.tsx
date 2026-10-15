@@ -3,11 +3,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PermissionMatrixGrid } from '../components/PermissionMatrixGrid';
 import { RolesPage } from '../pages/RolesPage';
 import { UsersPage } from '../pages/UsersPage';
-import { TenantSwitcherBar } from '../components/TenantSwitcherBar';
 import { roleService } from '../services/roleService';
 import { userService } from '../services/userService';
 import { auth } from '../lib/auth';
-import { api } from '../lib/api';
 import { mockPermissionsGrouped, mockRoles, mockRoleDetail, mockPagedUsers, adminDirectoryPermissions } from './rbacFixtures';
 
 vi.mock('../services/roleService', () => ({
@@ -373,96 +371,6 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
       expect(screen.getByText(/Safeguard Warning/)).toBeInTheDocument();
       expect(screen.getByText(/Cannot deactivate the last active Administrator account/)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Confirm Deactivation' })).toBeDisabled();
-    });
-  });
-
-  /* ---------------------------------------------------------------- border
-   * 3. SUPER-ADMIN TENANT SWITCHER & X-TENANT-ID HEADER
-   * ---------------------------------------------------------------- */
-  describe('Super-Admin Tenant Switcher & X-Tenant-Id Request Headers', () => {
-    it('updates session active tenant when switching context in TenantSwitcherBar', () => {
-      auth.set({
-        accessToken: 'token-super',
-        expiresAtUtc: '2099-01-01T00:00:00Z',
-        role: 'SuperAdmin',
-        displayName: 'Global Super Admin',
-        userId: 'usr-super',
-        isSuperAdmin: true,
-        permissions: [],
-        activeTenantId: 'tenant-default',
-        activeTenantName: 'Default Tenant',
-      });
-
-      const handleTenantChange = vi.fn();
-      render(<TenantSwitcherBar onTenantChange={handleTenantChange} />);
-
-      fireEvent.click(screen.getByText('Switch Tenant Context ▾'));
-      fireEvent.click(screen.getByText('Stark Industries'));
-
-      expect(handleTenantChange).toHaveBeenCalledWith('tenant-stark', 'Stark Industries');
-      expect(auth.get()?.activeTenantId).toBe('tenant-stark');
-      expect(auth.get()?.activeTenantName).toBe('Stark Industries');
-    });
-
-    it('allows setting custom tenant ID in TenantSwitcherBar form', () => {
-      auth.set({
-        accessToken: 'token-super',
-        expiresAtUtc: '2099-01-01T00:00:00Z',
-        role: 'SuperAdmin',
-        displayName: 'Global Super Admin',
-        userId: 'usr-super',
-        isSuperAdmin: true,
-        permissions: [],
-      });
-
-      const handleTenantChange = vi.fn();
-      render(<TenantSwitcherBar onTenantChange={handleTenantChange} />);
-
-      fireEvent.click(screen.getByText('Switch Tenant Context ▾'));
-
-      const customInput = screen.getByPlaceholderText('e.g. tenant-999');
-      fireEvent.change(customInput, { target: { value: 'tenant-custom-99' } });
-
-      const setBtn = screen.getByRole('button', { name: 'Set' });
-      fireEvent.click(setBtn);
-
-      expect(handleTenantChange).toHaveBeenCalledWith('tenant-custom-99', 'Tenant (tenant-custom-99)');
-      expect(auth.get()?.activeTenantId).toBe('tenant-custom-99');
-    });
-
-    it('sends X-Tenant-Id header in fetch calls when activeTenantId is set in session', async () => {
-      const globalFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        text: () => Promise.resolve(JSON.stringify({ success: true })),
-      });
-      vi.stubGlobal('fetch', globalFetch);
-
-      auth.set({
-        accessToken: 'token-super-xyz',
-        expiresAtUtc: '2099-01-01T00:00:00Z',
-        role: 'SuperAdmin',
-        displayName: 'Super Admin',
-        userId: 'usr-super',
-        isSuperAdmin: true,
-        permissions: [],
-        activeTenantId: 'tenant-acme-corp',
-        activeTenantName: 'Acme Corp',
-      });
-
-      await api('/roles');
-
-      expect(globalFetch).toHaveBeenCalledWith(
-        '/api/roles',
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer token-super-xyz',
-            'X-Tenant-Id': 'tenant-acme-corp',
-          }),
-        })
-      );
-
-      vi.unstubAllGlobals();
     });
   });
 });

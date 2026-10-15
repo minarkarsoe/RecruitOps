@@ -9,8 +9,6 @@ export interface Session {
   displayName: string;
   userId: string;
   isSuperAdmin?: boolean;
-  activeTenantId?: string;
-  activeTenantName?: string;
   permissions?: string[];
 }
 
@@ -58,24 +56,11 @@ export const auth = {
       displayName: response.displayName,
       userId: response.userId,
       isSuperAdmin: response.isSuperAdmin || response.role === 'SuperAdmin',
-      activeTenantId: response.activeTenantId ?? response.tenantId,
-      activeTenantName: response.activeTenantName,
       // An API that sends no list grants nothing in the UI, rather than everything.
       permissions: Array.isArray(response.permissions) ? response.permissions : [],
     };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     return session;
-  },
-
-  setActiveTenant(tenantId: string, tenantName: string): void {
-    const current = auth.get();
-    if (!current) return;
-    const updated: Session = {
-      ...current,
-      activeTenantId: tenantId,
-      activeTenantName: tenantName,
-    };
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   },
 
   clear(): void {

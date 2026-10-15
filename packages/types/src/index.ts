@@ -34,9 +34,6 @@ export interface LoginResponse {
   userId: string;
   /** Mirrors the API's SuperAdmin bypass. */
   isSuperAdmin: boolean;
-  tenantId?: string;
-  activeTenantId?: string;
-  activeTenantName?: string;
   /** The effective permission set the API enforces for this user, as of login. */
   permissions: string[];
 }
@@ -165,13 +162,6 @@ export interface UpdateUserRequest {
   displayName: string;
   roleId?: string | null;
   role?: string | null;
-}
-
-export interface TenantInfo {
-  id: string;
-  name: string;
-  code: string;
-  isActive: boolean;
 }
 
 

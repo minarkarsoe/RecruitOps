@@ -13,6 +13,5 @@ export type {
   PagedResult,
   CreateUserRequest,
   UpdateUserRequest,
-  TenantInfo,
   UserRole,
 } from '@recruitops/types';
