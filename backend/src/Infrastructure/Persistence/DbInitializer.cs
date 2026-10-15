@@ -117,6 +117,20 @@ public static class DbInitializer
         await SeedPermissionsAndRolesAsync(db, ct);
     }
 
+    private static void RecordSeedChange(AppDbContext db, AuditAction action, Role role, string summary, object details) =>
+        db.AuditLogEntries.Add(new AuditLogEntry
+        {
+            TenantId = null,
+            Action = action,
+            ActorName = "System (startup)",
+            TargetType = "Role",
+            TargetId = role.Id,
+            TargetName = role.Name,
+            Summary = summary,
+            DetailsJson = System.Text.Json.JsonSerializer.Serialize(details,
+                new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)),
+        });
+
     /// <summary>Idempotently seeds permissions and system roles into database and links existing users without a RoleId to their corresponding seeded Role (Requirement R2).</summary>
     public static async Task SeedPermissionsAndRolesAsync(AppDbContext db, CancellationToken ct = default)
     {
@@ -156,8 +170,11 @@ public static class DbInitializer
 
         foreach (var roleDef in systemRoleDefs)
         {
+            var created = false;
+            var changed = new List<string>();
             if (!rolesByCode.TryGetValue(roleDef.Code, out var role))
             {
+                created = true;
                 role = new Role
                 {
                     TenantId = null,
@@ -174,11 +191,16 @@ public static class DbInitializer
             }
             else
             {
+                if (role.Name != roleDef.Name) changed.Add($"renamed from “{role.Name}”");
+                if (role.IsSuperAdmin != roleDef.IsSuperAdmin) changed.Add($"SuperAdmin flag {role.IsSuperAdmin} → {roleDef.IsSuperAdmin}");
+                if (!role.IsActive) changed.Add("reactivated");
                 role.Name = roleDef.Name;
                 role.Description = roleDef.Description;
                 role.IsSuperAdmin = roleDef.IsSuperAdmin;
                 role.IsActive = true;
             }
+
+            var granted = new List<string>();
 
             var currentPermissionIds = role.RolePermissions.Select(rp => rp.PermissionId).ToHashSet();
             foreach (var permCode in roleDef.PermissionCodes)
@@ -187,6 +209,7 @@ public static class DbInitializer
                 {
                     if (!currentPermissionIds.Contains(perm.Id))
                     {
+                        granted.Add(perm.Code);
                         role.RolePermissions.Add(new RolePermission
                         {
                             RoleId = role.Id,
@@ -196,6 +219,18 @@ public static class DbInitializer
                     }
                 }
             }
+
+            // ADR-0027: the seeder changes access too — on an upgrade it grants system roles their
+            // new permissions — so it records what it did, as the system (security review of
+            // ADR-0027, M3). System roles are install-wide, so the entries carry no tenant.
+            if (created)
+                RecordSeedChange(db, AuditAction.RoleCreated, role,
+                    $"Created system role “{role.Name}” with {granted.Count} permission{(granted.Count == 1 ? "" : "s")}.",
+                    new { role.Code, permissions = granted });
+            else if (changed.Count > 0 || granted.Count > 0)
+                RecordSeedChange(db, AuditAction.RoleUpdated, role,
+                    $"Updated system role “{role.Name}” at startup: {string.Join("; ", changed.Append(granted.Count > 0 ? $"{granted.Count} permission{(granted.Count == 1 ? "" : "s")} added" : null).OfType<string>())}.",
+                    new { changes = changed, permissionsAdded = granted });
         }
 
         await db.SaveChangesAsync(ct);

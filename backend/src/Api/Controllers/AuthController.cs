@@ -57,6 +57,7 @@ public class AuthController : ControllerBase
 
     /// <summary>Exchanges a valid refresh token for a new access token and rotated refresh token.</summary>
     [HttpPost("refresh")]
+    [EnableRateLimiting(RateLimitPolicies.Refresh)]
     public async Task<ActionResult<LoginResponse>> Refresh([FromBody] RefreshRequest request, CancellationToken ct)
     {
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
@@ -74,6 +75,7 @@ public class AuthController : ControllerBase
 
     /// <summary>Revokes a refresh token (e.g. on user logout).</summary>
     [HttpPost("revoke")]
+    [EnableRateLimiting(RateLimitPolicies.Refresh)]
     public async Task<IActionResult> Revoke([FromBody] RefreshRequest request, CancellationToken ct)
     {
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();

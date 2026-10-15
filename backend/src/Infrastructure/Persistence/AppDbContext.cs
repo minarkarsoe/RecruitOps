@@ -53,16 +53,18 @@ public class AppDbContext : DbContext
     // The audit log (ADR-0027). Append-only: see StampTenantAndTimestamps and the migration's triggers.
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    // The bool overloads are the ones every other SaveChanges overload ends in, so overriding them
+    // covers all four — the audit log's append-only guard included (security review of ADR-0027, L3).
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         StampTenantAndTimestamps();
-        return base.SaveChangesAsync(cancellationToken);
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
-    public override int SaveChanges()
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         StampTenantAndTimestamps();
-        return base.SaveChanges();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     /// <summary>Stamps <see cref="ITenantScoped.TenantId"/> on newly added rows.
@@ -469,8 +471,10 @@ public class AppDbContext : DbContext
         // ---------- RefreshToken ----------
         builder.Entity<RefreshToken>(e =>
         {
-            e.Property(x => x.Token).IsRequired().HasMaxLength(256);
-            e.HasIndex(x => x.Token).IsUnique();
+            // ADR-0028: a SHA-256 in hex, never the token.
+            e.Property(x => x.TokenHash).IsRequired().HasMaxLength(64);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.Property(x => x.ReplacedByTokenHash).HasMaxLength(64);
             e.HasIndex(x => new { x.TenantId, x.UserId });
 
             e.HasOne(x => x.User)

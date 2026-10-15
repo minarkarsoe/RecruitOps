@@ -7,6 +7,7 @@ public sealed record AuditTarget(string Type, Guid? Id, string? Name)
 {
     public static AuditTarget User(Guid id, string name) => new("User", id, name);
     public static AuditTarget Role(Guid id, string name) => new("Role", id, name);
+    public static AuditTarget Department(Guid id, string name) => new("Department", id, name);
 }
 
 /// <summary>Who acted, when it is not the signed-in user — the person signing in, or the system.</summary>

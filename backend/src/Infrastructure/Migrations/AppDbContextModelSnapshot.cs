@@ -982,8 +982,9 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.Property<bool>("IsRevoked")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("ReplacedByToken")
-                        .HasColumnType("text");
+                    b.Property<string>("ReplacedByTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("timestamp with time zone");
@@ -991,13 +992,16 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.Property<string>("RevokedByIp")
                         .HasColumnType("text");
 
+                    b.Property<DateTimeOffset>("SessionStartedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Token")
+                    b.Property<string>("TokenHash")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1007,7 +1011,7 @@ namespace RecruitOps.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Token")
+                    b.HasIndex("TokenHash")
                         .IsUnique();
 
                     b.HasIndex("UserId");

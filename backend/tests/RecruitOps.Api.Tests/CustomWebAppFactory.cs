@@ -81,6 +81,7 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 // suite that makes thousands of them.
                 ["Logging:LogLevel:Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware"] = "Warning",
                 ["RateLimit:PublicApply:PermitLimit"] = "10000",
+                ["RateLimit:Refresh:PermitLimit"] = "10000",
                 // No AI keys in tests, so the endpoints answer from the development stubs. That
                 // mirrors appsettings.Development.json, NOT the shipped default — which is
                 // EnableFallback: false, i.e. 402. NoAiFallbackWebAppFactory flips this back to
@@ -163,11 +164,17 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
             // still pass — which is the exact failure the field exists to prevent.
             db.Companies.Add(new Company
             {
-                Id = TenantA, Name = "Alpha Company", Slug = "alpha", TimeZoneId = "Asia/Yangon",
+                Id = TenantA,
+                Name = "Alpha Company",
+                Slug = "alpha",
+                TimeZoneId = "Asia/Yangon",
             });
             db.Companies.Add(new Company
             {
-                Id = TenantB, Name = "Bravo Company", Slug = "bravo", TimeZoneId = "Asia/Yangon",
+                Id = TenantB,
+                Name = "Bravo Company",
+                Slug = "bravo",
+                TimeZoneId = "Asia/Yangon",
             });
 
             db.Departments.Add(new Department { Id = SalesDepartmentId, TenantId = TenantA, Name = "Alpha Sales", Code = "ALPHA-SALES" });
@@ -188,7 +195,9 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
             db.Users.Add(manager);
             db.UserDepartments.Add(new UserDepartment
             {
-                TenantId = TenantA, UserId = HiringManagerUserId, DepartmentId = SalesDepartmentId,
+                TenantId = TenantA,
+                UserId = HiringManagerUserId,
+                DepartmentId = SalesDepartmentId,
             });
 
             var financeManager = new User
@@ -204,21 +213,29 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
             db.Users.Add(financeManager);
             db.UserDepartments.Add(new UserDepartment
             {
-                TenantId = TenantA, UserId = FinanceManagerUserId, DepartmentId = FinanceDepartmentId,
+                TenantId = TenantA,
+                UserId = FinanceManagerUserId,
+                DepartmentId = FinanceDepartmentId,
             });
 
             // One requisition in each department, so scoping is observable.
             db.Requisitions.Add(new Requisition
             {
-                TenantId = TenantA, DepartmentId = SalesDepartmentId,
+                TenantId = TenantA,
+                DepartmentId = SalesDepartmentId,
                 RequestedByUserId = HiringManagerUserId,
-                Title = "Sales Executive", JobDescription = "Sell things.", Headcount = 2,
+                Title = "Sales Executive",
+                JobDescription = "Sell things.",
+                Headcount = 2,
             });
             db.Requisitions.Add(new Requisition
             {
-                TenantId = TenantA, DepartmentId = FinanceDepartmentId,
+                TenantId = TenantA,
+                DepartmentId = FinanceDepartmentId,
                 RequestedByUserId = HiringManagerUserId,
-                Title = "Financial Analyst", JobDescription = "Count things.", Headcount = 1,
+                Title = "Financial Analyst",
+                JobDescription = "Count things.",
+                Headcount = 1,
             });
 
             var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
@@ -275,13 +292,19 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
             db.ApprovalChains.Add(chain);
             db.ApprovalChainSteps.Add(new ApprovalChainStep
             {
-                TenantId = TenantA, ApprovalChainId = chain.Id,
-                Sequence = 1, ApproverUserId = AdminUserId, Label = "HR",
+                TenantId = TenantA,
+                ApprovalChainId = chain.Id,
+                Sequence = 1,
+                ApproverUserId = AdminUserId,
+                Label = "HR",
             });
             db.ApprovalChainSteps.Add(new ApprovalChainStep
             {
-                TenantId = TenantA, ApprovalChainId = chain.Id,
-                Sequence = 2, ApproverUserId = FinanceApproverUserId, Label = "Finance",
+                TenantId = TenantA,
+                ApprovalChainId = chain.Id,
+                Sequence = 2,
+                ApproverUserId = FinanceApproverUserId,
+                Label = "Finance",
             });
 
             db.SaveChanges();

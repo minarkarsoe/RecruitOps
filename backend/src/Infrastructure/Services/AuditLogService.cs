@@ -14,19 +14,21 @@ public sealed class AuditLogService : IAuditLogService
 {
     private const int MaxPageSize = 100;
 
-    private static readonly AuditAction[] SignIns = { AuditAction.SignInSucceeded, AuditAction.SignInFailed };
+    private static readonly AuditAction[] SignIns =
+        { AuditAction.SignInSucceeded, AuditAction.SignInFailed, AuditAction.RefreshTokenReused };
 
     private static readonly AuditAction[] UserActions =
     {
         AuditAction.UserCreated, AuditAction.UserUpdated, AuditAction.UserRoleChanged,
-        AuditAction.UserDeactivated, AuditAction.UserReactivated,
+        AuditAction.UserDeactivated, AuditAction.UserReactivated, AuditAction.DepartmentMembersChanged,
     };
 
     private static readonly AuditAction[] RoleActions =
         { AuditAction.RoleCreated, AuditAction.RoleUpdated, AuditAction.RoleDeleted };
 
     /// <summary>Someone was turned away. The one thing the viewer colours red.</summary>
-    private static readonly AuditAction[] Refusals = { AuditAction.SignInFailed, AuditAction.AccessChangeRefused };
+    private static readonly AuditAction[] Refusals =
+        { AuditAction.SignInFailed, AuditAction.AccessChangeRefused, AuditAction.RefreshTokenReused };
 
     private readonly AppDbContext _db;
     private readonly ICurrentTenant _tenant;
@@ -39,7 +41,9 @@ public sealed class AuditLogService : IAuditLogService
 
     public async Task<PagedResult<AuditLogEntryDto>> QueryAsync(AuditLogQuery query, CancellationToken ct = default)
     {
-        var page = query.Page < 1 ? 1 : query.Page;
+        // Clamped: (page - 1) * pageSize is int arithmetic, and a huge page would wrap negative
+        // (security review of ADR-0027, L6).
+        var page = Math.Clamp(query.Page, 1, 100_000);
         var pageSize = Math.Clamp(query.PageSize, 1, MaxPageSize);
         var tenant = _tenant.TenantId;
 
@@ -109,11 +113,13 @@ public sealed class AuditLogService : IAuditLogService
     {
         AuditAction.SignInSucceeded => "Signed in",
         AuditAction.SignInFailed => "Sign-in failed",
+        AuditAction.RefreshTokenReused => "Stolen session token used",
         AuditAction.UserCreated => "User created",
         AuditAction.UserUpdated => "User renamed",
         AuditAction.UserRoleChanged => "User's role changed",
         AuditAction.UserDeactivated => "User deactivated",
         AuditAction.UserReactivated => "User reactivated",
+        AuditAction.DepartmentMembersChanged => "Department access changed",
         AuditAction.RoleCreated => "Role created",
         AuditAction.RoleUpdated => "Role changed",
         AuditAction.RoleDeleted => "Role deleted",

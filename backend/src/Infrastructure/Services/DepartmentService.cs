@@ -14,14 +14,45 @@ public class DepartmentService : IDepartmentService
     private readonly ICurrentUser _user;
     private readonly IDepartmentAccess _access;
     private readonly TimeProvider _clock;
+    private readonly IAuditTrail _audit;
 
     public DepartmentService(
-        AppDbContext db, ICurrentUser user, IDepartmentAccess access, TimeProvider clock)
+        AppDbContext db, ICurrentUser user, IDepartmentAccess access, TimeProvider clock, IAuditTrail audit)
     {
+        _audit = audit;
         _db = db;
         _user = user;
         _access = access;
         _clock = clock;
+    }
+
+    /// <summary>Department membership is the ADR-0003 axis — who reaches which requisitions — so a
+    /// change to it is an access change (ADR-0027; security review of ADR-0027, M3). Names are
+    /// snapshots, like every entry's.</summary>
+    private async Task RecordMembershipChangeAsync(
+        Guid departmentId, IReadOnlyList<Guid> added, IReadOnlyList<Guid> removed, CancellationToken ct)
+    {
+        if (added.Count == 0 && removed.Count == 0) return;
+
+        var ids = added.Concat(removed).ToList();
+        var names = await _db.Users.AsNoTracking().IgnoreQueryFilters()
+            .Where(u => ids.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+        var department = await _db.Departments.AsNoTracking()
+            .Where(d => d.Id == departmentId).Select(d => d.Name).FirstAsync(ct);
+
+        string Named(IEnumerable<Guid> users) => string.Join(", ", users.Select(u => names.GetValueOrDefault(u, u.ToString())));
+        var parts = new List<string>();
+        if (added.Count > 0) parts.Add($"added {Named(added)}");
+        if (removed.Count > 0) parts.Add($"removed {Named(removed)}");
+
+        await _audit.RecordAsync(AuditAction.DepartmentMembersChanged, AuditTarget.Department(departmentId, department),
+            $"Changed who belongs to {department}: {string.Join("; ", parts)}.",
+            new
+            {
+                added = added.Select(u => new { userId = u, name = names.GetValueOrDefault(u) }),
+                removed = removed.Select(u => new { userId = u, name = names.GetValueOrDefault(u) }),
+            }, ct: ct);
     }
 
     // ── Reads ────────────────────────────────────────────────────────────────
@@ -183,6 +214,8 @@ public class DepartmentService : IDepartmentService
         _db.UserDepartments.RemoveRange(toRemove);
         foreach (var userId in toAdd)
             _db.UserDepartments.Add(new UserDepartment { UserId = userId, DepartmentId = id });
+
+        await RecordMembershipChangeAsync(id, toAdd, toRemove.Select(ud => ud.UserId).ToList(), ct);
 
         await _db.SaveChangesAsync(ct);
         return await RosterAsync(id, ct);

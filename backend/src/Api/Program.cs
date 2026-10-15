@@ -161,6 +161,7 @@ builder.Services.AddAuthorization(options =>
 // tuned for the public internet would lock that office out at 09:00.
 builder.Services.Configure<LoginRateLimitOptions>(builder.Configuration.GetSection("RateLimit:Login"));
 builder.Services.Configure<PublicApplyRateLimitOptions>(builder.Configuration.GetSection("RateLimit:PublicApply"));
+builder.Services.Configure<RefreshRateLimitOptions>(builder.Configuration.GetSection("RateLimit:Refresh"));
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -188,6 +189,22 @@ builder.Services.AddRateLimiter(options =>
     {
         var limits = httpContext.RequestServices
             .GetRequiredService<IOptions<PublicApplyRateLimitOptions>>().Value;
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limits.PermitLimit,
+                Window = TimeSpan.FromSeconds(limits.WindowSeconds),
+                QueueLimit = 0,
+            });
+    });
+
+    // ADR-0028 — token refresh and revoke. Anonymous, and each call is a guess at a session.
+    options.AddPolicy(RateLimitPolicies.Refresh, httpContext =>
+    {
+        var limits = httpContext.RequestServices
+            .GetRequiredService<IOptions<RefreshRateLimitOptions>>().Value;
 
         return RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: ClientPartitionKey(httpContext),

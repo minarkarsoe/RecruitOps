@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Domain.Entities;
 using RecruitOps.Infrastructure.Persistence;
+using RecruitOps.Infrastructure.Services;
 using Xunit;
 
 namespace RecruitOps.Api.Tests;
@@ -36,7 +37,7 @@ public class AuthRefreshTokenTests : IClassFixture<CustomWebAppFactory>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var tokenEntity = await db.RefreshTokens
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(r => r.Token == body.RefreshToken);
+            .FirstOrDefaultAsync(r => r.TokenHash == RefreshTokenHash.Of(body.RefreshToken));
 
         Assert.NotNull(tokenEntity);
         Assert.Equal(body.UserId, tokenEntity!.UserId);
@@ -72,16 +73,17 @@ public class AuthRefreshTokenTests : IClassFixture<CustomWebAppFactory>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var oldTokenEntity = await db.RefreshTokens
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(r => r.Token == loginBody.RefreshToken);
+            .FirstOrDefaultAsync(r => r.TokenHash == RefreshTokenHash.Of(loginBody.RefreshToken));
 
         Assert.NotNull(oldTokenEntity);
         Assert.True(oldTokenEntity!.IsRevoked);
-        Assert.Equal(refreshBody.RefreshToken, oldTokenEntity.ReplacedByToken);
+        // ADR-0028: the chain is traced by hash — the next token is never stored either.
+        Assert.Equal(RefreshTokenHash.Of(refreshBody.RefreshToken!), oldTokenEntity.ReplacedByTokenHash);
 
         // Verify new token entity exists and is active
         var newTokenEntity = await db.RefreshTokens
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(r => r.Token == refreshBody.RefreshToken);
+            .FirstOrDefaultAsync(r => r.TokenHash == RefreshTokenHash.Of(refreshBody.RefreshToken));
 
         Assert.NotNull(newTokenEntity);
         Assert.False(newTokenEntity!.IsRevoked);
@@ -100,7 +102,7 @@ public class AuthRefreshTokenTests : IClassFixture<CustomWebAppFactory>
         {
             TenantId = user.TenantId,
             UserId = user.Id,
-            Token = expiredTokenStr,
+            TokenHash = RefreshTokenHash.Of(expiredTokenStr),
             ExpiresAt = DateTimeOffset.UtcNow.AddHours(-1), // Expired 1 hour ago
             IsRevoked = false
         });
@@ -125,7 +127,7 @@ public class AuthRefreshTokenTests : IClassFixture<CustomWebAppFactory>
         {
             TenantId = user.TenantId,
             UserId = user.Id,
-            Token = revokedTokenStr,
+            TokenHash = RefreshTokenHash.Of(revokedTokenStr),
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
             IsRevoked = true,
             RevokedAt = DateTimeOffset.UtcNow
@@ -154,17 +156,21 @@ public class AuthRefreshTokenTests : IClassFixture<CustomWebAppFactory>
         {
             TenantId = user.TenantId,
             UserId = user.Id,
-            Token = stolenRevokedTokenStr,
+            TokenHash = RefreshTokenHash.Of(stolenRevokedTokenStr),
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
             IsRevoked = true,
-            RevokedAt = DateTimeOffset.UtcNow
+            RevokedAt = DateTimeOffset.UtcNow,
+            // Rotated: its holder already traded it for a successor, which is what makes a second
+            // use of it theft. A token revoked any other way (sign-out, deactivation) is just
+            // refused — ADR-0028.
+            ReplacedByTokenHash = RefreshTokenHash.Of(activeToken1Str),
         });
 
         db.RefreshTokens.Add(new RefreshToken
         {
             TenantId = user.TenantId,
             UserId = user.Id,
-            Token = activeToken1Str,
+            TokenHash = RefreshTokenHash.Of(activeToken1Str),
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
             IsRevoked = false
         });
@@ -173,7 +179,7 @@ public class AuthRefreshTokenTests : IClassFixture<CustomWebAppFactory>
         {
             TenantId = user.TenantId,
             UserId = user.Id,
-            Token = activeToken2Str,
+            TokenHash = RefreshTokenHash.Of(activeToken2Str),
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
             IsRevoked = false
         });
@@ -218,7 +224,7 @@ public class AuthRefreshTokenTests : IClassFixture<CustomWebAppFactory>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var tokenEntity = await db.RefreshTokens
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(r => r.Token == loginBody.RefreshToken);
+            .FirstOrDefaultAsync(r => r.TokenHash == RefreshTokenHash.Of(loginBody.RefreshToken));
 
         Assert.NotNull(tokenEntity);
         Assert.True(tokenEntity!.IsRevoked);

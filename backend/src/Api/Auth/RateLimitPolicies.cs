@@ -13,4 +13,8 @@ public static class RateLimitPolicies
     /// from <see cref="Login"/> because the two have nothing in common but their anonymity:
     /// a shared job link legitimately gets a burst of views, and failed logins never do.</summary>
     public const string PublicApply = "public-apply";
+
+    /// <summary><c>/api/auth/refresh</c> and <c>/api/auth/revoke</c>: anonymous, and each call is a
+    /// guess at a session if the token is not the caller's (ADR-0028).</summary>
+    public const string Refresh = "refresh";
 }

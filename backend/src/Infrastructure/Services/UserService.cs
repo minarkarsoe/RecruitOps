@@ -344,10 +344,18 @@ public class UserService : IUserService
             await EnsureCanGrantCurrentRoleAsync(user, ct);
 
         user.IsActive = isActive;
+
+        // ADR-0028: deactivation ends every session, in the same save. A refresh token used to be
+        // refused only while the user was inactive, so reactivating them revived it — including a
+        // copy someone else held.
+        var sessionsEnded = isActive ? 0 : await RevokeSessionsAsync(user.Id, ct);
+
         await _audit.RecordAsync(isActive ? AuditAction.UserReactivated : AuditAction.UserDeactivated,
             AuditTarget.User(user.Id, user.DisplayName),
-            $"{(isActive ? "Reactivated" : "Deactivated")} {user.DisplayName}.",
-            new { role = user.Role.ToString(), roleId = user.RoleId }, ct: ct);
+            isActive
+                ? $"Reactivated {user.DisplayName}. They sign in again: their old sessions stay ended."
+                : $"Deactivated {user.DisplayName} and ended {sessionsEnded} active session{(sessionsEnded == 1 ? "" : "s")}.",
+            new { role = user.Role.ToString(), roleId = user.RoleId, sessionsEnded }, ct: ct);
         await _db.SaveChangesAsync(ct);
         _permissionEvaluator.InvalidateUserPermissionsCache(user.Id, user.TenantId);
 
@@ -434,6 +442,20 @@ public class UserService : IUserService
     /// <summary>"Approver", or "“Finance Gatekeeper” (Approver)" for a custom role.</summary>
     private static string DescribeRole(UserRole role, string? roleName) =>
         roleName is null || roleName == role.ToString() ? role.ToString() : $"“{roleName}” ({role})";
+
+    private async Task<int> RevokeSessionsAsync(Guid userId, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var active = await _db.RefreshTokens.IgnoreQueryFilters()
+            .Where(r => r.UserId == userId && !r.IsRevoked && r.ExpiresAt > now)
+            .ToListAsync(ct);
+        foreach (var token in active)
+        {
+            token.IsRevoked = true;
+            token.RevokedAt = now;
+        }
+        return active.Count;
+    }
 
     /// <summary>The reach the ceiling judges a user by: the SuperAdmin flag outranks the enum, which
     /// old data can leave on something lower (re-review of ADR-0021 option A, L3).</summary>

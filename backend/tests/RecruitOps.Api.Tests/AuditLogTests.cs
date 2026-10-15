@@ -170,6 +170,38 @@ public class AuditLogTests : IClassFixture<CustomWebAppFactory>
         }
     }
 
+    // ---------------------------------------------------------------- what else changes access
+
+    [Fact]
+    public async Task Department_Membership_Changes_Are_Recorded()
+    {
+        // Security review of ADR-0027, M3: department membership is the ADR-0003 axis — it decides
+        // which requisitions a Hiring Manager sees — and it changed with no entry.
+        var (user, _) = await UserAsync("HiringManager");
+        var roster = await Admin().GetFromJsonAsync<List<DepartmentMemberDto>>(
+            $"/api/departments/{_factory.FinanceDepartmentId}/members");
+        var members = roster!.Where(m => m.IsMember).Select(m => m.UserId).Append(user.Id).ToArray();
+
+        (await Admin().PutAsJsonAsync($"/api/departments/{_factory.FinanceDepartmentId}/members",
+            new SetDepartmentMembersRequest { UserIds = members })).EnsureSuccessStatusCode();
+
+        var entry = Assert.Single(await AboutAsync(_factory.FinanceDepartmentId),
+            e => e.Action == AuditAction.DepartmentMembersChanged && e.Details!.Value.GetRawText().Contains(user.Id.ToString()));
+        Assert.Equal("Department", entry.TargetType);
+        Assert.Equal(_factory.AdminUserId, entry.ActorUserId);
+        Assert.Contains(await EntriesAsync("category=Users"), e => e.Id == entry.Id);
+    }
+
+    [Fact]
+    public async Task Startup_Seeding_Of_System_Roles_Is_Recorded_As_The_System()
+    {
+        // M3 again: the seeder creates and updates system roles — on an upgrade it adds new
+        // permissions to them — and nothing recorded that.
+        var seeded = (await EntriesAsync("category=Roles")).Where(e => e.ActorName == "System (startup)").ToList();
+        Assert.Contains(seeded, e => e.Action == AuditAction.RoleCreated && e.TargetName == "Admin");
+        Assert.All(seeded, e => Assert.Null(e.ActorUserId));
+    }
+
     // ---------------------------------------------------------------- sign-ins
 
     private Task<HttpResponseMessage> SignInAsync(string email, string password) =>

@@ -6,6 +6,9 @@ public enum AuditAction
 {
     SignInSucceeded,
     SignInFailed,
+    /// <summary>A rotated (revoked) refresh token was presented again — someone else holds a copy.
+    /// Every session the user had is ended (ADR-0028).</summary>
+    RefreshTokenReused,
 
     UserCreated,
     /// <summary>A rename — the role did not change.</summary>
@@ -13,6 +16,9 @@ public enum AuditAction
     UserRoleChanged,
     UserDeactivated,
     UserReactivated,
+    /// <summary>Who belongs to a department changed — the ADR-0003 axis: it decides which
+    /// requisitions a department-scoped user reaches.</summary>
+    DepartmentMembersChanged,
 
     RoleCreated,
     RoleUpdated,

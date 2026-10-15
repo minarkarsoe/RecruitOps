@@ -49,6 +49,7 @@ public static class DependencyInjection
         services.AddScoped<IGrantorCeiling, GrantorCeiling>();
         services.AddScoped<IAuditTrail, AuditTrail>();
         services.AddScoped<IAuditLogService, AuditLogService>();
+        services.AddSingleton<UnknownSignInAuditGate>();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IFeatureFlagService, FeatureFlagService>();
