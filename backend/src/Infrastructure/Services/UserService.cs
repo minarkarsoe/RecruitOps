@@ -253,7 +253,7 @@ public class UserService : IUserService
 
         // Any edit is managing someone — a rename changes their @mention handle — so it needs reach
         // over them, role change or not (security review of ADR-0021 option A, finding 5).
-        await _ceiling.EnsureCanManageAsync(user.Role, ct);
+        await _ceiling.EnsureCanManageAsync(ManagedRole(user), ct);
 
         user.DisplayName = trimmedDisplayName;
 
@@ -327,7 +327,7 @@ public class UserService : IUserService
 
         // Deactivating someone you do not outrank is managing them; reactivating anyone hands their
         // role back, so it is a grant as well (ADR-0021 option A).
-        await _ceiling.EnsureCanManageAsync(user.Role, ct);
+        await _ceiling.EnsureCanManageAsync(ManagedRole(user), ct);
         if (isActive)
             await EnsureCanGrantCurrentRoleAsync(user, ct);
 
@@ -380,6 +380,10 @@ public class UserService : IUserService
             ? role
             : throw new ArgumentException(
                 $"Role '{name.Trim()}' cannot be assigned. Use one of: {string.Join(", ", AssignableSystemRoles.Keys)}.");
+
+    /// <summary>The reach the ceiling judges a user by: the SuperAdmin flag outranks the enum, which
+    /// old data can leave on something lower (re-review of ADR-0021 option A, L3).</summary>
+    private static UserRole ManagedRole(User user) => user.IsSuperAdmin ? UserRole.SuperAdmin : user.Role;
 
     /// <summary>The grantor ceiling for the role <paramref name="user"/> now holds: its reach, and
     /// every permission it carries.</summary>

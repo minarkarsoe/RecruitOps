@@ -26,8 +26,9 @@ public class Role : BaseEntity
     /// and <see cref="UserRole.Interviewer"/> — the narrowest role there is — while it is not, or if
     /// its base role is missing or not one a custom role may have. Never a guess with reach: that
     /// guess was Recruiter, and it is what ADR-0021 removed.</summary>
-    public UserRole HolderRole() =>
-        IsActive && BaseRole is { } baseRole && RoleScope.AssignableBaseRoles.Contains(baseRole)
-            ? baseRole
-            : UserRole.Interviewer;
+    public UserRole HolderRole() => HolderRoleFor(IsActive, BaseRole);
+
+    /// <summary><see cref="HolderRole"/> for a role about to be saved with these values.</summary>
+    public static UserRole HolderRoleFor(bool isActive, UserRole? baseRole) =>
+        isActive && baseRole is { } b && RoleScope.AssignableBaseRoles.Contains(b) ? b : UserRole.Interviewer;
 }

@@ -40,7 +40,7 @@ namespace RecruitOps.Infrastructure.Migrations
                 UPDATE "Users" AS u SET "Role" = 'Interviewer'
                 FROM "Roles" AS r
                 WHERE u."RoleId" = r."Id" AND NOT r."IsSystemRole" AND NOT r."IsActive"
-                  AND u."Role" <> 'SuperAdmin' AND NOT u."IsSuperAdmin";
+                  AND u."Role" NOT IN ('SuperAdmin', 'Admin') AND NOT u."IsSuperAdmin";
                 """);
         }
 
@@ -52,7 +52,7 @@ namespace RecruitOps.Infrastructure.Migrations
                 UPDATE "Users" AS u SET "Role" = 'Recruiter'
                 FROM "Roles" AS r
                 WHERE u."RoleId" = r."Id" AND NOT r."IsSystemRole"
-                  AND u."Role" <> 'SuperAdmin' AND NOT u."IsSuperAdmin";
+                  AND u."Role" NOT IN ('SuperAdmin', 'Admin') AND NOT u."IsSuperAdmin";
                 """);
 
             migrationBuilder.DropColumn(

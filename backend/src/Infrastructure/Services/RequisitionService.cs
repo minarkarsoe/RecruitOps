@@ -109,10 +109,20 @@ public class RequisitionService : IRequisitionService
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (r is null) return null;
-        if (!await _access.CanAccessAsync(r.DepartmentId, ct)) return null;
+        if (!await _access.CanAccessAsync(r.DepartmentId, ct) && !await IsNamedApproverAsync(r.Id, ct)) return null;
 
         return await BuildDetailAsync(r, ct);
     }
+
+    /// <summary>ADR-0003: "an approver must see what they are approving". The inbox already lists
+    /// it without a department check; this lets a department-scoped approver — a Hiring Manager,
+    /// or a custom role on an Interviewer base — open it too, and get their decision back instead
+    /// of a 404 after it was saved (re-review of ADR-0021 option A). Read only: every mutation
+    /// keeps its own department check.</summary>
+    private async Task<bool> IsNamedApproverAsync(Guid requisitionId, CancellationToken ct) =>
+        _user.UserId is { } me
+        && await _db.RequisitionApprovals.AsNoTracking()
+            .AnyAsync(a => a.RequisitionId == requisitionId && a.ApproverUserId == me, ct);
 
     // ── Mutations ────────────────────────────────────────────────────────────
 

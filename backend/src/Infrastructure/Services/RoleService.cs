@@ -290,6 +290,18 @@ public class RoleService : IRoleService
         var reactivating = request.IsActive && !role.IsActive;
         var widening = baseRole != role.BaseRole
                        && !(role.BaseRole is { } oldBase && baseRole is { } newBase && RoleScope.Covers(oldBase, newBase));
+
+        // The same question per holder, because holders are what actually move: old data can have
+        // holders on another enum than the base (a role coded "5" gave Approver), and the next
+        // edit — a rename — syncs them all. Lifting one past their reach is widening; moving
+        // anyone at all is managing them (re-review of ADR-0021 option A, L1b).
+        var newHolderRole = Role.HolderRoleFor(request.IsActive, baseRole);
+        var movingFrom = await HoldersToSync(role.Id, newHolderRole).Select(u => u.Role).Distinct().ToListAsync(ct);
+        foreach (var current in movingFrom)
+        {
+            await _ceiling.EnsureCanManageAsync(current, ct);
+            if (!RoleScope.Covers(current, newHolderRole)) widening = true;
+        }
         var heldBefore = role.RolePermissions.Select(rp => rp.Permission.Code).ToHashSet(StringComparer.Ordinal);
         var granted = reactivating || widening
             ? requestedCodes
@@ -335,17 +347,16 @@ public class RoleService : IRoleService
     private async Task SyncHoldersAsync(Role role, CancellationToken ct)
     {
         var holderRole = role.HolderRole();
-        var holders = await _db.Users
-            // A SuperAdmin's enum is provisioned out of band, never derived from a role. An Admin
-            // on a custom role only exists from before ADR-0021 (a role coded "1"); it is left for
-            // the pre-deploy audit (NEXT-SESSION) rather than demoted here past the last-Admin floor.
-            .Where(u => u.RoleId == role.Id && u.Role != holderRole
-                        && u.Role != UserRole.SuperAdmin && u.Role != UserRole.Admin && !u.IsSuperAdmin)
-            .ToListAsync(ct);
-
-        foreach (var holder in holders)
+        foreach (var holder in await HoldersToSync(role.Id, holderRole).ToListAsync(ct))
             holder.Role = holderRole;
     }
+
+    /// <summary>A SuperAdmin's enum is provisioned out of band, never derived from a role. An Admin
+    /// on a custom role only exists from before ADR-0021 (a role coded "1"); it is left for the
+    /// pre-deploy audit (NEXT-SESSION) rather than demoted here past the last-Admin floor.</summary>
+    private IQueryable<User> HoldersToSync(Guid roleId, UserRole holderRole) =>
+        _db.Users.Where(u => u.RoleId == roleId && u.Role != holderRole
+                             && u.Role != UserRole.SuperAdmin && u.Role != UserRole.Admin && !u.IsSuperAdmin);
 
     public async Task<bool> DeleteRoleAsync(Guid id, CancellationToken ct = default)
     {

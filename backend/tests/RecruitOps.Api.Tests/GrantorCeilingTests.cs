@@ -1,7 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
 using RecruitOps.Api.Auth;
 using RecruitOps.Application.DTOs;
+using RecruitOps.Domain.Entities;
+using RecruitOps.Domain.Enums;
+using RecruitOps.Infrastructure.Persistence;
 using Xunit;
 
 namespace RecruitOps.Api.Tests;
@@ -26,6 +30,7 @@ public class GrantorCeilingTests : IClassFixture<CustomWebAppFactory>
     private static readonly string[] HrLeadPermissions =
     {
         "permission:users:users:read", "permission:users:users:create", "permission:users:users:update",
+        "permission:users:users:delete",
         "permission:roles:roles:read", "permission:roles:roles:create", "permission:roles:roles:update",
         "permission:roles:roles:delete", RequisitionsRead,
     };
@@ -284,6 +289,66 @@ public class GrantorCeilingTests : IClassFixture<CustomWebAppFactory>
 
         var res = await lead.PutAsJsonAsync($"/api/users/{admin.Id}", new UpdateUserRequest("Renamed by a delegate"));
         Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+    }
+
+    /// <summary>A user written straight to the database — the shapes only old data has.</summary>
+    private async Task<Guid> LegacyUserAsync(UserRole role, Guid? roleId = null, bool isSuperAdmin = false)
+    {
+        var id = Guid.NewGuid();
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Users.Add(new User
+        {
+            Id = id,
+            TenantId = _factory.TenantA,
+            Email = $"legacy.{id:N}@alpha.test",
+            DisplayName = "Legacy",
+            Role = role,
+            RoleId = roleId,
+            IsSuperAdmin = isSuperAdmin,
+            IsActive = true,
+            PasswordHash = "x",
+        });
+        await db.SaveChangesAsync();
+        return id;
+    }
+
+    private async Task<string> RoleOf(Guid userId) =>
+        (await Admin().GetFromJsonAsync<UserDetailDto>($"/api/users/{userId}"))!.Role;
+
+    [Fact]
+    public async Task Editing_A_Role_Cannot_Lift_A_Holder_Whose_Enum_Differs_Past_The_Ceiling()
+    {
+        // Re-review L1b: a role whose holders disagree (old data: a role coded "5" gave Approver)
+        // migrates to a Recruiter base, and the next edit — a rename — synced every holder to it.
+        // That lifted an Approver to Recruiter plus the role's permissions, with no ceiling check.
+        var role = await Created(CreateRole(Admin(), "Recruiter", RequisitionsApprove));
+        var legacy = await LegacyUserAsync(UserRole.Approver, role.Id);
+        var lead = await HrLeadAsync();
+
+        var rename = await lead.PutAsJsonAsync($"/api/roles/{role.Id}",
+            new UpdateRoleRequest("Renamed " + role.Name, null, true, new[] { RequisitionsApprove }));
+        Assert.Equal(HttpStatusCode.Forbidden, rename.StatusCode);
+        Assert.Equal("Approver", await RoleOf(legacy));
+
+        // An Admin, who holds the role's permissions, may — and the holder is brought in line.
+        var byAdmin = await Admin().PutAsJsonAsync($"/api/roles/{role.Id}",
+            new UpdateRoleRequest("Renamed " + role.Name, null, true, new[] { RequisitionsApprove }));
+        Assert.Equal(HttpStatusCode.OK, byAdmin.StatusCode);
+        Assert.Equal("Recruiter", await RoleOf(legacy));
+    }
+
+    [Fact]
+    public async Task A_Delegate_Cannot_Edit_An_Account_Flagged_SuperAdmin_Whatever_Its_Enum()
+    {
+        // Re-review L3: the manage check read the enum alone; old data has IsSuperAdmin=true on a
+        // Recruiter enum, which a Recruiter-based delegate "covered".
+        var flagged = await LegacyUserAsync(UserRole.Recruiter, isSuperAdmin: true);
+        var lead = await HrLeadAsync();
+
+        var res = await lead.PutAsJsonAsync($"/api/users/{flagged}", new UpdateUserRequest("Renamed"));
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await lead.PutAsync($"/api/users/{flagged}/deactivate", null)).StatusCode);
     }
 
     [Fact]
