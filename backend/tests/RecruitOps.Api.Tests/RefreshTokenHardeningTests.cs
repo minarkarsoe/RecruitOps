@@ -142,7 +142,11 @@ public class RefreshTokenHardeningTests : IClassFixture<CustomWebAppFactory>
         var rotatedRes = await RefreshAsync(session.RefreshToken!); // rotates
         rotatedRes.EnsureSuccessStatusCode();
         var rotated = (await rotatedRes.Content.ReadFromJsonAsync<LoginResponse>())!;
+        await RotatedLongAgoAsync(session.RefreshToken!); // past the grace window: this is a copy
 
+        Assert.Equal(HttpStatusCode.Unauthorized, (await RefreshAsync(session.RefreshToken!)).StatusCode);
+        // Replaying it again ends nothing more, and must not write a second permanent entry
+        // (security review of ADR-0028, M1: the alarm was ungated).
         Assert.Equal(HttpStatusCode.Unauthorized, (await RefreshAsync(session.RefreshToken!)).StatusCode);
         // Its successor was ended with it; using that is refused, but it is not a second theft.
         Assert.Equal(HttpStatusCode.Unauthorized, (await RefreshAsync(rotated.RefreshToken!)).StatusCode);
@@ -152,6 +156,78 @@ public class RefreshTokenHardeningTests : IClassFixture<CustomWebAppFactory>
         Assert.Contains("1 active session", entry.Summary);
         Assert.True(entry.IsRefusal);
         Assert.DoesNotContain(session.RefreshToken!, entry.Summary + entry.Details?.GetRawText());
+    }
+
+    /// <summary>Pushes a rotated token's rotation into the past, as if it were presented later.</summary>
+    private Task RotatedLongAgoAsync(string token) => WithDbAsync(async db =>
+    {
+        var row = await db.RefreshTokens.IgnoreQueryFilters().SingleAsync(r => r.TokenHash == RefreshTokenHash.Of(token));
+        row.RevokedAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+        await db.SaveChangesAsync();
+    });
+
+    private async Task<int> ReuseAlarmsAsync(Guid userId) =>
+        (await Admin().GetFromJsonAsync<PagedResult<AuditLogEntryDto>>($"/api/audit-log?targetId={userId}&pageSize=100"))!
+        .Items.Count(e => e.Action == AuditAction.RefreshTokenReused);
+
+    [Fact]
+    public async Task A_Rotated_Token_Back_Within_Seconds_Is_The_Clients_Own_Duplicate_Not_A_Theft()
+    {
+        // Review M2: parallel requests after an idle laptop wakes, or a lost response retried,
+        // send the just-rotated token again. That used to end every session and raise the alarm.
+        var (userId, session) = await SignedInUserAsync();
+        var rotated = (await (await RefreshAsync(session.RefreshToken!)).Content.ReadFromJsonAsync<LoginResponse>())!;
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await RefreshAsync(session.RefreshToken!)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await RefreshAsync(rotated.RefreshToken!)).StatusCode); // successor lives
+        Assert.Equal(0, await ReuseAlarmsAsync(userId));
+    }
+
+    [Fact]
+    public async Task An_Expired_Rotated_Token_Is_Refused_Without_Ending_Anything()
+    {
+        // Review M1, scenario B: an old rotated token — a backup, a forgotten device — could log a
+        // user out of everything, on demand, forever. Once expired it proves nothing about now.
+        var (userId, session) = await SignedInUserAsync();
+        var rotated = (await (await RefreshAsync(session.RefreshToken!)).Content.ReadFromJsonAsync<LoginResponse>())!;
+        await WithDbAsync(async db =>
+        {
+            var old = await db.RefreshTokens.IgnoreQueryFilters().SingleAsync(r => r.TokenHash == RefreshTokenHash.Of(session.RefreshToken!));
+            old.RevokedAt = DateTimeOffset.UtcNow.AddDays(-20);
+            old.ExpiresAt = DateTimeOffset.UtcNow.AddDays(-1);
+            await db.SaveChangesAsync();
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await RefreshAsync(session.RefreshToken!)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await RefreshAsync(rotated.RefreshToken!)).StatusCode);
+        Assert.Equal(0, await ReuseAlarmsAsync(userId));
+    }
+
+    [Fact]
+    public async Task Reactivating_A_User_Ends_Any_Token_That_Slipped_Through()
+    {
+        // Review L2: a refresh in flight while the user was deactivated could save a fresh token
+        // after the deactivation revoked the rest — and reactivation would revive it.
+        var (userId, _) = await SignedInUserAsync();
+        (await Admin().PutAsync($"/api/users/{userId}/deactivate", null)).EnsureSuccessStatusCode();
+        var straggler = "straggler-" + Guid.NewGuid().ToString("N");
+        await WithDbAsync(async db =>
+        {
+            var user = await db.Users.IgnoreQueryFilters().SingleAsync(u => u.Id == userId);
+            db.RefreshTokens.Add(new Domain.Entities.RefreshToken
+            {
+                TenantId = user.TenantId,
+                UserId = userId,
+                TokenHash = RefreshTokenHash.Of(straggler),
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
+            });
+            await db.SaveChangesAsync();
+        });
+
+        (await Admin().PutAsync($"/api/users/{userId}/reactivate", null)).EnsureSuccessStatusCode();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await RefreshAsync(straggler)).StatusCode);
     }
 
     [Fact]

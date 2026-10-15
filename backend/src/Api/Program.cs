@@ -206,12 +206,14 @@ builder.Services.AddRateLimiter(options =>
         var limits = httpContext.RequestServices
             .GetRequiredService<IOptions<RefreshRateLimitOptions>>().Value;
 
+        // A zero or negative setting would throw on every request or refuse every refresh —
+        // fall back to the defaults rather than log everyone out.
         return RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: ClientPartitionKey(httpContext),
             _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = limits.PermitLimit,
-                Window = TimeSpan.FromSeconds(limits.WindowSeconds),
+                PermitLimit = limits.PermitLimit > 0 ? limits.PermitLimit : 60,
+                Window = TimeSpan.FromSeconds(limits.WindowSeconds > 0 ? limits.WindowSeconds : 60),
                 QueueLimit = 0,
             });
     });

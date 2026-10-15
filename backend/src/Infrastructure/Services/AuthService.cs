@@ -72,7 +72,10 @@ public class AuthService : IAuthService
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await _db.Users
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
+            .Where(u => u.Email.ToLower() == email)
+            // Old data can hold case-variant duplicates; the active one is the account.
+            .OrderByDescending(u => u.IsActive)
+            .FirstOrDefaultAsync(ct);
 
         if (user is null || !user.IsActive)
         {
@@ -177,6 +180,10 @@ public class AuthService : IAuthService
 
     private static DateTimeOffset Min(DateTimeOffset a, DateTimeOffset b) => a < b ? a : b;
 
+    /// <summary>How long after its rotation a token's return is taken for the client's own
+    /// duplicate rather than a copy (ADR-0028).</summary>
+    private static readonly TimeSpan ReuseGrace = TimeSpan.FromSeconds(30);
+
     /// <summary><c>Jwt:SessionMaxDays</c>, default 30: how long one sign-in can be kept alive by
     /// rotation (ADR-0028).</summary>
     private TimeSpan SessionMax =>
@@ -204,11 +211,23 @@ public class AuthService : IAuthService
         if (existingToken.IsRevoked && existingToken.ReplacedByTokenHash is null)
             return null;
 
+        // An expired token — rotated or not — proves nothing about now. Before this check came
+        // first, any old rotated token (a backup, a forgotten laptop) could end a user's sessions
+        // on demand, for ever (security review of ADR-0028, M1).
+        if (existingToken.IsExpired || now >= existingToken.SessionStartedAt + SessionMax)
+            return null;
+
         // Reuse detection: a *rotated* token presented again means someone else has a copy — the
         // legitimate client already traded it for its successor. Revoke every session the user
         // has, and say so in the audit log: it is the one signal that a token was stolen (ADR-0028).
         if (existingToken.IsRevoked)
         {
+            // Within seconds of its rotation it is the client's own duplicate — parallel requests
+            // after a laptop wakes, a lost response retried — not a copy. Refuse it and end
+            // nothing (security review of ADR-0028, M2).
+            if (existingToken.RevokedAt is { } rotatedAt && now - rotatedAt < ReuseGrace)
+                return null;
+
             var activeTokens = await _db.RefreshTokens
                 .IgnoreQueryFilters()
                 .Where(r => r.UserId == existingToken.UserId && !r.IsRevoked)
@@ -221,7 +240,9 @@ public class AuthService : IAuthService
                 t.RevokedByIp = ipAddress;
             }
 
-            if (existingToken.User is { } owner)
+            // One entry per sweep that ended something: replaying the same copy again ends nothing
+            // and must not write another permanent row (security review of ADR-0028, M1).
+            if (existingToken.User is { } owner && activeTokens.Count > 0)
                 await _audit.RecordAsync(AuditAction.RefreshTokenReused, AuditTarget.User(owner.Id, owner.DisplayName),
                     $"A revoked session token for {owner.DisplayName} was used again — {activeTokens.Count} active session{(activeTokens.Count == 1 ? " was" : "s were")} ended.",
                     new { sessionsEnded = activeTokens.Count, tokenRevokedAt = existingToken.RevokedAt },
@@ -231,11 +252,7 @@ public class AuthService : IAuthService
             return null;
         }
 
-        if (existingToken.IsExpired || existingToken.User is null || !existingToken.User.IsActive)
-            return null;
-
-        // ADR-0028: however active, a session ends SessionMax after its sign-in.
-        if (now >= existingToken.SessionStartedAt + SessionMax)
+        if (existingToken.User is null || !existingToken.User.IsActive)
             return null;
 
         // Token rotation: revoke current token and issue new token pair

@@ -185,8 +185,10 @@ public static class DbInitializer
                     IsSuperAdmin = roleDef.IsSuperAdmin,
                     IsActive = true
                 };
+                // No save here: the role, its permissions and its audit entry go in the one save
+                // below, together (ADR-0027 §2; security review of ADR-0028, L8). Ids are
+                // client-generated, so the permission rows can point at it already.
                 db.Roles.Add(role);
-                await db.SaveChangesAsync(ct);
                 rolesByCode[role.Code] = role;
             }
             else

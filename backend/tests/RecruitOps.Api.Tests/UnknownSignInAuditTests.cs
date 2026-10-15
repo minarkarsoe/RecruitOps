@@ -54,6 +54,22 @@ public class UnknownSignInAuditGateTests
     }
 
     [Fact]
+    public void Memory_Is_Bounded_However_Many_Clients_Try()
+    {
+        // Review L4: entries with a suppressed count were never pruned, and pruning only ran on
+        // the recording path — which stops once the hourly budget is spent.
+        var (gate, clock) = NewGate();
+        for (var i = 0; i < UnknownSignInAuditGate.MaxTrackedClients + 5_000; i++)
+            gate.Admit($"10.{i / 65536 % 256}.{i / 256 % 256}.{i % 256}");
+
+        Assert.True(gate.TrackedClients <= UnknownSignInAuditGate.MaxTrackedClients);
+
+        clock.Advance(UnknownSignInAuditGate.Window + TimeSpan.FromMinutes(2));
+        gate.Admit("192.0.2.200");
+        Assert.True(gate.TrackedClients < 10);
+    }
+
+    [Fact]
     public void The_Whole_Install_Records_At_Most_So_Many_An_Hour()
     {
         var (gate, clock) = NewGate();
@@ -72,7 +88,11 @@ public class UnknownSignInAuditGateTests
     [InlineData("secret@intranet", false)]         // no dot in the domain
     [InlineData("aung @company.mm", false)]
     [InlineData("aung@company.mm\n", false)]
-    [InlineData("aung‮@company.mm", false)]   // a bidi override, to reverse what an auditor reads
+    [InlineData("aung\u202E@company.mm", false)]   // a bidi override, to reverse what an auditor reads
+    [InlineData("\"a<b>c\"@company.mm", false)]     // a quoted local part lets punctuation through
+    [InlineData("=cmd@company.mm", false)]          // a formula, waiting for a CSV export
+    [InlineData("\u0645\u0633\u062A@company.mm", false)] // letters a reader cannot check at a glance
+    [InlineData("tin.tin+hr@company.com.mm", true)]
     public void Only_A_Plain_Email_Address_Is_Kept(string typed, bool kept) =>
         Assert.Equal(kept ? typed : null, UnknownSignInAuditGate.PlainEmailOrNull(typed));
 }

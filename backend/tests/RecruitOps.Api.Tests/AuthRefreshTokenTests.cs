@@ -159,7 +159,9 @@ public class AuthRefreshTokenTests : IClassFixture<CustomWebAppFactory>
             TokenHash = RefreshTokenHash.Of(stolenRevokedTokenStr),
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
             IsRevoked = true,
-            RevokedAt = DateTimeOffset.UtcNow,
+            // Rotated minutes ago — past the window in which the client's own duplicate is
+            // forgiven (ADR-0028) — so this is a copy.
+            RevokedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
             // Rotated: its holder already traded it for a successor, which is what makes a second
             // use of it theft. A token revoked any other way (sign-out, deactivation) is just
             // refused — ADR-0028.

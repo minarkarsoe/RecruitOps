@@ -42,6 +42,11 @@ namespace RecruitOps.Infrastructure.Migrations
                     "ReplacedByTokenHash" = CASE WHEN "ReplacedByToken" IS NULL THEN NULL
                                                  ELSE encode(sha256(convert_to("ReplacedByToken", 'UTF8')), 'hex') END,
                     "SessionStartedAt" = "CreatedAt";
+
+                -- A deactivated user's tokens were only refused while they stayed inactive; end
+                -- them now, so reactivation cannot bring them back (ADR-0028 §2).
+                UPDATE "RefreshTokens" SET "IsRevoked" = TRUE, "RevokedAt" = now()
+                WHERE NOT "IsRevoked" AND "UserId" IN (SELECT "Id" FROM "Users" WHERE NOT "IsActive");
                 """);
 
             migrationBuilder.AlterColumn<string>(

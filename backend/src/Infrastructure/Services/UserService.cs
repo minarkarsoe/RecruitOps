@@ -348,7 +348,9 @@ public class UserService : IUserService
         // ADR-0028: deactivation ends every session, in the same save. A refresh token used to be
         // refused only while the user was inactive, so reactivating them revived it — including a
         // copy someone else held.
-        var sessionsEnded = isActive ? 0 : await RevokeSessionsAsync(user.Id, ct);
+        // Reactivating ends any token too: a refresh in flight during the deactivation could have
+        // saved a fresh one after the rest were revoked (security review of ADR-0028, L2).
+        var sessionsEnded = await RevokeSessionsAsync(user.Id, ct);
 
         await _audit.RecordAsync(isActive ? AuditAction.UserReactivated : AuditAction.UserDeactivated,
             AuditTarget.User(user.Id, user.DisplayName),
