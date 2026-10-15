@@ -137,6 +137,17 @@ describe('UsersPage', () => {
     expect(offered).toEqual(mockRoles.filter((r) => r.isActive && !r.isSuperAdmin).map((r) => r.id));
   });
 
+  // ADR-0021 option A: whoever assigns a custom role sees what it reaches, not just "(Custom)".
+  it('labels a custom role with its base role', async () => {
+    render(<UsersPage />);
+    await screen.findByText('User Directory');
+    fireEvent.click(screen.getByText('+ Create User'));
+
+    const picker = screen.getByText(/Assigned Role/).parentElement!.querySelector('select')!;
+    const custom = Array.from(picker.options).find((o) => o.value === 'role-custom')!;
+    expect(custom.textContent).toContain('(Custom · Recruiter)');
+  });
+
   // Security review A5 + second review: a rename must not resend the role. Resending it is how an
   // edit of a SuperAdmin failed (400), and an unchanged role is the most common edit there is.
   it('renames a user without sending their unchanged role', async () => {

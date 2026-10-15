@@ -300,6 +300,14 @@
                   <button class="h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Save changes</button>
                 </div>
               </div>
+              <!-- ADR-0021 option A (2026-10-15): every custom role has a base role, chosen here. -->
+              <div class="mt-3 flex items-center gap-2.5 flex-wrap">
+                <label for="base-role" class="text-sm font-medium text-ink-700">Base role</label>
+                <select id="base-role" class="h-8 px-2.5 rounded-md border border-line bg-white text-sm">
+                  <option>HR Director</option><option selected>Recruiter</option><option>Hiring Manager</option><option>Approver</option><option>Interviewer</option>
+                </select>
+                <span class="text-sm text-ink-600">The whole pipeline, across every department.</span>
+              </div>
               <p class="mt-3 text-sm text-ink-600"><span class="font-mono text-xs bg-canvas border border-line rounded px-1.5 py-0.5">14 of 33</span> permissions granted · assigned to 2 users</p>
             </div>
 

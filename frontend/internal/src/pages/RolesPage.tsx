@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import type { RoleListItem, RoleDetail, PermissionModule } from '@recruitops/types';
+import type { RoleListItem, RoleDetail, PermissionModule, BaseRole } from '@recruitops/types';
 import { roleService } from '../services/roleService';
 import { PermissionMatrixGrid } from '../components/PermissionMatrixGrid';
+import { BASE_ROLES, baseRoleLabel } from '../lib/baseRoles';
 
 import { auth, hasPermission } from '../lib/auth';
 
@@ -23,6 +24,8 @@ export function RolesPage() {
   const [formDescription, setFormDescription] = useState('');
   const [formPermissionCodes, setFormPermissionCodes] = useState<string[]>([]);
   const [formIsActive, setFormIsActive] = useState(true);
+  // ADR-0021 option A: no default. A preselected base role is a decision nobody made.
+  const [formBaseRole, setFormBaseRole] = useState<BaseRole | ''>('');
   const [isSystemRoleModal, setIsSystemRoleModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -66,6 +69,7 @@ export function RolesPage() {
     setFormDescription('');
     setFormPermissionCodes([]);
     setFormIsActive(true);
+    setFormBaseRole('');
     setIsSystemRoleModal(false);
     setFormError(null);
     setIsModalOpen(true);
@@ -80,6 +84,7 @@ export function RolesPage() {
     setFormCode(roleItem.code);
     setFormDescription(roleItem.description || '');
     setFormIsActive(roleItem.isActive);
+    setFormBaseRole(roleItem.baseRole ?? '');
 
     try {
       const detail: RoleDetail = await roleService.getRoleById(roleItem.id);
@@ -107,6 +112,10 @@ export function RolesPage() {
       setFormError('Role name is required.');
       return;
     }
+    if (!formBaseRole) {
+      setFormError('Choose a base role for this custom role.');
+      return;
+    }
 
     setSaving(true);
     setFormError(null);
@@ -117,6 +126,7 @@ export function RolesPage() {
           code: formCode.trim() || undefined,
           description: formDescription.trim() || undefined,
           permissionCodes: formPermissionCodes,
+          baseRole: formBaseRole,
         });
         showToast('Custom role created successfully.');
       } else if (modalMode === 'edit' && selectedRoleId) {
@@ -125,6 +135,7 @@ export function RolesPage() {
           description: formDescription.trim() || undefined,
           isActive: formIsActive,
           permissionCodes: formPermissionCodes,
+          baseRole: formBaseRole,
         });
         showToast('Role permissions updated successfully.');
       }
@@ -199,6 +210,11 @@ export function RolesPage() {
                   <div>
                     <h3 className="font-semibold text-base text-ink-900">{roleItem.name}</h3>
                     <p className="font-mono text-xs text-ink-500">{roleItem.code}</p>
+                    {!roleItem.isSystemRole && (
+                      <p className="text-xs text-ink-600 mt-0.5">
+                        Base: {baseRoleLabel(roleItem.baseRole) ?? 'not set'}
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {roleItem.isSystemRole ? (
@@ -349,6 +365,34 @@ export function RolesPage() {
                   className="w-full text-sm px-3 py-2 border border-line-strong rounded-md focus:ring-1 focus:ring-brand-50 disabled:bg-canvas"
                 />
               </div>
+
+              {!isSystemRoleModal && (
+                <div>
+                  <label htmlFor="role-base-role" className="block text-xs font-semibold text-ink-700 mb-1">
+                    Base role <span className="text-critical-700">*</span>
+                  </label>
+                  <select
+                    id="role-base-role"
+                    disabled={modalMode === 'view'}
+                    value={formBaseRole}
+                    onChange={(e) => setFormBaseRole(e.target.value as BaseRole | '')}
+                    className="w-full text-sm px-3 py-2 border border-line-strong rounded-md bg-white focus:ring-1 focus:ring-brand-50 disabled:bg-canvas"
+                  >
+                    <option value="" disabled>
+                      Choose what holders can reach…
+                    </option>
+                    {BASE_ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-ink-600">
+                    {BASE_ROLES.find((r) => r.value === formBaseRole)?.reach ??
+                      'Which screens and data holders can open at all. The permissions below decide what they can do there.'}
+                  </p>
+                </div>
+              )}
 
               {/* Permission Matrix Component */}
               <div className="border-t border-line pt-4">

@@ -4,7 +4,11 @@
 
 // ---------- Enums (mirror RecruitOps.Domain.Enums) ----------
 export type UserRole =
-  | 'Admin' | 'HrDirector' | 'Recruiter' | 'HiringManager' | 'Approver' | 'SuperAdmin' | string;
+  | 'Admin' | 'HrDirector' | 'Recruiter' | 'HiringManager' | 'Approver' | 'Interviewer' | 'SuperAdmin' | string;
+
+/** The system roles a custom role may be built on (ADR-0021 option A) — every one below Admin.
+ *  Mirrors RoleScope.AssignableBaseRoles. */
+export type BaseRole = 'HrDirector' | 'Recruiter' | 'HiringManager' | 'Approver' | 'Interviewer';
 
 export type PipelineStatus =
   | 'Sourced' | 'Applied' | 'Screening' | 'Shortlisted'
@@ -81,6 +85,8 @@ export interface RoleListItem {
   isActive: boolean;
   userCount: number;
   permissionCount: number;
+  /** A custom role's base role — what its holders reach through the role policies. Null on system roles. */
+  baseRole: BaseRole | null;
 }
 
 export interface RoleDetail {
@@ -96,6 +102,7 @@ export interface RoleDetail {
   userCount: number;
   createdAt: string;
   updatedAt: string | null;
+  baseRole: BaseRole | null;
 }
 
 export interface CreateRoleRequest {
@@ -103,6 +110,8 @@ export interface CreateRoleRequest {
   code?: string | null;
   description?: string | null;
   permissionCodes: string[];
+  /** Required: a custom role always has a base role, chosen deliberately. */
+  baseRole: BaseRole;
 }
 
 export interface UpdateRoleRequest {
@@ -110,6 +119,8 @@ export interface UpdateRoleRequest {
   description?: string | null;
   isActive: boolean;
   permissionCodes: string[];
+  /** Null or absent keeps the current base role. */
+  baseRole?: BaseRole | null;
 }
 
 export interface UserRoleInfo {

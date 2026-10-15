@@ -3,6 +3,7 @@ import type { UserListItem, RoleListItem, PagedResult } from '@recruitops/types'
 import { userService } from '../services/userService';
 import { roleService } from '../services/roleService';
 import { auth, hasPermission } from '../lib/auth';
+import { baseRoleLabel } from '../lib/baseRoles';
 
 /**
  * Roles the directory may hand out. Mirrors `UserService.AssignRoleToUserAsync`: SuperAdmin is
@@ -550,7 +551,7 @@ export function UsersPage() {
                   <option value="" disabled>Choose a role…</option>
                   {assignableRoles.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.name} {r.isSystemRole ? '(System)' : '(Custom)'}
+                      {r.name} {r.isSystemRole ? '(System)' : `(Custom · ${baseRoleLabel(r.baseRole) ?? 'no base role'})`}
                     </option>
                   ))}
                 </select>
@@ -633,7 +634,7 @@ export function UsersPage() {
                   )}
                   {assignableRoles.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.name} {r.isSystemRole ? '(System)' : '(Custom)'}
+                      {r.name} {r.isSystemRole ? '(System)' : `(Custom · ${baseRoleLabel(r.baseRole) ?? 'no base role'})`}
                     </option>
                   ))}
                 </select>

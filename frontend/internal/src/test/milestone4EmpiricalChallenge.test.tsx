@@ -154,6 +154,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
           description: 'Customized recruiter role',
           isActive: true,
           permissionCodes: ['permission:users:users:read', 'permission:users:users:create'],
+          baseRole: 'Recruiter', // ADR-0021 option A: the role's base role, unchanged
         });
       });
     });

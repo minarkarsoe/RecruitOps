@@ -54,6 +54,7 @@ export const mockRoles: RoleListItem[] = [
     isActive: true,
     userCount: 2,
     permissionCount: 25,
+    baseRole: null,
   },
   {
     id: 'role-custom',
@@ -65,6 +66,7 @@ export const mockRoles: RoleListItem[] = [
     isActive: true,
     userCount: 0,
     permissionCount: 12,
+    baseRole: 'Recruiter',
   },
 ];
 
@@ -81,6 +83,7 @@ export const mockRoleDetail: RoleDetail = {
   userCount: 0,
   createdAt: '2026-07-30T00:00:00Z',
   updatedAt: null,
+  baseRole: 'Recruiter',
 };
 
 export const mockUserList: UserListItem[] = [
