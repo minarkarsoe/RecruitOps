@@ -459,7 +459,7 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | `Interviewer` system role reaches nothing | 🟡 Medium | It is assignable and has a seed matrix, but no role policy admits it — every hiring endpoint returns 403. Decide what it is for, or stop offering it |
 | Permission list is a login-time snapshot | 🔵 Low | The API applies a role edit on the next request; the UI shows it after the next sign-in. A role *change* forces sign-in (token revalidation) |
 | Role create/delete can 500 | 🔵 Low | Name > 200 chars is not validated; deleting a role with only inactive holders hits the FK (security review B6) |
-| SPA / public site have no CSP or security headers | 🟡 Medium | The token lives in `sessionStorage`, so a CSP is the main XSS mitigation. API headers are done; `nginx.conf` and `next.config` are not |
+| Public site has no **script** CSP | 🔵 Low | SPA: strict `'self'` CSP + headers in `nginx.conf` ✅ (2026-10-15 — run under real nginx, 17 pages × 4 roles, zero violations). Public site: frame/nosniff/referrer/permissions headers ✅; a script CSP needs a per-request nonce for Next's inline hydration scripts |
 | No audit log | 🟡 Medium | Module 7 `AuditLog` entity; needed for bank customers and SLA claims |
 | `System.Security.Cryptography.Xml` CVE-2026-33116 | ✅ **fixed** | Pinned to 10.0.6 in Infrastructure + Api.Tests (10.0.0–10.0.5 are also vulnerable) |
 

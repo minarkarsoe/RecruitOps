@@ -47,11 +47,11 @@ SMTP client (MailKit vs `System.Net.Mail`), job runner (Postgres-backed hosted s
 vs Quartz), S3 client for R2/MinIO (ADR-0013). A Postgres-backed outbox + `BackgroundService` needs
 no package and fits one-instance-per-company.
 
-### 2. SPA + public-site security headers / CSP
-The token is in `sessionStorage`, so a CSP is the main XSS mitigation. Put it in
-`frontend/internal/nginx.conf`; **prove the built SPA runs under it** (serve `dist/` with the same
-header, drive it, assert zero CSP violations). Next.js needs a nonce for a script CSP — start with
-frame/nosniff/referrer headers in `next.config` and plan the nonce separately.
+### 2. Public site: script CSP with a nonce
+The SPA's CSP is done and verified under real nginx. Next.js renders inline hydration scripts, so
+`frontend/public` needs middleware that mints a per-request nonce and sets `script-src 'nonce-…'`.
+Verify the way the SPA was: drive the page (and submit an application) with a
+`securitypolicyviolation` listener, expecting zero.
 
 ### 3. Audit log
 Module 7's `AuditLog`: who did what, when. Start with role/user changes, approvals, stage moves,
