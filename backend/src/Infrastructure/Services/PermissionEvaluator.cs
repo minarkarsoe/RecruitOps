@@ -13,6 +13,14 @@ public sealed class PermissionEvaluator : IPermissionEvaluator
     private readonly ILogger<PermissionEvaluator> _logger;
     private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(10);
 
+    /// <summary>Bumped by every role change, and part of every cache key — so one increment makes
+    /// every cached permission set unreachable at once. Role edits are rare, and a precise
+    /// role→users index would have to track every assignment as well.
+    /// <para>Static because the cache is a singleton and this class is scoped. Like the login
+    /// throttle, it is per process: fine for one instance per company (ADR-0004), and the
+    /// absolute expiry below bounds staleness if a second replica is ever added.</para></summary>
+    private static long _generation;
+
     public PermissionEvaluator(
         AppDbContext db,
         IMemoryCache cache,
@@ -37,7 +45,11 @@ public sealed class PermissionEvaluator : IPermissionEvaluator
 
         return await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
-            entry.SetSlidingExpiration(CacheExpiration);
+            // Absolute, not sliding. A sliding expiry never lapses for someone who keeps working,
+            // so before invalidation was real a revoked permission lived until the process
+            // restarted. Absolute bounds any change that bypasses invalidation (a direct
+            // database edit, another replica) to one window.
+            entry.SetAbsoluteExpiration(CacheExpiration);
 
             var user = await _db.Users
                 .AsNoTracking()
@@ -85,7 +97,9 @@ public sealed class PermissionEvaluator : IPermissionEvaluator
                 var dbCodes = await _db.RolePermissions
                     .AsNoTracking()
                     .IgnoreQueryFilters()
-                    .Where(rp => rp.RoleId == targetRoleId.Value)
+                    // A deactivated role grants nothing; its holder falls back to their
+                    // system role below, exactly as if they held no custom role at all.
+                    .Where(rp => rp.RoleId == targetRoleId.Value && rp.Role.IsActive)
                     .Select(rp => rp.Permission.Code)
                     .ToListAsync(ct);
 
@@ -118,10 +132,14 @@ public sealed class PermissionEvaluator : IPermissionEvaluator
         _cache.Remove(GetCacheKey(userId, tenantId));
     }
 
+    /// <summary>Until 2026-10-15 this only logged, so a role edit never reached anyone whose
+    /// permissions were already cached — see <c>PermissionRevocationTests</c>.</summary>
     public void InvalidateRolePermissionsCache(Guid roleId)
     {
+        Interlocked.Increment(ref _generation);
         _logger.LogInformation("Role permissions invalidated for Role {RoleId}", roleId);
     }
 
-    private static string GetCacheKey(Guid userId, Guid tenantId) => $"user_perms_{tenantId}_{userId}";
+    private static string GetCacheKey(Guid userId, Guid tenantId) =>
+        $"user_perms_{Interlocked.Read(ref _generation)}_{tenantId}_{userId}";
 }
