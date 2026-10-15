@@ -46,6 +46,9 @@ to *only* approve requisitions gives its holder the whole pipeline, company-wide
    users to roles without ever setting `IsSuperAdmin`.
 5. **Every request re-checks the token's account** (exists, active, same role and SuperAdmin flag),
    so a role change or deactivation takes effect immediately rather than after 8 hours.
+6. **A custom role is its holder's whole permission matrix.** The evaluator's seed fallback (for
+   an enum with no `RolePermission` rows) serves system roles only: a custom role that is
+   deactivated, emptied, or missing grants nothing — never the placeholder enum's matrix.
 
 **Custom roles remain assignable** (ADR-0022 depends on it) and their holders still carry
 `Recruiter`. That is unchanged — deliberately, so nothing that works today breaks — and is the

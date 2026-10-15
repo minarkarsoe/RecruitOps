@@ -90,6 +90,16 @@ public sealed class PermissionEvaluator : IPermissionEvaluator
                 targetRoleId = systemRole?.Id;
             }
 
+            // A custom role is the holder's whole matrix: their enum is only a placeholder
+            // (Recruiter — ADR-0021), so it must never fill in for the role. Found by the security
+            // review of the develop merge: an emptied or deactivated custom role fell through to
+            // the seed fallback below and granted everything a Recruiter has. A role id that
+            // matches no row is treated the same way — fail closed.
+            var holdsCustomRole = user.RoleId.HasValue && !await _db.Roles
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .AnyAsync(r => r.Id == user.RoleId.Value && r.IsSystemRole, ct);
+
             HashSet<string> permissionCodes = new(StringComparer.OrdinalIgnoreCase);
 
             if (targetRoleId.HasValue)
@@ -97,8 +107,7 @@ public sealed class PermissionEvaluator : IPermissionEvaluator
                 var dbCodes = await _db.RolePermissions
                     .AsNoTracking()
                     .IgnoreQueryFilters()
-                    // A deactivated role grants nothing; its holder falls back to their
-                    // system role below, exactly as if they held no custom role at all.
+                    // A deactivated role grants nothing.
                     .Where(rp => rp.RoleId == targetRoleId.Value && rp.Role.IsActive)
                     .Select(rp => rp.Permission.Code)
                     .ToListAsync(ct);
@@ -110,7 +119,7 @@ public sealed class PermissionEvaluator : IPermissionEvaluator
             }
 
             // Fallback for unseeded test DBs or when user.Role enum is mapped without RolePermission rows:
-            if (permissionCodes.Count == 0 && !string.IsNullOrWhiteSpace(systemRoleCode))
+            if (permissionCodes.Count == 0 && !holdsCustomRole && !string.IsNullOrWhiteSpace(systemRoleCode))
             {
                 var seedRole = RbacSeedData.GetSystemRoles()
                     .FirstOrDefault(r => r.Code.Equals(systemRoleCode, StringComparison.OrdinalIgnoreCase));
