@@ -302,6 +302,24 @@ public class UserService : IUserService
         return await GetUserByIdAsync(user.Id, ct);
     }
 
+    /// <summary>The system roles the tenant directory may hand out, by exact name.
+    /// <para><b>SuperAdmin is absent on purpose.</b> It is the cross-tenant bypass role, and a
+    /// tenant Admin who could grant it could grant themselves everything — which is exactly what
+    /// <c>Enum.TryParse</c> allowed until 2026-10-15, by name or by its numeric value <c>0</c>
+    /// (ADR-0021). It is provisioned out of band, never through this API.</para>
+    /// <para>A dictionary of names rather than <c>Enum.TryParse</c>: TryParse also accepts any
+    /// numeric string, including values no member has.</para></summary>
+    private static readonly IReadOnlyDictionary<string, UserRole> AssignableSystemRoles =
+        Enum.GetValues<UserRole>()
+            .Where(r => r != UserRole.SuperAdmin)
+            .ToDictionary(r => r.ToString(), StringComparer.OrdinalIgnoreCase);
+
+    private static UserRole ParseAssignableRole(string name) =>
+        AssignableSystemRoles.TryGetValue(name.Trim(), out var role)
+            ? role
+            : throw new ArgumentException(
+                $"Role '{name.Trim()}' cannot be assigned. Use one of: {string.Join(", ", AssignableSystemRoles.Keys)}.");
+
     private async Task AssignRoleToUserAsync(User user, Guid? roleId, string? roleName, CancellationToken ct)
     {
         if (roleId.HasValue)
@@ -314,33 +332,33 @@ public class UserService : IUserService
                 throw new InvalidOperationException($"Role with ID '{roleId.Value}' was not found or is inactive.");
             }
 
+            // A custom role used to fall through to UserRole.Recruiter, and the role policies,
+            // RoleScope and the seed-role permission fallback all key off that enum — so a role
+            // with an empty matrix still reached every candidate in the company. Until a custom
+            // role carries its own data scope, assigning one is refused rather than guessed.
+            if (!role.IsSystemRole)
+            {
+                throw new InvalidOperationException(
+                    $"Custom role '{role.Name}' cannot be assigned to users yet: a custom role does not " +
+                    "define which departments and candidates its holders may reach (ADR-0021).");
+            }
+
+            user.Role = ParseAssignableRole(role.Code);
             user.RoleId = role.Id;
-            if (Enum.TryParse<UserRole>(role.Code, true, out var parsedEnum))
-            {
-                user.Role = parsedEnum;
-            }
-            else
-            {
-                user.Role = UserRole.Recruiter;
-            }
         }
         else if (!string.IsNullOrWhiteSpace(roleName))
         {
-            if (!Enum.TryParse<UserRole>(roleName.Trim(), true, out var parsedEnum))
-            {
-                throw new ArgumentException($"Role '{roleName}' is invalid.");
-            }
+            user.Role = ParseAssignableRole(roleName);
 
-            user.Role = parsedEnum;
-
+            var code = user.Role.ToString();
             var sysRole = await _db.Roles
                 .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(r => r.IsSystemRole && r.Code.ToLower() == roleName.Trim().ToLower(), ct);
+                .FirstOrDefaultAsync(r => r.IsSystemRole && r.Code == code, ct);
 
-            if (sysRole is not null)
-            {
-                user.RoleId = sysRole.Id;
-            }
+            // Cleared when the system role row is missing, rather than left pointing at whatever
+            // role the user held before: the evaluator reads RoleId first, so a stale id would
+            // keep granting the old role's permissions under the new role's name.
+            user.RoleId = sysRole?.Id;
         }
     }
 }

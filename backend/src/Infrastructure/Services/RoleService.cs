@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using RecruitOps.Application.Common;
 using RecruitOps.Application.DTOs;
@@ -139,6 +140,24 @@ public class RoleService : IRoleService
         );
     }
 
+    /// <summary>Role codes are identifiers, never numbers. A code like <c>"0"</c> used to reach
+    /// <c>Enum.TryParse&lt;UserRole&gt;</c> on assignment and come out as SuperAdmin (ADR-0021).
+    /// Assignment no longer parses custom codes at all; this keeps a code from ever looking like
+    /// an enum value in the first place.</summary>
+    private static readonly Regex RoleCodePattern =
+        new("^[A-Z][A-Z0-9_]{0,63}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>Derives a code from a display name. Names may be Burmese, so anything outside
+    /// A-Z/0-9 collapses to underscores, and a name with nothing usable left gets a random code
+    /// rather than an empty or colliding one — the name, not the code, is what people read.</summary>
+    private static string CodeFromName(string name)
+    {
+        var code = Regex.Replace(name.ToUpperInvariant(), "[^A-Z0-9]+", "_").Trim('_');
+        if (code.Length == 0) return $"ROLE_{Guid.NewGuid():N}"[..13].ToUpperInvariant();
+        if (!char.IsAsciiLetterUpper(code[0])) code = "ROLE_" + code;
+        return code.Length > 64 ? code[..64].TrimEnd('_') : code;
+    }
+
     public async Task<RoleDetailDto> CreateRoleAsync(CreateRoleRequest request, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
@@ -150,8 +169,12 @@ public class RoleService : IRoleService
             throw new InvalidOperationException($"A role named '{trimmedName}' already exists.");
 
         var code = string.IsNullOrWhiteSpace(request.Code)
-            ? trimmedName.ToUpperInvariant().Replace(" ", "_")
+            ? CodeFromName(trimmedName)
             : request.Code.Trim().ToUpperInvariant();
+
+        if (!RoleCodePattern.IsMatch(code))
+            throw new InvalidOperationException(
+                $"Role code '{code}' is invalid: it must start with a letter and contain only A-Z, 0-9 and underscores.");
 
         var codeExists = await _db.Roles.AnyAsync(r => r.Code.ToLower() == code.ToLower(), ct);
         if (codeExists)
