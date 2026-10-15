@@ -1,7 +1,7 @@
 # Feature Status
 
 > 🔐 **2026-10-15 — security fixes merged** (see CHANGELOG). Suites on the merged code: **backend
-> 759/759** (76 domain + 683 api), **frontend 441/441** (50 files) + **public 24/24**, typecheck clean,
+> 763/763** (76 domain + 687 api), **frontend 441/441** (50 files) + **public 24/24**, typecheck clean,
 > both apps build. The SPA ran under its new CSP behind real nginx with zero violations.
 
 **Last updated:** 2026-08-18 (**status re-derived from the code, not from the previous version of this file** — the module table below was wrong about four modules; see the note under it. Suites re-run the same day: **backend 527/527**, frontend 342/342, typecheck clean. Also: **UI/UX design kit complete — 25 static screens across all seven modules**, in `design/internal/` and `design/public/`, indexed at `design/internal/index.html`; five spec gaps it surfaced are logged under Known gaps) · Previously 2026-08-17 (marketing landing page added; design system pivoted off the agency model and its contrast failures fixed — frontend now **342/342 Vitest green**, 43 files, 0 typecheck errors) · Previously 2026-08-13 (Delivery Readiness & Feature Flags complete — 507/507 backend tests + 318/318 frontend tests green, 0 typecheck errors) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove

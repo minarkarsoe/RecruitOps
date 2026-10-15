@@ -31,6 +31,13 @@ ported. Each item was verified on develop's code.
   real nginx, 22 page loads, zero violations); public-site headers in `next.config`.
 - **Users page:** never offers SuperAdmin or an inactive role; no role preselected on create (it was
   "Admin"); a rename no longer resends the role.
+- **Medium — an emptied or deactivated custom role made its holders Recruiters** (found by the
+  security review of this merge). Holders carry the `Recruiter` enum, and the evaluator fell back to
+  the enum's seed matrix whenever the role yielded no rows — so deactivating a narrow approver role
+  granted requisitions and the user directory instead of withholding. A custom role is now the
+  holder's whole matrix; the seed fallback serves system roles only. Same review: a **500 lost the
+  security headers** (the exception handler clears them); the middleware now re-applies them as the
+  response starts.
 
 ### Taken from develop instead (not ported)
 Health/version endpoints, security-headers middleware, reference-data seeding, the fail-closed

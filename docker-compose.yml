@@ -78,7 +78,9 @@ services:
       Jwt__Issuer: recruitops
       Jwt__Audience: recruitops-api
       Jwt__Key: ${JWT_KEY:?set JWT_KEY in .env - must be at least 32 characters}
-      # First Administrator — see .env.example (any environment: first run only, then ignored).
+      # First Administrator — see .env.example. This file runs the API as Development (above), so
+      # the Development rules apply here: the seed runs on every start, there is no 12-character
+      # minimum, and the API accepts the example JWT key. Not a production install.
       Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-}
       Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
       FileStorage__ServiceUrl: "http://storage:9000"

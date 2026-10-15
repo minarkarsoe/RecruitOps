@@ -21,6 +21,23 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 >   Noto Sans Myanmar; the crawl with a `securitypolicyviolation` listener caught it.
 > - **This repo's default branch is `main`, but the work is on `develop`** — a session cloned from
 >   `main` starts 90 commits behind. Check `git log origin/develop` before planning.
+> - **A custom role's empty matrix is empty** — the evaluator used to fall back to the holder's
+>   enum (Recruiter) whenever a role yielded no rows, so deactivating a role *granted*. Test a
+>   custom-role holder with the `Recruiter` enum, which is what `AssignRoleToUserAsync` produces.
+>
+> **Left open by the merge's security review** (none Critical/High; pick up before `uat`):
+> - **Audit existing installs for SuperAdmins minted through the old hole** — any user with
+>   `Role=SuperAdmin` or `IsSuperAdmin=true` that is not on an expected list. The fix stops new
+>   ones; it does not remove old ones, and the directory now refuses to demote them.
+> - **Grantor ceiling** (ADR-0021 precondition): anyone holding `users:users:create/update` can
+>   create an Admin. The last-Admin floor is read-then-write, so two concurrent demotions both pass.
+> - **Refresh tokens** are stored in plaintext, survive deactivation (and revive on reactivation
+>   within 14 days), and `/api/auth/refresh` has no rate limit.
+> - **`/api/version` is anonymous** and now reports the exact build commit and environment.
+> - **Login lowercases `Email` in SQL**, so it cannot use the unique index; fine at in-house scale.
+> - **`docker-compose.yml` runs Development** (pinned by `ChallengerM12ConfigPrecedenceTests`), so
+>   none of the outside-Development hardening applies to a compose install. Fine for dev; a
+>   customer install needs its own environment.
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
 > deliberately short-lived — one feature each — because conversation history is re-sent on
