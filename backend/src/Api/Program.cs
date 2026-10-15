@@ -4,11 +4,13 @@ using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RecruitOps.Api.Auth;
+using RecruitOps.Api.Health;
 using RecruitOps.Application.Common;
 using RecruitOps.Infrastructure;
 using RecruitOps.Infrastructure.Persistence;
@@ -22,6 +24,11 @@ builder.Services.AddHttpContextAccessor();
 
 // Infrastructure (EF Core + Postgres).
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Liveness / readiness for whoever runs the install — a load balancer, Docker, or a support
+// engineer on the phone (ADR-0004). Readiness is the database; liveness checks nothing.
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database", tags: new[] { "ready" });
 
 // Tenant resolved from the JWT's tenant_id claim (Module 1).
 builder.Services.AddScoped<ICurrentTenant, CurrentTenant>();
@@ -200,6 +207,13 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Anonymous on purpose — they answer before anyone can sign in — and they carry nothing but a
+// status word: no version, no check names, no exception text (see DatabaseHealthCheck).
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false })
+    .AllowAnonymous();
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") })
+    .AllowAnonymous();
 
 // Apply pending migrations before serving traffic (ADR-0004: unattended installs).
 // No-ops on the in-memory provider used by tests.

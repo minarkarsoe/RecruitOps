@@ -16,7 +16,11 @@ COPY tests/RecruitOps.Api.Tests/RecruitOps.Api.Tests.csproj       tests/RecruitO
 RUN dotnet restore RecruitOps.sln
 
 COPY . .
-RUN dotnet build RecruitOps.sln -c Release --no-restore
+# The commit this image was built from, reported by /api/version (ADR-0004). `.git` is outside
+# this build context, so the SDK cannot read it itself; empty means "not supplied", and the
+# endpoint then says so rather than guessing.
+ARG GIT_SHA=
+RUN dotnet build RecruitOps.sln -c Release --no-restore -p:SourceRevisionId=${GIT_SHA}
 
 # Run the test suite inside the image:
 #   docker build --target test -t recruitops-test ./backend

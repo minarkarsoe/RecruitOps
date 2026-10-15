@@ -3,6 +3,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Product version, reported by /api/version (ADR-0004). The commit is appended as
+         +<sha> by the SDK; the Docker build supplies it through the GIT_SHA build argument. -->
+    <Version>0.1.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />

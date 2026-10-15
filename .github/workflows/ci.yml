@@ -52,6 +52,7 @@ jobs:
             --target test \
             --progress=plain \
             --no-cache-filter=build,test \
+            --build-arg GIT_SHA=${{ github.sha }} \
             -t recruitops-test \
             ./backend
 

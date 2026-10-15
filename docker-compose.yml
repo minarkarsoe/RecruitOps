@@ -42,6 +42,9 @@ services:
     build:
       context: ./backend
       target: final
+      args:
+        # Shown by /api/version. `GIT_SHA=$(git rev-parse HEAD) docker compose up --build`.
+        GIT_SHA: ${GIT_SHA:-}
     depends_on:
       db:
         condition: service_healthy
