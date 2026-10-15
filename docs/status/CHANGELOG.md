@@ -42,6 +42,13 @@ policies, whatever its matrix said. The product owner chose option A.
     admin's change) and warns that a change reaches the role's holders; `HolderRole()` refuses a
     stored Admin/SuperAdmin base; the migration keeps each role's holders on the enum they already
     carry when they agree (a role coded `"4"` gave HiringManager before 2026-10-15).
+- **Re-review of the fixes** (no Critical/High): a department-scoped approver named on another
+  department's chain had their decision saved but got a 404 back — any named approver may now read
+  that requisition; a role edit judges each holder (old data can hold other enums), so a rename can
+  no longer lift a holder past the ceiling; the ceiling judges an `IsSuperAdmin` account as
+  SuperAdmin whatever its enum; the migration no longer demotes an Admin holder of an inactive role;
+  the Role Builder also keeps a rename another admin made meanwhile. The pre-deploy query in
+  NEXT-SESSION now runs on the old schema.
 
 ## 2026-10-15 — security fixes integrated from `claude/dreamy-babbage-0zfr37`
 

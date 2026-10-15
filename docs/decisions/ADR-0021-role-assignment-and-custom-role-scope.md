@@ -99,12 +99,20 @@ Interviewer base *is* the no-access enum.
    token like every other authorization decision (safe because decision 5 of "in force" re-checks
    both against the database on every request); what the actor holds comes from the evaluator.
 5. **Interviewer** (precondition 3) is the role with **no standing reach**, and the narrowest on
-   every axis: no role policy admits it, `RoleScope` treats it as department-scoped *and* excluded
-   from candidate data, and it reaches an application only by sitting on its panel (ADR-0017 §4).
+   every axis: no role policy admits it — so no interview, candidate or note endpoint either,
+   panel or not — and `RoleScope` treats it as department-scoped *and* excluded from candidate
+   data. (If `InternalUser` ever admits Interviewer, the panel rule of ADR-0017 §4 is what those
+   two flags would then enforce; re-audit every policy-only endpoint first.) Any approver named on
+   a requisition's chain may read that requisition whatever their scope (ADR-0003's "an approver
+   must see what they approve"; `RequisitionService.IsNamedApproverAsync`).
    The first build left it company-wide in `RoleScope` — harmless while only role policies guarded
    anything, but requisitions are permission-guarded, so an Interviewer-based role with
    `requisitions:read` saw every department, and a department-scoped delegate could hand that out
-   (security review of option A, finding 1). Approve-only custom roles belong on an Approver base.
+   (security review of option A, finding 1). Approve-only custom roles are best on an Approver base.
+
+   Holders are judged one by one as well as by the role's base: an edit that would move a holder
+   off another enum (old data) needs reach over them, and lifting one past their reach counts as
+   widening. The ceiling judges a user flagged `IsSuperAdmin` as SuperAdmin, whatever their enum.
 
 **Accepted residuals** (security review of option A): the ceiling bounds each grant by the
 grantor's own matrix, so two delegates with different matrices can between them build a role

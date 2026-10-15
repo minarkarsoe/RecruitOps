@@ -33,17 +33,26 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 >   production revalidates every token against the database; a test that fakes a SuperAdmin claim
 >   with no row is testing the same thing production would see.
 >
-> **Before deploying option A to an install with data**, run this and resolve every row — custom
-> role holders whose enum is Admin/SuperAdmin (minted through the old holes) or does not match
-> their role's base role (a role coded like an enum before 2026-10-15). Role edits leave
-> Admin/SuperAdmin holders alone on purpose; the migration does not fix them either:
+> **Before deploying option A to an install with data**, look at who holds custom roles — this
+> query runs on the *old* schema, so run it before the new build starts (migrations apply on
+> startup unless `Database:AutoMigrateOnStartup=false`). Any row whose `Role` is not `Recruiter`,
+> or with `IsSuperAdmin`, came from the old `Enum.TryParse` holes and needs a person's decision;
+> the migration keeps such holders where they are, and role edits never touch Admin/SuperAdmin
+> holders:
 > ```sql
-> SELECT u."Email", u."Role", u."IsSuperAdmin", r."Code", r."BaseRole", r."IsActive"
+> SELECT r."Code", r."IsActive", u."Role", u."IsSuperAdmin", count(*)
 > FROM "Users" u JOIN "Roles" r ON r."Id" = u."RoleId"
 > WHERE NOT r."IsSystemRole"
->   AND (u."Role" IN ('Admin', 'SuperAdmin') OR u."IsSuperAdmin"
->        OR (r."IsActive" AND u."Role" <> r."BaseRole"));
+> GROUP BY 1, 2, 3, 4 ORDER BY 1, 3;
 > ```
+> After migrating, holders out of line with their role's base role:
+> ```sql
+> SELECT u."Email", u."Role", r."Code", r."BaseRole", r."IsActive"
+> FROM "Users" u JOIN "Roles" r ON r."Id" = u."RoleId"
+> WHERE NOT r."IsSystemRole" AND r."IsActive" AND u."Role" <> r."BaseRole";
+> ```
+> Rolling the migration back (`Down`) puts every non-Admin custom-role holder on Recruiter — the
+> pre-option-A rule — which lifts Approver/Hiring Manager/Interviewer holders.
 >
 > **Left open by the merge's security review** (none Critical/High; pick up before `uat`):
 > - **Audit existing installs for SuperAdmins minted through the old hole** — any user with
