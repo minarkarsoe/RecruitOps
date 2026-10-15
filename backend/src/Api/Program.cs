@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
@@ -14,6 +15,7 @@ using RecruitOps.Api.Auth;
 using RecruitOps.Api.Health;
 using RecruitOps.Api.Security;
 using RecruitOps.Application.Common;
+using RecruitOps.Application.Interfaces;
 using RecruitOps.Infrastructure;
 using RecruitOps.Infrastructure.Persistence;
 
@@ -81,6 +83,32 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwt["Key"] ?? string.Empty)),
             RoleClaimType = ClaimTypes.Role,
+        };
+
+        // A valid signature proves who the user WAS at sign-in. Until 2026-10-15 that was all the
+        // API checked, for the token's full 8 hours — so a deactivated Admin could still create a
+        // fresh Admin account. Now the account must still exist, be active, and hold the role and
+        // SuperAdmin flag the token claims; anything else is a 401 and a fresh sign-in.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var principal = context.Principal!; // set by the handler before this event fires
+                var sub = principal.FindFirstValue(ClaimTypes.NameIdentifier)
+                          ?? principal.FindFirstValue(JwtRegisteredClaimNames.Sub);
+                var tenant = principal.FindFirstValue(AppClaims.TenantId);
+                var superAdmin = string.Equals(
+                    principal.FindFirstValue(AppClaims.IsSuperAdmin), "true", StringComparison.OrdinalIgnoreCase);
+
+                var validator = context.HttpContext.RequestServices.GetRequiredService<IUserSessionValidator>();
+                var current = Guid.TryParse(sub, out var userId)
+                              && Guid.TryParse(tenant, out var tenantId)
+                              && await validator.IsCurrentAsync(
+                                  userId, tenantId, principal.FindFirstValue(ClaimTypes.Role), superAdmin,
+                                  context.HttpContext.RequestAborted);
+
+                if (!current) context.Fail("This session is no longer valid. Sign in again.");
+            },
         };
     });
 

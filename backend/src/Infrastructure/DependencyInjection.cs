@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IPermissionEvaluator, PermissionEvaluator>();
+        services.AddScoped<IUserSessionValidator, UserSessionValidator>();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IUserService, UserService>();
 
