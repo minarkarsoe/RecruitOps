@@ -31,7 +31,7 @@ export const BASE_ROLES: ReadonlyArray<{
   {
     value: "Interviewer",
     label: "Interviewer",
-    reach: "The narrowest: their own departments only, and candidates only on panels they sit on.",
+    reach: "The narrowest: no pipeline, candidate or interview screens — only what the permissions below allow, in their own departments.",
   },
 ];
 

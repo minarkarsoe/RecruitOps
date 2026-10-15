@@ -95,6 +95,8 @@ export function RolesPage() {
       setFormPermissionCodes(detail.assignedPermissionCodes || []);
       // From the detail, not the list item: the list can be stale, and a save of stale values
       // would silently undo a change another admin just made.
+      setFormName(detail.name);
+      setFormDescription(detail.description || '');
       setFormIsActive(detail.isActive);
       setFormBaseRole(detail.baseRole ?? '');
       setLoadedBaseRole(detail.baseRole ?? '');

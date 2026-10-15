@@ -139,7 +139,12 @@ describe('RolesPage', () => {
   // Security review of option A, finding 4: the modal seeded the base role from the (possibly
   // stale) list and always sent it, so saving a description could undo another admin's change.
   it('takes the base role from the fresh detail and sends none when it is unchanged', async () => {
-    (roleService.getRoleById as any).mockResolvedValue({ ...mockRoleDetail, baseRole: 'Approver', userCount: 3 });
+    (roleService.getRoleById as any).mockResolvedValue({
+      ...mockRoleDetail,
+      name: 'Renamed Meanwhile',
+      baseRole: 'Approver',
+      userCount: 3,
+    });
     (roleService.updateRole as any).mockResolvedValue(mockRoleDetail);
     render(<RolesPage />);
     await screen.findByText('Role Builder & Permissions');
@@ -150,7 +155,11 @@ describe('RolesPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() =>
-      expect(roleService.updateRole).toHaveBeenCalledWith('role-custom', expect.objectContaining({ baseRole: null })),
+      expect(roleService.updateRole).toHaveBeenCalledWith(
+        'role-custom',
+        // The rename another admin made is kept, not reverted to the list's stale name.
+        expect.objectContaining({ baseRole: null, name: 'Renamed Meanwhile' }),
+      ),
     );
   });
 
