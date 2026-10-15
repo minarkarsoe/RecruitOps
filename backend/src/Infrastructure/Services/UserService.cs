@@ -160,6 +160,14 @@ public class UserService : IUserService
             }
         }
 
+        // What the API actually enforces for this user — the same set login sends. The custom
+        // role's own codes alone understated it: the handler also grants the system role's seed
+        // permissions (security review A6, 2026-10-15).
+        permissions = (await _permissionEvaluator.GetEffectivePermissionsAsync(
+                user.Id, user.TenantId, new[] { user.Role.ToString() }, ct))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
         return new UserDetailDto(
             user.Id,
             user.Email,

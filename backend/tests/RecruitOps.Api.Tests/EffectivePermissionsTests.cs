@@ -130,6 +130,27 @@ public class EffectivePermissionsTests : IClassFixture<CustomWebAppFactory>
         await AssertAgreementAsync(id, "HiringManager");
     }
 
+    /// <summary>Security review A6: the directory's user detail listed a custom-role holder's
+    /// custom codes only, so an Admin reviewing someone's access saw less than the API enforces.</summary>
+    [Fact]
+    public async Task The_User_Directory_Shows_The_Same_Effective_Set()
+    {
+        var res = await Admin().PostAsJsonAsync("/api/roles", new CreateRoleRequest(
+            $"Narrow {Guid.NewGuid():N}", null, "test", new[] { "permission:roles:roles:read" }));
+        res.EnsureSuccessStatusCode();
+        var custom = (await res.Content.ReadFromJsonAsync<RoleDetailDto>())!;
+        var id = await InsertUserAsync(UserRole.HiringManager, custom.Id);
+
+        var detail = await Admin().GetFromJsonAsync<UserDetailDto>($"/api/users/{id}");
+
+        using var scope = _factory.Services.CreateScope();
+        var effective = await scope.ServiceProvider.GetRequiredService<IPermissionEvaluator>()
+            .GetEffectivePermissionsAsync(id, _factory.TenantA, new[] { "HiringManager" });
+        Assert.Equal(effective.Order(StringComparer.Ordinal), detail!.Permissions);
+        Assert.Contains("permission:requisitions:requisitions:create", detail.Permissions); // from the system role
+        Assert.Contains("permission:roles:roles:read", detail.Permissions);                // from the custom role
+    }
+
     [Fact]
     public async Task Login_Returns_The_Callers_Effective_Permissions()
     {

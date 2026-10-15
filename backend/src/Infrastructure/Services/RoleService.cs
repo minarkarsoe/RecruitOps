@@ -145,7 +145,8 @@ public class RoleService : IRoleService
     /// Assignment no longer parses custom codes at all; this keeps a code from ever looking like
     /// an enum value in the first place.</summary>
     private static readonly Regex RoleCodePattern =
-        new("^[A-Z][A-Z0-9_]{0,63}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        // \z, not $: in .NET, $ also matches before a trailing newline.
+        new(@"^[A-Z][A-Z0-9_]{0,63}\z", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>Derives a code from a display name. Names may be Burmese, so anything outside
     /// A-Z/0-9 collapses to underscores, and a name with nothing usable left gets a random code
