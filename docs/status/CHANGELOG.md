@@ -43,6 +43,19 @@ and found older problems:
   only; user detail shows the enforced permission set; edit dialog no longer breaks on a
   non-assignable current role.
 
+### ✅ Second security review
+Of the follow-ups above: no Critical or High, none of the fixes bypassable. Fixed from it: login
+compared emails exactly although the directory stores them lowercased (anyone typing a capital
+got "wrong password"); bootstrap validates its email; the Development seed no longer crashes on a
+second seed email (unique company slug); **outside Development the API refuses a short or
+published signing key** (`.env.example`'s was usable by anyone); rejected sessions are logged;
+`docker-compose` defaults to Production; the create-user dialog no longer preselects Admin. Its
+Low items are recorded in FEATURE-STATUS.
+
+Also found while verifying the SPA's new CSP: **the approval-chain builder went blank once a chain
+existed** (it read the now-paged `/users` as an array). Fixed; and the SPA/public-site security
+headers + CSP were added and verified under real nginx.
+
 ### ✅ Operational foundations (Phase 1, built-in framework only)
 - `/health/live`, `/health/ready` (anonymous, status word only) and `/api/version` (signed-in;
   version + commit via `GIT_SHA`) — ADR-0004's version-registry prerequisite.

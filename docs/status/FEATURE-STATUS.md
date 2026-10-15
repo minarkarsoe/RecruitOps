@@ -1,8 +1,8 @@
 # Feature Status
 
-**Last updated:** 2026-10-15 (RBAC security fixes + operational foundations — backend **314/314** (65 domain + 249 api), frontend **64/64** across 10 files, typecheck clean, both apps build) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
+**Last updated:** 2026-10-15 (RBAC security fixes + operational foundations — backend **323/323** (65 domain + 258 api), frontend **66/66** across 11 files, typecheck clean, both apps build) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
 
-> ✅ **Backend: 314/314 green** (65 domain + 249 api). Adds, on 2026-10-15: role-assignment
+> ✅ **Backend: 323/323 green** (65 domain + 258 api). Adds, on 2026-10-15: role-assignment
 > escalation, permission revocation, effective-permission agreement, seed-matrix ↔ policy
 > mirroring, per-request token revalidation, user-directory guards, install bootstrap, security
 > headers/CORS, health/version and error-contract suites.
@@ -263,7 +263,7 @@ Decisions: [ADR-0017](../decisions/ADR-0017-interview-and-assessment.md).
 
 ## Test inventory
 
-**Current (2026-10-15): backend 314/314 (65 domain + 249 api), frontend 64/64.** The table below is the
+**Current (2026-10-15): backend 323/323 (65 domain + 258 api), frontend 66/66.** The table below is the
 2026-07-28 inventory, kept for the history of how those counts were established.
 
 | Suite | Count | Run? |
@@ -453,6 +453,12 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 
 | Issue | Severity | Where |
 |---|---|---|
+| Last-Admin floor is not atomic; "who is an Admin" defined three ways | 🔵 Low | Two Admins demoting each other concurrently can both pass the count (needs a serializable transaction or row lock). Deactivation, role change and `AdminOnly` disagree on whether SuperAdmin or a SuperAdmin-flagged custom role counts. Define one predicate (second security review (a)-3) |
+| Token revalidation is state-matching, not revocation | 🔵 Low | Deactivate→reactivate (or demote→re-promote) within 8h revives an old token. Add a security-stamp claim rotated on those changes (review (a)-4) |
+| No change-password / reset | 🟡 Medium | The bootstrap password stays the first Admin's password. Needs the email platform for reset; a signed-in change-password can come first |
+| SuperAdmin accounts: Admin can still deactivate / rename them | 🔵 Low | Role changes are refused; deactivation is arguably the customer's right (vendor access on their install) — decide, then make the message match |
+| SuperAdmin gets 403 on `AdminOnly` screens | 🔵 Info | Role policies do not include SuperAdmin; the SPA's `isAdmin` does. Decide what SuperAdmin is for (ADR-0021) |
+| Compose defaults are weak | 🔵 Low | `postgres/postgres` and MinIO `minioadmin` published on all interfaces. Fine for dev; an install must override them — belongs in the install runbook |
 | **Custom roles cannot be assigned** (containment) | 🟠 Decision needed | ADR-0021: a custom role has no data scope, so it used to become Recruiter. Pick option A (base role + extras), B (scope + matrix) or C (no custom roles). A or B also needs the grantor ceiling the review asked for (a `users:update` holder must not grant more than they hold) |
 | Seed grants broader than their endpoints | 🟡 Medium | The UI shows a control the API then refuses: HM `applications:move_stage` (stage move is `RecruitmentStaff`), HrDirector `settings:read` (chains/departments are `AdminOnly`), Recruiter + HrDirector `users:read` (the list is `AdminOnly`). Harmless today (no endpoint uses these codes except `users:read`); **must be fixed before ADR-0021 option B moves endpoints onto permissions** |
 | `GET /api/users/{id}` is wider than the list | 🔵 Low | `users:read` (Recruiter, HrDirector) reaches any user's email, role and permissions by id, while the list is `AdminOnly` (security review B4) |

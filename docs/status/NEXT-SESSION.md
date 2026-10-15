@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-15 · **RBAC security fixes + operational foundations · backend 314/314 · frontend 64/64**
+**Last updated:** 2026-10-15 · **RBAC security fixes + operational foundations · backend 323/323 · frontend 66/66**
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
 > deliberately short-lived — one feature each — because conversation history is re-sent on
