@@ -1130,11 +1130,13 @@ export * from './version';
 export type AuditAction =
   | 'SignInSucceeded'
   | 'SignInFailed'
+  | 'RefreshTokenReused'
   | 'UserCreated'
   | 'UserUpdated'
   | 'UserRoleChanged'
   | 'UserDeactivated'
   | 'UserReactivated'
+  | 'DepartmentMembersChanged'
   | 'RoleCreated'
   | 'RoleUpdated'
   | 'RoleDeleted'

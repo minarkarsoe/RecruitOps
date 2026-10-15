@@ -113,6 +113,28 @@ describe("AuditLogPage", () => {
     expect(inTable().getByText("not signed in")).toBeInTheDocument();
   });
 
+  it("names nobody for a stolen session token, and says why", async () => {
+    apiMock.mockResolvedValue(
+      page([
+        entry({
+          action: "RefreshTokenReused",
+          actionLabel: "Stolen session token used",
+          isRefusal: true,
+          actorUserId: null,
+          actorName: null,
+          targetType: "User",
+          targetName: "Tester",
+          summary: "A revoked session token for Tester was used again — 1 active session was ended.",
+        }),
+      ]),
+    );
+    render(<AuditLogPage />);
+
+    expect(await screen.findByText("Unknown")).toBeInTheDocument();
+    expect(inTable().getByText("held a stolen session token")).toBeInTheDocument();
+    expect(inTable().getByText("Stolen session token used").className).toContain("critical");
+  });
+
   it("filters by kind through the server", async () => {
     apiMock.mockResolvedValue(page([entry()]));
     render(<AuditLogPage />);

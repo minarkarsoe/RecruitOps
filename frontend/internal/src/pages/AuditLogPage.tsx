@@ -80,20 +80,16 @@ function detailRows(details: Record<string, unknown>): [string, string][] {
 }
 
 function WhoCell({ entry }: { entry: AuditLogEntry }) {
-  // A null actor is either someone who never got in (the name is the email they tried) or the
-  // system itself (the install creating the first Administrator).
+  // A null actor is someone who never got in (named by the email they tried), whoever held a
+  // stolen session token (nobody to name), or the system itself (install, startup).
+  const anonymousSignIn = entry.actorUserId === null && entry.action === 'SignInFailed';
+  const stolenToken = entry.actorUserId === null && entry.action === 'RefreshTokenReused';
   const subline =
-    entry.actorUserId !== null
-      ? null
-      : entry.action === "SignInFailed"
-        ? "not signed in"
-        : "system";
+    entry.actorUserId !== null ? null : anonymousSignIn ? 'not signed in' : stolenToken ? 'held a stolen session token' : 'system';
   return (
     <>
-      <span
-        className={`block ${entry.actorUserId === null && entry.action === "SignInFailed" ? "font-mono text-sm" : "mm"}`}
-      >
-        {entry.actorName ?? "—"}
+      <span className={`block ${anonymousSignIn ? 'font-mono text-sm' : 'mm'}`}>
+        {entry.actorName ?? (stolenToken ? 'Unknown' : '—')}
       </span>
       {subline && <span className="block text-xs text-ink-500">{subline}</span>}
     </>
