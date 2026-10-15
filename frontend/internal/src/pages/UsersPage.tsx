@@ -121,7 +121,9 @@ export function UsersPage() {
     setModalError(null);
     setSelectedUser(user);
     setEditDisplayName(user.displayName);
-    setEditRoleId(user.roleId || '');
+    // '' = "unchanged": the picker cannot offer a role the API will not assign (a legacy custom
+    // role, SuperAdmin), and must not pretend the user holds the first option instead.
+    setEditRoleId(assignableRoles.some((r) => r.id === user.roleId) ? user.roleId! : '');
     setIsEditModalOpen(true);
   }
 
@@ -168,11 +170,15 @@ export function UsersPage() {
     setSubmitting(true);
     setModalError(null);
     try {
+      // Role fields only when a different role was chosen: the API treats their absence as
+      // "no change", and resending the current role made a rename of a SuperAdmin or a
+      // custom-role holder fail.
+      const roleChanged = editRoleId !== '' && editRoleId !== selectedUser.roleId;
       const selectedRoleObj = roles.find((r) => r.id === editRoleId);
       await userService.updateUser(selectedUser.id, {
         displayName: editDisplayName.trim(),
-        roleId: editRoleId || null,
-        role: selectedRoleObj ? selectedRoleObj.code : selectedUser.role,
+        roleId: roleChanged ? editRoleId : null,
+        role: roleChanged ? (selectedRoleObj?.code ?? null) : null,
       });
       triggerToast('User details updated successfully.');
       setIsEditModalOpen(false);
@@ -613,6 +619,9 @@ export function UsersPage() {
                   onChange={(e) => setEditRoleId(e.target.value)}
                   className="w-full text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500 bg-white"
                 >
+                  {selectedUser && !assignableRoles.some((r) => r.id === selectedUser.roleId) && (
+                    <option value="">{selectedUser.roleName || selectedUser.role} (unchanged)</option>
+                  )}
                   {assignableRoles.map((r) => (
                     <option key={r.id} value={r.id}>{r.name}</option>
                   ))}

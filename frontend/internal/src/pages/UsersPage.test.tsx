@@ -113,6 +113,44 @@ describe('UsersPage', () => {
     expect(offered).toEqual(['Admin']);
   });
 
+  // Security review A5: a user whose current role cannot be assigned (a legacy custom role,
+  // SuperAdmin) used to show the first option ("Admin") while holding the old id — and every
+  // save resent a role, so even a rename failed with 409/400.
+  it('renames a custom-role holder without touching their role', async () => {
+    (userService.updateUser as any).mockResolvedValue({});
+    render(<UsersPage />);
+    await screen.findByText('User Directory');
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[1]); // Jane, custom role
+    const picker = screen.getByText('Assigned Role').parentElement!.querySelector('select')!;
+    expect(picker.selectedOptions[0].textContent).toMatch(/Custom Recruiter.*unchanged/);
+
+    fireEvent.change(screen.getByDisplayValue('Jane Recruiter'), { target: { value: 'Jane R.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() =>
+      expect(userService.updateUser).toHaveBeenCalledWith('usr-2', { displayName: 'Jane R.', roleId: null, role: null }));
+  });
+
+  it('sends the new role when one is actually chosen', async () => {
+    (userService.updateUser as any).mockResolvedValue({});
+    (roleService.getRoles as any).mockResolvedValue([
+      ...mockRoles,
+      { ...mockRoles[0], id: 'role-recruiter', name: 'Recruiter', code: 'Recruiter' },
+    ]);
+    render(<UsersPage />);
+    await screen.findByText('User Directory');
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[1]);
+    const picker = screen.getByText('Assigned Role').parentElement!.querySelector('select')!;
+    fireEvent.change(picker, { target: { value: 'role-recruiter' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() =>
+      expect(userService.updateUser).toHaveBeenCalledWith('usr-2',
+        { displayName: 'Jane Recruiter', roleId: 'role-recruiter', role: 'Recruiter' }));
+  });
+
   it('disables self-deactivation button for current session user', async () => {
     render(<UsersPage />);
     await screen.findByText('User Directory');
