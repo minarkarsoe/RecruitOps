@@ -3,7 +3,65 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-07-30 (latest)
+## 2026-10-15 (latest)
+
+### 🔴→✅ RBAC security fixes, found by driving the running stack
+**Why:** the stack was run against real Postgres for the first time since Milestone 4, and a
+Hiring Manager's sidebar showed Users and Role Builder. Pulling on that thread found four defects,
+each reproduced before it was fixed and pinned by a test that failed first:
+
+- **Critical:** `POST/PUT /api/users` with `"role": "SuperAdmin"` — or `"0"`, since `Enum.TryParse`
+  accepts numbers and `SuperAdmin = 0` — created a SuperAdmin. A custom role coded `"0"` did too.
+- **High:** a custom role of any other code became `Recruiter`, so a role with an empty matrix
+  read every candidate pipeline in the company. Custom roles are now buildable but not assignable
+  ([ADR-0021](../decisions/ADR-0021-role-assignment-and-custom-role-scope.md) — decision needed).
+- **High:** revoking a permission from a role never took effect for active users (no-op cache
+  invalidation + sliding expiry); a deactivated role kept granting its matrix.
+- **Medium:** the permission-aware UI never worked — the API sent no permissions and
+  `hasPermission` failed open. Login now returns the enforced set; the client fails closed. Making it
+  fail closed exposed six places where the seed matrices denied what the API's role policies allow
+  (a Dept-Head approver would have lost Approve); the matrices were aligned and the alignment is
+  pinned against the live policies.
+
+**Touched:** `UserService`, `RoleService`, `PermissionEvaluator`, `AuthService`, `RbacSeedData`,
+`LoginResponse`, `lib/auth.ts`, `UsersPage`; new suites `RoleAssignmentEscalationTests`,
+`PermissionRevocationTests`, `EffectivePermissionsTests`, `SeedMatrixMirrorsPoliciesTests`.
+
+### 🔴→✅ Security review follow-ups
+**Why:** CLAUDE.md requires a security review of authorization changes. It cleared the fixes above
+and found older problems:
+
+- **A JWT was never re-checked for its 8 hours** — a deactivated Admin's token created a new Admin
+  account in the reproducing test. `OnTokenValidated` now requires the account to exist, be active
+  and match the token's role and SuperAdmin flag. `SessionRevalidationTests` is the first suite to
+  run on the real JWT scheme; every other suite swaps in a header-based test handler.
+- **A production install had no roles, no permissions, and no way to create its first user** —
+  all seeding was Development-only. Reference data is now seeded everywhere; the first Admin is
+  bootstrapped from configuration on an empty install only.
+- Directory guards (role required, no self role change, last-Admin floor on demotion, SuperAdmin
+  accounts not managed here, seeder no longer sets `IsSuperAdmin`); `RoleScope.Parse` exact names
+  only; user detail shows the enforced permission set; edit dialog no longer breaks on a
+  non-assignable current role.
+
+### ✅ Operational foundations (Phase 1, built-in framework only)
+- `/health/live`, `/health/ready` (anonymous, status word only) and `/api/version` (signed-in;
+  version + commit via `GIT_SHA`) — ADR-0004's version-registry prerequisite.
+- JSON logs outside Development with per-request TraceId; one access line per request (no query
+  string, no headers); unhandled exceptions → problem details with `traceId`; SQL command logging
+  off outside Development.
+- API security headers on every response, `Cache-Control: no-store` on `/api`; CORS off unless
+  configured (the dev origins used to be allowed everywhere).
+
+### 🧹 Housekeeping
+- Verified in the browser for the first time: the panel picker populates for a Recruiter, the blind
+  state with two panel members, `.mention` styling in a production build.
+- Removed the tenant-switcher mock (fake tenants incl. an agency; a header nothing read).
+- Untracked `.agents/` (agent transcripts with a personal local path); deleted the CI test-count
+  step that had printed a wrong number three times.
+
+---
+
+## 2026-07-30
 
 ### ✅ Granular Dynamic RBAC, User Management, Permission-Aware UX & Full E2E Verification
 **Why:** Transition RecruitOps from static role-based checks to a fine-grained, dynamic Role-Based Access Control (RBAC) architecture with user directory management, custom role builder matrix, and permission-aware UX adaptivity across the entire internal web application.

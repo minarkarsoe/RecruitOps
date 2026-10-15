@@ -44,7 +44,7 @@ scoping** (`ADR-0003`), which is applied explicitly and can therefore be forgott
 - **Frontend**: **two apps** — Vite + React SPA (`frontend/internal`, authenticated dashboards) and Next.js SSR (`frontend/public`, job pages + Open Graph previews). Shared design system via `packages/ui`, shared API types via `packages/types`. npm workspaces at the repo root.
 - **Database**: PostgreSQL on AWS RDS, EF Core migrations, JSONB for customer-defined fields
 - **Object storage**: Cloudflare R2 behind an S3-compatible abstraction (MinIO for on-prem)
-- **Auth & Dynamic RBAC**: Self-issued JWT bearer. Token carries `sub`, `tenant_id`, role claim (`Admin` / `HrDirector` / `Recruiter` / `HiringManager` / `Approver` / Custom Role), `is_super_admin` flag, and granular `permissions` array (`permission:module:feature:action`). Fine-grained authorization enforced via `[HasPermission("permission:...")]` policy attribute on API endpoints (`/api/roles`, `/api/permissions`, `/api/users`). `SuperAdmin` and `Admin` roles bypass permission requirements dynamically.
+- **Auth & Dynamic RBAC**: Self-issued JWT bearer (8h) carrying `sub`, `tenant_id`, the role claim (`Admin` / `HrDirector` / `Recruiter` / `HiringManager` / `Approver` / `Interviewer`) and `is_super_admin`. **Every request re-checks the token's account** (exists, active, same role and SuperAdmin flag) — `OnTokenValidated`. Permissions are **not** in the token: login returns the effective set (`permission:module:feature:action`) for the UI, whose `hasPermission` fails closed. Hiring endpoints are guarded by **role policies** (`RecruitmentStaff` / `InternalUser` / `AdminOnly` + `RoleScope`); `[HasPermission(...)]` guards only the RBAC endpoints (`/api/roles`, `/api/permissions`, `/api/users`). SuperAdmin bypasses `[HasPermission]`; Admin does **not** (it holds every permission except `system:manage`). SuperAdmin is never assignable through the API, and custom roles are not assignable until ADR-0021's decision.
 
 ## Repository Layout
 
@@ -71,7 +71,7 @@ packages/
 | Task | Command |
 |---|---|
 | Backend build | `dotnet build backend/src/Api` |
-| Backend test | `dotnet test backend/RecruitOps.sln` (226 tests passing: 51 Domain + 175 Api) |
+| Backend test | `dotnet test backend/RecruitOps.sln` (314 tests passing: 65 Domain + 249 Api) |
 | Backend format | `dotnet format` |
 | Backend build + test in Docker | `docker build --target test -t recruitops-test ./backend` |
 | Whole stack | `docker compose up --build` |
@@ -79,7 +79,7 @@ packages/
 | Public app dev | `npm run dev:public` (repo root) |
 | Frontend build | `npm run build` (repo root, all workspaces) |
 | Frontend typecheck | `npm run typecheck` (repo root) |
-| Frontend test | `npm run test` in `frontend/internal` (60 tests passing across 10 test files) |
+| Frontend test | `npm run test` in `frontend/internal` (64 tests passing across 10 test files) |
 
 > No local .NET SDK? `docker build --target test ./backend` compiles and runs the whole
 > suite inside the SDK image. New EF migrations: see `docs/architecture/local-development.md`.

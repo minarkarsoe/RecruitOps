@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-07-30 · **Milestones 1–5 Complete · Zero Audit Findings Open · 226 Backend Tests + 60 Frontend Tests Passing**
+**Last updated:** 2026-10-15 · **RBAC security fixes + operational foundations · backend 314/314 · frontend 64/64**
 
 > Purpose: let a **fresh session** start work without re-reading the whole repo. Sessions are
 > deliberately short-lived — one feature each — because conversation history is re-sent on
@@ -11,127 +11,89 @@
 
 ## Where the product is
 
-The governance loop, the hiring loop, the interview loop, and Dynamic RBAC are connected and verified:
+The governance, hiring and interview loops work end to end against real Postgres, driven in a
+browser as each role (2026-10-15):
 
 ```
-Hiring Manager raises a requisition
-  → sequential approval chain (snapshotted on submit)
-  → Approved
-  → Recruiter creates a job posting FROM that requisition
-  → publishes it, getting an unguessable public link
-  → a stranger applies on the public page (custom questions supported)
-  → the application lands in the pipeline at "Applied"
-  → recruiter moves it through stages, every move recorded in append-only history
-  → recruiter schedules an interview
-  → the panel scores it blind, and debriefs in notes with @mentions
-  → Admin / HR Director manages Users Directory & Custom Roles in Role Builder
-  → UI dynamically adapts sidebar links and action buttons based on session permissions
+Hiring Manager raises a requisition → sequential approval → Approved
+  → Recruiter creates + publishes a posting → a stranger applies on the public page
+  → pipeline (append-only stage history) → interview scheduled (panel picker works as a Recruiter)
+  → blind scorecards (verified with two panel members) → debrief notes with @mentions
+Admin manages users and roles; the UI shows each role exactly what the API lets it do
 ```
 
-## ✅ Milestones 1–5 Verification & Deliverables Summary
+**MVP (ADR-0006) is 10 of 19 features built.** Module 1 ✅ 4/4 · Module 2 4/7 (no CV upload/OCR,
+Smart Match, search) · Module 3 2/4 (no scheduling-with-calendar, no invitations — both need email)
+· **Module 5 Reporting 0/4.**
 
-- **226/226 Backend Tests Passing**: 51 Domain + 175 Api integration tests executing via `dotnet test backend/RecruitOps.sln`.
-- **60/60 Frontend Tests Passing**: 10 Vitest test suites executing clean in `frontend/internal`.
-- **0 TypeScript Errors**: `npm run typecheck` clean across all workspaces.
-- **Production Build Clean**: `npm run build` in `frontend/internal` succeeds without errors.
-- **Granular Dynamic RBAC Engine**: `[HasPermission("permission:...")]` policy attribute, `PermissionsController`, `RolesController`, `UsersController`, seed permissions data, and dynamic permission evaluation.
-- **Permission-Aware UX**: Sidebar menu filtering in `AppLayout.tsx` and action button gating across all feature screens.
+## ⛔ Waiting on the product owner
 
-🔧 **One loose end, cosmetic:** the CI `Test counts` job summary still can't reliably lift
-per-assembly numbers out of a BuildKit log. It reports and no longer adjudicates, so it cannot
-fail a green suite — but it can still print a number nobody should trust. **Fix it or delete
-it.** A half-trusted instrument costs a reader more than no instrument.
-
-## ⚠️ "The stack came up" is not "the screens are correct"
-
-Three Module 3 behaviours were flagged as worth checking specifically, and have **not** been
-eyeballed. Each takes about a minute in the browser, and each fails *quietly* — which is why
-they were named rather than left to chance. **Do these before anything else; they are the
-cheapest verification left in the project.**
-
-1. **The panel picker populates when logged in as a Recruiter.** This is ADR-0019's entire
-   reason to exist, and it has still only been proved *reachable* by a test, never *observed*
-   working. Scheduling requires a non-empty panel, so if the picker is empty the whole module
-   is undrivable by its main role — for the third time, and it would be the third distinct
-   cause.
-2. **The blind state on `/interviews/:id` with two panel members.** Member A submits; member B
-   should see `hiddenCount: 1` and no scores until they submit. This is enforced server-side and
-   rendered three different ways client-side, so a UI-only regression is invisible to the API
-   tests.
-3. **`.mention` styling survives the Tailwind build.** The markup is generated in C#, so
-   Tailwind's content scanner cannot see the class — it lives in `index.css` for exactly that
-   reason. A production build purging it is the failure mode; it renders as unstyled text, not
-   as an error.
-
-## What's built
-
-| | State |
-|---|---|
-| Module 1 — Requisition & Approval | ✅ API + UI + tests, end to end |
-| Module 2 — ATS & Sourcing | 🚧 2.1 postings, 2.2 custom forms, 2.5 pipeline, 2.7 dedup ✅ · 2.3 OCR, 2.4 Smart Match, 2.6 search ⬜ |
-| Module 3 — Interview & Assessment | 🚧 3.3 scorecards + 3.4 notes ✅ API + tests · ✅ security-reviewed (ADR-0018) · ✅ UI built and run · 3.1/3.2 deferred to Module 7 |
-| Auth | ✅ JWT, RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |
-| Departments | ✅ Admin CRUD + membership assignment |
-| Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested |
-| Tests | ✅ backend **169/169** off CI · frontend **27/27** |
-| CI | ✅ green on both jobs · `github.com/minarkarsoe/RecruitOps` |
-| Modules 4–8 | ⬜ |
+1. **ADR-0021 — what a custom role means.** Custom roles can be built but **not assigned** until
+   one of A (base role + extras — recommended), B (scope + matrix) or C (no custom roles) is chosen.
+   A or B also needs the grantor ceiling listed in the ADR.
+2. **GitHub write access for Claude.** Pushes from Claude sessions were refused (403: the Claude
+   GitHub App lacks access to `minarkarsoe/RecruitOps`). The 2026-10-15 work was handed over as a
+   git bundle; confirm it reached `claude/dreamy-babbage-0zfr37`.
+3. Open from the roadmap: SSO for the first bank customers? Burmese UI? Team size and date?
 
 ## Backlog, in the order I'd take it
 
-Each of these is **one session**. Start a new one for each.
+Each is **one session**.
 
-### 1. Frontend tests for Modules 1–2
-The harness exists and is proven — 27 tests cover Module 3's three quiet-failure cases, and it
-was **proved to fail first** (three deliberate mutations produced 5 failures across all three
-files). Modules 1–2 screens have **none**. Largest untested conditional logic, in order:
+### 1. Phase 1 platform: email + background jobs + object storage
+Unblocks Module 3.1/3.2 (scheduling, invitations), Module 2.3 (CV upload), Module 4, notifications
+and password reset. **Each needs a package decision first** (CLAUDE.md: ask before adding one):
+SMTP client (MailKit vs `System.Net.Mail`), job runner (Postgres-backed hosted service vs Hangfire
+vs Quartz), S3 client for R2/MinIO (ADR-0013). A Postgres-backed outbox + `BackgroundService` needs
+no package and fits one-instance-per-company.
 
-- **`RequisitionFormPage`** — one component serving both create and edit. Two modes in one
-  component is where this repo's recurring "rule added to two of three siblings" bug lives.
-- **The approval timeline** — sequential state rendered from snapshotted steps; a wrong reading
-  of "whose turn is it" looks plausible on screen.
-- **`FormFieldBuilder`** — a schema editor whose output the *server* validates. A builder that
-  emits a schema the server rejects fails at the worst possible moment: when a stranger submits.
+### 2. SPA + public-site security headers / CSP
+The token is in `sessionStorage`, so a CSP is the main XSS mitigation. Put it in
+`frontend/internal/nginx.conf`; **prove the built SPA runs under it** (serve `dist/` with the same
+header, drive it, assert zero CSP violations). Next.js needs a nonce for a script CSP — start with
+frame/nosniff/referrer headers in `next.config` and plan the nonce separately.
 
-Pattern to copy: `src/lib/scorecard.test.ts` for pure rules,
-`src/pages/InterviewDetailPage.test.tsx` for a page with `vi.mock('../lib/api')`.
-Commands: `npm run test` (root) or `npm run test --workspace @recruitops/internal`.
-**Prove each new test fails before you believe it passes.**
+### 3. Audit log
+Module 7's `AuditLog`: who did what, when. Start with role/user changes, approvals, stage moves,
+offers. Needs a migration (propose it; a human applies it — CLAUDE.md).
 
-### 2. `GET /api/users` projects `enum.ToString()` inside the query
-🟡 Medium, and **cheap to settle now that the stack runs against real Postgres**: EF Core 10
-cannot translate it, and the endpoint has only ever run in-memory. Open the approval-chain
-builder as an Admin. If it throws, apply the two-step pattern the rest of the codebase uses
-(query in SQL, project in memory). If it doesn't, delete the row from the gaps table.
+### 4. Module 5 — Reporting
+ADR-0006: the module that sells the product to the buyer. `ApplicationStageHistory` exists from day
+one, so time-to-hire / conversion can be computed now.
 
-### 3. Module 2.3 — CV upload + OCR
-**Do not start this without a planning session first.** Three prerequisites, none of which
-exist:
+### 5. Frontend tests for Modules 1–2
+`RequisitionFormPage` (two modes), the approval timeline, `FormFieldBuilder`. Pattern:
+`lib/scorecard.test.ts`, `pages/InterviewDetailPage.test.tsx`. Prove each test fails first.
 
-- Object-storage abstraction (R2 hosted / MinIO on-prem) — [ADR-0013](../decisions/ADR-0013-infrastructure-and-storage.md)
-- Background job runner — bulk upload is 50 files, so it cannot be synchronous ([ADR-0008](../decisions/ADR-0008-document-extraction-and-ai-profiling.md))
-- **Zawgyi→Unicode normalization** — 🔴 High, and *not* only an OCR problem: a Word/PDF
-  authored in Zawgyi extracts as garbage with no OCR involved ([ADR-0009](../decisions/ADR-0009-myanmar-script-handling.md))
-
-Plus an open decision: which OCR engine (cost, PII residency, Burmese accuracy). Expect one
-or two ADRs before any code.
-
-### 4. Deployment prerequisites (ADR-0004)
-Needed before a first customer install, none exist: feature-flag mechanism, `/api/version` +
-customer/version registry, backup/restore runbook, server sizing guide, support policy.
-
-### 5. Smaller, whenever
-- **User admin** — creating users is still seed-only; departments can now be managed but the
-  people in them cannot. Module 3 makes this sharper: you cannot put someone on a panel who
-  doesn't exist.
-- Fix or delete the CI `Test counts` summary step (above).
-- Refresh token + httpOnly cookie option ([ADR-0016](../decisions/ADR-0016-login-brute-force-protection.md) follow-ups)
-- Application-form **file upload** field type — waits on the same storage abstraction as 2.3
-- `NotificationLog` + interview invitations — deferred with Module 7 (ADR-0017 follow-ups)
+### 6. Smaller, whenever
+- Over-broad seed grants and `GET /api/users/{id}` width (FEATURE-STATUS gaps) — before ADR-0021 B
+- `Interviewer` role: no policy admits it
+- Role name > 200 / delete-with-inactive-holders return 500
+- Refresh token + httpOnly cookie (ADR-0016 follow-ups)
+- `/api/version` → an actual customer/version registry; backup/restore + upgrade runbooks; sizing guide
 
 ## Things that will bite you
 
 Learned the expensive way; all of them are load-bearing.
+
+- **A client check that fails open hides every mismatch behind it.** `hasPermission` returned
+  true when the permission list was missing — and the API never sent one, so the permission-aware
+  UI had never run against reality. Making it fail closed immediately exposed six places where the
+  seed matrices denied what the API's role policies allow. **Default every "may they?" check to
+  no**, and pin the UI's gate to the server's rule with a test that reads the live policy
+  (`SeedMatrixMirrorsPoliciesTests`).
+- **Never parse an authorization value with `Enum.TryParse`.** It accepts any member name, any
+  numeric string (`"0"` was SuperAdmin), values no member has, and comma-joined names. Match exact
+  names against an explicit allow-list. Grep for `TryParse<UserRole>` before adding a role path.
+- **The test suite never validated a token.** `CustomWebAppFactory` swaps the JWT scheme for a
+  header-based test handler, so token-lifetime bugs are invisible to every suite except
+  `SessionRevalidationTests`, which switches the real scheme back on. Use that pattern for any
+  test about what a token proves.
+- **"Dev-only" seeding can hide a missing production path.** Reference data (permissions, roles)
+  lived in the Development seeder, so a production install had none — and no way to create a user.
+  Ask of every startup step: what does a fresh customer install get?
+- **Run the stack as each role, not as Admin.** Admin sees everything, so it proves nothing about
+  scoping. Every finding of 2026-10-15 started with logging in as a Hiring Manager.
 
 - **The public job endpoints have no tenant claim.** `_tenant.TenantId` is `Guid.Empty`
   there, so the global query filters match nothing. `PublicJobService` uses
@@ -213,11 +175,16 @@ Learned the expensive way; all of them are load-bearing.
 - **Check the environment can build before writing 2,500 lines into it.** Module 3 was written
   blind because nobody ran `dotnet --version` first. It happened to compile, which is luck,
   not a method — the feedback loop should exist before the code does.
-- **In a sandbox, the frontend loop is recoverable; the backend one is not.**
-  `mcr.microsoft.com` and `nuget.org` are blocked by the allowlist, so .NET cannot be built
-  there at all — but `registry.npmjs.org` and `github.com` are reachable. The npm workspace
-  symlinks do not survive the Windows mount, which breaks `@recruitops/*` resolution; copying
-  the repo to a native path and installing there fixes it:
+- **Claude Code on the web (2026-10-15): run natively, not via Docker.** Docker Hub's CDN is
+  blocked, so `docker compose` cannot pull `postgres`/`node`/`nginx` or the `# syntax=` frontend.
+  `mcr.microsoft.com`, NuGet and npm work. The recipe: start `dockerd`, pull
+  `mcr.microsoft.com/dotnet/sdk:10.0`, `docker cp` its `/usr/share/dotnet` to `/opt/dotnet`; start
+  the preinstalled Postgres 16 (`pg_ctlcluster 16 main start`); `dotnet run` the API with
+  `ConnectionStrings__Default`/`Jwt__*`/`Seed__*` env vars; `npm run dev:internal`, or
+  `npm run build` + `npx vite preview` (it reuses the `/api` proxy) to test the production build.
+  Note `pkill -f RecruitOps.Api` kills your own shell — use a pid file.
+- **Older note — a Windows-mounted sandbox:** the npm workspace symlinks did not survive the
+  mount; copying the repo to a native path fixed it:
 
   ```
   W=$HOME/rowork && mkdir -p $W && cp package.json package-lock.json $W/

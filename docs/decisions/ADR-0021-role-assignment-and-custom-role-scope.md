@@ -25,7 +25,7 @@ to three defects, all reproduced against the dev stack on 2026-10-15:
 
 | # | Request | Result | Severity |
 |---|---|---|---|
-| 1 | `POST /api/users` with `"role": "SuperAdmin"` | User created as **SuperAdmin**, the cross-tenant bypass role | 🔴 Critical |
+| 1 | `POST /api/users` with `"role": "SuperAdmin"` | User created as **SuperAdmin** — bypasses every `[HasPermission]` check, so can create Admins with known passwords and rewrite every role | 🔴 Critical |
 | 2 | `"role": "0"`, or a custom role with code `"0"` | Also **SuperAdmin**: `TryParse` accepts numeric strings, and `SuperAdmin = 0` | 🔴 Critical |
 | 3 | Assign a custom role with **zero** permissions | User logs in as **Recruiter** (the fallback) and reads every posting, requisition and candidate pipeline in the company | 🟠 High |
 
@@ -77,3 +77,35 @@ a real requirement, not by the feature existing.
   unchanged. Under option A it becomes the defined behaviour; under B it must go.
 - `RoleAssignmentEscalationTests` pins the containment: every refusal is paired with a case
   proving the legitimate assignment still works.
+
+## Follow-up — security review, 2026-10-15
+
+An independent review of the containment found no Critical or High issue in it, and these
+corrections and additions, all now in place:
+
+- **What SuperAdmin actually reaches.** Earlier text called it "the cross-tenant bypass role". In
+  the code it bypasses `[HasPermission]` (the RBAC endpoints) and nothing else: the role policies
+  (`RecruitmentStaff`, `InternalUser`, `AdminOnly`) do not include it, and nothing reads a tenant
+  override. Defect 1 stays Critical — a SuperAdmin can create an Admin with a known password — but
+  "cross-tenant" overstated it.
+- **Tokens are re-checked on every request.** Containment only stops *new* grants; a JWT lives 8
+  hours, and a deactivated Admin could still create a fresh Admin with it. The account behind a
+  token must now exist, be active, and hold the role and SuperAdmin flag the token claims.
+- **Directory guards:** a role is required on create (no silent Recruiter); nobody changes their
+  own role; the last active Admin cannot be demoted (deactivation already had that floor); a
+  SuperAdmin account's role is not managed through the directory; the dev seeder no longer sets
+  `IsSuperAdmin` while linking users to roles.
+- **The user directory shows the effective set** the API enforces, not the custom role's codes alone.
+
+### Preconditions for options A or B
+
+Before custom-role assignment is re-enabled, whichever option is chosen:
+
+1. **A grantor ceiling.** Today only Admin and SuperAdmin hold `users:create`/`users:update`, so
+   "who can grant Admin" is "Admins". A custom role holding `users:update` would be
+   Admin-equivalent. A role change must require the target role's permissions to be a subset of the
+   actor's effective permissions, and `roles:create`/`roles:update` must not put into a role a
+   permission the actor lacks.
+2. **Fix the over-broad seed grants** listed in FEATURE-STATUS (HM `move_stage`, HrDirector
+   `settings:read`, `users:read`) — under option B they would become real access.
+3. **Decide what `Interviewer` is.** It is assignable, but no role policy admits it.

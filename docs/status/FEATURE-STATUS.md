@@ -1,15 +1,26 @@
 # Feature Status
 
-**Last updated:** 2026-07-30 (Milestone 5 complete — 226/226 backend tests + 60/60 frontend tests green, 0 typecheck errors, Vite build succeeded) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
+**Last updated:** 2026-10-15 (RBAC security fixes + operational foundations — backend **314/314** (65 domain + 249 api), frontend **64/64** across 10 files, typecheck clean, both apps build) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
 
-> ✅ **Backend: 226/226 green** (51 domain + 175 api). Covers Module 1 end to end, login
-> throttling, department administration, Module 2 requisitions/postings/pipeline, Module 3 interviews/scorecards/notes, and Module 7 Dynamic RBAC & User Management.
+> ✅ **Backend: 314/314 green** (65 domain + 249 api). Adds, on 2026-10-15: role-assignment
+> escalation, permission revocation, effective-permission agreement, seed-matrix ↔ policy
+> mirroring, per-request token revalidation, user-directory guards, install bootstrap, security
+> headers/CORS, health/version and error-contract suites.
 >
-> ✅ **`docker compose up --build` runs** — Postgres + API + both frontends, migrations applying on startup.
+> 🔴→✅ **2026-10-15 security fixes (Module 7 RBAC).** Driving the stack found that the user
+> directory could mint a **SuperAdmin** (`"role": "SuperAdmin"` or `"0"`), that any custom role
+> silently became **Recruiter** (company-wide candidate access), that revoking a permission never
+> took effect for active users, and that the permission-aware UI had never worked (the API sent no
+> permissions; the client failed open). A security review then found that a JWT was never
+> re-checked for its 8 hours (a deactivated Admin could create a backdoor Admin) and that a
+> production install had no roles, no permissions and no way to create its first user. All fixed,
+> test-first — see [ADR-0021](../decisions/ADR-0021-role-assignment-and-custom-role-scope.md) and
+> the CHANGELOG. **Custom roles can be built but not assigned** until ADR-0021's decision is made.
 >
-> ✅ **Frontend: 60/60 Vitest passing** across 10 test files, `npm run typecheck` 0 errors across both apps, Vite production build succeeded.
->
-> ✅ **Granular Dynamic RBAC & Permission-Aware UX complete** — `/api/roles`, `/api/permissions`, `/api/users`, `[HasPermission]` policy attribute, User Directory (`/users`), Role Builder (`/roles`), and dynamic permission-aware UI filtering across navigation sidebar and action buttons.
+> ⚠️ **`docker compose up --build` could not be re-run on 2026-10-15** — the authoring sandbox
+> cannot pull from Docker Hub. The stack was run natively instead (Postgres 16, .NET 10 SDK, Vite /
+> Next dev servers, the SPA's production build under `vite preview`). The Dockerfile gained a
+> `GIT_SHA` build argument that CI will exercise first.
 
 ## Summary by module
 
@@ -197,13 +208,27 @@ Decisions: [ADR-0017](../decisions/ADR-0017-interview-and-assessment.md).
 - **Tested:** tenant A sees only its rows; B can't see A's; 401 unauthenticated; 403 wrong role
 
 ### ✅ Authentication & RBAC (Module 7 partial)
-- JWT bearer with full validation (issuer, audience, lifetime, signing key)
-- `POST /api/auth/login` → `AuthService` + `JwtTokenService` (HS256, 8h)
-- Password hashing via framework `IPasswordHasher<User>`
-- Policies `AgencyStaff` / `AdminOnly`; **`FallbackPolicy` = authenticated by default**
-- Dev-only `DbInitializer` seeds one tenant + admin, gated on config-supplied credentials
-- **Tested:** valid login, wrong password → 401, unknown email → 401 (no enumeration), token claims
-- ⚠️ **Role set is agency-flavoured — must be revised** (see auth doc)
+- JWT bearer with full validation (issuer, audience, lifetime, signing key), HS256, 8h
+- **Every authenticated request re-checks the token's account** (`OnTokenValidated` →
+  `IUserSessionValidator`): it must exist in the token's tenant, be active, and hold exactly the
+  role and SuperAdmin flag the token claims — else 401. One PK read per request, uncached
+- `POST /api/auth/login` returns the **effective permission set** the API enforces (role
+  permissions ∪ the system role's seed permissions) and `isSuperAdmin`. Permissions are **not** in
+  the token. The SPA's `hasPermission` **fails closed**; SuperAdmin bypasses, Admin does not (the
+  API has no Admin bypass — Admin holds every permission except `system:manage`)
+- Role policies `RecruitmentStaff` / `InternalUser` / `AdminOnly` guard the hiring endpoints;
+  `[HasPermission]` guards only the RBAC endpoints (`/api/roles`, `/api/permissions`,
+  `/api/users/{id}`, user create/update/deactivate). See ADR-0021 for why that split matters
+- **Role assignment:** exact system-role names only; **SuperAdmin never assignable** through the
+  directory; **custom roles not assignable** (ADR-0021); role required on create; no changing your
+  own role; last active Admin cannot be demoted or deactivated; SuperAdmin accounts' roles not
+  managed through the directory
+- Permission cache: generation-keyed, absolute 10-min expiry; a role edit takes effect on the next
+  request; a deactivated role grants nothing
+- Reference data (permissions, system roles) seeded in every environment; first Admin bootstrapped
+  from `Seed:AdminEmail`/`Seed:AdminPassword` — Development: whenever absent; elsewhere: only on an
+  empty install, 12+ char password
+- Login throttling per IP + per account (ADR-0016)
 
 ### ✅ Frontend restructured (ADR-0012)
 - **npm workspaces** at the repo root; `packages/ui` (Tailwind preset + StatusPill/Button/Card)
@@ -237,6 +262,9 @@ Decisions: [ADR-0017](../decisions/ADR-0017-interview-and-assessment.md).
 - **Tests rewritten:** isolation tests now exercise `Department`; role/vocabulary guards updated
 
 ## Test inventory
+
+**Current (2026-10-15): backend 314/314 (65 domain + 249 api), frontend 64/64.** The table below is the
+2026-07-28 inventory, kept for the history of how those counts were established.
 
 | Suite | Count | Run? |
 |---|---|---|
@@ -425,6 +453,14 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 
 | Issue | Severity | Where |
 |---|---|---|
+| **Custom roles cannot be assigned** (containment) | 🟠 Decision needed | ADR-0021: a custom role has no data scope, so it used to become Recruiter. Pick option A (base role + extras), B (scope + matrix) or C (no custom roles). A or B also needs the grantor ceiling the review asked for (a `users:update` holder must not grant more than they hold) |
+| Seed grants broader than their endpoints | 🟡 Medium | The UI shows a control the API then refuses: HM `applications:move_stage` (stage move is `RecruitmentStaff`), HrDirector `settings:read` (chains/departments are `AdminOnly`), Recruiter + HrDirector `users:read` (the list is `AdminOnly`). Harmless today (no endpoint uses these codes except `users:read`); **must be fixed before ADR-0021 option B moves endpoints onto permissions** |
+| `GET /api/users/{id}` is wider than the list | 🔵 Low | `users:read` (Recruiter, HrDirector) reaches any user's email, role and permissions by id, while the list is `AdminOnly` (security review B4) |
+| `Interviewer` system role reaches nothing | 🟡 Medium | It is assignable and has a seed matrix, but no role policy admits it — every hiring endpoint returns 403. Decide what it is for, or stop offering it |
+| Permission list is a login-time snapshot | 🔵 Low | The API applies a role edit on the next request; the UI shows it after the next sign-in. A role *change* forces sign-in (token revalidation) |
+| Role create/delete can 500 | 🔵 Low | Name > 200 chars is not validated; deleting a role with only inactive holders hits the FK (security review B6) |
+| SPA / public site have no CSP or security headers | 🟡 Medium | The token lives in `sessionStorage`, so a CSP is the main XSS mitigation. API headers are done; `nginx.conf` and `next.config` are not |
+| No audit log | 🟡 Medium | Module 7 `AuditLog` entity; needed for bank customers and SLA claims |
 | `System.Security.Cryptography.Xml` CVE-2026-33116 | ✅ **fixed** | Pinned to 10.0.6 in Infrastructure + Api.Tests (10.0.0–10.0.5 are also vulnerable) |
 
 
@@ -445,7 +481,7 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | No rate limiting / lockout on login | ✅ **fixed** | ADR-0016 — per-IP limiter + per-account throttle |
 | `LoginThrottle` counters are in-process | 🟡 Medium | Fine for one instance per company (ADR-0004). **Must move to Redis/DB before running two replicas for one customer**, or the effective limit becomes N × the configured value |
 | Compose publishes the API port, so `TrustForwardedHeaders` is off | 🟡 Medium | The per-IP limiter sees nginx, not the client. Production installs must drop the port mapping and enable the flag (ADR-0016) |
-| No refresh token | 🟡 Medium | Auth |
+| No refresh token | 🟡 Medium | Tokens live 8h; **revocation is now immediate** (every request re-checks the account), so the remaining gap is session length and httpOnly-cookie storage (ADR-0016 follow-ups) |
 | No edit/update on a Draft requisition | ✅ **fixed** | `PUT /api/requisitions/{id}`, Draft-only |
 | Frontend has **no tests at all** | ✅ **fixed** | Vitest wired into `frontend/internal`; 27 tests over Module 3's blind rule, scorecard payload rules and note rendering. Modules 1–2 screens are still untested |
 | **No CI** — nothing compiled the backend for three sessions | ✅ **fixed** | `github.com/minarkarsoe/RecruitOps`, first run green on both jobs 2026-07-28. Actions pinned to the Node 24 runtime (checkout@v5, setup-node@v5, setup-buildx@v4); app built on Node 22 |
