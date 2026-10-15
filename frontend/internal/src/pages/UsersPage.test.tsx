@@ -94,6 +94,24 @@ describe('UsersPage', () => {
     });
   });
 
+  // ADR-0021: the API refuses SuperAdmin and custom roles on assignment, so the picker must
+  // not offer them. The table's role *filter* is a different control and keeps every role.
+  it('offers only assignable roles when creating a user', async () => {
+    (roleService.getRoles as any).mockResolvedValue([
+      ...mockRoles,
+      { ...mockRoles[0], id: 'role-super', name: 'SuperAdmin', code: 'SuperAdmin', isSuperAdmin: true },
+      { ...mockRoles[0], id: 'role-retired', name: 'Retired', code: 'Retired', isActive: false },
+    ]);
+
+    render(<UsersPage />);
+    await screen.findByText('User Directory');
+    fireEvent.click(screen.getByText('+ Create User'));
+
+    const picker = screen.getByText(/Assigned Role/).parentElement!.querySelector('select')!;
+    const offered = Array.from(picker.options).map((o) => o.textContent);
+    expect(offered).toEqual(['Admin']);
+  });
+
   it('disables self-deactivation button for current session user', async () => {
     render(<UsersPage />);
     await screen.findByText('User Directory');

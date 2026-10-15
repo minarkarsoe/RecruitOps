@@ -4,6 +4,16 @@ import { userService } from '../services/userService';
 import { roleService } from '../services/roleService';
 import { auth, hasPermission } from '../lib/auth';
 
+/**
+ * Roles the directory may hand out. Mirrors `UserService.AssignRoleToUserAsync`: SuperAdmin is
+ * provisioned out of band, and a custom role is not assignable until it carries its own data
+ * scope — the API refuses both (ADR-0021), so offering them would only produce an error.
+ * The role *filter* above the table still lists every role: filtering by one is harmless.
+ */
+function isAssignableRole(role: RoleListItem): boolean {
+  return role.isSystemRole && !role.isSuperAdmin && role.isActive;
+}
+
 export function UsersPage() {
   const currentSession = auth.get();
   const currentUserId = currentSession?.userId;
@@ -17,6 +27,7 @@ export function UsersPage() {
   });
 
   const [roles, setRoles] = useState<RoleListItem[]>([]);
+  const assignableRoles = useMemo(() => roles.filter(isAssignableRole), [roles]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,8 +112,8 @@ export function UsersPage() {
     setCreateEmail('');
     setCreateDisplayName('');
     setCreatePassword('');
-    setCreateRoleId(roles[0]?.id || '');
-    setCreateRoleName(roles[0]?.name || 'Recruiter');
+    setCreateRoleId(assignableRoles[0]?.id || '');
+    setCreateRoleName(assignableRoles[0]?.name || 'Recruiter');
     setIsCreateModalOpen(true);
   }
 
@@ -524,10 +535,8 @@ export function UsersPage() {
                   }}
                   className="w-full text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500 bg-white"
                 >
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} {r.isSystemRole ? '(System)' : '(Custom)'}
-                    </option>
+                  {assignableRoles.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
                 </select>
               </div>
@@ -604,10 +613,8 @@ export function UsersPage() {
                   onChange={(e) => setEditRoleId(e.target.value)}
                   className="w-full text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500 bg-white"
                 >
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} {r.isSystemRole ? '(System)' : '(Custom)'}
-                    </option>
+                  {assignableRoles.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
                 </select>
               </div>
