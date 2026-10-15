@@ -20,6 +20,12 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 > `RecordAsync` before its own `SaveChanges`; `RecordStandaloneAsync` only for events whose request
 > saves nothing. Its viewer was drawn into `design/internal/users-roles.html` for this — get a
 > designer to look at it. Next slices: exports, candidate-data reads, reads of the log itself.
+>
+> **And refresh tokens are hardened** ([ADR-0028](../decisions/ADR-0028-refresh-token-hardening.md)):
+> hashed at rest, ended on deactivation, 30-day absolute sessions, rate-limited, rotated-token
+> reuse audited. Still open: the SPA keeps the refresh token in `sessionStorage` (an HttpOnly
+> cookie would put it out of XSS's reach — its own change, with CSRF handling), and expired or
+> revoked rows are never purged.
 > Lessons, worth reading before touching auth:
 > - **Never parse an authorization value with `Enum.TryParse`** — it accepts numbers (`"0"` was
 >   SuperAdmin) and comma-joined names. Match exact names against an allow-list.
@@ -38,6 +44,18 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 > - **The test auth handler trusts its headers, the ceiling trusts claims.** Both are fine because
 >   production revalidates every token against the database; a test that fakes a SuperAdmin claim
 >   with no row is testing the same thing production would see.
+>
+> **Before deploying the audit log**, list the roles that already hold
+> `permission:system:system:audit` — it existed with no endpoint behind it, and now reads every
+> sign-in, IP and access change:
+> ```sql
+> SELECT r."Name", r."IsSystemRole" FROM "Roles" r
+> JOIN "RolePermissions" rp ON rp."RoleId" = r."Id"
+> JOIN "Permissions" p ON p."Id" = rp."PermissionId"
+> WHERE p."Code" = 'permission:system:system:audit';
+> ```
+> And run the API as a role with only `INSERT, SELECT` on `AuditLogEntries` (ADR-0027) — the prod
+> compose file runs it as the Postgres superuser, which can disable the append-only triggers.
 >
 > **Before deploying option A to an install with data**, look at who holds custom roles — this
 > query runs on the *old* schema, so run it before the new build starts (migrations apply on

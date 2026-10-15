@@ -3,7 +3,34 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-15 (latest) — the audit log (Module 7 §7.5, ADR-0027)
+## 2026-10-15 (latest) — refresh tokens hardened (ADR-0028), and the audit log's review fixed
+
+**Refresh tokens** (security review of the develop merge, B3):
+- **Hashed at rest** (SHA-256; the next token in the chain too). Migration `HashRefreshTokens`
+  hashes existing rows in place with Postgres's `sha256()` — verified to match the API's hash, so
+  nobody is signed out; rolling back revokes every token.
+- **Deactivation ends every session** in the same save, and reactivation does not revive them —
+  it used to.
+- **Absolute session lifetime**: rotation no longer extends a session forever; it ends
+  `Jwt:SessionMaxDays` (default 30) after sign-in, and the token's expiry says so.
+- **Rate-limited**: `/api/auth/refresh` and `/revoke`, per client IP (`RateLimit:Refresh`, 60/60 s).
+- **Reuse of a rotated token** is recorded in the audit log ("Stolen session token used"). A token
+  ended any other way is simply refused — the first build logged a browser refreshing after its
+  user was deactivated as a theft; the end-to-end smoke test caught it.
+
+**Audit log, security review** (no Critical/High):
+- **M1** — failed sign-ins for unknown emails are rolled up per client (first per 15 minutes, with
+  the count in between; at most 60 an hour install-wide): a fresh email each try never tripped the
+  account throttle, and every attempt wrote a permanent row.
+- **M2** — what was typed is kept only if it is a plain email address; people paste passwords into
+  the wrong box, and an entry is forever.
+- **M3** — department membership and the startup seeder's changes to system roles are now
+  recorded; the docs no longer claim "every attempt".
+- Sign-in has one lookup again (a second, on one failure path only, was a timing difference); a
+  failed audit write no longer turns a 401 into a 500 or skips the throttle; the append-only guard
+  covers every `SaveChanges` overload; page numbers are clamped.
+
+## 2026-10-15 — the audit log (Module 7 §7.5, ADR-0027)
 
 **Why:** nothing recorded who changed access. ADR-0021 made roles changeable by delegates with a
 ceiling that refuses escalation, and both the changes and the refusals vanished with the response.
