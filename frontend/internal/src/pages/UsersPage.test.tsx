@@ -81,6 +81,9 @@ describe('UsersPage', () => {
     fireEvent.change(screen.getByPlaceholderText('Minimum 8 characters'), {
       target: { value: 'password123' },
     });
+    fireEvent.change(screen.getByText(/Assigned Role/).parentElement!.querySelector('select')!, {
+      target: { value: 'role-admin' },
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
 
@@ -93,6 +96,25 @@ describe('UsersPage', () => {
         role: 'Admin',
       });
     });
+  });
+
+  // Second security review (b)-4: the picker defaulted to the first assignable role — "Admin",
+  // alphabetically — so a hurried create made an Admin. A role is now always a deliberate choice.
+  it('preselects no role, and will not create a user until one is chosen', async () => {
+    render(<UsersPage />);
+    await screen.findByText('User Directory');
+    fireEvent.click(screen.getByText('+ Create User'));
+
+    const picker = screen.getByText(/Assigned Role/).parentElement!.querySelector('select')!;
+    expect(picker.value).toBe('');
+
+    fireEvent.change(screen.getByPlaceholderText('colleague@company.com'), { target: { value: 'x@recruitops.io' } });
+    fireEvent.change(screen.getByPlaceholderText('Jane Doe'), { target: { value: 'X' } });
+    fireEvent.change(screen.getByPlaceholderText('Minimum 8 characters'), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    expect(await screen.findByText('Choose a role for this user.')).toBeInTheDocument();
+    expect(userService.createUser).not.toHaveBeenCalled();
   });
 
   // ADR-0021: the API refuses SuperAdmin and custom roles on assignment, so the picker must
@@ -109,7 +131,7 @@ describe('UsersPage', () => {
     fireEvent.click(screen.getByText('+ Create User'));
 
     const picker = screen.getByText(/Assigned Role/).parentElement!.querySelector('select')!;
-    const offered = Array.from(picker.options).map((o) => o.textContent);
+    const offered = Array.from(picker.options).filter((o) => o.value !== '').map((o) => o.textContent);
     expect(offered).toEqual(['Admin']);
   });
 

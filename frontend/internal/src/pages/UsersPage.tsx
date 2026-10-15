@@ -112,8 +112,10 @@ export function UsersPage() {
     setCreateEmail('');
     setCreateDisplayName('');
     setCreatePassword('');
-    setCreateRoleId(assignableRoles[0]?.id || '');
-    setCreateRoleName(assignableRoles[0]?.name || 'Recruiter');
+    // No default: the first assignable role is "Admin" alphabetically, and a hurried create made
+    // an Admin (second security review, 2026-10-15). A role is always a deliberate choice.
+    setCreateRoleId('');
+    setCreateRoleName('');
     setIsCreateModalOpen(true);
   }
 
@@ -135,6 +137,10 @@ export function UsersPage() {
     }
     if (createPassword.length < 8) {
       setModalError('Password must be at least 8 characters long.');
+      return;
+    }
+    if (!createRoleId) {
+      setModalError('Choose a role for this user.');
       return;
     }
 
@@ -541,6 +547,7 @@ export function UsersPage() {
                   }}
                   className="w-full text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500 bg-white"
                 >
+                  <option value="" disabled>Choose a role…</option>
                   {assignableRoles.map((r) => (
                     <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
