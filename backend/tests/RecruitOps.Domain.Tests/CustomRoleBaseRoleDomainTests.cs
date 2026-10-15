@@ -71,6 +71,28 @@ public class CustomRoleBaseRoleDomainTests
         Assert.Equal(UserRole.Interviewer, role.HolderRole());
     }
 
+    [Theory]
+    [InlineData(UserRole.Admin)]
+    [InlineData(UserRole.SuperAdmin)]
+    public void A_Base_Role_Above_The_Allowed_List_Gives_No_Reach(UserRole stored)
+    {
+        // RoleService never stores these; a hand-edited row or a future import path might, and
+        // then assignment would hand out Admin or SuperAdmin (security review of option A, 6).
+        var role = new Role { IsSystemRole = false, IsActive = true, BaseRole = stored };
+        Assert.Equal(UserRole.Interviewer, role.HolderRole());
+    }
+
+    // Security review of option A, finding 1: Covers put Interviewer below HiringManager and
+    // Approver, but the scope predicates treated Interviewer as company-wide on both axes — so a
+    // department-scoped delegate could hand out company-wide requisition reach. Interviewer is
+    // now the narrowest role on every axis, which is what "no standing reach" always meant.
+    [Fact]
+    public void Interviewer_Is_Department_Scoped_And_Excluded_From_Candidate_Data()
+    {
+        Assert.True(RoleScope.IsDepartmentScoped(UserRole.Interviewer));
+        Assert.True(RoleScope.IsExcludedFromCandidateData(UserRole.Interviewer));
+    }
+
     [Fact]
     public void A_Custom_Role_Without_A_Base_Role_Gives_No_Reach_Rather_Than_Guessing()
     {

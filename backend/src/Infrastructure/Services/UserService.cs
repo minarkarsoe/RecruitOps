@@ -251,6 +251,10 @@ public class UserService : IUserService
         if (trimmedDisplayName.Length > 200)
             throw new ArgumentException("DisplayName cannot exceed 200 characters.");
 
+        // Any edit is managing someone — a rename changes their @mention handle — so it needs reach
+        // over them, role change or not (security review of ADR-0021 option A, finding 5).
+        await _ceiling.EnsureCanManageAsync(user.Role, ct);
+
         user.DisplayName = trimmedDisplayName;
 
         if (request.RoleId.HasValue || !string.IsNullOrWhiteSpace(request.Role))
@@ -265,8 +269,7 @@ public class UserService : IUserService
             if (user.Role != previousRole || user.RoleId != previousRoleId)
             {
                 await GuardRoleChangeAsync(user, previousRole, wasSuperAdmin, ct);
-                await _ceiling.EnsureCanManageAsync(previousRole, ct);
-                await EnsureCanGrantCurrentRoleAsync(user, ct);
+                await EnsureCanGrantCurrentRoleAsync(user, ct); // reach over them was checked above
             }
         }
 

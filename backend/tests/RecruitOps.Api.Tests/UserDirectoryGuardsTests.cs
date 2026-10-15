@@ -69,8 +69,14 @@ public class UserDirectoryGuardsTests : IClassFixture<CustomWebAppFactory>
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             db.Users.Add(new User
             {
-                Id = id, TenantId = _factory.TenantA, Email = $"super.{id:N}@alpha.test", DisplayName = "Vendor",
-                Role = UserRole.SuperAdmin, IsSuperAdmin = true, IsActive = true, PasswordHash = "x",
+                Id = id,
+                TenantId = _factory.TenantA,
+                Email = $"super.{id:N}@alpha.test",
+                DisplayName = "Vendor",
+                Role = UserRole.SuperAdmin,
+                IsSuperAdmin = true,
+                IsActive = true,
+                PasswordHash = "x",
             });
             await db.SaveChangesAsync();
         }
@@ -78,7 +84,11 @@ public class UserDirectoryGuardsTests : IClassFixture<CustomWebAppFactory>
         var res = await AdminAs(_factory.AdminUserId).PutAsJsonAsync($"/api/users/{id}",
             new UpdateUserRequest("Vendor", null, "Recruiter"));
 
-        Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
+        // 403 since ADR-0021 option A: an Admin does not cover SuperAdmin, so the grantor ceiling
+        // refuses before the SuperAdmin guard (409) is reached. Either way, nothing changes.
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        var after = await AdminAs(_factory.AdminUserId).GetFromJsonAsync<UserDetailDto>($"/api/users/{id}");
+        Assert.Equal("SuperAdmin", after!.Role);
     }
 
     [Fact]

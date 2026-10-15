@@ -222,6 +222,70 @@ public class GrantorCeilingTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal(HttpStatusCode.Forbidden, (await lead.PutAsync($"/api/users/{admin.Id}/reactivate", null)).StatusCode);
     }
 
+    // ---------------------------------------------------------------- security review of option A
+
+    [Fact]
+    public async Task Changing_A_Roles_Base_Upward_Requires_Holding_What_The_Role_Carries()
+    {
+        // Finding 2: flipping an approve-only Approver role to a Recruiter base gave its holders
+        // the pipeline plus requisitions:approve — a combination the lead does not hold.
+        var role = await Created(CreateRole(Admin(), "Approver", RequisitionsApprove));
+        var lead = await HrLeadAsync();
+
+        var res = await lead.PutAsJsonAsync($"/api/roles/{role.Id}",
+            new UpdateRoleRequest(role.Name, null, true, new[] { RequisitionsApprove }, "Recruiter"));
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Narrowing_A_Roles_Base_Needs_No_More_Than_Reach_Over_It()
+    {
+        var role = await Created(CreateRole(Admin(), "Approver", RequisitionsApprove));
+        var lead = await HrLeadAsync();
+
+        var res = await lead.PutAsJsonAsync($"/api/roles/{role.Id}",
+            new UpdateRoleRequest(role.Name, null, true, new[] { RequisitionsApprove }, "Interviewer"));
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_Department_Scoped_Delegate_Cannot_Hand_Out_Company_Wide_Requisitions()
+    {
+        // Finding 1, end to end: a Hiring-Manager-based lead assigns an Interviewer-based role
+        // holding requisitions:read. Interviewer used to be company-wide on requisitions.
+        var finance = await _scenario.Client(Roles.Admin, _factory.AdminUserId).PostAsJsonAsync("/api/requisitions",
+            new CreateRequisitionRequest
+            {
+                DepartmentId = _factory.FinanceDepartmentId,
+                Title = "Finance-only headcount",
+                JobDescription = "Not for other departments.",
+                Headcount = 1,
+            });
+        finance.EnsureSuccessStatusCode();
+
+        var leadRole = await Created(CreateRole(Admin(), "HiringManager", HrLeadPermissions));
+        var leadUser = await CreatedUser(CreateUser(Admin(), leadRole.Id));
+        var lead = _scenario.Client(Roles.HiringManager, leadUser.Id);
+
+        var reader = await Created(CreateRole(Admin(), "Interviewer", RequisitionsRead));
+        var user = await CreatedUser(CreateUser(lead, reader.Id));
+
+        var listed = await _scenario.Client("Interviewer", user.Id)
+            .GetFromJsonAsync<List<RequisitionListItemDto>>("/api/requisitions");
+        Assert.Empty(listed!);
+    }
+
+    [Fact]
+    public async Task A_Delegate_Cannot_Edit_Someone_Above_Them_Even_Without_A_Role_Change()
+    {
+        // Finding 5: renaming an Admin also changes their @mention handle.
+        var admin = await CreatedUser(CreateUser(Admin(), role: "Admin"));
+        var lead = await HrLeadAsync();
+
+        var res = await lead.PutAsJsonAsync($"/api/users/{admin.Id}", new UpdateUserRequest("Renamed by a delegate"));
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+    }
+
     [Fact]
     public async Task An_Admin_Still_Assigns_Every_System_Role_But_SuperAdmin()
     {

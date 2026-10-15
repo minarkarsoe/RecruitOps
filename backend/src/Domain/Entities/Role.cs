@@ -23,8 +23,11 @@ public class Role : BaseEntity
     public ICollection<User> Users { get; set; } = new List<User>();
 
     /// <summary>The enum a holder of this custom role carries: its base role while it is active,
-    /// and <see cref="UserRole.Interviewer"/> — the enum no role policy admits — while it is not,
-    /// or if it somehow has no base role. Never a guess with reach: that guess was Recruiter, and
-    /// it is what ADR-0021 removed.</summary>
-    public UserRole HolderRole() => IsActive && BaseRole is { } baseRole ? baseRole : UserRole.Interviewer;
+    /// and <see cref="UserRole.Interviewer"/> — the narrowest role there is — while it is not, or if
+    /// its base role is missing or not one a custom role may have. Never a guess with reach: that
+    /// guess was Recruiter, and it is what ADR-0021 removed.</summary>
+    public UserRole HolderRole() =>
+        IsActive && BaseRole is { } baseRole && RoleScope.AssignableBaseRoles.Contains(baseRole)
+            ? baseRole
+            : UserRole.Interviewer;
 }

@@ -284,9 +284,16 @@ public class RoleService : IRoleService
 
         // Only what is being granted: resubmitting a permission the actor lacks — a rename does —
         // is not a grant. Reactivating is: every permission the role carries comes back at once.
+        // So is widening the base role: holders get the new reach *with* every permission they
+        // already had, a combination the actor must hold themselves (security review of option
+        // A, finding 2). Narrowing — a base the old one covers — takes nothing new.
         var reactivating = request.IsActive && !role.IsActive;
+        var widening = baseRole != role.BaseRole
+                       && !(role.BaseRole is { } oldBase && baseRole is { } newBase && RoleScope.Covers(oldBase, newBase));
         var heldBefore = role.RolePermissions.Select(rp => rp.Permission.Code).ToHashSet(StringComparer.Ordinal);
-        var granted = reactivating ? requestedCodes : requestedCodes.Where(c => !heldBefore.Contains(c)).ToList();
+        var granted = reactivating || widening
+            ? requestedCodes
+            : requestedCodes.Where(c => !heldBefore.Contains(c)).ToList();
         if (granted.Count > 0 || baseRole != role.BaseRole)
             await _ceiling.EnsureCanGrantAsync(baseRole ?? UserRole.Interviewer, granted, ct);
 
@@ -329,8 +336,11 @@ public class RoleService : IRoleService
     {
         var holderRole = role.HolderRole();
         var holders = await _db.Users
-            // A SuperAdmin's enum is provisioned out of band, never derived from a role.
-            .Where(u => u.RoleId == role.Id && u.Role != holderRole && u.Role != UserRole.SuperAdmin && !u.IsSuperAdmin)
+            // A SuperAdmin's enum is provisioned out of band, never derived from a role. An Admin
+            // on a custom role only exists from before ADR-0021 (a role coded "1"); it is left for
+            // the pre-deploy audit (NEXT-SESSION) rather than demoted here past the last-Admin floor.
+            .Where(u => u.RoleId == role.Id && u.Role != holderRole
+                        && u.Role != UserRole.SuperAdmin && u.Role != UserRole.Admin && !u.IsSuperAdmin)
             .ToListAsync(ct);
 
         foreach (var holder in holders)

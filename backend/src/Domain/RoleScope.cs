@@ -22,8 +22,14 @@ public static class RoleScope
     /// <para><c>Approver</c> is deliberately <i>not</i> scoped here: an approver must be able
     /// to see the requisition they have been asked to approve, and an approval chain
     /// routinely crosses departments (Finance signs off on a Sales headcount).</para>
+    ///
+    /// <para><c>Interviewer</c> is scoped (2026-10-15): it is the role with no standing reach, and
+    /// the grantor ceiling relies on it being the narrowest on every axis. It used to be
+    /// company-wide here, which no role policy exposed — until a custom role on an Interviewer
+    /// base was given <c>requisitions:read</c>, a permission-gated endpoint, and saw every
+    /// department (security review of ADR-0021 option A).</para>
     /// </summary>
-    public static bool IsDepartmentScoped(UserRole role) => role is UserRole.HiringManager;
+    public static bool IsDepartmentScoped(UserRole role) => role is UserRole.HiringManager or UserRole.Interviewer;
 
     /// <summary>True when the role has <b>no standing reach into candidate data at all</b> —
     /// applications, their pipeline, interviews, scorecards and notes (ADR-0018).
@@ -38,8 +44,11 @@ public static class RoleScope
     /// <para>An excluded role is not locked out for good — it reaches an individual
     /// application by sitting on that application's interview panel, exactly like a Hiring
     /// Manager from another department does (ADR-0017 §4).</para>
+    ///
+    /// <para><c>Interviewer</c> is excluded for the same reason it is department-scoped: it reaches
+    /// an application only by sitting on its panel, which is what an interviewer does.</para>
     /// </summary>
-    public static bool IsExcludedFromCandidateData(UserRole role) => role is UserRole.Approver;
+    public static bool IsExcludedFromCandidateData(UserRole role) => role is UserRole.Approver or UserRole.Interviewer;
 
     /// <summary>Parses a role name, returning null for anything unrecognised.
     ///
@@ -71,8 +80,9 @@ public static class RoleScope
     /// <c>AdminOnly</c>; HrDirector and Recruiter share <c>RecruitmentStaff</c>, and HrDirector adds
     /// company-wide authority over others' requisitions (<c>RequisitionService</c>); HiringManager
     /// (department-scoped) and Approver (no candidate data) are each narrower than Recruiter and
-    /// neither covers the other; Interviewer passes no role policy. <c>RoleScopeCoversTests</c>
-    /// checks this order against the policies the API registers.</para></summary>
+    /// neither covers the other; Interviewer passes no role policy and is both department-scoped and
+    /// excluded from candidate data. <c>RoleScopeCoversTests</c> checks this order against the
+    /// policies the API registers and both scopes.</para></summary>
     public static bool Covers(UserRole actor, UserRole target) =>
         actor == target
         || actor == UserRole.SuperAdmin

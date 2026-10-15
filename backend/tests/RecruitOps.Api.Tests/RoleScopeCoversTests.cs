@@ -60,8 +60,9 @@ public class RoleScopeCoversTests : IClassFixture<CustomWebAppFactory>
 
                 Assert.True(admits[target].IsSubsetOf(admits[actor]), $"{pair}, but {target} passes a policy {actor} does not");
 
-                if (admits[target].Count == 0) continue; // a role with no reach is covered by anyone
-
+                // No exemption for a role no policy admits: permission-gated endpoints
+                // (requisitions) still apply the scopes to it. Skipping it here is how the first
+                // version of this test missed Interviewer being company-wide.
                 Assert.False(RoleScope.IsDepartmentScoped(actor) && !RoleScope.IsDepartmentScoped(target),
                     $"{pair}, but {actor} is department-scoped and {target} is not");
                 Assert.False(RoleScope.IsExcludedFromCandidateData(actor) && !RoleScope.IsExcludedFromCandidateData(target),

@@ -10,14 +10,15 @@ public interface ICurrentUser
     string? Role { get; }
 
     /// <summary>True when this role only sees its own departments on the requisition /
-    /// posting axis (ADR-0003). Currently HiringManager; Admin/HrDirector/Recruiter/Approver
-    /// work across all departments.
+    /// posting axis (ADR-0003). Currently HiringManager and Interviewer;
+    /// Admin/HrDirector/Recruiter/Approver work across all departments.
     /// <para>Decided by <c>RoleScope.IsDepartmentScoped</c> — do not re-express the role
     /// list anywhere else.</para></summary>
     bool IsDepartmentScoped { get; }
 
     /// <summary>True when this role has no standing reach into <b>candidate</b> data —
-    /// applications, pipeline, interviews, scorecards, notes (ADR-0018). Currently Approver.
+    /// applications, pipeline, interviews, scorecards, notes (ADR-0018). Currently Approver and
+    /// Interviewer.
     ///
     /// <para>A separate axis from <see cref="IsDepartmentScoped"/> on purpose: an Approver is
     /// company-wide for requisitions and reaches no candidate at all, so neither flag alone
