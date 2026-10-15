@@ -39,6 +39,7 @@ Per-company install, subdomain routing. **None of the operational prerequisites 
 | `/api/version` + customer/version registry | 🚧 **endpoint done 2026-10-15** — version + commit (signed-in only); the registry itself does not exist |
 | Liveness / readiness (`/health/live`, `/health/ready`) | ✅ **2026-10-15** — anonymous, status word only; readiness = database, verified 503 during a real Postgres outage |
 | Structured logs + error contract | ✅ **2026-10-15** — JSON console logs outside Development with per-request TraceId; one access line per request (method, path, status, duration — no query string, no headers); unhandled exceptions → problem details with `traceId`, never the exception text; SQL command logging off outside Development |
+| API security headers + CORS | ✅ **2026-10-15** — nosniff, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `default-src 'none'` CSP, `Cache-Control: no-store` on `/api`. CORS off unless `Cors:AllowedOrigins` is set (Development lists the dev servers; before, localhost was allowed in every environment). TLS/HSTS belong to the TLS terminator |
 | Support policy (latest, latest-1) | ⬜ |
 | Server sizing guide | ⬜ |
 | Backup/restore + upgrade runbooks | ⬜ |

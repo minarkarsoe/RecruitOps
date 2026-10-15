@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RecruitOps.Api.Auth;
 using RecruitOps.Api.Health;
+using RecruitOps.Api.Security;
 using RecruitOps.Application.Common;
 using RecruitOps.Infrastructure;
 using RecruitOps.Infrastructure.Persistence;
@@ -213,18 +214,27 @@ static string ClientPartitionKey(HttpContext context)
     return $"v6:{Convert.ToHexString(bytes, 0, 8)}";
 }
 
-const string DevCors = "DevCors";
-builder.Services.AddCors(o => o.AddPolicy(DevCors, p =>
-    p.WithOrigins(
-        "http://localhost:3000",  // public Next.js app / docker web service
-        "http://localhost:5173"   // internal SPA (Vite dev server)
-    ).AllowAnyHeader().AllowAnyMethod()));
+// --- CORS: off unless configured ---
+// Both frontends reach the API same-origin: nginx proxies /api for the SPA, Next.js rewrites it
+// for the public site, and its server components call in-network. So the default is no CORS
+// policy at all — until 2026-10-15 the localhost dev origins were allowed in every environment.
+// Development lists the dev servers (appsettings.Development.json) for anyone calling the API
+// directly; an install that serves a frontend from another origin lists it in Cors:AllowedOrigins.
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+if (corsOrigins.Length > 0)
+{
+    builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
+        p.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod()));
+}
 
 var app = builder.Build();
 
 // Outermost, so it records the status the client finally received — including a 500 produced
 // by the exception handler below.
 app.UseHttpLogging();
+
+// Before the exception handler, so error responses carry the headers too.
+app.UseSecurityHeaders();
 
 // Development keeps the developer exception page the host adds by default.
 if (!app.Environment.IsDevelopment())
@@ -239,7 +249,7 @@ if (app.Environment.IsDevelopment())
 // Must run before anything reads the client address — the rate limiter does.
 if (behindProxy) app.UseForwardedHeaders();
 
-app.UseCors(DevCors);
+if (corsOrigins.Length > 0) app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
