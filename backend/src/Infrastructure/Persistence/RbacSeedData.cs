@@ -108,13 +108,16 @@ public static class RbacSeedData
             Name = "Recruiter",
             Description = "Recruiter managing job postings, candidate applications, interview scheduling, and evaluations",
             IsSuperAdmin = false,
+            // Requisition create/update/delete/approve and template management: the API already
+            // admits Recruiters to all of them (InternalUser / RecruitmentStaff); without these
+            // codes the fail-closed UI hid them. Pinned by SeedMatrixMirrorsPoliciesTests.
             PermissionCodes = new[]
             {
-                "permission:requisitions:requisitions:read",
+                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:create", "permission:requisitions:requisitions:update", "permission:requisitions:requisitions:delete", "permission:requisitions:requisitions:approve",
                 "permission:postings:postings:read", "permission:postings:postings:create", "permission:postings:postings:update", "permission:postings:postings:delete", "permission:postings:postings:publish",
                 "permission:applications:applications:read", "permission:applications:applications:create", "permission:applications:applications:update", "permission:applications:applications:delete", "permission:applications:applications:move_stage",
                 "permission:interviews:interviews:read", "permission:interviews:interviews:create", "permission:interviews:interviews:update", "permission:interviews:interviews:cancel",
-                "permission:scorecards:scorecards:read", "permission:scorecards:scorecards:submit",
+                "permission:scorecards:scorecards:read", "permission:scorecards:scorecards:submit", "permission:scorecards:scorecards:manage_templates",
                 "permission:users:users:read"
             }
         },
@@ -124,9 +127,11 @@ public static class RbacSeedData
             Name = "Hiring Manager",
             Description = "Department manager submitting requisitions, reviewing department applications, and conducting interviews",
             IsSuperAdmin = false,
+            // delete = cancelling their own requisition; approve = deciding when an approval chain
+            // names them (typically the Dept Head step). The API admits both.
             PermissionCodes = new[]
             {
-                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:create", "permission:requisitions:requisitions:update",
+                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:create", "permission:requisitions:requisitions:update", "permission:requisitions:requisitions:delete", "permission:requisitions:requisitions:approve",
                 "permission:postings:postings:read",
                 "permission:applications:applications:read", "permission:applications:applications:move_stage",
                 "permission:interviews:interviews:read", "permission:interviews:interviews:create", "permission:interviews:interviews:update",
@@ -139,9 +144,13 @@ public static class RbacSeedData
             Name = "Approver",
             Description = "Approver responsible for reviewing and approving job requisitions",
             IsSuperAdmin = false,
+            // create/update/delete: the API treats an Approver as company-wide for requisitions.
+            // scorecards:submit: an Approver reaches an application only by sitting on its interview
+            // panel (ADR-0018), and must then be able to score it.
             PermissionCodes = new[]
             {
-                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:approve"
+                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:create", "permission:requisitions:requisitions:update", "permission:requisitions:requisitions:delete", "permission:requisitions:requisitions:approve",
+                "permission:scorecards:scorecards:submit"
             }
         },
         new SystemRoleSeedDefinition

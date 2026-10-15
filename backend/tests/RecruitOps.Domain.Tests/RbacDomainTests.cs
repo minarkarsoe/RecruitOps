@@ -277,14 +277,17 @@ public class RbacDomainTests
         // HrDirector: 26 permissions
         Assert.Equal(26, roleMap["HrDirector"].RolePermissions.Count);
 
-        // Recruiter: 18 permissions
-        Assert.Equal(18, roleMap["Recruiter"].RolePermissions.Count);
+        // Recruiter: 23 permissions — 18, plus requisition create/update/delete/approve and
+        // template management, which the API already admitted (SeedMatrixMirrorsPoliciesTests).
+        Assert.Equal(23, roleMap["Recruiter"].RolePermissions.Count);
 
-        // HiringManager: 11 permissions
-        Assert.Equal(11, roleMap["HiringManager"].RolePermissions.Count);
+        // HiringManager: 13 permissions — 11, plus requisition delete (cancel their own) and
+        // approve (when a chain names them).
+        Assert.Equal(13, roleMap["HiringManager"].RolePermissions.Count);
 
-        // Approver: 2 permissions
-        Assert.Equal(2, roleMap["Approver"].RolePermissions.Count);
+        // Approver: 6 permissions — 2, plus requisition create/update/delete (company-wide for
+        // requisitions) and scorecard submit (reached via an interview panel, ADR-0018).
+        Assert.Equal(6, roleMap["Approver"].RolePermissions.Count);
 
         // Interviewer: 3 permissions
         Assert.Equal(3, roleMap["Interviewer"].RolePermissions.Count);
