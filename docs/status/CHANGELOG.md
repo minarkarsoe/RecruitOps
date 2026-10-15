@@ -3,7 +3,22 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-15 (latest) — refresh tokens hardened (ADR-0028), and the audit log's review fixed
+## 2026-10-15 (latest) — refresh-token review fixes (ADR-0028 §5–7)
+
+Security review of the hardening (no Critical/High):
+- **M1 — the reuse alarm was ungated.** Replaying a rotated token wrote a permanent row every time,
+  and any old rotated token could end a user's sessions on demand. Now an expired token is just
+  refused, and the alarm is written once per sweep that ended something.
+- **M2 — the SPA could set the alarm off itself.** Requests queued behind one that refreshed sent
+  the rotated token back. The SPA now reads the stored token at renewal time, and the server
+  forgives a rotated token's return within 30 seconds.
+- A refresh answered 429 or not at all no longer signs the user out; **signing out now revokes the
+  session on the server** (it only cleared the tab); reactivation revokes any token that slipped
+  through; the migration revokes inactive users' tokens; the unknown-sign-in gate's memory is
+  capped; only plain ASCII email addresses are kept from failed sign-ins; a first install's
+  system roles and their audit entries share one save.
+
+## 2026-10-15 — refresh tokens hardened (ADR-0028), and the audit log's review fixed
 
 **Refresh tokens** (security review of the develop merge, B3):
 - **Hashed at rest** (SHA-256; the next token in the chain too). Migration `HashRefreshTokens`

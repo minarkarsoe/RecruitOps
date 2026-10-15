@@ -23,9 +23,11 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 >
 > **And refresh tokens are hardened** ([ADR-0028](../decisions/ADR-0028-refresh-token-hardening.md)):
 > hashed at rest, ended on deactivation, 30-day absolute sessions, rate-limited, rotated-token
-> reuse audited. Still open: the SPA keeps the refresh token in `sessionStorage` (an HttpOnly
-> cookie would put it out of XSS's reach — its own change, with CSRF handling), and expired or
-> revoked rows are never purged.
+> reuse audited; the SPA renews with the stored token, survives a 429, and revokes on sign-out.
+> Still open: the SPA keeps the refresh token in `sessionStorage` (an HttpOnly cookie would put it
+> out of XSS's reach — its own change, with CSRF handling); expired or revoked rows are never
+> purged; rotation is not compare-and-set. **After deploying**, pre-migration backups still hold
+> plaintext refresh tokens — expire them once 14 days have passed (ADR-0028, Consequences).
 > Lessons, worth reading before touching auth:
 > - **Never parse an authorization value with `Enum.TryParse`** — it accepts numbers (`"0"` was
 >   SuperAdmin) and comma-joined names. Match exact names against an allow-list.

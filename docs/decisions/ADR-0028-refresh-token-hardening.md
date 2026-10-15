@@ -41,10 +41,33 @@ A refresh token is a 14-day credential: whoever holds it can mint access tokens.
    recorded in the audit log (`RefreshTokenReused`, shown as a refusal). A token ended any other
    way — sign-out, deactivation, swept up by a reuse response — is simply refused: a browser
    refreshing it is not an attack, and logging it as one (as the first build did, caught by the
-   smoke test) teaches auditors to ignore the alarm.
+   smoke test) teaches auditors to ignore the alarm. Three more limits came from the security
+   review of this ADR:
+   - an **expired** token, rotated or not, is just refused — otherwise any old rotated token (a
+     backup, a forgotten laptop) could end a user's sessions on demand, for ever;
+   - a rotated token back **within 30 seconds** of its rotation is the client's own duplicate
+     (parallel requests after a laptop wakes, a lost response retried), and is just refused;
+   - the alarm is written **once per sweep that ended something** — replaying the same copy
+     ends nothing more and must not keep writing permanent rows.
+6. **The SPA keeps its side of this.** After a 401 it reads the refresh token from storage at
+   that moment, not the one the failed request was sent with — requests queued behind one that
+   already refreshed would otherwise send the rotated token back and set off the alarm. A
+   refresh answered 429, or not answered at all, keeps the session (it used to sign the user
+   out). Signing out calls `/api/auth/revoke`; before, it only cleared the tab, and the token
+   stayed valid on the server.
+7. **Reactivation also revokes**, and the migration revokes the tokens of users already inactive:
+   a refresh in flight during a deactivation could otherwise save a fresh token that the
+   reactivation would revive.
 
 ## Consequences
 
+- **Pre-migration copies still hold plaintext.** Hashing in place does not erase the old column
+  from backups, replicas, WAL or old heap pages. Live tokens expire within 14 days of issue, so
+  the exposure ends then; expire pre-migration backups after that, and `VACUUM FULL
+  "RefreshTokens"` (outside a transaction) if it matters sooner.
+- Two refreshes with the same token at the same instant can still both succeed (no concurrency
+  token on rotation) — no worse than before this ADR; a compare-and-set rotation is the fix if it
+  ever matters.
 - Rolling the migration back cannot recover plaintext tokens: `Down` revokes every refresh token,
   and everyone signs in again.
 - Users sign in at least every 30 days. A customer that wants longer or shorter changes

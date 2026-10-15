@@ -1,7 +1,7 @@
 # Feature Status
 
 > 🔐 **2026-10-15 — security fixes merged** (see CHANGELOG). Suites on the merged code: **backend
-> 870/870** (102 domain + 768 api), **frontend 456/456** (51 files) + **public 24/24**, typecheck clean,
+> 878/878** (102 domain + 776 api), **frontend 463/463** (52 files) + **public 24/24**, typecheck clean,
 > both apps build. The SPA ran under its new CSP behind real nginx with zero violations.
 
 **Last updated:** 2026-08-18 (**status re-derived from the code, not from the previous version of this file** — the module table below was wrong about four modules; see the note under it. Suites re-run the same day: **backend 527/527**, frontend 342/342, typecheck clean. Also: **UI/UX design kit complete — 25 static screens across all seven modules**, in `design/internal/` and `design/public/`, indexed at `design/internal/index.html`; five spec gaps it surfaced are logged under Known gaps) · Previously 2026-08-17 (marketing landing page added; design system pivoted off the agency model and its contrast failures fixed — frontend now **342/342 Vitest green**, 43 files, 0 typecheck errors) · Previously 2026-08-13 (Delivery Readiness & Feature Flags complete — 507/507 backend tests + 318/318 frontend tests green, 0 typecheck errors) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
@@ -535,7 +535,7 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | No rate limiting / lockout on login | ✅ **fixed** | ADR-0016 — per-IP limiter + per-account throttle |
 | `LoginThrottle` counters are in-process | 🟡 Medium | Fine for one instance per company (ADR-0004). **Must move to Redis/DB before running two replicas for one customer**, or the effective limit becomes N × the configured value |
 | Compose publishes the API port, so `TrustForwardedHeaders` is off | 🟡 Medium | The per-IP limiter sees nginx, not the client. Production installs must drop the port mapping and enable the flag (ADR-0016) |
-| No refresh token | ✅ **built, then hardened 2026-10-15** (ADR-0028) | Rotating refresh tokens, stored only as SHA-256 hashes, ended on deactivation, 30-day absolute sessions, rate-limited, rotated-token reuse audited. Open: kept in `sessionStorage` rather than an HttpOnly cookie |
+| No refresh token | ✅ **built, then hardened 2026-10-15** (ADR-0028) | Rotating refresh tokens, stored only as SHA-256 hashes, ended on deactivation, 30-day absolute sessions, rate-limited, rotated-token reuse audited (once per sweep, not for expired tokens or the client's own duplicate within 30 s); the SPA renews with the stored token, survives a 429 and revokes on sign-out. Open: kept in `sessionStorage` rather than an HttpOnly cookie; rotation not compare-and-set |
 | No edit/update on a Draft requisition | ✅ **fixed** | `PUT /api/requisitions/{id}`, Draft-only |
 | Frontend has **no tests at all** | ✅ **fixed** | Vitest wired into `frontend/internal`; 27 tests over Module 3's blind rule, scorecard payload rules and note rendering. Modules 1–2 screens are still untested |
 | **No CI** — nothing compiled the backend for three sessions | ✅ **fixed** | `github.com/minarkarsoe/RecruitOps`, first run green on both jobs 2026-07-28. Actions pinned to the Node 24 runtime (checkout@v5, setup-node@v5, setup-buildx@v4); app built on Node 22 |

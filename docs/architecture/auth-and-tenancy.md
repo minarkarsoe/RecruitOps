@@ -97,14 +97,20 @@ refresh token for a new pair and **rotates** it: the old one is revoked, and pre
 revokes every session the user has (reuse means someone else holds a copy).
 
 - **Hashed at rest.** The database stores a SHA-256 of each refresh token, never the token, so a
-  leaked backup or replica cannot be replayed as a session.
+  copy of the table taken after the migration cannot be replayed as a session. (Copies from before
+  it still hold plaintext until their tokens expire — ADR-0028, Consequences.)
 - **Revoked on deactivation.** Deactivating a user revokes all their refresh tokens; reactivating
   them does not bring the old sessions back — they sign in again.
 - **Absolute lifetime.** Each rotation lasts 14 days, but a session — everything descended from
   one sign-in — ends `Jwt:SessionMaxDays` (default **30**) after that sign-in, however active.
 - **Rate-limited.** `/refresh` and `/revoke` are limited per client IP (`RateLimit:Refresh`,
   60 per 60 s by default) like sign-in.
-- **Audited.** A reused (stolen) refresh token is recorded in the audit log (ADR-0027).
+- **Reuse is theft only when it is.** A *rotated* token presented again — more than 30 s after its
+  rotation and before it expires — ends every session the user has and is recorded in the audit
+  log (ADR-0027). Any other revoked or expired token is simply refused.
+- **The SPA renews carefully.** After a 401 it uses the refresh token in storage at that moment;
+  a refresh answered 429 or not at all keeps the session; signing out revokes the token on the
+  server.
 
 ## Known gaps
 
