@@ -27,3 +27,7 @@ infra/secrets/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Working files from multi-agent tooling runs — transcripts, not source. Untracked 2026-10-15;
+# the history before then still has them.
+.agents/

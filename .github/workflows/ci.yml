@@ -40,160 +40,32 @@ jobs:
       # re-report an old pass count — the trap documented in FEATURE-STATUS.md. Without
       # both flags a green build is not evidence the *new* tests ran.
       - name: docker build --target test
-        id: build
         env:
           # BuildKit truncates a step's log at 1MiB and its rate at 100_000 B/s by default,
           # and what it drops is the END of the output — which is exactly where a test run
-          # puts its summary. Run #5 passed with the Api project's `Total tests:` line simply
-          # missing from the log, and the reporting step below then said "no tests executed"
-          # about a suite that had just gone fully green. Unlimited here: this log is read by
-          # a script, and a partial log is a wrong answer rather than a slow one.
+          # puts its summary and its failing test names. Unlimited, so the log a person reads
+          # after a red run still contains the part they opened it for.
           BUILDKIT_STEP_LOG_MAX_SIZE: -1
           BUILDKIT_STEP_LOG_MAX_SPEED: -1
         run: |
-          set -o pipefail
           docker build \
             --target test \
             --progress=plain \
             --no-cache-filter=build,test \
             -t recruitops-test \
-            ./backend 2>&1 | tee build.log
+            ./backend
 
-      # "The build passed" has never been the question in this repo — "did the new tests
-      # run" is. Lift the counts out of 3,000 lines of BuildKit output and into the job
-      # summary, so nobody has to trust a green tick they did not read.
+      # There used to be a "Test counts" step here that parsed per-assembly numbers out of the
+      # BuildKit log into the job summary. It printed a wrong number three times (an empty box,
+      # Api=21 against a real 122, and "no tests executed" over a green suite after BuildKit
+      # truncated the log), and by its last version it only reported, never adjudicated.
+      # Deleted 2026-10-15: an instrument that can contradict what it measures costs a reader
+      # more than no instrument.
       #
-      # The first version of this step grepped for `Passed!`, which is the *Microsoft
-      # Testing Platform* summary line. This solution runs on **VSTest**
-      # (Microsoft.NET.Test.Sdk + xunit.runner.visualstudio), which ends with
-      #   Test Run Successful. / Total tests: 39 / Passed: 39
-      # — no exclamation mark anywhere. So the grep matched nothing, and because the
-      # fallback `|| echo` was attached to a *pipeline* whose last command was `sed`
-      # (exit 0), it never fired either: the summary rendered as an empty box on run #3.
-      # An empty box is worse than a missing one — it looks like a report. Hence the
-      # explicit emptiness check below.
-      #
-      # Each test project now runs in its own Dockerfile `RUN`, so every `Test run for …dll`
-      # line is followed by that project's own summary. The counts below are parsed from
-      # those blocks rather than by counting `Passed <name>` lines: run #4 proved why. The
-      # line-counting version reported Api=21 against a runner summary of 122, because the
-      # console logger's per-test output is not the stable surface — the summary is. **A
-      # confidently wrong number in a report is the same failure as an empty one**, one step
-      # further along, and it is the third time this step has produced one.
-      #
-      # It also lists the failing test names, because "8 failed" without them costs a whole
-      # extra round trip through CI to learn something the log already knew.
-      - name: Test counts
-        if: always()
-        shell: bash
-        env:
-          BUILD_OUTCOME: ${{ steps.build.outcome }}
-        run: |
-          python3 - <<'PY'
-          import os, re, pathlib
-
-          out = open(os.environ["GITHUB_STEP_SUMMARY"], "a")
-          def w(s=""): out.write(s + "\n")
-
-          w("## Backend test run")
-          log = pathlib.Path("build.log")
-          if not log.exists():
-              w("The build step produced no log — it failed before the compiler was reached.")
-              raise SystemExit(0)
-
-          # BuildKit prefixes every line with "#<step> <elapsed> ".
-          strip = re.compile(r"^#\d+\s+[\d.]+\s+")
-          lines = [strip.sub("", l).rstrip()
-                   for l in log.read_text(errors="replace").splitlines()]
-
-          run_for = re.compile(r"Test run for .*?/(RecruitOps\.[A-Za-z0-9.]+)\.dll")
-          # `Failed: 8` is a summary line, `Failed RecruitOps.X.Y` is a test name — the
-          # mandatory whitespace before RecruitOps is what separates them.
-          failed_case = re.compile(r"^\s*Failed\s+(RecruitOps\.\S+)")
-
-          order, asm, failures, current = [], {}, [], None
-          for l in lines:
-              m = run_for.search(l)
-              if m:
-                  current = m.group(1)
-                  if current not in asm:
-                      order.append(current)
-                      asm[current] = {"total": None, "passed": None, "failed": None, "verdict": "?"}
-                  continue
-              m = failed_case.match(l)
-              if m:
-                  failures.append(m.group(1))
-                  continue
-              if current is None:
-                  continue
-              a, s = asm[current], l.strip()
-              if s.startswith("Test Run Successful"): a["verdict"] = "passed"
-              elif s.startswith("Test Run Failed"):   a["verdict"] = "FAILED"
-              for key, label in (("total", "Total tests:"), ("passed", "Passed:"), ("failed", "Failed:")):
-                  if s.startswith(label) and a[key] is None:
-                      try: a[key] = int(s[len(label):].strip())
-                      except ValueError: pass
-
-          if order:
-              w("")
-              w("| Assembly | Total | Passed | Failed | Result |")
-              w("|---|---|---|---|---|")
-              for name in order:
-                  a = asm[name]
-                  fmt = lambda v: "—" if v is None else str(v)
-                  w(f"| {name} | {fmt(a['total'])} | {fmt(a['passed'])} | {fmt(a['failed'])} | {a['verdict']} |")
-          else:
-              w("")
-              w("**No `Test run for …dll` line in the log — no test project was reached.**")
-
-          if failures:
-              w("")
-              w(f"### {len(failures)} failing case(s)")
-              w("")
-              for f in failures:
-                  w(f"- `{f}`")
-
-          w("")
-          w("<details><summary>Raw runner output</summary>")
-          w("")
-          w("```")
-          keep = re.compile(r"Test run for |Test Run Successful|Test Run Failed|Total tests:|"
-                            r"^\s*(Passed|Failed|Skipped):|No test is available|"
-                            r"test host process crashed|error [A-Z]+[0-9]+")
-          raw = [l for l in lines if keep.search(l)]
-          w("\n".join(raw) if raw else "NO RUNNER OUTPUT MATCHED — the pattern is stale again.")
-          w("```")
-          w("")
-          w("</details>")
-
-          # THIS STEP REPORTS. IT DOES NOT ADJUDICATE.
-          #
-          # The build step's exit code is the authority on whether the suite passed:
-          # `RunConfiguration.TreatNoTestsAsError` plus one `RUN` per project means a green
-          # `docker build --target test` is impossible unless BOTH projects ran and every case
-          # passed. There is nothing left for this step to decide.
-          #
-          # It used to decide anyway, and on run #5 it failed a fully green suite: BuildKit had
-          # truncated the log, the Api summary went with it, and the step announced "no tests
-          # executed" about 130 tests that had just passed. **An instrument that contradicts
-          # the thing it measures is worse than no instrument** — it is the same failure as the
-          # empty box and the confidently-wrong 21, for the third time, and this is the version
-          # that finally removes the possibility rather than fixing the pattern.
-          missing = [n for n in order if not asm[n]["total"]]
-          if os.environ.get("BUILD_OUTCOME") == "success":
-              if missing or len(order) < 2:
-                  w("")
-                  w("> ⚠️ **The build passed, so both projects ran and every case passed** — "
-                    "but the counts for "
-                    f"`{', '.join(missing) or 'one or more projects'}` could not be read out "
-                    "of the log, most likely because BuildKit truncated it. The numbers above "
-                    "are incomplete; they are not a failure.")
-          elif any("No test is available" in l for l in lines):
-              w("")
-              w("> 🔴 **A test project discovered zero tests.** That is the failure, not a "
-                "reporting gap.")
-          out.close()
-          PY
+      # The authority is this job's exit code. `TreatNoTestsAsError` plus one Dockerfile `RUN`
+      # per test project means it cannot be green unless BOTH projects ran and every case
+      # passed. For the counts themselves, read the `Total tests:` line under each
+      # `Test run for …dll` in the step log, or run count-tests.ps1 over a saved log.
 
   frontend:
     name: Frontend — typecheck + test + build
