@@ -297,8 +297,10 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c
 // No-ops on the in-memory provider used by tests.
 await DatabaseStartup.MigrateAsync(app.Services);
 
-if (app.Environment.IsDevelopment())
-    await DbInitializer.SeedAsync(app.Services);
+// Reference data in every environment; the first Admin from configuration (see SeedAdminAsync —
+// first run only, outside Development).
+await DbInitializer.SeedReferenceDataAsync(app.Services);
+await DbInitializer.SeedAdminAsync(app.Services, firstRunOnly: !app.Environment.IsDevelopment());
 
 app.Run();
 

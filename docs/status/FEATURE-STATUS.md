@@ -40,6 +40,7 @@ Per-company install, subdomain routing. **None of the operational prerequisites 
 | Liveness / readiness (`/health/live`, `/health/ready`) | ✅ **2026-10-15** — anonymous, status word only; readiness = database, verified 503 during a real Postgres outage |
 | Structured logs + error contract | ✅ **2026-10-15** — JSON console logs outside Development with per-request TraceId; one access line per request (method, path, status, duration — no query string, no headers); unhandled exceptions → problem details with `traceId`, never the exception text; SQL command logging off outside Development |
 | API security headers + CORS | ✅ **2026-10-15** — nosniff, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `default-src 'none'` CSP, `Cache-Control: no-store` on `/api`. CORS off unless `Cors:AllowedOrigins` is set (Development lists the dev servers; before, localhost was allowed in every environment). TLS/HSTS belong to the TLS terminator |
+| Reference data + first-Admin bootstrap | ✅ **2026-10-15** — permissions and system roles seeded idempotently in every environment (were Development-only: a production install had none, and no way to create its first user). `Seed:AdminEmail`/`Seed:AdminPassword` create the first Admin outside Development only while the database has no users, 12+ char password, ignored with a warning afterwards. Verified on a fresh Production boot against empty Postgres |
 | Support policy (latest, latest-1) | ⬜ |
 | Server sizing guide | ⬜ |
 | Backup/restore + upgrade runbooks | ⬜ |

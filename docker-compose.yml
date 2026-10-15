@@ -54,7 +54,7 @@ services:
       Jwt__Issuer: recruitops
       Jwt__Audience: recruitops-api
       Jwt__Key: ${JWT_KEY:?set JWT_KEY in .env - must be at least 32 characters}
-      # Optional dev seed: creates one company + admin on startup when both are set.
+      # First Administrator — see .env.example (any environment: first run only, then ignored).
       Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-}
       Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
     ports:

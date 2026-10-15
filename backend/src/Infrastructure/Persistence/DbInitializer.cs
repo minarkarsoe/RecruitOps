@@ -2,30 +2,68 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using RecruitOps.Domain.Entities;
 using RecruitOps.Domain.Enums;
 
 namespace RecruitOps.Infrastructure.Persistence;
 
-/// <summary>Development-only seed of a single tenant + admin user, system roles, and permissions (Requirement R2).</summary>
+/// <summary>What a database needs before the API can serve it (ADR-0004: unattended installs).
+/// <para>Until 2026-10-15 all of this ran in Development only, so a production install had no
+/// permissions or system roles in its database and no way to create its first user.</para></summary>
 public static class DbInitializer
 {
-    public static async Task SeedAsync(IServiceProvider services, CancellationToken ct = default)
+    /// <summary>Production minimum for a bootstrap password: it creates the most powerful account
+    /// in the company, and it sits in a deployment file until someone removes it.</summary>
+    public const int MinimumBootstrapPasswordLength = 12;
+
+    /// <summary>Canonical permissions and system roles. Reference data, not test data: every
+    /// environment, every startup, idempotently.</summary>
+    public static async Task SeedReferenceDataAsync(IServiceProvider services, CancellationToken ct = default)
+    {
+        using var scope = services.CreateScope();
+        await SeedPermissionsAndRolesAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>(), ct);
+    }
+
+    /// <summary>Creates the company and its first Admin from <c>Seed:AdminEmail</c> /
+    /// <c>Seed:AdminPassword</c>.
+    /// <para><b>Development:</b> whenever that email is not yet a user — a convenience over a
+    /// disposable database.</para>
+    /// <para><b>Everywhere else:</b> only while the database holds no users at all — the first run
+    /// of an install. Once anyone exists the settings are ignored, with a warning, so a value left in
+    /// a deployment file can never mint a second Admin later. A password shorter than
+    /// <see cref="MinimumBootstrapPasswordLength"/> stops startup instead of creating a weak Admin.</para></summary>
+    public static async Task SeedAdminAsync(IServiceProvider services, bool firstRunOnly, CancellationToken ct = default)
     {
         using var scope = services.CreateScope();
         var sp = scope.ServiceProvider;
         var db = sp.GetRequiredService<AppDbContext>();
-
-        await SeedPermissionsAndRolesAsync(db, ct);
+        var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(DbInitializer).FullName!);
 
         var config = sp.GetRequiredService<IConfiguration>();
-        var email = config["Seed:AdminEmail"];
+        var email = config["Seed:AdminEmail"]?.Trim().ToLowerInvariant();
         var password = config["Seed:AdminPassword"];
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
             return; // nothing to seed without explicit, non-committed credentials
 
-        if (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == email, ct))
+        if (firstRunOnly)
+        {
+            if (await db.Users.IgnoreQueryFilters().AnyAsync(ct))
+            {
+                logger.LogWarning(
+                    "Seed:AdminEmail is set but this install already has users, so it was ignored. " +
+                    "Remove Seed:AdminEmail and Seed:AdminPassword from the deployment configuration.");
+                return;
+            }
+
+            if (password.Length < MinimumBootstrapPasswordLength)
+                throw new InvalidOperationException(
+                    $"Seed:AdminPassword must be at least {MinimumBootstrapPasswordLength} characters.");
+        }
+        else if (await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == email, ct))
+        {
             return;
+        }
 
         var company = new Company { Name = "Default Company", Slug = "default" };
         db.Companies.Add(company);
@@ -48,6 +86,7 @@ public static class DbInitializer
         db.Users.Add(admin);
 
         await db.SaveChangesAsync(ct);
+        logger.LogInformation("Created the first Administrator account ({Email}).", email);
     }
 
     /// <summary>Idempotently seeds permissions and system roles into database and links existing users without a RoleId to their corresponding seeded Role (Requirement R2).</summary>
