@@ -38,13 +38,45 @@ scoping** (`ADR-0003`), which is applied explicitly and can therefore be forgott
 3. Hard-to-reverse decision → write an ADR in `docs/decisions/`.
 4. Spec change → update the module doc **before** the code.
 
+## UI work starts from `design/` — not from a description
+
+`design/` is the source of truth for what the product looks like, the way `docs/` is for what it
+does. **Before building or changing any screen, open the matching file in `design/internal/` or
+`design/public/` and build against it.** Do not invent a layout when one is already drawn; if the
+screen you need is not there, say so rather than improvising a twenty-sixth style.
+
+- `design/internal/index.html` indexes the **21 internal screens** (plus the component sheet).
+  `design/public/` holds 4 more — `jobs`, `job`, `apply`, `offer-portal`. Counted 2026-08-29;
+  this line said "26 screens", which is the total HTML file count across both folders, not what
+  the internal index lists.
+- `design/internal/components.html` is the component sheet — buttons, inputs, pills, tables, empty
+  and loading states.
+- `design/internal/ds.js` holds the **V1.0 tokens** (ADR-0025) and `ds.css` the few things
+  utilities cannot express (the approval-chain rail, Burmese line-height, focus ring, skeletons).
+
+✅ **The kit and the apps now share one token vocabulary — copy from the kit directly.**
+`brand-*`, `ink-*`, `canvas`, `line`, `positive/warn/critical` all resolve in
+`packages/ui/tailwind-preset.js`. ADR-0025 step 3 landed 2026-08-27.
+
+> **This section said the opposite until 2026-08-29**, warning that a screen copied from the kit
+> "renders **unstyled**, not merely off-brand" and that step 3 was still the prerequisite. It had
+> been false for two days. Re-measured 2026-08-29: every legacy class in the whole SPA —
+> `bg-primary-*`, `text-surface-*`, `success/warning/danger/accent` — is **38 usages across
+> exactly 3 files**, all inside the two orphan folders the product owner parked
+> (`features/interviews/`, `features/requisitions/`). **Live code: zero.**
+>
+> Left as a record, because this is the second warning in this file to outlive its truth (see the
+> LSP warm-up note below). Both were undated absolutes about tooling, and both cost work before
+> anyone tested them. **When a ⚠️ here contradicts what you can measure in thirty seconds, measure
+> — then fix this file in the same change.**
+
 ## Stack
 
 - **Backend**: **.NET 10 (LTS)** / ASP.NET Core Web API — modular monolith, Clean Architecture (Domain / Application / Infrastructure / Api).
 - **Frontend**: **two apps** — Vite + React SPA (`frontend/internal`, authenticated dashboards) and Next.js SSR (`frontend/public`, job pages + Open Graph previews). Shared design system via `packages/ui`, shared API types via `packages/types`. npm workspaces at the repo root.
 - **Database**: PostgreSQL on AWS RDS, EF Core migrations, JSONB for customer-defined fields
 - **Object storage**: Cloudflare R2 behind an S3-compatible abstraction (MinIO for on-prem)
-- **Auth & Dynamic RBAC**: Self-issued JWT bearer (8h) carrying `sub`, `tenant_id`, the role claim (`Admin` / `HrDirector` / `Recruiter` / `HiringManager` / `Approver` / `Interviewer`) and `is_super_admin`. **Every request re-checks the token's account** (exists, active, same role and SuperAdmin flag) — `OnTokenValidated`. Permissions are **not** in the token: login returns the effective set (`permission:module:feature:action`) for the UI, whose `hasPermission` fails closed. Hiring endpoints are guarded by **role policies** (`RecruitmentStaff` / `InternalUser` / `AdminOnly` + `RoleScope`); `[HasPermission(...)]` guards only the RBAC endpoints (`/api/roles`, `/api/permissions`, `/api/users`). SuperAdmin bypasses `[HasPermission]`; Admin does **not** (it holds every permission except `system:manage`). SuperAdmin is never assignable through the API, and custom roles are not assignable until ADR-0021's decision.
+- **Auth & Dynamic RBAC**: Self-issued JWT bearer (8h) + refresh tokens. The access token carries `sub`, `tenant_id`, the role claim (`Admin` / `HrDirector` / `Recruiter` / `HiringManager` / `Approver` / `Interviewer`; a custom-role holder carries `Recruiter` — see ADR-0021) and `is_super_admin`. **Every request re-checks the token's account** (exists, active, same role and SuperAdmin flag) in `OnTokenValidated`. Permissions are **not** in the token: login and refresh return the evaluator's set (`permission:module:feature:action`) for the UI, whose `hasPermission` fails closed. `[HasPermission(...)]` guards the RBAC endpoints and, since ADR-0022, requisitions and approval chains — and the evaluator's answer is final (no role-claim fallback). The rest of the hiring surface is still guarded by **role policies** (`RecruitmentStaff` / `InternalUser` / `AdminOnly` + `RoleScope`). SuperAdmin bypasses `[HasPermission]` and is never assignable through the API.
 
 ## Repository Layout
 
@@ -71,7 +103,7 @@ packages/
 | Task | Command |
 |---|---|
 | Backend build | `dotnet build backend/src/Api` |
-| Backend test | `dotnet test backend/RecruitOps.sln` (323 tests passing: 65 Domain + 258 Api) |
+| Backend test | `dotnet test backend/RecruitOps.sln` (759 tests passing: 76 Domain + 683 Api) |
 | Backend format | `dotnet format` |
 | Backend build + test in Docker | `docker build --target test -t recruitops-test ./backend` |
 | Whole stack | `docker compose up --build` |
@@ -79,7 +111,7 @@ packages/
 | Public app dev | `npm run dev:public` (repo root) |
 | Frontend build | `npm run build` (repo root, all workspaces) |
 | Frontend typecheck | `npm run typecheck` (repo root) |
-| Frontend test | `npm run test` in `frontend/internal` (66 tests passing across 11 test files) |
+| Frontend test | `npm run test` in `frontend/internal` (441 tests passing across 50 test files; `frontend/public` 24 across 2) |
 
 > No local .NET SDK? `docker build --target test ./backend` compiles and runs the whole
 > suite inside the SDK image. New EF migrations: see `docs/architecture/local-development.md`.
@@ -101,6 +133,109 @@ packages/
 ### Git
 - Conventional Commits: `feat|fix|chore|refactor|test|docs(scope): description`
 - One logical change per commit. Don't mix backend and frontend changes in one commit unless the change genuinely spans both (e.g. a shared API contract update).
+
+## Code Intelligence & LSP Guidelines
+
+Navigate code by **symbol**, not by string match. When an LSP is available, prefer it over
+text search for anything that has a definition.
+
+- **TypeScript / JS / Next.js / Nest.js / Node.js** (`frontend/internal`, `frontend/public`,
+  `packages/ui`, `packages/types`): use LSP `goToDefinition`, `findReferences`, and `hover`
+  to trace types, DTOs, controllers, and React components across files. Especially important
+  for shared types in `packages/types`, which mirror backend DTOs — `findReferences` shows
+  every consumer of a contract before you change its shape.
+- **C# / .NET** (`backend/src/**`): use LSP to inspect `.cs` interfaces, dependency-injection
+  bindings, and class definitions. Use it to follow an Application interface to its
+  Infrastructure implementation rather than guessing from file names, and to find every
+  endpoint carrying a given `[HasPermission(...)]` policy.
+- **Python:** use the Pyright LSP to check type hints and module definitions. (No Python in
+  this repo today — this applies to scripts or tooling added later.)
+- Reserve `grep` and `glob` strictly for text searches or non-code files (`.json`, `.csproj`,
+  `.env`, `.md`, migrations SQL). Symbol lookups go through the LSP, on both sides, with no
+  warm-up step — `lsp_find_references` is complete from a cold call (measured 2026-08-15; see
+  below). `grep` remains the right tool for finding *strings* that are not symbols: permission
+  codes, route templates, config keys.
+
+### Setup
+
+The `lsp` MCP server is declared in `.mcp.json`; the language servers it drives are
+declared in `.lsp-mcp.json`. It exposes 29 `lsp_*` tools (`lsp_goto_definition`,
+`lsp_find_references`, `lsp_hover`, `lsp_call_hierarchy`, `lsp_rename`, …).
+
+| Piece | Package | Install |
+|---|---|---|
+| MCP bridge | `lsp-mcp-server` (root devDependency) | `npm install` |
+| TS/JS server | `typescript-language-server` (root devDependency) | `npm install` |
+| C# server | `csharp-ls` (global .NET tool) | `dotnet tool install --global csharp-ls` |
+
+`npm install` covers the two Node pieces. **`csharp-ls` is the one manual step** — it is a
+global tool, not a repo dependency, so each developer installs it once. Without it the
+TypeScript side still works and C# requests fail with a "server not found" error.
+
+Workspace roots resolve automatically: `frontend/internal` (and the other npm workspaces)
+via `tsconfig.json`/`package.json`, and `backend/` via `RecruitOps.sln`.
+
+### TypeScript references are complete cold — no warm-up needed
+
+> **This section previously said the opposite.** It documented a `grep` → `lsp_index_files` →
+> `lsp_find_references` warm-up as mandatory, on a measurement of "cold → 1 reference, 1 file".
+> Re-measured **2026-08-15**, that is no longer true, and following it wasted work *and* inverted
+> a diagnostic. Left here as a record: an undated measurement in this file outlived its truth,
+> and nothing would have caught it if it had not been tested directly.
+
+Measured **2026-08-15** on `hasPermission` in `frontend/internal/src/lib/auth.ts:169`, with **no**
+preceding `lsp_index_files` and `lsp_server_status` returning `[]` beforehand:
+
+- cold → **50 references across 15 files**, including `auth.test.ts`
+
+So call `lsp_find_references` directly. **A one-file answer now means the symbol really is
+unused** — treat it as a finding, not as a tooling artifact. (That distinction matters here: the
+orphaned `frontend/internal/src/features/requisitions/*` tree has zero importers repo-wide while
+carrying six test files, and the old heuristic would have told you to dismiss that as "not
+indexed yet".)
+
+`lsp_index_files` is still needed, for a different job: it is the prerequisite for
+`lsp_workspace_diagnostics` (which only sees opened files) and for `lsp_related_files imported_by`.
+It is not a prerequisite for reference search.
+
+**C# is complete from the first call too** — `csharp-ls` loads the whole solution at startup.
+Verified **2026-08-15**: `HasPermissionAttribute` returns **23 references across 7 files**, tests
+included. The trade-off is a slow first request while Roslyn loads the solution; `requestTimeout`
+in `.lsp-mcp.json` is raised to 120 s for that reason.
+
+That same query is the clearest illustration of why symbol lookup beats text search here: it
+resolved `[HasPermission("permission:users:users:read")]` attribute shorthand **and**
+`new HasPermissionAttribute(...)` in the tests as one symbol. `grep` needs two patterns for that
+and still cannot tell you they are the same thing.
+
+### ⚠️ The one real LSP trap: query shared types from the *consumer* side
+
+**This is now the only LSP caveat in this repo** — the TypeScript warm-up above was retired on
+2026-08-15, so do not read this as one caution among several. It is the single case where the LSP
+will hand you a confident wrong answer, and it was **re-verified on 2026-08-15**: `LoginResponse`
+queried from `packages/types/src/index.ts:33` still returns **exactly 1**.
+
+Each npm workspace gets its **own** `tsserver` process (servers start lazily, one per workspace
+root touched — `csharp-ls` on `backend/`, plus one each for `frontend/internal`, `frontend/public`,
+`packages/ui`, `packages/types`). A server only sees files under its own root, and that has
+one sharp consequence for `packages/types`:
+
+| Query from | Result for `LoginResponse` |
+|---|---|
+| `packages/types/src/index.ts` (where it's **defined**) | **1** — the declaration only. Every consumer is invisible. |
+| `frontend/internal/src/lib/auth.ts` (a **consumer**) | **5** — all local usages *plus* the declaration in `packages/types`. |
+
+References resolve *outward* through the `@recruitops/types` import, never inward. So the
+CLAUDE.md rule "find every consumer of a contract before you change its shape" **must not be
+run from `packages/types`** — that returns a confident, empty-looking answer.
+
+`@recruitops/types` is consumed by three workspaces — `frontend/internal`, `frontend/public`
+and `packages/ui`. A complete answer means repeating the query once per consuming workspace,
+or falling back to `grep` for the initial sweep and using the LSP to confirm each hit.
+
+Two smaller notes from the same check: `packages/ui` and `packages/types` have **no
+`tsconfig.json`** (they resolve via `package.json` instead) and still answer correctly; and
+Next.js App Router paths containing brackets — `app/jobs/[token]/page.tsx` — work fine.
 
 ## Guardrails for Claude
 

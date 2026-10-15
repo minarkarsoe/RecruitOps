@@ -3,74 +3,2624 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-15 (latest)
+## 2026-10-15 (latest) — security fixes integrated from `claude/dreamy-babbage-0zfr37`
 
-### 🔴→✅ RBAC security fixes, found by driving the running stack
-**Why:** the stack was run against real Postgres for the first time since Milestone 4, and a
-Hiring Manager's sidebar showed Users and Role Builder. Pulling on that thread found four defects,
-each reproduced before it was fixed and pinned by a test that failed first:
+**Why:** a session working from `main` (July 30) drove the stack as each role against real Postgres,
+found authorization defects, fixed them test-first and had two security reviews. Merged here into
+develop, keeping develop's design wherever it had moved on; only what develop still needed was
+ported. Each item was verified on develop's code.
 
-- **Critical:** `POST/PUT /api/users` with `"role": "SuperAdmin"` — or `"0"`, since `Enum.TryParse`
-  accepts numbers and `SuperAdmin = 0` — created a SuperAdmin. A custom role coded `"0"` did too.
-- **High:** a custom role of any other code became `Recruiter`, so a role with an empty matrix
-  read every candidate pipeline in the company. Custom roles are now buildable but not assignable
-  ([ADR-0021](../decisions/ADR-0021-role-assignment-and-custom-role-scope.md) — decision needed).
-- **High:** revoking a permission from a role never took effect for active users (no-op cache
-  invalidation + sliding expiry); a deactivated role kept granting its matrix.
-- **Medium:** the permission-aware UI never worked — the API sent no permissions and
-  `hasPermission` failed open. Login now returns the enforced set; the client fails closed. Making it
-  fail closed exposed six places where the seed matrices denied what the API's role policies allow
-  (a Dept-Head approver would have lost Approve); the matrices were aligned and the alignment is
-  pinned against the live policies.
+### 🔴→✅ Fixed on develop
+- **Critical — the user directory minted SuperAdmins.** `"role": "SuperAdmin"`, `"0"`, or a custom
+  role coded `"0"` (`Enum.TryParse` accepts numbers; `SuperAdmin = 0`). With develop's tenant
+  override, that reached other tenants. SuperAdmin is now never assignable; names match an explicit
+  list; custom codes are never parsed and must start with a letter ([ADR-0021](../decisions/ADR-0021-role-assignment-and-custom-role-scope.md)).
+- **High — revoking a permission from a role never took effect for active users** (no-op cache
+  invalidation, sliding expiry); a deactivated role kept granting its matrix.
+- **High — a JWT was never re-checked for its 8 hours:** a deactivated Admin's token could create a
+  new Admin. `OnTokenValidated` now requires the account to exist, be active and match the token.
+- **Directory guards:** role required on create (no silent Recruiter); no self role change; last-Admin
+  floor on demotion; SuperAdmin accounts' roles not managed here; the seeder no longer grants
+  `IsSuperAdmin`. **First-Admin bootstrap** outside Development (empty install only, 12+ char
+  password). **Case-insensitive login** (the directory stores lowercase; login compared exactly).
+  **Refuses a short or published JWT key** outside Development. `RoleScope.Parse` exact names only.
+- **Ops:** JSON logs + one access line per request outside Development; problem-details errors with
+  `traceId`; `Cache-Control: no-store` on `/api`; CORS off unless `Cors:AllowedOrigins` is set;
+  `GIT_SHA` stamped into builds for `/api/version`.
+- **SPA CSP + headers in `nginx.conf`** (fonts from Google Fonts allowed explicitly — verified under
+  real nginx, 22 page loads, zero violations); public-site headers in `next.config`.
+- **Users page:** never offers SuperAdmin or an inactive role; no role preselected on create (it was
+  "Admin"); a rename no longer resends the role.
 
-**Touched:** `UserService`, `RoleService`, `PermissionEvaluator`, `AuthService`, `RbacSeedData`,
-`LoginResponse`, `lib/auth.ts`, `UsersPage`; new suites `RoleAssignmentEscalationTests`,
-`PermissionRevocationTests`, `EffectivePermissionsTests`, `SeedMatrixMirrorsPoliciesTests`.
+### Taken from develop instead (not ported)
+Health/version endpoints, security-headers middleware, reference-data seeding, the fail-closed
+`hasPermission`, ADR-0022's permission model and seed matrices, the approval-chains page, the tenant
+switcher (develop made it real), CI test-count reporting, `docker-compose` running Development (its
+tripwire test), and `.agents/`.
 
-### 🔴→✅ Security review follow-ups
-**Why:** CLAUDE.md requires a security review of authorization changes. It cleared the fixes above
-and found older problems:
+### ⚠️ Open — decision needed
+A custom role holder still carries the `Recruiter` enum, so reaches every role-policy endpoint
+(pipeline, candidates, interviews, postings…) whatever the matrix says. Unchanged here so ADR-0022's
+custom approver roles keep working. Options in ADR-0021 (recommended: an explicit base role).
 
-- **A JWT was never re-checked for its 8 hours** — a deactivated Admin's token created a new Admin
-  account in the reproducing test. `OnTokenValidated` now requires the account to exist, be active
-  and match the token's role and SuperAdmin flag. `SessionRevalidationTests` is the first suite to
-  run on the real JWT scheme; every other suite swaps in a header-based test handler.
-- **A production install had no roles, no permissions, and no way to create its first user** —
-  all seeding was Development-only. Reference data is now seeded everywhere; the first Admin is
-  bootstrapped from configuration on an empty install only.
-- Directory guards (role required, no self role change, last-Admin floor on demotion, SuperAdmin
-  accounts not managed here, seeder no longer sets `IsSuperAdmin`); `RoleScope.Parse` exact names
-  only; user detail shows the enforced permission set; edit dialog no longer breaks on a
-  non-assignable current role.
+---
 
-### ✅ Second security review
-Of the follow-ups above: no Critical or High, none of the fixes bypassable. Fixed from it: login
-compared emails exactly although the directory stores them lowercased (anyone typing a capital
-got "wrong password"); bootstrap validates its email; the Development seed no longer crashes on a
-second seed email (unique company slug); **outside Development the API refuses a short or
-published signing key** (`.env.example`'s was usable by anyone); rejected sessions are logged;
-`docker-compose` defaults to Production; the create-user dialog no longer preselects Admin. Its
-Low items are recorded in FEATURE-STATUS.
+## 2026-08-26 → 2026-08-28
 
-Also found while verifying the SPA's new CSP: **the approval-chain builder went blank once a chain
-existed** (it read the now-paged `/users` as an array). Fixed; and the SPA/public-site security
-headers + CSP were added and verified under real nginx.
+> Heading was `## 2026-08-26` while carrying entries written on the 27th and 28th — several of
+> which date themselves "2026-08-28" in their own text. Relabelled as a range on 2026-08-28.
 
-### ✅ Operational foundations (Phase 1, built-in framework only)
-- `/health/live`, `/health/ready` (anonymous, status word only) and `/api/version` (signed-in;
-  version + commit via `GIT_SHA`) — ADR-0004's version-registry prerequisite.
-- JSON logs outside Development with per-request TraceId; one access line per request (no query
-  string, no headers); unhandled exceptions → problem details with `traceId`; SQL command logging
-  off outside Development.
-- API security headers on every response, `Cache-Control: no-store` on `/api`; CORS off unless
-  configured (the dev origins used to be allowed everywhere).
+### 🔎 "Upcoming" was showing last week's interviews — and the board cards were unreadable
 
-### 🧹 Housekeeping
-- Verified in the browser for the first time: the panel picker populates for a Recruiter, the blind
-  state with two panel members, `.mention` styling in a production build.
-- Removed the tenant-switcher mock (fake tenants incl. an agency; a header nothing read).
-- Untracked `.agents/` (agent transcripts with a personal local path); deleted the CI test-count
-  step that had printed a wrong number three times.
+Both found by using the screens, minutes apart, after everything about them was green.
+
+**The filter.** "Upcoming" and "All" returned the same three rows. The tab sends no `status`, and
+`InterviewService` read that as *every status except Cancelled*, so a recruiter opening Upcoming
+on 29 August saw rounds that had finished on the 17th and 20th. The behaviour was deliberate,
+commented on both sides, and pinned by a backend test named
+`The_Default_View_Is_Everything_Except_Cancelled` — which asserted the completed round **was**
+there. Everything agreed with everything except the word on the tab.
+
+Fixed in the service default rather than the tab, so the meaning stays in one place (the reason
+the frontend test already forbids restating it). The default is now **"rounds that have not
+concluded"** — Cancelled and Completed both out, both one click away. Two details kept
+deliberately: it stays an *exclusion*, so a status added to the enum later appears by default
+instead of vanishing; and it cuts on **status, not date**, because a Scheduled round whose time
+has passed is precisely the round someone must chase — a date filter would hide the work.
+Live afterwards: **Upcoming 1 · Completed 2 · All 3.**
+
+**The cards.** Too small to read, with text cut off. The contact line was `truncate`d to one
+clipped line and the cover note `line-clamp-2` — the latter cut mid-sentence *and* left a sliver
+of the third line showing, which reads as a rendering fault rather than a summary. The real
+constraint was the 264px column, which is what forced 13px type and truncation; widening it to
+304px is what let the rest be honest. Type up one step throughout, both truncations gone.
+
+That test asserts CSS classes, normally a smell, and is right here for a specific reason: both
+truncations are **CSS-only**, so the whole string sits in the DOM either way and
+`getByText(longNote)` passes whether or not a human can read it. A text assertion cannot tell
+*rendered* from *readable*. Mutation-proved by restoring each class.
+
+**Backend 678 · frontend 437.**
+
+### 👁 Opened the wired board in a browser — and it found what the tests could not
+
+The board, the drawer and the Smart Match fix all confirmed against the running stack for the
+first time (Chrome, HrDirector, the Product Designer posting with 4 candidates). Everything
+fixed this morning is visible: a **green "88% Match"** badge where a red "Low Match" used to sit,
+the recommendation sentence rendering, `IDENTIFIED CONCERNS (1)` where it used to claim "No
+critical gaps identified.", and the matched/missing skill split that had been thrown away.
+
+**And one defect nothing had caught: the note composer was on two tabs.** `ApplicationDebrief`
+bundles the thread under its rounds, and the drawer already has a Notes tab, so passing the
+debrief into `interviewsSlot` mounted the same composer twice. Fixed with `showNotes`.
+
+Worth recording precisely *why* the tests missed it: the wiring test asserted the Schedule button
+**existed**. It did. A duplicate of something correct is invisible to an assertion that something
+correct is present — "the suite is green" and "the screen is right" are different claims, and
+only one of them was checked. There is now a test for the absence too, mutation-proved.
+
+Also learned while getting there: **`recruitops.session` lives in `sessionStorage`**, which is
+per-tab. A login in one tab does not reach another, and it is why the first attempt at this kept
+showing the login page.
+
+### 🧹 The orphans, decided — delete the duplicates, wire the pipeline
+
+The product owner's call, after the audit put a number on it: **go by the design, remove what is
+not needed, and keep the workflow correct.**
+
+Answering "is anything else duplicated?" properly needed an import-graph walk from `main.tsx`,
+not a grep. Barrel files hide the chain: `features/pipeline/index.ts` imports every orphan, so
+each one *looked* imported while the barrel itself had no importer. Transitively, **20 files were
+unreachable — 3,268 LOC.**
+
+**Deleted** (all zero-importer): `features/interviews/` (604 LOC — a duplicate of the shipped
+`InterviewDetailPage`, same `blindedUntilYouSubmit`/`hiddenCount` API), `features/requisitions/`
+(660 LOC — richer than the shipped page but drawn by nobody; there is no requisitions-list screen
+in the kit), `FeatureGate` (a second gating mechanism; the Sidebar does it inline),
+`services/permissionService.ts`, `types/rbac.ts`, and later `usePipeline` + the pipeline barrel,
+which duplicated fetching the page does inline.
+
+**Wired**: `PipelineKanbanBoard` + `CandidateSlideOver` into `/jobpostings/:id`, from
+`design/internal/board.html`. The row list with a per-row "Move to…" select is gone; the board
+answers "where is everyone?" by shape, and the drawer opens beside it — the kit's own words:
+*"Detail opens beside the board rather than replacing it, so the recruiter never loses their
+place in the pipeline."*
+
+**Two bugs the wiring itself surfaced**, both invisible while the components had no consumer:
+
+1. `onSelectCandidate` handed back the **candidate** id. Everything opened from a card is keyed
+   by **application** — the drawer, `GET /applications/{id}/history`, `ApplicationDebrief` — and
+   a candidate who applied twice has one candidate id across both rows. The drawer simply never
+   opened. A component's API cannot be wrong until something calls it.
+2. The drawer can only *list* interview rounds; `ApplicationDebrief` is what schedules them.
+   Wiring the drawer as-is would have produced a finished-looking screen that **silently dropped
+   interview scheduling out of the pipeline** — a step of the workflow, not a control. Fixed with
+   an `interviewsSlot` prop, which is also where `board.html` puts "Schedule interview".
+
+Four new tests, both mutations killed (drop the slot → 1; revert the id → 3). The board's tab is
+now labelled "Interviews", the kit's word and the accurate one once it can schedule.
+
+**ADR-0025 step 3 closed** in the same change: the last 38 legacy token usages lived in the two
+deleted folders, which was the compat block's own exit condition. Removing it was *not* a no-op —
+`bg-zinc-100` shifted hue, because the class really was emitted, **from a comment**. Tailwind's
+content scanner is a regex over the file, not a parser, so a class name in prose is a usage.
+Reworded (twice — the first rewording quoted the class while explaining the problem). Final build
+diff: exactly one rule removed, `.bg-zinc-100`, which no element carries.
+
+**Nothing under `src/` is unreachable from `main.tsx` any more** apart from test fixtures and a
+test-only re-export shim. Verified in the built bundle, which is where this thread started:
+`AI Smart Match Analysis`, `Analyze Fit`, `Generate AI Summary`, `match-candidate` and
+`executive-summary` are all present. The AI surface ships.
+
+**Frontend 457 → 435 tests, 51 → 49 files.** Fewer tests and more covered software.
+
+### ⏸ OCR paused — an image is now refused, instead of silently becoming a blank candidate
+
+Product owner's call: pause it, decide build-vs-buy later. "Pause" cannot mean *leave it as it
+was* — as it was, the feature **claimed to work**. `.png` / `.jpg` were accepted, the extractor
+returned a fabricated `Image Document: cv.png | Dimensions: 800x600 | …` string, and the worker
+built a candidate out of it: no name, no email, no phone, a searchable resume text that described
+the file rather than the person, and a **Success** badge. So pausing meant making the failure
+visible.
+
+**Both upload paths now take PDF and DOCX only.** The rejection says *why* — deliberately, because
+"PNG is not supported" reads as a file-type quibble and sends the recruiter off to re-save the
+photo as a PDF, which lands in the identical empty-text path and wastes the trip.
+
+**A scanned PDF is the case that cannot be caught at upload** — it is indistinguishable from a
+text PDF until parsed. It is now **`Skipped`**, not Failed: nothing went wrong, and re-uploading
+the same bytes would behave identically, so "Failed — try again" would be a lie. That required a
+fourth outcome in `BulkResumeWorker`, whose comment had asserted the opposite:
+
+> *"Three outcomes, not four … A CV is never correctly left unprocessed — the reasons a file is
+> not turned into a candidate are all failures."*
+
+True until there was a file we correctly could not read. `BulkFileStatus.Skipped` — carrying the
+comment *"Nothing produces it today"* since it was written — finally has a producer, and the DTO
+already counted it, so the status screen needed no change.
+
+The extractor's image path returns **empty** rather than a placeholder, and
+`IDocumentTextExtractor` now documents the rule that makes that safe: **empty means "not read",
+never "read, found nothing"** — with a note not to reintroduce a placeholder, because a
+plausible-looking string is worse than an empty one, being undetectable.
+
+Skipped files **keep their bytes** (unlike Failed, which are deleted): a real person sent that CV,
+the recruiter is told it was kept, and enabling OCR later should be able to read it.
+
+9 new tests. Three mutations, each killed: removing the empty-text guard (4 tests), re-allowing
+images on the API (3), re-allowing them in the upload modal (1). The old PNG test had asserted
+`Assert.NotNull(result.ExtractedText)` — which cannot tell a CV from a description of a file, and
+so had held the fabrication in place rather than catching it. **Backend 670 → 678, frontend
+456 → 457.**
+
+> Not fixed, by decision: real OCR. Tesseract + Burmese traineddata, or a vision-model call —
+> either is a new dependency, and CLAUDE.md says ask first.
+
+### 📋 Status docs corrected — and a second thing that was never built at all
+
+Asked to fix the AI status after the audit found no AI endpoint reachable from the SPA. Doing it
+surfaced that `FEATURE-STATUS.md` and the Module 2 doc had **drifted in opposite directions**, so
+neither could be trusted as the answer to "what is built".
+
+`FEATURE-STATUS` claimed **"2.1–2.7 all built · ✅ API + UI"**. The module doc claimed 2.6 search
+was **"not started"** when `SearchService` and `pg_trgm` have shipped for weeks. One over-claimed,
+one under-claimed, and the two had never been read against each other.
+
+Both now say the same measured thing: 2.1/2.2/2.6/2.7 built · **2.4 Smart Match is API-only** ·
+**2.5 ships as a list**, its Kanban board and 360° view written and orphaned · **2.3 has no OCR**.
+
+That last one was not in either document. `DocumentTextExtractor.ExtractFromImageOrScannedAsync`
+does **no character recognition** — it reads the PNG header and returns
+
+```
+Image Document: cv.png | Format: PNG | Dimensions: 800x600 | Size: 41213 bytes
+```
+
+That is the path for every `.png` / `.jpg` / `.jpeg` **and every PDF with an empty text stream**,
+i.e. every scanned CV. Nothing about it is visible to the recruiter:
+
+- the placeholder is stored as `ResumeExtractedText`, so it is what **trigram search indexes** — a
+  photographed Burmese CV cannot be found, and searching `Image Document` returns all of them;
+- contact parsing is regex over that same string, so name/email/phone come back empty and a
+  **blank candidate is created**;
+- the file is reported **Success**, not Skipped.
+
+The known-gaps row said *"Burmese OCR accuracy unverified — deferred"*, which reads as *OCR exists
+and nobody measured it*. There is nothing to measure. Rewritten, and ADR-0009's evaluation plan
+noted as un-startable until an engine exists. **Not fixed here** — real OCR means a new dependency
+(Tesseract + Burmese traineddata, or a vision model call), and CLAUDE.md says ask first.
+
+> Twice in two days a status line has been more optimistic than the code, and both times the
+> check that caught it was cheap: read the function, or grep the shipped bundle. The pattern is
+> the same one behind the three AI contracts — **a claim nobody had compared to the thing it
+> describes.**
+
+### 🎯 `matchCandidate` — the third fictional contract, and the first one users could *see*
+
+The last AI endpoint written in the old style, checked with the method that had worked twice
+(OpenAPI first, then a live `200` from the running service). Same disease, worse symptom.
+
+```
+api returns:  matchScore, overallVerdict, matchedSkills, missingSkills,
+              strengths, concerns, recommendation
+spa read:     candidateId, jobPostingId, overallScore, recommendation,
+              strengths, gaps, criteria, suggestedInterviewQuestions, summary
+```
+
+`strengths` was the only field that matched. The other two contract bugs rendered *blanks*; this
+one had a whole UI built on it, so it rendered **wrong information confidently**:
+
+| what the recruiter saw | what the API had said |
+|---|---|
+| `undefined% Match` | `matchScore: 88` |
+| a **critical-red "Low Match"** badge | `overallVerdict: "Strong Fit"` |
+| "No critical gaps identified." | `concerns: ["Limited experience with Kubernetes…"]` |
+| (blank summary banner) | `recommendation: "Proceed to Technical Deep Dive Interview."` |
+| — | `matchedSkills` / `missingSkills`, never rendered at all |
+
+The badge is the sharp one. `recommendation` matched by **name** while disagreeing on **type** —
+the API sends a sentence, the SPA typed it as a four-member enum and `switch`ed on it, so every
+real verdict missed every case and fell to `default: 'danger' / 'Low Match'`. The strongest
+candidate in the pipeline was painted the same red as the weakest, and the score beside it read
+`undefined`. A name collision is worse than a missing field: a missing field is blank, a
+mistyped one is plausible.
+
+Fixed so the class cannot recur: **free text may be displayed, never decided on.**
+`getMatchBadgeConfig` now bands on `matchScore` alone and carries `overallVerdict` through as a
+label. `criteria` / `MatchCriterion` and `suggestedInterviewQuestions` are deleted rather than
+wired up — nothing produces a per-criterion breakdown, and interview questions come from
+`prepareDocument`'s InterviewKit. The skill split the API was already sending is rendered.
+
+`SmartMatchLiveContract.test.tsx` is new and holds a **verbatim capture of a live 200**, typed
+rather than cast, so the next drift fails to compile. Five tests, all red before the fix. Two
+deliberate mutations (verdict decides the colour; concerns always render empty) each killed by
+three tests. **Frontend 449 → 456.**
+
+> All three AI contracts in `packages/types` have now been checked against the running service.
+> None of the three was right. The common cause was not carelessness about any one field — it
+> was that **every test mocked the response in the shape the caller wanted**, so the fixtures and
+> the interfaces agreed with each other and nothing ever compared either to the API.
+
+### 🗑 `ClientDossier` deleted — and the sweep found the whole endpoint's contract was fiction
+
+Asked for: remove the agency-era `ClientDossier` document type (ADR-0001 removed clients on
+2026-07-27; there is nobody to send a dossier to). Removing it properly turned out to mean more
+than deleting a word.
+
+**`DocumentType` was an unvalidated `string` interpolated straight into the model prompt**
+(`GeminiApiClient` line 87). Deleting a value from a comment would not have stopped anyone
+sending it — and a caller-controlled string reaching a prompt is injection surface:
+`"InterviewKit. Ignore the above and …"` was a perfectly acceptable document type. It is a closed
+set now (`DocumentTypes.All`), validated in the controller, rejected with a 400 that names the
+alternatives.
+
+That validation exposed how loose it had been. **Five names existed for two documents**, and
+every one returned 200 because the switch had a default arm that answered anything:
+
+| name | where |
+|---|---|
+| `JdDraft` | the backend DTO's own comment |
+| `JdBrief` | `AiIntegrationTests` |
+| `JobDescription` | `packages/types` |
+| `OfferLetter` | `packages/types` — never implemented at all |
+| `Dossier` | `EmpiricalAiControllerChallengeTests` |
+
+Then, checking the response against the running service's OpenAPI — the method that settled the
+Executive Summary contract this morning — **all six fields of `DocumentPrepResult` were fiction.**
+It declared `candidateId`, `jobPostingId`, `documentType`, `markdownContent`, `htmlContent`,
+`generatedAtUtc`; the API returns `documentTitle`, `contentMarkdown`, `contentHtml` and nothing
+else. `lib/ai.test.ts` mocked the declared shape and asserted on `result.documentType`, a field
+that has never existed — the test agreed with the interface, and neither had been compared to the
+service.
+
+And the TS request carried a `language` the API record never had, so model binding discarded it:
+**the identical bug fixed on the Executive Summary this morning, sitting in the neighbouring
+method.** Removed from the interface with a note not to re-add it without the server side.
+
+Also swept out of the stub: `"B2B Recruitment Agency SaaS (RAaaS)"` in the fabricated candidate
+profile, agency-era in the same way, now asserted against.
+
+Safe because nothing consumes it: no screen calls `prepareDocument` — only `lib/api.ts`'s
+passthrough and tests. **Backend 608, frontend 449.**
+
+> `matchCandidate` is the last AI endpoint written in this style and is still unchecked. The
+> method that has now worked twice: `curl` the running OpenAPI and diff it against
+> `packages/types`, rather than reading either on its own.
+
+### 🔐 Security review of the interviews list found a real gap — panel reach is per *application*
+
+`security-reviewer` was run against `InterviewService.ListAsync` (the review CLAUDE.md asks for on
+anything touching authorization). Tenant filters, the ADR-0003/ADR-0018 predicate, `onlyMine`, the
+DTO's fields and the status parsing all held up. **One finding, and it was correct.**
+
+The list keyed panel reach on the **interview**. `IApplicationAccess.IsOnPanelForAsync` keys it on
+the **application** — and ADR-0017 §4 says so in as many words: *"An `InterviewParticipant` row
+grants its user read access to that one job application, **its interviews**, its notes."*
+
+So sitting on round 1 opens round 2's detail page, and the list hid round 2 from you: *"I can open
+it from the board but it is not in my list"* — the exact failure the test file's own header says
+it exists to prevent. **Under-disclosure, not a leak**, so nothing was exposed; but it broke the
+rule the list was written to honour, and the tests passed because none of them scheduled two
+rounds on one application with partial panel overlap.
+
+Fixed with two sets rather than one, because they answer different questions:
+
+| | scope | used for |
+|---|---|---|
+| `myApplicationIds` | application | what you may **see** — matches the detail rule |
+| `myInterviewIds` | interview | `isOnPanel`, `myScorecardOutstanding`, and `onlyMine` |
+
+The reviewer suggested application scope for `onlyMine` too. **Kept per-interview instead**: the
+control is labelled "Only mine", and listing rounds the caller is not sitting on would make the
+label untrue. A test now pins that distinction in both directions.
+
+Also took the reviewer's minor note: `Enum.TryParse` accepts any numeric string, so `?status=999`
+parsed to an `InterviewStatus` naming no member. Harmless — it matched no stored status — but a
+successful parse implying a real member is the kind of thing the next `switch` statement relies
+on. `Enum.IsDefined` now backs it up, with a test.
+
+**Backend 668** (+2). Mutation-proved: reverting visibility to per-interview fails the new test.
+
+### ☰ The header hamburger reaches the rest of the kit — 19 screens, not 24
+
+The collapsed-rail spec landed in `components.html` and shipped in the app, but only
+`interviews.html` was drawn with the new header; every other screen still showed the plain
+logo-and-wordmark. A reference kit whose screens disagree about a control that is on every one of
+them is worse than one that is uniformly out of date.
+
+**The count in the earlier note was wrong: it is 19, not 24.** Reconciled properly — the index
+lists **26** screens, which is **22 internal + 4 in `design/public/`**, and `design/internal/`
+holds 23 files (22 screens + `index.html`). Of those, `login.html` has no rail, `components.html`
+draws both rail states as specimens rather than a real rail, and `interviews.html` already had
+the header. That leaves 19.
+
+Safe to do in bulk because it was checked first: the header block is **byte-identical across all
+19** — one distinct variant, verified before any edit — so the replacement is exact rather than a
+regex over markup that only looks similar. The script asserts one match per file and fails
+otherwise.
+
+Also fixed, and it was a defect I had left: `interviews.html` referenced `.rail-scroll`, a class
+that **did not exist in the kit's `ds.css`** — the app had the rule, the kit did not, so the kit's
+own rail would have painted a light scrollbar on `bg-ink-900` exactly as the app's did. The rule
+is now in `ds.css` with the reasoning, and the 19 rails carry the class.
+
+Verified in the browser against the served kit: all 20 rails have the hamburger last in the
+header with `aria-expanded="true"`, 32×32 and 12px from the rail's right edge, the header on
+`px-3`, and the nav resolving `color-scheme: dark` + `scrollbar-width: thin`. Icon contrast
+against the rail is **9.13:1** — well past the 3:1 WCAG 1.4.11 non-text minimum. (A first
+measurement said 17.85:1; that was wrong, because it read `rgba(255,255,255,0.7)` as opaque white
+instead of compositing the alpha over `ink-900`.)
+
+### 🗓 The Interviews list — the screen the rail has always pointed at
+
+Asked for directly: *"why don't I see the interview tab beside the nav bar?"* The answer was that
+there was nothing to point at. The kit drew `interview.html` (one round, in detail) and put an
+**Interviews** item in every rail; the app had `/interviews/:id` and **no list**, no rail entry,
+and no list endpoint. A round could only be reached by opening a posting, expanding a candidate
+row and clicking through — so *"which interviews am I on this week, and whose scorecard is late"*
+had no answer anywhere in the product.
+
+Built kit-first, as CLAUDE.md requires: `design/internal/interviews.html` is screen **26**,
+indexed and linked, with the rules written into the markup. Then the API, then the page.
+
+**Scoping — the decision that needed the product owner.** Chosen: *the same rule the detail
+screen uses*. That turned out to mean more than "department scope": `IApplicationAccess`
+resolves **either** the candidate axis (ADR-0003 scoping bundled with the ADR-0018 exclusion)
+**or** sitting on the panel (ADR-0017 §4). Implementing department-only would have made the list
+disagree with the detail screen for exactly the cross-department panel members ADR-0017 §4 exists
+to allow — someone able to open a round from the board but unable to find it in their own list.
+
+The ADR-0018 half is the one that has shipped wrong three times, and the interface comment says
+why: *"Each service was asked to remember a two-part rule and the forgettable part is the half
+that is not about departments."* An excluded role gets **no standing reach here and still sees
+the panels it sits on** — deliberately not the early return `DeliveryLogService` uses.
+
+**No evaluation on this screen, at any layer.** `submittedCount` gives "2 of 3 in" — panel
+progress is public by design, the same rule as `HasSubmittedScorecard` — and nothing carries a
+rating, a recommendation or a summary comment. The DTO, the TypeScript interface and the page all
+say so in comments, because this list has no blind rule and must never need one.
+
+**Cancelled is hidden, not deleted**, and the default is expressed as *everything except
+Cancelled* rather than a hand-written pair — so `NoShow`, and any status added later, shows up
+instead of silently vanishing. Same reasoning as the rail storing which groups are shut.
+
+The nav item carries **no permission**, and `NavItem.permission` became optional to allow it. An
+Interviewer holds no `applications:*` permission at all; gating the link would hide it from
+exactly the people whose job it is. The API is `InternalUser` and decides reach per row, so
+someone with nothing to see gets an empty list rather than a hidden link.
+
+**11 backend tests, 13 page tests**, three mutation-proved on the security clauses: removing the
+ADR-0018 exclusion fails 1, removing the panel clause fails 3, showing Cancelled by default
+fails 1. One existing assertion was rewritten rather than made to pass — a milestone-2 test
+required that a user with no permissions sees *no* nav groups, which the unguarded Interviews
+link deliberately changes; it now pins that the gated groups stay hidden and the unguarded link
+is the only survivor.
+
+Verified live as U Aung Kyaw Moe (HiringManager, Engineering): 2 rows, both panels he sits on,
+the Sales & Marketing round correctly absent, `1 of 3 in` with **"Yours is not in"** and a
+**Score** action on the round whose scorecard he owes — and no evaluation content in the response
+or the DOM.
+
+⚠️ **This change touches authorization and wants human review** (CLAUDE.md). The new predicate is
+in `InterviewService.ListAsync`.
+
+### ✅ The three Module 3 behaviours, finally observed
+
+Flagged as "worth checking specifically" and carried unverified across five updates of
+`NEXT-SESSION.md`. All three pass — observed in the running app against the production build,
+not inferred from tests. No code changed; this entry records evidence.
+
+**Panel picker for a Recruiter** — 10 options render with name and role, matching the 10 active
+users exactly. The reason this needed eyes rather than a test: `ApplicationDebrief.tsx:491` does
+`.catch(() => setUsers([]))`, so a failed fetch produces an empty picker **visually identical to
+"no users exist"**. Working and silently broken look the same.
+
+**Blind state on `/interviews/:id`** — panel of three, one submitted. As a non-submitter:
+`blindedUntilYouSubmit: true`, `hiddenCount: 1`, `visible: []`, and the entire response is **112
+bytes with no trace of the submitter's evaluation** — withheld at the source, not merely hidden
+in the UI. Her `Recommendation` and `SummaryComment` appear nowhere in the DOM. Her *name* does
+appear, in the roster as "Scorecard in", which is deliberate: who has finished is public to the
+panel, what they wrote is not.
+
+**`.mention` survives the Tailwind build** — present in the CSS the container serves, with all
+declarations intact. Contrast 4.86:1, passes AA. Purging it would have rendered unstyled text
+rather than an error, which is why it was on the list.
+
+> **The finding that came out of doing this.** `/interviews/:id` routes to
+> `pages/InterviewDetailPage`. `features/interviews/BlindScorecardDrawer` — which owns the
+> blind-state *tests* — has **zero production importers**; only three test files import it. Those
+> tests have been passing while proving nothing about the screen that ships, on the module whose
+> correctness matters most. The parked orphan-folder decision now has a concrete cost attached.
+
+### 📦 A `.dockerignore`, and `npm ci` against the lockfile the images had been ignoring
+
+Two long-standing gaps in the frontend image builds, both raised earlier the same day.
+
+**1. There was no `.dockerignore` at all.** Every root-context build uploaded the entire working
+tree — **896 MB** of it: `node_modules`, `.git`, `backend/`, `docs/`, and a **52 MB
+`frontend/public/.next`** from the host. That last one is not merely slow. It lands in the image
+at exactly the path `next build` writes to, and `.next/routes-manifest.json` is where the frozen
+API rewrite lives — a stale host build sitting under the real one is the same trap that produced
+the ECONNREFUSED bug on 2026-08-27.
+
+Cold context transfer after the ignore file: **213 kB**. Deliberately a deny-list rather than
+`*` plus re-includes, because an over-eager allow-list fails at build time in a way that is
+tedious to debug; the file says which paths the two Dockerfiles actually copy.
+
+**2. `npm install`, with `package-lock.json` never copied into the context.** The repo carries a
+200 KB lockfile and the images ignored it outright, resolving dependencies afresh on every build.
+What CI tested and what the image shipped were free to differ, silently, with nothing to compare
+them against.
+
+Both Dockerfiles now copy the lockfile and every workspace manifest — including
+`frontend/public`'s in the internal image, which does not build it: `npm ci` validates the
+lockfile against the whole workspace graph and errors on a missing one. Manifests are copied
+before the sources, so the install sits in its own layer and editing a component no longer
+reinstalls hundreds of packages.
+
+Verified by building both images from scratch: `npm ci` installs 352 packages in 13–17 s, the
+Vite and Next builds succeed, the public image's `routes-manifest.json` still bakes to
+`http://backend:8080/api`, and the nginx image contains only `index.html`, `assets/` and
+`50x.html` — no host build output smuggled in.
+
+> Note for whoever touches `frontend/internal/tsconfig.json`: `"types": []` became load-bearing
+> in a second way here. `npm ci` installs the whole workspace graph, so `@types/node` is now
+> present in the internal image too — the divergence that broke the build this morning is closed
+> from both ends, and the tsconfig is what keeps the SPA from quietly depending on Node globals.
+
+### 🔴 CI had been red on every run since 2026-08-25 — ten tests that could not find the repo
+
+`ChallengerM12ConfigPrecedenceTests` failed **all ten** of its tests in CI, on **fifteen
+consecutive runs**, while passing locally. Not a flake and not new: a permanently red build
+nobody had chased.
+
+The class located its fixtures by walking up from `AppContext.BaseDirectory` looking for
+`backend/RecruitOps.sln`. That path only exists in a git checkout. CI runs this suite **inside
+the backend image** (`docker build --target test ./backend`), where the build context *is*
+`backend/`, so the solution lands at `/src` and there is no `backend/` directory above it
+anywhere. The walk ran off the top of the filesystem, `Assert.NotNull(dir)` failed, and every
+test in the class died before reaching its own assertions — including the ones guarding the
+rate-limit precedence fix they were written for.
+
+**The same shape as the `@types/node` divergence fixed the same day**: a green local run proving
+nothing about the packaged artefact. Two independent instances in one session is a pattern, not
+a coincidence — see the note at the end of this entry.
+
+Split by what each test actually needs:
+
+- **Eight** read only files under `backend/src/Api` (`appsettings*.json`,
+  `Properties/launchSettings.json`), which *are* in the image, just at a different path. They now
+  resolve through `SolutionRoot` — the directory containing `RecruitOps.sln`, which is
+  `<repo>/backend` in a checkout and `/src` in the image. They genuinely run in both.
+- **Two** read repo-level files (`docker-compose.yml`, `.env`). Those sit outside the backend
+  build context by design (ADR-0015), and copying them in would put repo configuration — and
+  potentially a `.env` — into a runtime image. They are marked `[RepoScopeFact]`, a
+  `FactAttribute` subclass that sets `Skip` at discovery when the solution root is not named
+  `backend`. xUnit 2.9 has neither `SkipUnless` nor `Assert.Skip` (both are v3), so subclassing
+  is the supported route.
+
+A **reported skip with a reason**, never a vacuous pass: the version of this that "worked" by
+letting `RepoRoot` return something harmless would have left both tests asserting nothing while
+showing green. `RepoRoot` still fails loudly if a real checkout has lost its `docker-compose.yml`.
+
+Verified by reproducing the CI failure locally first, then re-running the suite inside the image:
+
+| | Api tests | passed | failed | skipped |
+|---|---|---|---|---|
+| before | 593 | 583 | **10** | 0 |
+| after | 593 | **591** | 0 | 2 |
+
+Local (`dotnet test backend/RecruitOps.sln`) is unchanged at 62 + 593 = **655, nothing skipped** —
+the two repo-scope tests run there, which is the point.
+
+> **Pattern worth naming.** Both of today's CI/Docker failures were tests or type-checks that
+> silently depended on a path present in a checkout and absent in the image. When something
+> passes locally and fails in Docker, the first question is not "what is wrong with CI" but
+> "what does my machine have that the image does not".
+
+### 🗂 Nav groups fold, the toggle became a header hamburger, and the rail's scrollbar went dark
+
+Three corrections from the product owner on 2026-08-28, all of them right.
+
+**1. The toggle is a hamburger in the header, not a footer row.** It had been a full-width
+"Collapse" row above the user block, justified as "the toggle should not move". The header
+already had room beside the wordmark, and the dedicated row cost a 36px slot — enough to push
+the nav into overflow on a laptop. Footer went from 145px to **109px**. The "does not move"
+argument still holds, it just holds for the header too: the hamburger occupies the same header
+slot in both states.
+
+**2. The rail's scrollbar was the browser's light one, on `bg-ink-900`.** On Windows that is a
+full-width grey trough with stepper arrows, which is what the screenshot showed. Fixed with
+`color-scheme: dark` + `scrollbar-width: thin` on the nav (`.rail-scroll`).
+
+`ds.css` says product UI must not reinvent the scrollbar, and that is right — this does not.
+`color-scheme` is the standard one-property way to tell the platform "this subtree is dark" so
+it renders *its own* dark furniture. No colours invented, so it stays correct under a future
+theme and under forced-colors. `.board-scroll` in the kit already uses `scrollbar-width: thin`.
+
+**3. Parent/child groups — built, not deferred.** I read "ဒါက ငါနောက်ပိုင်း ထပ်တိုးလာရင်အတွက်ပါ"
+as *defer this*; it was the **reason** for wanting it. The headings are now buttons that fold
+their children away, with two rules that carry most of the risk:
+
+- **What is stored is the SHUT set, not the open set.** A group shipped in a later release must
+  arrive open for users who already have a preference saved — storing the open set would hide
+  new navigation from exactly the people least likely to go looking for it.
+- **A fold never hides the page you are on.** A group holding the active route stays open however
+  it was left, and folds once you navigate away. Verified live: on `/delivery`, folding
+  "Recruitment" records the preference but keeps the group open; navigating to `/users` then
+  applies it. Otherwise the rail stops answering "where am I".
+- **No folding at 64px** — there is no readable heading to fold, and hiding items behind an
+  invisible parent strands them. Narrowing the rail is already the compaction.
+
+Measured live: folding one group cleared the overflow (572px → 555px against a 555px viewport
+slot). **20 tests** on the rail now, mutation-proved — removing the active-route override fails
+2, and applying the accordion while collapsed fails 1.
+
+Kit updated to match in the same change: `design/internal/components.html` now draws the
+hamburger in both header states, a folded group with its chevron and `hidden` panel, and the
+rules for both behaviours.
+
+### ↔️ The nav rail collapses to 64px — drawn in the kit first, then built
+
+Requested 2026-08-28 after the scroll fix below. The product is table-heavy and the rail is a
+fixed 224px on every screen; Pipeline and Analytics are the screens that want the width back.
+
+**The kit did not draw this state, so the kit got it first.** `design/internal/components.html`
+gains a "Nav rail — collapsed state" section showing both widths side by side plus the rules
+that govern the collapsed one. Building it only in `Sidebar.tsx` would have made the app the
+twenty-sixth style and left `design/` — the source of truth for what the product looks like —
+describing a rail that no longer exists.
+
+What the collapsed state keeps, and why:
+
+- **64px, not narrower.** With `mx-2` that leaves a **48×36** hit target, measured in the
+  browser — comfortably above the 24×24 WCAG 2.5.8 AA minimum.
+- **`aria-label` *and* `title` on every link.** They serve different audiences: `title` is the
+  mouse's tooltip, `aria-label` is what a screen reader announces once the visible text is gone.
+- **A hairline between groups instead of a heading.** The `2xs` uppercase headings genuinely
+  cannot be read at 64px; the rule keeps the grouping they carried. No rule above the first
+  group — it would separate it from nothing.
+- **The toggle does not move.** Same slot in the pinned footer in both states. A control that
+  relocates itself when you use it is a bad control.
+- **The preference persists**, in `localStorage` — deliberately *not* the `sessionStorage` that
+  `auth` uses. That is a security trade-off about a bearer token dying with the tab; this is a
+  width preference, and one that resets every visit is not a preference. Every access is
+  try/caught, because Safari private mode throws on `localStorage` outright.
+- **Width is not animated.** Transitioning it relayouts the content pane every frame, and the
+  wide tables this feature exists for are exactly where that costs most.
+
+Measured in a browser against the production build: 224px → **64px**, 11 links all carrying both
+labels, **3** rules for 4 groups, preference surviving a reload, and Sign out still on screen
+with 3000px of content.
+
+**10 tests**, three of them mutation-proved. One mutation is worth recording because it failed
+the *test*, not the code: dropping `aria-label` entirely left all ten green, because the
+accessible-name algorithm falls back to `title`. The suite now asserts both attributes directly
+rather than trusting `getByRole({ name })` — which had been quietly proving something weaker
+than it claimed.
+
+**The accordion / parent-child nav was explicitly deferred by the product owner** to whenever the
+rail grows. Not built. See `NEXT-SESSION` §4b.
+
+### 🧭 The sidebar scrolled away with the page, taking Sign out with it
+
+Reported 2026-08-28 from Scorecard Templates: on any page taller than the viewport you had to
+scroll the whole document to reach the user block and **Sign out** at the bottom of the rail.
+
+The rail's own internals were already right — `nav` is `flex-1 overflow-y-auto` with the footer
+as its sibling. The fault was one level up, in `AppLayout`: both the outer element and the shell
+row used **`min-h-screen`**, so the shell grew to the height of the tallest page and the rail
+grew with it.
+
+`design/internal/board.html` — and all 25 kit screens — use the opposite: `body.overflow-hidden`
+around `div.flex.h-screen`. The shell is exactly one viewport and the **content pane** scrolls
+inside it. Adopted that: `h-screen overflow-hidden` on the shell, `min-h-0` on the row (without
+it a flex item's default `min-height:auto` floors it at content height and the inner
+`overflow-y-auto` never engages), and `overflow-y-auto` on the content column.
+
+Measured in a real browser against the production build, with 3000px of filler in `<main>`:
+
+| | aside height | Sign out at | reachable without scrolling |
+|---|---|---|---|
+| before | 3124px | y = 3080 | ✗ — 2392px of scrolling |
+| after | 720px (= viewport) | y = 676 | ✓ |
+
+After the fix the content pane scrolls (verified to 2000px) while the rail and the sticky header
+both stay put. **4 new tests** in `AppLayout.test.tsx`, mutation-proved — reverting to
+`min-h-screen` fails 3 of them. They pin the class contract, not pixels, and say so: jsdom does
+no layout, so the geometry above was measured in a browser and is recorded in the test file
+rather than asserted.
+
+Not changed, because the kit does not draw them: a collapsible rail and nested parent/child nav
+groups. Both were raised in the same report and both are design-system additions affecting all
+25 screens — see the note in `NEXT-SESSION.md`.
+
+### 🐳 The Docker image built code the local build accepted — `@types/node` was the difference
+
+`docker compose build frontend-internal` failed on `.at(-1)` in two Executive Summary test files
+with `TS2550: Property 'at' does not exist`. The same source type-checked locally, and kept
+type-checking under `tsc -b --force` with the incremental cache deleted — so this was **not**
+staleness.
+
+**The cause is workspace hoisting.** `frontend/internal/tsconfig.json` declares
+`lib: ["ES2020", ...]`, and `Array.prototype.at` is ES2022. It resolved locally anyway because
+`@types/node` — a devDependency of **`frontend/public`**, not of `frontend/internal` — is hoisted
+to the repo root by npm workspaces, and it ships a compatibility shim declaring
+`interface Array<T> extends RelativeIndexable<T>`, which adds `.at()` **regardless of `lib`**.
+`frontend/internal`'s tsconfig had no `types` restriction, so tsc picked it up.
+
+The internal image's build context is the repo root but copies only `package.json`, `packages/`
+and `frontend/internal/` — never `frontend/public/`. So `@types/node` is absent in the image and
+the identical source is rejected. Verified with `tsc --listFiles`: the local program loads libs
+only up to `lib.es2020.*`, and `lib.es2022.array.d.ts` is never in it.
+
+Two fixes, because the first alone would leave the trap armed:
+
+1. The two call sites use `calls[calls.length - 1]` instead of `.at(-1)`, honouring the declared
+   ES2020 target rather than an accident of hoisting.
+2. **`"types": []` in `frontend/internal/tsconfig.json`** — the real fix. This is a browser SPA
+   and has no business seeing Node globals. It makes the local typecheck match the image's
+   exactly, so "passes locally, fails in Docker" cannot recur for this class. Measured: zero
+   errors under `types: []`, and triple-slash `/// <reference types="vite/client" />` in
+   `src/vite-env.d.ts` is unaffected (the option gates only *automatic* inclusion).
+
+**A green local typecheck was not evidence the image would build.** It is now.
+
+Touched: `frontend/internal/tsconfig.json`, `CandidateSlideOverAi.test.tsx`,
+`Candidate360M2EmpiricalChallenger.test.tsx`.
+
+Images rebuilt and the stack recreated (no volume flags — `pgdata` and `miniodata` untouched;
+row counts confirmed identical afterwards). Verified against the running stack: the backend
+publishes `language`; the internal SPA serves a new bundle carrying the header-search fix and no
+tier-badge strings; the public app's `routes-manifest.json` is baked to `http://backend:8080/api`
+and SSR-renders a real job page at `/jobs/<token>` (200). `/` on the public app returns 404 — it
+has only ever had the one route, pending `app/not-found.tsx`.
+
+### 🇲🇲 Burmese output actually works now — `language` reaches the model
+
+The EN / MY / Bilingual selector has been on the Executive Summary panel since Module 2, sending
+a `language` field on every request. The API's request record never had one, so **model binding
+discarded it every single time** — the control looked like it worked for months and never changed
+a single response.
+
+`GenerateExecutiveSummaryRequest.Language` now exists and becomes a prompt instruction.
+**Burmese is requested as Unicode explicitly**, because a model asked for "Burmese" can return
+Zawgyi — which renders as garbage, never matches a search, and is indistinguishable from Unicode
+to anything that does not check (ADR-0009).
+
+- `my` → the whole response in Burmese.
+- `bilingual` → English first, then Burmese, separated by a blank line, in **every** field.
+  English leads so a reader who only reads English isn't made to scroll past a script they cannot
+  read to reach their own.
+- unknown value → English, not a 400. The API is not the place to reject a language code the UI
+  may add next week, and a 400 would turn a cosmetic mismatch into a broken screen.
+
+**The development stub honours it too**, and that is deliberate: without an API key — which is
+every developer machine — the selector would otherwise look broken, and "it doesn't work locally"
+is how a working feature gets reported as a bug. One test asserts `X-Ai-Simulated` still appears
+on **every** language branch: fabricated AI output has sat under a clean audit in this project
+before, so the marker must survive the new branch, not just the default path.
+
+**11 backend tests**, mutation-proved — making the stub ignore `Language` fails 6 of them. One
+test exists purely because the original bug was *absence*, not malformation: a test that only
+checked the field parsed would have passed against it, so `The_Request_Binds_Language_Instead_Of_Discarding_It`
+compares two responses and asserts they differ.
+
+Verified against the live service after rebuilding the container — `language` is now in the
+published OpenAPI schema alongside `candidateId`, `jobPostingId` and `tone`.
+
+⚠️ The Burmese strings in the stub are a **developer placeholder pending native review**, the
+same caveat the design kit carries.
+
+**Backend 655/655** (+11), **frontend 435**, 0 warnings, typecheck clean.
+
+### 🔌 The Executive Summary contract was fiction in both directions
+
+The backlog called this "agency-era vocabulary in a shipped contract". It was worse: **the SPA
+and the API had never agreed on this endpoint at all.** Verified against the running service's own
+OpenAPI document, not by reading code:
+
+| | API accepts / returns | SPA was sending / reading |
+|---|---|---|
+| Request | `candidateId`, `jobPostingId`, **`tone`** | `candidateId`, `jobPostingId`, **`audience`**, **`language`** |
+| Response | `headline`, **`executiveSummary`**, **`keyHighlights`**, **`recommendedInterviewQuestions`** | `headline`, **`summary`**, **`keyStrengths`**, **`suggestedInterviewQuestions`** |
+
+`audience` and `language` were **discarded by model binding** — the selectors changed nothing.
+**Only `headline` ever matched on the response**, so the panel rendered a headline over three
+blanks, plus a "Burmese Enabled" badge driven by an `isBilingual` field the API has never
+returned.
+
+**Why nobody caught it:** `ai.test.ts` mocked the response in the *frontend's* shape. The test
+passed and proved nothing. That is the same failure the `ApprovalChainsPage` test comment warned
+about — a mock tuned to the caller's wishes is not a test of a contract — and it recurred one
+module over. Every rewritten mock now carries the API's real field names.
+
+**`audience` is deleted, not wired up.** It was `'client' | 'internal'`, and clients were removed
+by ADR-0001 on 2026-07-27 — there is no client portal for a summary to be made safe for. Wiring it
+would have entrenched a concept the product does not have. *(Product owner's call, asked before
+changing a shared contract per CLAUDE.md.)*
+
+`packages/types` now mirrors `AiIntegrationDtos.cs`, which is what CLAUDE.md always said it did.
+The typechecker found all 10 consumers built against the phantom shape — a useful demonstration
+that the types were load-bearing and simply pointed at the wrong thing.
+
+⚠️ **`language` remains a control the request does not carry.** It is kept rather than deleted
+because bilingual output is a real requirement (ADR-0009) and wiring it needs a backend field;
+deleting it would remove the only Burmese affordance on the panel. It no longer *sends* a value
+for binding to throw away, and **three tests pin the gap** so it is visible rather than implied by
+a control that looks like it works.
+
+Mutation-proved: putting `audience` and `language` back on the wire fails 3 tests.
+**434 frontend tests** (410 internal + 24 public), typecheck clean, both apps build.
+
+### 🗑️ The tier badge is gone — MIGRATION-PLAN step 5
+
+`Badge` still carried `gold` / `silver` / `bronze`, which rendered `ClientTier` — an agency-era
+concept **deleted by ADR-0001 on 2026-07-27**. No screen had rendered them since. Only three test
+files kept them reachable, which is circular: the tests existed because the variants did.
+
+This was not a judgement call — `MIGRATION-PLAN.md` **step 5 says "remove tier badge"** and had
+been sitting unchecked for a month. The other half of that step, revising
+`RecruitOps_Design_System.md`, landed yesterday.
+
+Removed with them: **the crown icon `Badge` injected on its own** whenever `variant="gold"` and no
+icon was passed. A badge now shows an icon only when the caller supplies one, which is the rule
+every other variant already followed.
+
+They were also **the only hard-coded hexes left in the file** (`#FBF3E1`, `#5A6872`, `#8C5B32`
+and friends) — they predated the token system entirely and could never have been measured against
+it. Every remaining variant is a V1.0 token pair.
+
+The three test cases were **retargeted, not deleted**, because two of them pinned behaviour that
+outlived the variants: a caller-supplied icon still renders, and a Badge draws no icon of its own.
+That second assertion is new — nothing previously proved the crown was the *only* automatic icon.
+
+**644/644** backend, **433** frontend, 0 build warnings, typecheck clean.
+
+### 🩹 The last build warning
+
+`CS8604` in `ApplicationFormSchema.cs`. `ApplicationFormField.Key` is declared non-nullable but
+arrives from `JsonSerializer.Deserialize`, where a document omitting it leaves the property null.
+The loop handled that at the regex check (`field.Key ?? string.Empty`) and then passed the raw
+value to `HashSet<string>.Add` four lines later.
+
+Not a live bug — a null key fails the pattern check and returns before reaching the `Add` — but
+the null-handling was in one of two places that needed it. Coalesced once into a local. **The
+backend now builds with 0 warnings.**
+
+### 🧮 CI reports frontend test counts — and catches a suite that stops running
+
+The backend has had a counts table since run #4. The frontend had a bare green tick, and that
+asymmetry hid something specific:
+
+> **`npm run test --workspaces --if-present` exits 0 when a script is missing.**
+
+So a workspace whose tests stopped running — script renamed or removed, or a vitest `include`
+glob that quietly stops matching — is **indistinguishable from one that passed**. `frontend/public`
+had no tests at all until yesterday and nobody noticed; with a second workspace now in the suite,
+this step is what stops that being true again silently.
+
+The new `Test counts` step prints a per-workspace table and **fails the job** if a workspace that
+declares a `test` script produced no vitest summary. The expected list is derived from
+`package.json` rather than hard-coded, so adding a workspace extends the check automatically and
+removing a `test` script is caught instead of shrinking the suite unnoticed.
+
+**Verified by extracting the script back out of `ci.yml` and running it against four logs** — not
+by reading it:
+
+| Case | Expected | Got |
+|---|---|---|
+| Both suites pass | table, exit 0 | ✓ 432 passed |
+| Public suite failing | `FAILED` row, exit 0 | ✓ 430 passed, 2 failed |
+| Public suite absent | `DID NOT RUN`, exit **1** | ✓ |
+| No log at all | exit **1** | ✓ |
+
+Two rendering bugs were found and fixed by testing the *failure* paths rather than the happy one:
+vitest's failing summary is `2 failed | 22 passed (24)`, and that **pipe is a Markdown column
+separator** — unescaped it split the row into six columns, so the report rendered as garbage
+exactly when something had gone wrong. Output encoding is also pinned to UTF-8 rather than
+inherited, after em dashes came back as replacement characters.
+
+⚠️ **`set -o pipefail` on the test step is load-bearing.** Piping to `tee` otherwise makes the
+pipeline exit code `tee`'s, which is always 0 — a failing suite would report green. Verified both
+ways locally. This is the same trap the backend summary step's own comment describes, one job down.
+
+### 🔎 The header search box wrapped its own placeholder onto two lines
+
+Reported from a screenshot. "Search or jump to…" was breaking across two lines *inside* a
+32px-tall control, so the top bar had a squashed two-line box where a single-line one belongs.
+
+Reproduced and isolated by measuring the real markup against the real built stylesheet and font
+(served from `frontend/internal/dist`), rather than by eye:
+
+| Case | Label height | Lines |
+|---|---|---|
+| **Shipped** — no `whitespace-nowrap`, `lg:w-56` | **40px** | **2** ✗ |
+| `whitespace-nowrap`, `lg:w-56` | 20px | 1 ✓ |
+| **Fix** — `whitespace-nowrap`, `lg:w-64` | 20px | 1 ✓ |
+
+A 40px label in a 32px box is exactly the screenshot. The control holds an icon, a label and the
+`Ctrl+K` chip inside a fixed width, and at `w-56` they came to ~222px inside 224px — two pixels
+of slack, so any font-metric difference wrapped it.
+
+`whitespace-nowrap` alone fixes the wrap, but two pixels is not a margin; `lg:w-64` gives the
+control real room. **The kit's own search boxes are `w-56` and that is not the discrepancy** —
+they are plain inputs with no shortcut chip competing for the width. This control is not drawn
+in the kit at all, so there was no spec to follow and none broken.
+
+A new `internal-dist` entry in `.claude/launch.json` serves the production build for exactly this
+kind of check — a rendered control against the real stylesheet, with nothing rebuilding underneath
+it.
+
+### 🐛 The Dropdown question type could not be configured by typing
+
+**Found by the first test ever written for `FormFieldBuilder`.** The comma-separated choices
+input took its value from `options.join(', ')`, so every keystroke was split, trimmed, filtered
+and re-joined *before the next one arrived*. The moment a recruiter typed a comma it was parsed
+into a separator, dropped as a blank entry, and **erased under the cursor**.
+
+Proved by probing both input paths against the unfixed component:
+
+| Input | Result |
+|---|---|
+| **Paste** `Yangon, Mandalay` | `["Yangon","Mandalay"]` ✓ |
+| **Type** `Yangon, Mandalay` | `["YangonMandalay"]` ✗ |
+
+The parser was always fine; the controlled round-trip was not. A `select` needs at least one
+option to pass `ApplicationFormSchema.TryParse`, so the field type was not broken outright —
+it was silently limited to **one choice**, unless you happened to paste. A dropdown with one
+choice is not a dropdown.
+
+Fixed by giving the raw text its own local state in a small `OptionsInput`, seeded once per
+field. The stored schema stays clean while the text being typed still has a dangling comma in
+it. Regression-tested; reintroducing the derived value fails 2 tests.
+
+### 🧪 `RequisitionFormPage` and `FormFieldBuilder` have tests — 33 of them
+
+Module 1–2's largest untested logic, and the two components CLAUDE.md named. **Both found
+something.**
+
+**`FormFieldBuilder` (20 tests)** is where a TypeScript component and a C# validator have to
+agree with nothing checking that they do, so every assertion quotes the rule in
+`ApplicationFormSchema.cs` it mirrors: the key pattern, the 20-field ceiling, the six field
+types, at-least-one-option, no blank options. Two schemas the builder can still emit that the
+server rejects are pinned rather than fixed, because both are two clicks away and the fix is a
+UX decision:
+
+- a **freshly added question has a blank label**, which `TryParse` rejects;
+- **switching a question to Dropdown leaves it with no options**, which `TryParse` also rejects.
+
+⚠️ A third is pinned as an outright defect: the generated key is `field_${Date.now().toString(36)}`,
+so **two questions added inside the same millisecond get the same key** and the server rejects
+the entire schema with "used more than once" — the recruiter loses the save, not one field. Not
+fixed here: changing the key format touches keys already persisted in JSONB answers, so it is a
+decision about existing data.
+
+**`RequisitionFormPage` (13 tests)** covers create-vs-edit sharing one component, template
+application (`f.title || t.title` — a template fills a blank title but never overwrites one),
+lookup failures falling back to an empty list without crashing, and `salaryBudget` defaulting to
+`null` rather than `0` (the threshold rule reads those differently).
+
+⚠️ It also pins a **comment that describes behaviour the code does not have**. Line 49 reads
+*"Bounce rather than let someone fill in a form the API will reject with 409"* — but on a
+non-Draft requisition it only sets an error string. No redirect, no disabling. The test drives
+the whole path: retype the title, press Save, and the PUT really is sent and really returns the
+409 the comment promises to avoid. Pinned as-is; whether it should redirect, disable, or hide the
+form is a product decision.
+
+Mutation-proved: emitting `"[]"` instead of `null` kills 1, reintroducing the comma bug kills 2,
+letting a template overwrite a typed title kills 1. All restored.
+
+**Frontend total is now 432** (408 internal + 24 public), typecheck clean, both apps build.
+
+### 🧪 `frontend/public` has tests — 24 of them, and the first one found a bug
+
+**Why:** it had **none**, and it is a stranger's only view of the product. That is exactly how
+the Docker rewrite bug shipped the day before: browser-side API calls were dead in a container
+while SSR kept working, so the page *looked* perfect and nothing exercised the difference.
+
+**The first test file found a second, latent bug in the same file.** `api()` built its headers as
+`{ 'Content-Type': 'application/json', ...init.headers }` and then spread `...init` **after** it —
+which replaces the whole `headers` key with the caller's raw object, discarding the merge. Nothing
+passes headers today, so it never fired; the next caller to add one would have sent a JSON body
+with no content type and had it rejected or misparsed. `headers` now comes last.
+
+24 tests across two files:
+
+- **`lib/api.test.ts`** pins the server-vs-browser base-URL branch — the *class* of bug behind the
+  Docker failure. A Server Component has no page origin so it needs an absolute URL; the browser
+  needs a relative one so the call is same-origin and hits the rewrite. One test asserts the two
+  **must not collapse into the same value**.
+- **`ApplicationForm.test.tsx`** covers the contact rule (email *or* phone, whitespace doesn't
+  count), `customFieldsJson` being `null` rather than `"{}"` when a posting has no questions,
+  every custom field type, `required` mirroring, the select's empty first option, and the success
+  state replacing the form so it cannot be submitted twice.
+- **One test exists purely as a leak guard:** the catch block deliberately shows a generic
+  message, and the test asserts none of the server's wording — status code, exception text,
+  service name — reaches a public page.
+
+**Mutation-proved, all three restored afterwards:**
+
+| Mutation | Tests killed |
+|---|---|
+| Collapse the server/browser base-URL branch | **3** |
+| Echo the API error to the page | **1** (the leak guard) |
+| Remove the contact rule | **2** |
+
+Config mirrors `frontend/internal`'s deliberately — a second testing idiom in one repo is a thing
+to keep in sync forever. No new third-party packages: every dependency was already installed at
+the root and used by the sibling workspace. **CI needs no change** — the root `test` script fans
+out with `--workspaces --if-present`, so adding the script is enough. Frontend total is now
+**399** (375 internal + 24 public), typecheck clean, both apps build, and the rebuilt container
+verifies live: SSR job page 200, browser-side API path 200.
+
+### 🧹 Two dead compat aliases deleted from the preset
+
+`font-display` and `shadow-pop` are gone from `packages/ui/tailwind-preset.js`. Both existed only
+so old class names kept rendering during the V1.0 migration, and both had **0 live usages**
+repo-wide.
+
+**Proved inert rather than assumed:** the internal app's built stylesheet hashes to
+**`index-DJXXbcKM.css` before and after** — the CSS output is byte-identical, which is what an
+alias nothing references should produce. `font-display` and `shadow-pop` now emit no CSS at all,
+the correct outcome for class names referencing a typeface and an elevation tier this system does
+not have. Typecheck clean, both apps build, **375/375** frontend tests pass.
+
+The preset's comment claiming **167** `font-display` usages went with them; it was two migrations
+stale.
+
+Also corrected in the same block: **the compat layer's exit-condition grep over-reports and cannot
+reach zero as written.** It matches comment prose as well as class names — 43 reported, 38 live.
+The comment now says so and gives a per-file check, because a count that cannot reach zero is not
+an exit condition. The live 38 are entirely inside the two parked orphan folders, which is the
+only thing still blocking the block's removal.
+
+### 📘 The product's design doc moves to V1.0 — ADR-0025 is now fully adopted
+
+**Why:** `RecruitOps_Design_System.md` was the **last** place in the repo still describing "Clear
+Pipeline", and it is the document an engineer reads *before* building a screen — so it was
+actively instructing people to use `primary-600`, a class that resolves nowhere. It was named in
+**step 3**'s scope ("the preset, the two frontends, **and `RecruitOps_Design_System.md`**") and
+step 3 closed without it.
+
+Retitled to **"RecruitOps V1.0"**. Structure, vocabulary and signature patterns all survive —
+Approval Chain Rail, Blind Panel Scorecard, department-scope `404`, the enum-bound status
+vocabulary. Colour, type, radius and elevation are replaced.
+
+Corrected against what the code actually ships, not from memory:
+
+- **Button:** `h-9 rounded-md bg-brand-700`, hover→`800`, **active→`900`**. Height and radius both
+  shrank (40→36, 12→10). The doc said 40/12 and named no active state.
+- **Pills:** `-50` tint + `-700` text; neutral is a bordered `canvas` chip, not a tint.
+- **Type scale** now uses Tailwind's own utility names, and records the trap: **`text-base` is
+  14px here, not 16**. The app's ramp tops out at 24px.
+- **`overline` deleted** — an 11px ALL-CAPS token that contradicted the sentence-case rule and
+  appears **nowhere** in the codebase.
+- **Every contrast pair re-measured** on the V1.0 steps (warn 4.84, positive 5.21, critical 5.91,
+  info 6.16, brand-800/brand-50 7.27, `.mention` 4.86, button 5.47, body 7.24).
+- **New §11 "Migration state"** with live counts.
+
+⚠️ **`Offer` and `Interview` are now the same pill colour.** `Offer` was `accent`, `Interview` was
+`warning`, and those families had **identical hexes** under Clear Pipeline — they always looked
+the same, and V1.0 merely makes it visible in source. Distinguishing them is a **product decision
+needing a new colour**, not a rename.
+
+**Three findings about the compat block**, measured across both frontends and `packages/ui`:
+
+- **`font-display`: 0 live usages.** The preset's comment claims **167** and is stale — the alias
+  is dead weight and can be deleted.
+- **`shadow-pop`: 0 live usages.** Same.
+- ⚠️ **The exit-condition grep over-counts and can never reach zero as written.** It reports
+  **43**; only **38** are live, all inside the two parked orphan folders. The other five are
+  *comment prose* in `features/analytics/` recording the chart palette that failed the CVD
+  validator. Analytics itself is fully migrated.
+
+### 🔐 One door for candidate reach — the bug class that shipped three times
+
+**Why:** the ADR-0026 security review's open recommendation. `IDepartmentAccess.CanAccessAsync`
+answers *"does this role work across departments"*, and an `Approver` does — deliberately, per
+ADR-0003. Asked about a **candidate**, that same `true` hands them the whole company. Every
+candidate-facing service had to remember a second half, and three of them forgot it in turn:
+`NoteService`, then `PipelineService`, then `BulkResumeService` — the last written *after*
+ADR-0018 was documented, with the corrected version sitting one file away.
+
+`CanReachCandidatesInAsync` is now a member of `IDepartmentAccess`, implemented once. The three
+hand-rolled copies are gone: `PipelineService` and `BulkResumeService` are one-line forwards, and
+`ApplicationAccess`'s inline "clause 0 + clause 1" is a single call. `CanAccessAsync` keeps the
+requisition axis, and its doc comment now says outright that it is **not** the question to ask
+about candidate data.
+
+**The consolidation is what makes the rule testable as one thing.** Proved by mutation: removing
+`!_user.IsExcludedFromCandidateData` from the single shared helper fails **8 tests**, all
+`ApproverReachTests` — scorecards, the interview and round list, the pipeline and stage history,
+reading and posting to the note thread, bulk upload, and the panel-seat exception. Before this,
+the rule lived in three private copies, so breaking one failed only that service's tests while
+the other two kept their guarantees silently.
+
+**644/644** (62 Domain + 582 Api), build clean, `dotnet format` clean.
+
+**Stated plainly, because it matters:** this removes the *duplication*, not the possibility of
+asking wrong. `CanAccessAsync` is still public — the requisition axis needs it. Making the wrong
+call impossible would mean splitting the interface (`ICandidateReach`) so candidate-facing
+services never see it, which is a larger change and is not done here. The set-shaped form of the
+same rule (`DeliveryLogService`, `AnalyticsService`, `SearchService`) is left alone: all three are
+already correct, and it is not where the bug has ever landed.
+
+⚠️ **This is authorization code and CLAUDE.md asks for explicit human review before it is
+considered done.**
+
+### 🐳 The public app's browser-side API calls never worked in Docker
+
+**Why:** found bringing the stack up. `frontend/public/next.config.mjs` hard-coded its rewrite to
+`http://localhost:5080/api`. Inside a container `localhost` is the container itself, where nothing
+listens on 5080 — so **every browser-side `/api` call 500'd** with `connect ECONNREFUSED
+127.0.0.1:5080`. That includes **submitting a job application**, which is the public app's only
+purpose.
+
+It hid for two reasons, both worth remembering:
+
+1. **SSR kept working.** Server-side rendering calls `API_INTERNAL_URL` directly and never touches
+   the rewrite, so the job page rendered perfectly — correct title, description, Open Graph tags —
+   while the form behind it could not talk to anything. A page that *looks* right is not a page
+   that works.
+2. **The obvious fix does nothing.** Compose already set `API_INTERNAL_URL` as a runtime variable.
+   Reading it in `next.config.mjs` looks correct and restarts cleanly — and changes nothing,
+   because **Next evaluates `rewrites()` once during `next build` and freezes the result into
+   `.next/routes-manifest.json`**. The running server never re-reads it. This was fallen into
+   first, and the manifest still said `localhost` after a clean rebuild.
+
+The fix passes `API_INTERNAL_URL` as a **build ARG** (`frontend/public/Dockerfile`) as well as a
+runtime variable (SSR still needs it). Verified by reading what actually shipped:
+
+```
+docker compose exec frontend-public cat .next/routes-manifest.json
+  before: "destination":"http://localhost:5080/api/:path*"
+  after:  "destination":"http://backend:8080/api/:path*"
+```
+
+`GET /api/public/jobs/<token>` through the public app went **500 → 200**, returning real posting
+data; the SSR job page stayed 200. The whole stack now verifies green: backend `/health` and
+Swagger, the internal SPA and its API proxy, the public job page and its rewrite, MinIO and its
+console. The dev database was **not** touched — 1 company, 10 users, 4 departments, 7
+requisitions, 7 candidates, 7 applications all still present.
+
+Also confirmed while there: the public app's `/` returning 404 is **correct**, not a fault — it has
+exactly one route, `app/jobs/[token]/page.tsx`, and no `app/page.tsx`. (It still has no
+`not-found.tsx`, which is the separate backlog item.)
+
+### 🔢 The landing page claimed 37 permissions. There are 39.
+
+**Why:** found while bringing the Docker stack up. The seeded database reports **39 permissions
+across 10 modules**, and `RbacSeedData.cs` agrees — two independent sources. The public
+`marketing/landing.html` asserted **37** in two places: the security section's "37 permission
+controls across 10 modules" and the tier table's "Dynamic RBAC: 37 permissions". The *modules*
+figure was right; the permission count was not.
+
+Counted per module against the live database — ai 5, applications 5, interviews 4, postings 5,
+requisitions 5, roles 4, scorecards 3, settings 2, system 2, users 4 = **39**.
+
+A wrong capability count on a page procurement reads is a small error with an outsized cost, and
+this one had been sitting there long enough to be quoted back. Nothing else in the repo carried
+the number.
+
+### 🎨 The marketing landing page moves to V1.0 — ADR-0025 step 4, partly done
+
+**Why:** `marketing/landing.html` was the **last surface still running "Clear Pipeline"**, and
+it is the one surface the public sees. The real hazard was not that its colours were off-brand
+but that its **class names no longer existed anywhere else in the repo** — `primary-*`,
+`surface-*`, `success/warning/danger/accent`. A component lifted from the product into this page
+rendered *unstyled*, not merely wrong, which is exactly the trap CLAUDE.md warns about.
+
+235 class occurrences and 30 raw hexes moved. Structure, copy, composition and motion are
+**unchanged** — the finish review that approved them still stands.
+
+Two changes are substantive rather than renames:
+
+- **The display face is gone.** V1.0 has none, so Bricolage Grotesque goes and Inter carries the
+  56px hero on -0.04em tracking. This costs the page real character; the cost was accepted in
+  ADR-0025 rather than discovered here, because the alternative was a third font stack living
+  only on the marketing surface.
+- **`accent` merged into `warn`.** Their hexes were **already identical** in Clear Pipeline
+  (`-700 #8A5A08`, `-600 #C97A0A`, `-100 #FCF0DC`), so this cost a name, not a colour. The amber
+  reservation is now a discipline rather than a naming distinction — easier to break, so it is
+  written down in `DESIGN.md` instead of being assumed from the palette.
+
+**Colour was verified by computation, not by eye**, and the strongest check was done in the
+browser: **every rendered text node measured against its actual painted background — 198 nodes,
+0 below the WCAG AA floor.** Also confirmed live: all **37** distinct token utilities emit real
+CSS (the exact failure this migration existed to prevent), both JS-driven widgets round-trip
+their computed colours, and the page stays light under `prefers-color-scheme: dark`.
+
+**One mark was deliberately not translated step-for-step.** The dot inside the pending pill would
+have gone from 2.97:1 to **2.07:1** under a literal mapping — the only element the migration
+would have made worse. It is `warn-700` now, matching its own label, at 4.84:1. Two other pairs
+moved and are recorded rather than hidden: the sovereignty field's body text 10.77 → **7.52**
+(V1.0's `brand-900` is much lighter than `#052A29`), and the primary button label 6.07 → **5.47**
+(`#0F766E` is V1.0's specified accent). Both clear the floor.
+
+`DESIGN.md` — the landing page's own design record — was rewritten **from the retokened
+artifact**, including its machine-readable frontmatter. One rule in it genuinely died: the
+*marketing radius extension*. V1.0 re-cut the ramp (`xl` 20→16, `lg` 16→12, `md` 12→10), so
+poster containers now sit at the same 16px the app's largest container uses.
+
+**Found, pre-existing, NOT fixed here:** the page **overflows horizontally at narrow widths** —
+measured at a 440px viewport, `scrollWidth` **602 before** the retokening and **601 after**, so
+it is not a regression. Both sources are identified and it is filed as its own change. It was
+never caught because the original finish review never rendered anything below 505px.
+
+**Still stale after this:** `RecruitOps_Design_System.md` carries **27** Clear Pipeline
+references and is titled after it. That is the *app's* design doc, not the landing page's, and
+ADR-0025 assigned it to **step 3** — so step 4 is not the thing that closes it.
+
+Touched `marketing/landing.html`, `DESIGN.md`, `.claude/launch.json` (a static-server entry for
+the marketing folder, using the existing Vite dependency — no new package).
+
+### 🔓 `X-Tenant-Id` is read by the backend now — super-admins only
+**Why:** the security review found the SPA had been sending this header on every request since the
+super-admin switcher was built, and **no backend code read it**. Good news at the time (no
+header-based tenant override to abuse) but it meant the switcher did not switch. Backend
+**644/644** (+19), frontend **375/375** (+7), typecheck clean, builds clean.
+
+This deliberately opens a hole in tenant isolation for exactly one role, so the guard is the whole
+feature:
+
+```
+1. X-Tenant-Id  — honoured ONLY when the caller's signed token says is_super_admin
+2. the tenant_id claim   — final for everyone else
+3. the ambient tenant    — background workers only (ADR-0026 §4)
+```
+
+`CurrentTenant`'s doc comment used to say the claim being read first is what stops an
+authenticated request being redirected at another company. That sentence is now: **a request can
+be redirected if and only if the caller's token carries `is_super_admin`.** Nine unit tests and
+eight integration tests pin it, and the one that matters —
+`An_Ordinary_Admin_Sending_The_Header_Still_Sees_Only_Their_Own_Company` — issues the identical
+request minus the claim and asserts the other company's rows do not come back. Removing the gate
+fails four tests across both files.
+
+Three things beyond the resolver:
+
+- **The switcher offered four companies that could not exist.** `tenant-default`, `tenant-acme`,
+  `tenant-globex`, `tenant-stark` — hard-coded strings, while a tenant id is a `Company.Id`, i.e. a
+  GUID. Every one would have failed to parse the moment the server started reading the header. It
+  now lists real companies from **`GET /api/tenants`** (super-admin only, 404 to everyone else so
+  a 403 does not confirm the list exists). The free-text "custom tenant ID" box is gone with it:
+  it existed to work around a fake list, and the real list is complete.
+- **Ordinary users no longer send the header at all.** `activeTenantId` is only populated for
+  super-admins now. The server gates on the token either way, but there is no reason for an
+  ordinary user to send a tenant id, and "harmless header nobody reads" is exactly how it went
+  unnoticed that nothing read it. A super-admin's choice now also survives a token refresh, and
+  does not leak into a different super-admin's session.
+- **An unknown tenant is a 400, not an empty app.** A middleware validates the override once per
+  request. It is kept out of the resolution path on purpose: resolution decides *who may*, from
+  the signed token, with no database call — so a bug in the validator can only turn a request into
+  a 400, never widen access.
+
+`IsSuperAdmin` is now one static predicate on `CurrentUser`, called by both it and `CurrentTenant`.
+It was briefly injected as `ICurrentUser` instead, which broke 42 worker tests: `CurrentTenant` is
+resolved in background scopes that have no user, and those tests deliberately use the real
+implementation rather than a stand-in. Requiring an HTTP-shaped service to answer a question a job
+never asks was the wrong shape; one rule in one place, reachable from both, is the right one.
+
+### 🔒 Security review of ADR-0026 — an Approver could put candidates in any pipeline
+**Why:** CLAUDE.md requires a review on anything touching authorization, and two surfaces were
+outstanding — ADR-0026 step 4 and the delivery log. Full report:
+[SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md). Backend **625/625** (+2).
+
+**One HIGH finding, reproduced against the running API and fixed here.** `BulkResumeService`
+gated both entry points on `IDepartmentAccess.CanAccessAsync` **alone**. That call answers "does
+this role work across departments", and an Approver does — ADR-0003 leaves them un-scoped on
+purpose so a Finance approver can see a Sales headcount request. Asked about a *candidate*, the
+same `true` grants everything. Confirmed 2026-08-26 as the seeded Finance approver against a Sales
+posting:
+
+```
+POST /api/jobpostings/{sales-posting}/resumes/bulk   →   200 OK   {"batchId":"b8f8eafd-…"}
+```
+
+So an Approver could **inject up to 50 CVs into any posting in the tenant** — each becoming a real
+Candidate and JobApplication, indistinguishable from a recruiter's — and read the batch back, which
+returns CV filenames (usually the candidate's name) plus candidate and application ids.
+
+The write half is the serious one: not a leak, but data put into someone else's pipeline by a role
+whose entire remit is approving headcount.
+
+**This is the third instance of one mistake**, and the corrected version was sitting in
+`PipelineService.CanReachCandidatesInAsync` with the reasoning written out. Fixed the same way —
+one door for both rules — and pinned by two tests in `ApproverReachTests`, both proved against a
+mutation. The report argues the real fix is to stop exporting `CanAccessAsync` as something a
+candidate-facing service may call at all.
+
+Everything else examined held up: no raw SQL anywhere; the resume download is keyed by application
+id and served as an attachment; tenant resolution reads the request claim first and wins; both
+workers follow ADR-0026 §4 exactly; refresh tokens rotate with reuse detection; the permission
+handler treats denied as final. Two non-security observations are recorded in the report — notably
+that **`X-Tenant-Id` is sent by the SPA and read by nothing**, so the super-admin tenant switcher
+does not actually switch.
+
+### 📬 The delivery log — the outbox finally has a reader
+**Why:** ADR-0026 shipped the write side on 2026-08-20 and **nothing rendered it**. A `Failed`
+invitation — wrong address, dead relay — was recorded faithfully and shown to nobody, so "was this
+candidate told?" was answerable only from a psql prompt. That was half of what the ADR was written
+to fix. Backend **623/623** (+11), frontend **368/368** (+10), typecheck clean.
+
+`GET /api/delivery` → `IDeliveryLogService` → `/delivery`, built from the Delivery log section of
+`design/internal/channels.html`. No migration, no new permission, no new package.
+
+**The whole risk is one indirection.** Every other candidate-facing service reaches a department
+off a row it already holds — an application has a posting, a posting has a department.
+`OutboundMessage` has neither; it has `SubjectType` + `SubjectId`, and a department is four joins
+away through it. ADR-0003's filter is therefore hand-written, and it **fails closed**: a row whose
+subject cannot be resolved is hidden from a department-scoped user rather than shown. A scoped
+user's log going quiet when a new kind ships is a missing row, which gets reported; the other way
+round is every Hiring Manager silently gaining the company's outbox, which does not.
+
+> ⚠️ **A mutation survived the first ten tests.** Flipping that filter from fail-closed to
+> fail-open passed all of them, because no test produced a row the log could not resolve — the
+> fail-closed comment was an unverified claim until
+> `A_Message_Whose_Subject_Cannot_Be_Resolved_Is_Hidden_From_A_Scoped_User` was added. All 21 tests
+> (11 API + 10 component) were then proved against a mutation.
+
+Design decisions worth stating:
+
+- **`Suppressed` is neutral, not red.** An opt-out honoured, or an invitation dropped because the
+  round was cancelled, is the system doing the right thing. ADR-0026 made it a first-class status
+  precisely so this screen would not colour it as an error — rendering a correct outcome in red is
+  how recruiters learn to ignore the colour that means something.
+- **A failure row says what to do next**, per the design: `"Failed" alone makes a recruiter open a
+  support ticket`. The reason comes from the handler, which already writes for a human, so nothing
+  in the UI invents wording.
+- **A terminal row never promises a retry.** The server strips `NextAttemptAt` from anything that
+  is not `Pending` — it is a leftover from the last claim, not a plan.
+- **No retry button**, deliberately: the worker already retries with backoff to the attempt cap,
+  and a button that re-queues a row a human is looking at would race it for that row.
+- **No new permission.** `Policies.InternalUser` + explicit scoping, exactly like
+  `InterviewsController`. That policy already excludes `Interviewer` — a panel member's legitimate
+  reach is one application, not the outbox — while `Approver` is in it and is refused by the
+  service, because ADR-0018 makes that a candidate-data decision rather than a routing one.
+- **`PayloadJson` never crosses the wire.** It holds render inputs and, for an offer, a salary.
+  A test asserts on the raw response body so that adding it later fails on the server.
+
+> 🟠 **Not security-reviewed.** This is a read endpoint over candidate data with a hand-written
+> department filter, and CLAUDE.md requires the pass. It should be reviewed together with ADR-0026
+> step 4, which is also outstanding — one is the writer, the other the reader.
+
+> ⚠️ **Verified by tests and by computed styles, not against live data.** Docker was not running,
+> so the page has never been seen with real messages. The V1.0 pairs were measured in the browser:
+> Delivered `#047857` on `#ECFDF5`, Failed `#B91C1C` on `#FEF2F2`, Not sent `#475569` on `#F8FAFC`
+> with a `line` border; header row canvas, `th` 13px/500 ink-600; `tnum` → `tabular-nums`; `.mm` →
+> Noto Sans Myanmar at 23.8px.
+
+### 🌐 The public job page and application form on the design kit
+**Why:** ADR-0025 step 3e. `frontend/public/app` reaches **0** compat tokens; repo-wide 55 → **43**,
+and all 43 remaining are inside comments quoting what was removed or in the two orphaned feature
+folders. Typecheck clean.
+
+Built against `design/public/job.html` and `apply.html`, which are deliberately **not** the
+internal app's spec: fields are `h-12` and 15px against the internal `h-9`/14px, because this form
+is filled once, by a stranger, usually on a phone. Copying the internal `Input` here would have
+been consistency in the wrong direction.
+
+Also from the kit: the job title is `text-3xl` (24px, down from a hand-written 32px the scale does
+not contain); the meta line became pills, so "Yangon" and "Full-time" stop reading as one
+sentence; the form panel sits on its border rather than a `shadow-card`; the error state is the
+kit's `role="alert"` critical panel instead of a bare red line; and the success state is the kit's
+bordered panel with the message set to a 44-character measure.
+
+**`.tnum` did not exist in the public app.** It is in `ds.css` and in the internal app's
+`index.css`, but the port to `globals.css` dropped it — so `tnum` on the phone field and the
+salary figure, both of which the kit sets that way, silently did nothing. Confirmed by grepping
+the built stylesheet: zero occurrences of `tnum`, and no `font-variant-numeric` anywhere in the
+public bundle. It matters more here than internally, not less — a phone number typed into a
+proportional face makes the field jitter as it is typed. Added, along with the mono
+ligature-suppression rule that was missing for the same reason. Re-verified after rebuild: both
+present.
+
+> ⚠️ **Verified from the built stylesheet, not the running page.** The public job page needs the
+> API to render and Docker is not up locally, so the live check available was: build, then confirm
+> each class emits the intended declaration (`h-12{height:3rem}`, `text-md{font-size:15px}`,
+> `text-3xl{font-size:24px}`, `border-line` → `rgb(226 232 240)`, `bg-brand-700` →
+> `rgb(15 118 110)`, `tnum` → `font-variant-numeric`). **The form has never been eyeballed with
+> real data**, and the public app has no tests at all.
+
+> ⚠️ **Found while verifying: there is no `app/not-found.tsx`.** `page.tsx` calls `notFound()` for
+> an unknown or withdrawn token, so a candidate following a dead link gets Next.js's built-in
+> 404 — no layout, no fonts, no company name, nothing that says which site they are on. Not fixed
+> here: it is a new screen, not a token migration, and `design/public/` does not draw one.
+
+### 📊 `features/analytics` on the design kit — half the app was rendering in dark mode
+**Why:** ADR-0025 step 3e(ii). Analytics reaches 0 real compat tokens (5 remaining hits are
+comments quoting what was removed); repo-wide 215 → **55**. Frontend **358/358** (six new),
+typecheck clean.
+
+**Two of these are bugs, not restyling.**
+
+**1. The analytics page rendered in dark mode on any dark-mode machine.** `features/analytics`
+carried **97 `dark:` utilities** while `index.css` declares `color-scheme: light` and the rest of
+the app has none at all. Tailwind's default is `darkMode: 'media'`, so they need no opt-in — they
+fire off the OS setting. Measured live in the running app on 2026-08-25 with the OS in dark:
+
+```
+body background      rgb(248,250,252)   canvas — light, as designed
+chart labels         rgb(148,163,184)   ink-400 on a white card = 2.45:1
+skeleton blocks      rgb(30,41,59)      ink-800 — near-black on white
+error banner         rgb(252,165,165) on rgba(69,10,10,.5)
+```
+
+Half an app in the wrong theme, invisible to anyone who develops in light mode. The 97 classes
+are gone, and the preset now sets `darkMode: 'class'` so the next stray one is inert until
+someone deliberately opts a subtree in. Re-measured after the fix: `dark:bg-zinc-800` resolves to
+`rgb(241,245,249)` — the light half — with the OS still in dark.
+
+**2. The eight-colour source palette was not distinguishable.** Run through the dataviz validator
+(light surface, 2026-08-25) it FAILS two hard checks:
+
+```
+CVD separation        indigo-500 ↔ purple-500   ΔE 0.9 (protan)  — indistinguishable
+Normal-vision floor   emerald-500 ↔ teal-500    ΔE 5.4           — below the floor of 15
+```
+
+Five of the eight were near-neighbours, two of them unseparable **with full colour vision**. It is
+replaced by one hue rather than a corrected eight: the chart is one measure across categories
+whose names sit beside their bars, so colour was encoding position in a list the list already
+orders. The kit does keep a validated four-colour categorical set (reproduced here: ΔE 21.0
+deutan / 13.6 tritan / 30.2 normal, all six checks pass) and reserves it for the one case that
+carries identity — the same channel appearing in two charts.
+
+Also from `analytics-dashboard.html`: bars are `.bar-track`/`.bar-fill` in `index.css` (brand-600
+fill, `line-100` track, `0 4px 4px 0` radius anchored to the baseline — verified live); the KPI
+tiles put their number in **ink**, not four hues encoding position in a row of four unrelated
+measures; time-to-hire draws all three tabs in one hue, because all three measure average days
+and the tab already says which breakdown you are on; the two chip groups in the report builder
+share one treatment, having previously used `teal` and `cyan`, which alias to the same hex.
+
+Six tests pin this (`ChartMarks.test.tsx`), each proved to fail against a mutation first. **One
+mutation initially passed** — painting a row via inline `style` rather than a class — so the
+assertion was widened to cover the inline route, which is the one a per-row colour would actually
+take.
+
+### 🗂 `features/pipeline` on the design kit — and a contrast failure we shipped
+**Why:** ADR-0025 step 3e. `features/pipeline` is at **0** compat tokens; the honest repo-wide
+count is 334 → **215**. Frontend **352/352**, typecheck clean.
+
+**Badge failed AA on three of its variants, and this change fixed it.** `packages/ui`'s rebuild
+(2026-08-21) checked `StatusPill` and never opened `Badge`, so `success`, `warning` and `danger`
+kept a **-500 step as text on their own -50 tint** — the exact failure the preset's own comment
+warns about, three files above where it happened. Measured 2026-08-25:
+
+| | before | | after | |
+|---|---|---|---|---|
+| `success` | positive-500 on positive-50 | **2.41:1 FAIL** | positive-700 | 5.21:1 PASS |
+| `warning` | warn-500 on warn-50 | **2.07:1 FAIL** | warn-700 | 4.84:1 PASS |
+| `danger` | critical-500 on critical-50 | **3.44:1 FAIL** | critical-700 | 5.91:1 PASS |
+
+The colours were right and the *steps* were wrong, which is why review missed it twice and a
+five-line script caught it immediately.
+
+Beyond the rename, four things changed shape, each read off `design/internal/board.html`:
+
+- **The board's columns are white on the canvas ground**, not grey fills holding white cards. The
+  kit's board is cards floating on the page; a grey column inverts that and makes the container
+  louder than its contents on a screen that is nothing but contents.
+- **Column counts are `font-mono tnum text-ink-500`, not eight coloured Badges.** A badge is a
+  status; a column count is a number that changes every time a card moves. Tabular figures stop
+  it jittering, and eight tinted pills across the top stop competing with the stage names.
+- **Loading is a skeleton, empty is a sentence.** `Loading…` tells the user to wait; a skeleton
+  tells them what is coming. And the two terminal columns now say what they cost — the kit
+  writes the Hired one out in full because "this closes the requisition" is a bad thing to
+  learn by doing.
+- **Stage history uses the approval-chain rail** (`.rail-step`), which the kit reuses for exactly
+  this. The numbered circles it replaces encoded nothing the order didn't already say.
+
+Two smaller ones: `ExecutiveSummaryPanel`'s two hand-rolled toggle groups became one segmented
+control on the kit's detented-filter pattern — they had used **brand for "selected" in one group
+and ink in the other**, two meanings for one idea on one row, and brand is the *action* colour, so
+a filter painted brand looked like a button that would go and do something. And the AI panels'
+402 banners moved off raw Tailwind `amber` onto `warn` tokens.
+
+**A correction to the last entry.** It reported "repo-wide 525 → 340". That 340 counted only
+`frontend/public/app`; pointed at `frontend/public`, the same grep also reads `.next/` build
+output — 78 hits there, of which **66 are compiled artifacts that can never reach zero**. The
+preset's exit-condition command now carries `--include` filters and points at `public/app`, with
+the reason written next to it. A count that cannot reach zero is not an exit condition.
+
+### 📄 `pages/` on the design kit
+**Why:** ADR-0025 step 3d continued. `pages/` is at **0** compat tokens; repo-wide 525 → 340.
+Frontend **352/352**, typecheck clean.
+
+Three changes beyond the colour rename, each taken from the kit rather than from taste:
+
+- **190 hard-coded text sizes are gone.** `text-[13px]`, `text-[15px]`, `text-[11px]` and friends
+  bypassed the V1.0 type scale entirely. They map onto it exactly — 13→`text-sm`, 15→`text-md`,
+  11→`text-2xs` — so nothing moved visually, and the scale is now something the app actually uses
+  rather than something the preset merely declares.
+- **Four hand-rolled tables now share one treatment.** `UsersPage`, `RequisitionsPage`,
+  `InboxPage` and `JobPostingsPage` each wrote their own `<table>` and each had drifted
+  differently: three padding schemes, three type sizes, and all four carrying the **uppercase
+  micro-caps header** the kit does not use anywhere. Now `bg-canvas` header row,
+  `px-4 py-2.5 font-medium text-ink-600` cells, no micro-caps.
+- **Headings are on the kit's scale.** Section `<h2>`s were 13px grey uppercase micro-caps — which
+  reads as a label for the thing beside it, not a heading for the block below it. The kit uses
+  `text-base font-semibold` in 19 places and puts uppercase on a heading **nowhere**. Page `<h1>`s
+  moved from `text-2xl font-bold` to the kit's in-app title, `text-xl font-semibold
+  tracking-tight`; its `text-3xl font-bold` headings belong to the kit's own *spec* pages and were
+  deliberately not copied into the app.
+
+Verified in the browser on `/requisitions`: h1 18px/600 with -0.45px tracking · header cell
+13px/500 ink-600 and `text-transform: none` · header row `#F8FAFC` · body cell 14px ink-900 · the
+migrated `StatusPill` rendering warn-700 on warn-50 in situ.
+
+### 🧭 The app shell on the design kit — and a contrast failure in the kit itself
+**Why:** every screen sits inside it, so after the preset this is the change with the widest
+reach. `components/` is at **0** compat tokens; repo-wide 595 → 525. Frontend **352/352**,
+typecheck clean.
+
+**The nav rail is dark now** — `bg-ink-900`, 224px, per `design/internal/board.html`. That is the
+kit's central layout decision rather than a colour preference: it is the second neutral layer, so
+the content surface reads as the workspace and navigation recedes. A white sidebar beside a white
+content pane makes the two compete, and on a screen that is mostly table it is the table that
+should win.
+
+Also adopted: an icon per nav item, the active item as a filled `bg-white/10` pill — **the
+`border-l-2` is gone**, because a border *and* a fill are two devices saying one thing and on a
+dark rail the border reads as a seam — and the user block in the rail's footer.
+
+**Identity now renders once.** The signed-in name appeared in both the header and the sidebar, and
+a test asserted that duplication (`getAllByText(...).length === 2`). Two avatars on one screen is
+two places to check who you are signed in as, and they can disagree while a session is being
+replaced. The header keeps place, search and the primary action; the rail keeps who you are.
+
+> 🔴 **The kit had a contrast failure, found by measuring instead of trusting it.** Nav group
+> labels were `text-white/40`, which on `ink-900` is **3.81:1** — below AA for 11px text. Raised
+> to `white/50` (5.23:1) in the code **and in all 19 kit screens**: `design/` is the source of
+> truth, so the fix belongs there, not only downstream. Rail contrast now measures: active
+> `white` 17.85 · idle `white/70` 9.10 · role line `white/50` 5.23 · group label `white/50` 5.23 ·
+> avatar white on `brand-700` 5.47.
+
+Two smaller corrections: the meaningless "CRM" badge next to the wordmark is gone, and the
+super-admin 👑 emoji is now a plain "Super admin" role line — an emoji in an enterprise nav is
+decoration standing where a fact belongs.
+
+**Deliberately not changed: the nav group names and membership.** The kit's rail shows "Work" and
+"Configure"; the app has Recruitment / Insights / Team / Governance. Which items sit under which
+heading is product information architecture, not a design-system decision, and renaming the whole
+nav inside a token migration would break tests for reasons unrelated to tokens. Flagged for the
+product owner instead.
+
+### 🔐 The login screen, rebuilt from the design — and two defects it was hiding
+**Why:** the first screen taken end to end against `design/internal/login.html`, as the pattern
+for the rest. Frontend **352/352** (44 files), typecheck clean.
+
+**Two functional defects, both invisible in the source and found by using the screen:**
+
+1. **A failed login said "Your session has expired. Please sign in again."** `apiFetch` mapped
+   every 401 to that copy — the silent-refresh branch excluded `/auth/login`, the fallthrough did
+   not. Someone who mistyped a password was told their session expired and sent looking for a
+   problem that did not exist. Now "Email or password is incorrect.", which is also the only
+   thing ADR-0016 permits: naming the field would tell a stranger whether an address belongs to a
+   real employee.
+2. **`Retry-After` was being thrown away.** ADR-0016's 429 carries the remaining lockout in
+   seconds; `ApiError` had nowhere to put it, so the countdown the design draws was unrenderable
+   and the page showed a generic error. `ApiError.retryAfterSeconds` now carries it. The screen
+   counts down from the server's number, disables the form while locked, re-enables itself at
+   zero, and falls back to the full 15 minutes only when the header is absent — never a shorter
+   guess, which would send someone back to a door still locked.
+
+**A third defect, introduced during the rebuild and caught only by looking at the browser:** the
+password field's error outline appended `border-critical-500` to a class string that already had
+`border-line`. Both are border-color utilities of equal specificity, so **Tailwind's output order
+decided the winner** and the grey border won. It read correctly in the source and rendered wrong.
+Fixed by building the class so the default is never emitted, and pinned by a test that asserts the
+*absence* of `border-line` — a `toContain` assertion alone would have passed either way.
+
+From the kit and now present: the logo mark and wordmark, the error as a tinted `role="alert"`
+block, the spinner in the button (the one screen where a spinner is right — nothing is arriving
+whose shape could be skeletoned), the "no self-signup" line, and no workspace field, because under
+ADR-0004 the URL already is the company.
+
+8 tests added, each mutation-checked. One of those mutations showed a `setLockedFor(null)` branch
+was **redundant** — removing it changed no test and no behaviour — so it was deleted rather than
+pinned.
+
+> **Measurement note for anyone verifying UI this way:** the Browser pane does not composite, so
+> CSS transitions never advance and `getComputedStyle` returns the *starting* value of anything
+> under `transition-colors`. Two apparent bugs on 2026-08-21 were that. Disable the transition and
+> force a reflow before reading, or measure a freshly created element.
+
+### 🎨 ADR-0025 step 3c — `packages/ui` rebuilt against the kit
+**Why:** both apps import it, so it is the one place where a fix reaches everything. Frontend
+**344/344**, typecheck clean. **0 compat tokens left in `packages/ui/src`** — 133 migrated across
+13 components; repo-wide 732 → 599.
+
+**Built against `design/internal/components.html`, not renamed.** The colour aliases were a
+mechanical pass; the shape was not, and the kit changes more than colour:
+
+- `StatusPill` — tint `-100`→`-50`, type 13px/semibold→12px/medium, and the neutral statuses gain
+  a border because they are the only ones with no tint to sit on.
+- `Button` — `h-10`→`h-9`, 15px/semibold→14px/medium, primary base `brand-600`→`brand-700` with
+  real `active:` steps (on a touch screen there is no hover, so press feedback is the only
+  confirmation the tap landed), disabled `bg-ink-400/40`.
+- `Input`/`Select` — `h-10`→`h-9`, `rounded-sm`→`rounded-md`, soft `/20` focus ring, and the error
+  message moved from `text-xs text-critical-500` to `text-sm text-critical-700` (the -500 step on
+  white is 3.76:1 — it failed).
+- `Table` — **the uppercase micro-caps header is gone**, rows are 44px per the kit, one rule per
+  row instead of `divide-y` *and* `border-b`, selected row `bg-brand-50/60`.
+- `Card` — title dropped from 19px in the display face to 14px semibold. A card heading labels the
+  thing below it; it is not a headline.
+
+**Every pill contrast pair was re-measured rather than assumed**, because the `-100`→`-50` move
+changes all of them: ink-600/canvas 7.24 · brand-800/brand-50 7.27 · info-700/info-50 6.16 ·
+critical-700/critical-50 5.91 · positive-700/positive-50 5.21 · warn-700/warn-50 **4.84**. All
+pass AA; warn has the least headroom and is the pair that breaks first.
+
+**Verified by reading computed styles in a browser**, not by reading the diff — button
+`#0F766E`/36px/14px/500/r10, pill `#FFFBEB` on `#B45309`/24px/12px/500, card white/r12/20px.
+
+12 design-system test assertions were updated to the V1.0 names and 2 tests added. They were doing
+their job: they pinned the old system and failed the moment it changed.
+
+> **Also fixed in `design/` itself:** `components.html` said "radius 8" in prose while its markup
+> used `rounded-md` in 157 places — 10px in V1.0. The prose was the outlier. A source of truth
+> that contradicts itself is not one.
+
+> ⚠️ **Found while verifying, and it changes the size of what is left:** most screens do not use
+> these components at all. `frontend/internal/src` hand-rolls **50 `<input>`, 63 `<button>` and 24
+> `<select>`**, against 24 files importing `Button` and 9 importing `Input` — the login page's
+> field is 40px/r6, not the `Input` component. Migrating the shared package moved the tokens but
+> reached a minority of the surface.
+
+### 🎨 ADR-0025 step 3a+3b — the apps are on V1.0 tokens
+**Why:** `design/` is now the declared source of truth for UI, and that rule was inert while the
+kit and the apps used different *class names* — a screen copied from the kit rendered unstyled,
+not off-brand. Frontend **342/342**, typecheck clean, both apps build.
+
+`packages/ui/tailwind-preset.js` is now a copy of `design/internal/ds.js` plus a **fenced
+compatibility block** aliasing every old name onto its V1.0 equivalent (`primary→brand`,
+`success→positive`, `warning→warn`, `danger→critical`, `accent→warn`, `surface→canvas/slate`,
+`zinc→slate`, `cyan`/`teal`→brand). So the apps already render V1.0 colours; only the names are
+old, and they migrate an area at a time without the app breaking in between. **The block carries
+its own exit condition** — the grep that has to reach zero is in the file.
+
+Also landed: the V1.0 type scale (`text-base` is 14px, not 16 — that density is why the kit reads
+as an operations tool), radii 6/8/10/12/16/20, and `ds.css`'s base layer in both apps — focus
+ring, `::selection`, `.mm` Burmese line box, `.tnum`, mono ligature suppression, the
+approval-chain rail, skeletons.
+
+**Two live defects fixed on the way, neither of them a migration cost:**
+
+- **163 classes in the shipped apps emitted no CSS at all.** Found by building `frontend/internal`
+  and grepping `dist/assets/*.css`: `text-ink-500` (57 uses), `text-ink-700` (39), `text-ink-800`
+  (20), `border-line-300` (28), `bg-surface-100` (13), `border-line-100` (5), `bg-surface-200` (1)
+  were ABSENT — the old preset defined `ink` at 900/600/400, `surface` at 0/50 and `line` at 200
+  only, so those elements silently inherited their parent's colour. All seven now present.
+- **Bricolage Grotesque and IBM Plex Mono were still downloading** after the "fix". Removing the
+  `@import` from the CSS was not enough: the real request is a `<link>` in
+  `frontend/internal/index.html` and `frontend/public/app/layout.tsx`. Caught by reading
+  `document.fonts` in a browser rather than trusting the diff. Now one request, three families.
+
+Body type was also wrong in a way nobody had measured: `line-height: 1.7` was set globally "for
+Burmese", which made every English row 27px tall. Burmese gets `.mm` instead, and the body is
+14px/20px in the internal app, 15px/22px on the public one.
+
+**Baseline for what remains (source only, `.next`/`dist`/`node_modules` excluded — an earlier
+count of ~1,120 included build artifacts and was wrong): 732 compat usages** — `features` 324,
+`pages` 189, `packages/ui` 116, `components` 86, `public/app` 17.
+
+**Also deleted:** the seven `design-prototypes*` folders (untracked, superseded by `design/`).
+`design-prototypes-7/RESEARCH-competitive-ux-feedback.md` was **not** deleted — it is real
+competitive research with no copy elsewhere, and it moved to
+`docs/product/competitive-ux-research.md`.
+
+
+### 📦 ADR-0026 step 4 — bulk CV upload comes off the static dictionary
+**Why:** the last of the two job mechanisms ADR-0026 exists to collapse into one. Backend
+**612/612** (62 domain + 550 api), up from 599; **+13 tests**, and the 20 existing API tests pass
+**unchanged** against the new implementation — which is the signal that the contract survived.
+
+**What it replaced**, quoted here because the status file recorded this as "asynchronous ✅" for
+weeks: `private static readonly ConcurrentDictionary<Guid, BatchStateHolder> Batches`, holding the
+**raw uploaded bytes**, populated by `_ = Task.Run(() => ProcessBatchAsync(batchId))`.
+
+| Was | Is |
+|---|---|
+| A restart **erased** the batch — not "the status goes stale"; the entry was gone, `GetBatchStatusAsync` returned null, and a recruiter's 50 files 404'd with no way to learn whether any candidate had been created | `BulkUploadBatch` + `BulkUploadFile`, written before the response returns. A claim only pushes a due time forward, so a process that dies mid-batch leaves work that becomes due again by itself |
+| 50 CVs of several MB each in RAM per concurrent upload | Bytes in object storage at upload (ADR-0013); the row keeps a key. That same object becomes the application's résumé — uploaded once, referenced, **never copied** |
+| An unobserved exception inside `Task.Run` | Backoff, an attempt cap of 3, and the between-claim-and-record wrapper the 2026-08-20 security review forced onto the mail worker — here from the start |
+| Candidate dedup via `IgnoreQueryFilters()` + a hand-written `c.TenantId == …` | An ordinary filtered query. The worker enters the tenant, so there is no predicate left to forget (ADR-0026 §4) |
+| Four counters maintained by hand under a `lock` | Status and every count **derived** from the file rows. A computed count cannot disagree with the rows it counts |
+
+**Two decisions worth naming, not transcription:**
+
+- **It is a second `BackgroundService`, and §3 said "a single" one.** The claim loop is reproduced
+  rather than shared: a generic base class over two entities with different status enums and
+  different terminal states is more coupling than two queues justify, and `OutboundMessageWorker`
+  is security-reviewed, so refactoring it to serve a second caller would put that behind a
+  re-review. **A third queue is the point at which to extract it** — written into the class.
+- **The storage key carries no part of the uploaded file name**, only ids and a validated
+  extension. The old key was `{Guid}_{item.FileName}`; a candidate-supplied name in an object key
+  is how a stray `../` becomes somebody else's problem in whichever backend a customer runs.
+
+**Found by writing a test that asserted the opposite:** cleanup of a failed file's stored bytes
+ran only on the in-scope path, but a CV that cannot be parsed reaches terminal-Failed through the
+*exception* path — so the common failure would have left a candidate's CV in storage every time,
+with nothing pointing at it. Fixed; it is a Module 7.4 retention concern, not a tidiness one.
+
+**Also gone:** a second, identical `IBulkResumeService` in `Application.Common.Interfaces`,
+registered in DI alongside the real one and consumed by nothing.
+
+**Tests stopped sleeping.** The three suites used `await Task.Delay(300)` and then asserted that a
+background task had finished — two of them inside twenty-round retry loops that turn a real
+failure into six seconds of "still processing". Replaced by `BulkResumeQueue.DrainAsync`, which
+runs passes until the queue is empty and throws if it never is.
+
+⚠️ **Not security-reviewed.** Migration `AddBulkUploadPersistence` is additive and applies on
+container start.
+
+## 2026-08-20
+
+### 🔐 Security review of the invitation handler and SMTP transport — nothing found
+**Why:** step 3 is the first code in the product that reads candidate data with **no user behind
+it**, and it puts a candidate's name and interview details on the wire. CLAUDE.md requires the
+pass; the previous review covered only the tenant seam.
+
+Six claims were put up to be **disproved**. All six held, and each was established by a code path
+rather than by inspection of intent:
+
+- **Cross-tenant reads.** The one unfiltered lookup — `Companies`, which is not `ITenantScoped` —
+  is safe because `message.TenantId` is itself read from a tenant-filtered re-read inside the
+  worker's scope, so it cannot diverge from the tenant governing every other query.
+- **Recipient steering.** `OutboundMessages` has exactly one write site repo-wide, and neither
+  `ScheduleInterviewRequest` nor `RescheduleInterviewRequest` carries an address field. Nobody can
+  get another candidate's interview details emailed to an address they control.
+- **The absent department scoping** (deliberate — ADR-0026 §4, "a job is not a user") is sound
+  because `SubjectId` is only ever set inside an already-authorised write, so the handler's
+  foreign-key chain is the chain that was authorised, not a query an attacker can parameterise.
+  `RescheduleAsync` re-reads the application only *after* `LoadWritableAsync`.
+- **Header injection.** Tested rather than read: `MailAddress` was driven against four CRLF
+  variants, including a quoted local part, and rejected all of them.
+- **Secrets and PII.** No credential or candidate data reaches any log or `PayloadJson`; nothing
+  real was committed to either `appsettings` file.
+- **The test-only worker change** is inside `ConfigureTestServices`; `Program.cs` still registers
+  the real hosted service.
+
+**One Low observation, recorded rather than fixed.** A pass drains its batch sequentially, so its
+worst case is `BatchSize × Smtp:TimeoutSeconds` — 20 × 30 s = 10 minutes, against a 5-minute
+visibility timeout. It causes **no duplicate sends today** (one worker, passes never overlap) and
+throttles only that company's own queue, but it becomes a duplicate-send bug the moment anyone
+runs two replicas — the fourth item now riding on that assumption. Written into
+`OutboundDeliveryOptions.BatchSize` where somebody tuning these will read it. Bounded parallelism
+is a throughput decision ADR-0026 chose not to take, not a defect to patch quietly.
+
+**Separately, one copy fix from actually reading a rendered invitation** rather than only
+asserting substrings on it: "Thank you for your interest in Collections Officer (Field)" read as
+though a word had gone missing. The subject wants the bare title; a sentence wants "the … role".
+Two forms now, and the three-mode render was eyeballed end to end.
+
+Frontend re-verified unchanged: **342/342** across 43 files, typecheck clean both apps.
+
+### 📧 ADR-0026 step 3 — the product sends its first email
+**Why:** steps 1 and 2 built a queue and a worker with nothing to deliver. This is the transport
+and the first handler, and it closes Module 3.2 — the oldest of the five gaps ADR-0026 was
+written for. Backend **599/599** (62 domain + 537 api), up from 555; **+44 tests**.
+
+**`IEmailSender` + `SmtpEmailSender`, on `System.Net.Mail`, no new package.** SMTP is the floor
+rather than the fallback (ADR-0026 §1): it is the only transport that works in every deployment
+we sell, including the air-gapped on-premise bank whose one mail path is an internal relay.
+
+Two judgements the transport makes on its own, both pinned by tests:
+
+- **Unconfigured is retryable, not permanent.** An install with no `Smtp:Host` fails loudly and
+  keeps the message. An administrator fixes that in two minutes; marking it permanent would mean
+  every invitation queued in the meantime had already been given up on.
+- **Permanent means the *address* is wrong, and nothing else.** 550/551/553/554 are terminal;
+  a rejected password, a required STARTTLS, a busy relay, a refused connection are all retried.
+  The known imprecision is written down rather than hidden: some relays return 550 for "relaying
+  denied", which is a config fault and will land in the wrong bucket — visibly, in the log.
+
+**`InterviewInvitationHandler`** — the first `IOutboundMessageHandler`, and deliberately the
+worked example of §4: no `IgnoreQueryFilters()`, no hand-written tenant predicate, no
+`ICurrentUser`. The worker enters the tenant, so the handler's queries are ordinary queries.
+
+**`InterviewService` now writes the invitation in the same `SaveChangesAsync` as the interview.**
+That is what makes this an outbox rather than a send: there is no state in which the round exists
+and the intention to tell the candidate does not, and no request waits on a mail server.
+
+Because nothing is rendered until send time, three behaviours fall out rather than being coded:
+
+- **Cancelling a round suppresses a queued invitation.** `CancelAsync` writes one row and touches
+  the queue not at all; the handler reads the round's status at send time. `Suppressed` is not a
+  failure and the delivery log must not colour it red.
+- **Rescheduling before the invitation goes queues nothing new** — the pending row renders the
+  new time by itself. A second row would tell the candidate their time had "changed" from one
+  they were never given. After it has gone, a second message is queued and reads as a change.
+- **A slot that has already passed is suppressed.** Inviting somebody to an interview that
+  already happened is worse than saying nothing.
+
+**New: `Companies.TimeZoneId`** (migration `20260820081448_AddCompanyTimeZone`, additive and
+nullable). Npgsql stores `DateTimeOffset` as `timestamptz` and normalises to UTC — the instant
+survives a round-trip and the recruiter's *o'clock* does not. At UTC+06:30 that turns a Monday
+morning interview into Sunday evening. The zone is frozen into the message payload at enqueue;
+null falls back to UTC and the email labels itself UTC rather than quietly lying.
+
+**Two things found by writing the tests, both fixed:**
+
+- `MailAddress` does **not** reject `"a@x.test, b@y.test"` — it parses the first and carries on.
+  A two-address recipient would have delivered to one while the log claimed both. Now refused.
+- `WebApplicationFactory` starts hosted services, so the delivery worker had been polling
+  through the whole integration suite since step 1, racing any test that asserts on a queued
+  row. It is now removed from `IHostedService` in `CustomWebAppFactory` and driven deliberately.
+
+**What this does not do, stated plainly:** no XOAUTH2 and no implicit TLS, so **Microsoft 365 and
+Google Workspace cannot actually be used** even though the integrations design draws all three as
+first-class — that needs MailKit, which is a package decision ADR-0026 declined to take. Mail is
+English only. And **no screen reads `OutboundMessages`**, so a `Failed` invitation is recorded
+faithfully and shown to nobody. ⚠️ **Not yet security-reviewed** — this is the first code that
+reads candidate data with no user behind it.
+
+### 🔐 Security review of the tenant seam — clean on isolation, one defect found and fixed
+**Why:** CLAUDE.md requires a `security-reviewer` pass on authorization changes, and step 2 made
+tenant resolution settable. Reviewed against `a2de09c`. Backend **555/555**, up from 553.
+
+**No tenant-isolation finding.** Each of the four claims was checked against the code rather than
+taken on trust:
+
+- An ambient tenant **cannot** redirect an authenticated request. Middleware order was walked
+  (`UseAuthentication` precedes everything that touches `AppDbContext`), and `EnterTenant` has
+  exactly one caller in `src/` — the worker.
+- A scope carries at most one tenant, and `CurrentTenant` resolves the **same** scoped instance
+  the worker set. Both are `AddScoped`, and the worker enters the tenant before resolving
+  `AppDbContext` from that scope.
+- The cross-tenant claim is contained: the claimed entity is never reattached to a later scope —
+  the message is re-queried by id through a fresh filtered context.
+- `PublicJobService` and the startup seed paths are unchanged.
+
+**One Low-severity defect, in code from step 2, now fixed.** Anything thrown *between* claiming a
+message and `Record()` — `EnterTenant` rejecting a malformed `TenantId`, or the row being
+unreadable inside its own tenant — escaped to the pass-level catch in `ExecuteAsync`. Two
+consequences, both real:
+
+1. The row never reached `Record()`, so **its attempt cap was never checked**. It would be
+   reclaimed every visibility window indefinitely — precisely the poison message `MaxAttempts`
+   exists to stop, dodging the cap.
+2. The rest of that pass's claimed batch was abandoned.
+
+Fixed by wrapping the per-message work: a failure outside the handler is now a counted, capped
+retry recorded through a contained `IgnoreQueryFilters()` path that touches only queue
+bookkeeping, and the batch continues. Two tests added, **proved to fail first** — removing the
+wrapper produced exactly those 2 failures.
+
+Not exploitable today (nothing yet inserts an `OutboundMessage` outside tests), but step 3 adds
+the first real producer, which is why it was fixed now rather than logged.
+
+**Also noted by the review, and worth stating precisely:** "`ICurrentTenant` is now settable" is
+loose — the interface is still get-only. What changed is that it gained a second, settable
+*input*. The earlier entry below keeps the loose phrasing; this is the accurate version.
+
+### ⚙️ ADR-0026 step 2 — the tenant seam and the delivery worker
+**Why:** the second of four sessions. No email sender and no real handler yet — this is the
+machinery they will plug into. Backend **553/553** (62 domain + 491 api), up from 533.
+
+**🔐 `ICurrentTenant` is now settable, and that is an authorization change.**
+`CurrentTenant` gained a second source: `IAmbientTenantScope`, a scoped holder the delivery
+worker fills from the message row it claimed. Without it a background job sees
+`TenantId == Guid.Empty`, every query filter matches nothing, and the queue silently never drains.
+
+**The order is the security property.** The request claim is read first and wins whenever present,
+so resolving `IAmbientTenantScope` inside an authenticated request and entering a tenant is
+**inert** — nothing reachable from a request can redirect that request at another company's data.
+`CurrentTenantResolutionTests` asserts the order, including that an anonymous request still
+resolves to `Guid.Empty` so `PublicJobService` keeps working unchanged. A failure there is a
+security finding, not a test to update.
+
+`EnterTenant` refuses a second call — even with the same tenant. A worker that recycled one DI
+scope across two messages would run the second as the first one's tenant, read its data, and look
+entirely successful; this makes that a crash instead.
+
+**`OutboundMessageWorker`** claims due rows (the one place that legitimately calls
+`IgnoreQueryFilters()`), then handles each in its own scope with the tenant established, so
+handlers query normally. Outcomes: `Sent`, `Suppressed` (terminal, *not* an error — an honoured
+opt-out is the system working), `Retry` (exponential backoff to a cap), `Failed` (terminal). A
+missing handler retries rather than failing, because the usual cause is a deployment that has not
+registered it yet and burning the queue for a wiring mistake is worse than waiting. A handler that
+throws is retryable; a handler that knows better returns `Failed`.
+
+**A guarantee was narrowed, and the ADR now says so.** §3 originally specified claiming with
+`FOR UPDATE SKIP LOCKED`. It is implemented as a read-then-update through EF. Crash safety is
+unchanged — rows are pushed into the future, never marked in-flight — but with **two** workers
+against one database both could claim the same batch and send twice. Accepted because ADR-0004
+ships one instance per company, and because provider-specific SQL would mean the suite exercises a
+different claim path from production. This is now the **third** in-process assumption riding on
+"one replica", after `LoginThrottle` and the bulk-upload dictionary; they should be audited
+together.
+
+**Tests — 20, all proved to fail first.** Reversing the two lines in `CurrentTenant` produced
+exactly 1 failure (`The_Request_Claim_Beats_An_Ambient_Tenant`); removing `EnterTenant` from the
+worker produced 9 of 10. Includes the two-tenant isolation test ADR-0026 asked for by name: two
+messages, two tenants, one pass, each handler seeing only its own tenant's rows.
+
+⚠️ **Still needs a `security-reviewer` pass before step 3** — per CLAUDE.md, this touched an
+authorization surface.
+
+**Touched:** `backend/src/Application/Common/IAmbientTenantScope.cs`,
+`Application/Interfaces/IOutboundMessageHandler.cs`, `Infrastructure/Tenancy/AmbientTenantScope.cs`,
+`Infrastructure/Services/Delivery/`, `Api/Auth/CurrentTenant.cs`, `Api/Program.cs`,
+`Infrastructure/DependencyInjection.cs`, and two new test files.
+
+### 🧱 ADR-0026 step 1 — `OutboundMessage` and `ScheduledJob` entities + migration
+**Why:** the first of the four sessions in the ADR's build order. Schema only — no worker, no
+sender, no handler. Backend **533/533** (57 domain + 476 api), up from 527.
+
+**Domain** — `OutboundMessage`, `ScheduledJob`, and four enums in
+`OutboundDeliveryEnums.cs`. Decisions worth knowing, all documented on the members themselves:
+
+- **No `Sending` status.** The worker claims a row by pushing `NextAttemptAt` forward by a
+  visibility timeout inside the claiming transaction, so a process that dies mid-send leaves the
+  row `Pending` and it becomes due again. An in-flight state would need a reaper to clean up
+  after crashes — a second mechanism doing the first one's job.
+- **`Suppressed` is a status, not a failure.** An honoured opt-out is a correct outcome. Module 8
+  requires opt-out, and rendering it red teaches recruiters to ignore the failure colour.
+- **`PayloadJson` holds the data to render, not the rendered body.** A body frozen at enqueue
+  goes stale; a reminder queued for next week would carry last week's figures.
+- **`ScheduledJob.TimeZoneId` is required with no default.** Storing UTC alone would be quietly
+  wrong — a customer asking for "every Monday at 9" means 9 in their office, and UTC+6:30 turns
+  that into Sunday evening. There is no default because guessing a company's timezone is the same
+  bug with fewer symptoms. A company-level timezone setting does not exist yet; when it lands it
+  becomes this field's default, not its replacement.
+- **`DayOfMonth` is capped at 28**, in a check constraint. "The 31st" does not exist in February,
+  and both alternatives — skip the month, or silently slide — are surprises.
+
+**Infrastructure** — DbSets, configuration (string-converted enums, `jsonb` payloads, three
+check constraints), tenant query filters, and two indexes shaped for the worker's claim query.
+
+**Migration `20260820072400_AddOutboundDeliveryAndScheduledJobs`** is generated and committed.
+It applies itself: Postgres exists only inside Docker in this project, and
+`DatabaseStartup.MigrateAsync` runs pending migrations when the API container starts. Nobody runs
+`dotnet ef database update` here — an earlier version of this entry said to, which was wrong, and
+the correction is now recorded in NEXT-SESSION's "Things that will bite you".
+
+**A near-miss worth recording.** The first `migrations add` used `--no-build` and produced an
+**empty** migration — EF loaded a stale Api build that predated the new entities. It would have
+committed clean: entities in code, DbSets registered, in-memory tests all green, and no tables in
+any real database. `dotnet ef migrations remove` then failed because it wanted a live DB
+connection, so the empty files had to be deleted by hand and regenerated with a real build.
+**Never pass `--no-build` to `migrations add`, and read the generated `Up()` before trusting it.**
+
+**Tests** — six new cases in `OutboundDeliveryPersistenceTests`, **proved to fail first**:
+deleting the `OutboundMessage` query filter produced exactly the 2 expected failures, then the
+file was restored. The load-bearing one is
+`Worker_Without_A_Request_Sees_An_Empty_Queue_Until_It_Ignores_The_Filter` — ADR-0026 §4 written
+as an executable assertion rather than a comment. A worker running outside any request sees
+`TenantId == Guid.Empty`, so the queue looks empty however full it is; nothing throws and the
+product just silently stops sending.
+
+**Also logged, not fixed** (separate changes): two migrations directories exist, with one stray
+duplicate under `Persistence/Migrations/`; and `ITenantScoped`'s doc comment still says a tenant
+is an "agency", missed by the 2026-07-27 pivot.
+
+**Touched:** `backend/src/Domain/Entities/OutboundMessage.cs`, `ScheduledJob.cs`,
+`backend/src/Domain/Enums/OutboundDeliveryEnums.cs`,
+`backend/src/Infrastructure/Persistence/AppDbContext.cs`,
+`backend/src/Infrastructure/Migrations/`, `backend/tests/RecruitOps.Domain.Tests/`.
+
+## 2026-08-18
+
+### ✅ ADR-0026 accepted — hand-rolled queue, and the tenant problem it exposed
+**Why:** the dependency question left open below was put to the product owner and answered:
+**hand-rolled, no new NuGet package.** Two product-specific grounds decided it, not general
+preference — `OutboundMessage` is needed either way (so Hangfire would add a second source of
+truth about the same send, and they would eventually disagree), and Hangfire's `Enqueue` writes
+in its own transaction, breaking the atomicity that is the entire point of an outbox.
+
+Recorded honestly in the ADR: retry correctness, backoff, poison-message handling and
+observability are now **ours to get right**, and the conditions that should reopen the question
+are named — many job types, a second replica, or an ops requirement that would make us build a
+dashboard anyway.
+
+**The ADR gained a section it was missing, and it is the one with teeth.** §4: *a job carries
+its own tenant, and the query filters stay on.* `CurrentTenant` reads `IHttpContextAccessor`, so
+a background job sees `TenantId == Guid.Empty` — every one of the twenty-odd global query
+filters matches nothing, and `AppDbContext` would stamp new rows with tenant `Guid.Empty`.
+
+The repo's existing answer is `IgnoreQueryFilters()` plus a hand-carried tenant, used by
+`PublicJobService` and `BulkResumeService`. **That pattern is deliberately not extended to job
+handlers.** It is exactly the shape ADR-0003 warns about — a filter applied explicitly and
+therefore possible to forget — and one forgetful handler reads another company's data. Instead
+the worker sets a scoped tenant from the message row before resolving anything, so handler code
+looks like request code and no handler calls `IgnoreQueryFilters()`.
+
+That makes `ICurrentTenant` **settable**, which is a change to a security-critical seam and is
+logged in FEATURE-STATUS as its own High row: it needs a dedicated review and a two-tenant
+isolation test, because the failure mode is a scope retaining a previous job's tenant, which
+reads as working until two companies' data cross.
+
+Identity gets a separate answer in the same section: `ICurrentUser` is also null in a job, so
+anything recording an actor must attribute it to an explicit **system actor**, and a job must
+never call a department-scoped path — `IDepartmentAccess` answers "may *this user* reach it" and
+there is no user. Treating absence-of-user as permission is how ADR-0018's hole was opened.
+
+**Touched:** `docs/decisions/ADR-0026-outbound-delivery-and-background-jobs.md`,
+`docs/status/FEATURE-STATUS.md`, `docs/status/NEXT-SESSION.md`.
+
+### 📐 ADR-0026 — outbound delivery and background jobs, proposed as one capability
+**Why:** four modules had been blocked for three weeks on an absence recorded as four separate
+gaps. There is no email sender and no job runner anywhere in `backend/src`. Six features
+(Module 3.1/3.2, 4.1/4.2/4.3, 5.3, 2.3, 8) all reduce to the same shape — *something happened,
+work must run outside the request, and somebody needs to know whether it actually happened* —
+so they are decided once.
+
+**Proposed:**
+- **SMTP behind `IEmailSender` is the floor**, not the fallback. Inverting the usual choice on
+  purpose: ADR-0004 sells on-premise installs, some of them banks with no outbound internet at
+  all. A product whose only send path is `api.sendgrid.com` does not deliver mail for them, and
+  fails at the worst moment — the offer reads "sent" and the candidate never heard. API
+  providers remain available as an adapter that nothing may depend on.
+- **A transactional outbox.** `OutboundMessage` is written in the same transaction as the thing
+  that caused it, then sent by the worker. Never fire-and-forget, because in Modules 4 and 8 the
+  recruiter's next action depends on whether the candidate was told. `Suppressed` is a
+  first-class status so an opt-out is not rendered as a failure.
+- **One in-process `BackgroundService`** claiming due rows with `FOR UPDATE SKIP LOCKED`.
+  ADR-0004's single instance removes the problem distributed schedulers exist to solve.
+- **Scheduling is a due-time on a row**, not a cron container — no mechanism that exists only in
+  the hosted deployment.
+
+**Left open deliberately, and it blocks the start: Hangfire or hand-rolled.** CLAUDE.md requires
+asking before adding a NuGet package. The ADR recommends hand-rolled and argues the opposite
+case honestly rather than deciding silently.
+
+**A finding that made the earlier entry below inaccurate, corrected in both status docs.**
+`BulkResumeService` does not keep batch state in a database row — it holds it in a
+`private static readonly ConcurrentDictionary`, **including the raw uploaded file bytes**. So a
+restart does not leave a stale "in progress" row; it **erases the batch**, and
+`GetBatchStatusAsync` 404s on a recruiter's 50 files with no way to tell whether any candidate
+was created. Fifty CVs of several MB each also sit in RAM per concurrent upload, which the
+sizing guide does not account for. ADR-0026 replaces that service rather than extending it.
+
+**Touched:** `docs/decisions/ADR-0026-outbound-delivery-and-background-jobs.md`,
+`docs/status/FEATURE-STATUS.md`, `docs/status/NEXT-SESSION.md`.
+
+### 🔧 Status docs re-derived from the code — they were wrong about four modules
+**Why:** `FEATURE-STATUS.md` and `NEXT-SESSION.md` contradicted each other *and* the code, and
+CLAUDE.md makes them the entry point for every session. A fresh session trusting either would
+have rebuilt working software.
+
+**What was wrong**, all verified against the tree rather than against the previous version of
+the file:
+
+| Claim | Reality |
+|---|---|
+| Module 5 Reporting ⬜ not started | `AnalyticsController` + `AnalyticsService` + `AnalyticsPage.tsx` ship and are tested |
+| Module 2.3 OCR / 2.4 Smart Match / 2.6 search ⬜ | `BulkResumeService`, `DocumentExtraction/`, `AiIntegrationService`, `SearchService` all ship |
+| Zawgyi→Unicode normalization 🔴 High, not implemented | `MyanmarScriptNormalizer` ships and is applied at ingest |
+| Burmese trigram search 🟡 outstanding | `AddPgTrgmAndSearchIndexes` migration applied |
+| Feature flags ⬜, `/api/version` ⬜, sizing guide ⬜, runbooks ⬜ | All four exist |
+| Backend 507 tests / frontend 318 | **527** (51 + 476) and **342** across 43 files, both re-run today |
+
+`NEXT-SESSION.md`'s backlog was the sharpest problem: three of its five items had already
+shipped, and item 3 told the reader to start Module 2.3 CV upload — which is built.
+
+**Two gaps the check found that the docs had not recorded at all:**
+
+- **There is no email sender anywhere in `backend/src`.** No `SmtpClient`, `IEmailSender`,
+  `MailKit` or `SendGrid`. It blocks Module 3 invitations, Module 4 offer sends, reminders and
+  the IT/Admin handoff, and Module 5 scheduled reports — one capability, four modules. Promoted
+  to 🟠 High and made the top backlog item.
+- **Bulk CV upload is fire-and-forget, not a job runner.** `BulkResumeService.EnqueueBatchAsync`
+  runs `_ = Task.Run(() => ProcessBatchAsync(batchId))` over a `static ConcurrentDictionary`
+  that also holds the raw uploaded bytes — nothing reaches the database, so a restart erases the
+  batch rather than leaving it stale. There is no retry and exceptions are unobserved. `grep`
+  for `BackgroundService|IHostedService|Hangfire|Quartz` returns nothing. ADR-0008 called for
+  asynchronous processing and this is the shape of it, not the thing.
+  *(This bullet originally said the batch row still reads "in progress". There is no row —
+  corrected the same day, see the ADR-0026 entry above.)*
+
+Also newly recorded: the orphaned `frontend/internal/src/features/requisitions/` tree (zero
+importers, five files, one test that proves nothing about the shipped app), ADR-0025 steps 3–4
+being unstarted (**two token systems are running in parallel again**, now in the other
+direction), and build warning `CS8604` in `ApplicationFormSchema.cs:102`.
+
+`NEXT-SESSION.md`'s "Things that will bite you" section is carried over unchanged — it is
+hard-won and still accurate — with three new entries in "Working cheaply" for traps hit today:
+the two GitHub accounts where only one can push, the PowerShell here-string that silently
+corrupts a `git commit -m` under bash, and the headless-Chrome screenshot invocation.
+
+**Touched:** `docs/status/FEATURE-STATUS.md`, `docs/status/NEXT-SESSION.md`.
+
+### 🎨 The remaining thirteen screens — every module now has a drawn UI
+**Why:** the design kit stopped at Modules 1–5, so the whole administration surface, both
+sourcing modules, planning and the entire public app existed only as prose. The customer has
+no designer, and a spec that has never been drawn hides its own gaps.
+
+**Thirteen screens, taking the kit from 12 to 25.** Same V1.0 tokens from `ds.js`, so Tailwind
+classes transfer straight into React. A link check across all 26 files found and closed the one
+dangling reference — `offer-dashboard.html` had pointed at a `preboarding-review.html` that was
+never drawn.
+
+- **Module 7 · access & administration** — `login.html` (six states), `users-roles.html`
+  (role builder + department scope), `settings-org.html` (departments + approval-chain
+  builder), `settings-integrations.html` (HRMS, mail/calendar, retention purge).
+- **Modules 2 & 8 · sourcing** — `postings.html` (public link + application-form builder),
+  `talent-pool.html` (search, bulk CV upload, merge), `channels.html` (Viber/Telegram/Facebook).
+- **Module 3 · configuration** — `scorecard-builder.html`.
+- **Module 4.3 · pre-boarding** — `preboarding-review.html`, the recruiter's side of the
+  document check. It holds the most sensitive data in the product (NRC scans, bank accounts),
+  so: no thumbnail grid, account numbers masked until a recorded reveal, no Hiring Manager
+  variant at all, and a department handoff that carries a name, a role and a date to IT and
+  nothing else.
+- **Module 6 · planning** — `planning-budget.html`.
+- **Public app** — `design/public/jobs.html`, `job.html`, `apply.html`, joining the existing
+  offer portal.
+
+**Drawn against the code, not against intentions.** The role builder uses the real permission
+codes from `RbacSeedData.cs` — including the two whose action segment is not a bare verb
+(`applications:move_stage`, `scorecards:manage_templates`) — and renders the real service
+rules: system roles immutable, a role with active users undeletable, `Admin` holding 32 of 33
+permissions and bypassing the matrix entirely. The scorecard builder renders
+`ScorecardTemplate`'s three-level resolution as a resolved path, and the three `CriterionType`
+values, no more.
+
+**One correction to a mid-build assumption, recorded because it nearly shipped.** The login
+screen was first drawn with lockout as an open question, an "attempts remaining" hint, and an
+"ask your administrator to unlock" line. All three are wrong:
+[ADR-0016](../decisions/ADR-0016-login-brute-force-protection.md) is accepted and implemented,
+failures are counted for **every** email real or not (so the lockout is not an existence
+oracle), admin unlock was considered and **rejected** as a griefing weapon, and the 401 carries
+no body so the page has nothing to count with. The screen now renders that decision and cites
+it.
+
+**Five findings the drawing produced**, each recorded on the screen where it bites and
+summarised on `design/internal/index.html`:
+
+1. **The threshold rule has nowhere to live.** Three existing screens show an approver "added
+   by threshold rule"; `ApprovalChain` stores a name, an optional department and an active flag
+   — no condition, no amount, no operator. Either the entity gains fields or those screens are
+   wrong.
+2. **`ApprovalChainStep.ApproverUserId` is a person, not a role.** Disabling a user on the
+   Users screen can silently stall every requisition waiting at their step. The link is
+   invisible in the data, so the disable flow has to name the chains it breaks.
+3. **Module 8 may be unbuildable on-premise.** Viber/Telegram/Facebook deliver by webhook and
+   an on-prem install behind a firewall has no reachable endpoint. Three exits (publish an
+   endpoint, hosted-tier only, outbound polling) and none chosen — for the module positioned as
+   the primary differentiator. The screen is drawn blocked-first rather than happy-path.
+4. **Module 6 depends on `Requisition → HeadcountPlan`.** Every "raised" and "remaining" figure
+   needs it; the module doc lists it as an open question. Without it the headcount table is
+   hand-typed and wrong within a week.
+5. **Age/gender filters are unconfirmed for this market.** Module 2 flags data-protection
+   implications; the screen holds them behind a click with the question attached rather than
+   sitting them in the filter row where they get used by reflex.
+
+**Touched:** `design/internal/*.html` (9 new + index rewritten), `design/public/*.html`
+(3 new), `.impeccable/review/`, `docs/status/FEATURE-STATUS.md`.
+
+### 📋 Module 4 and Module 5 scope rewritten from a sales requirement
+**Why:** the product owner received new requirement documents from sales
+(`Module 4_Offer Management & Pre-boarding.pdf`, `Module 5_Reporting & Analytics.pdf`).
+Neither module is built, so this is a **spec change only** — no code was touched, per
+CLAUDE.md's rule that the module doc moves before the code.
+
+**Reading the PDFs was itself a finding.** Their text layer is unusable for Myanmar: both
+`pypdf` and `pdf.js` return mis-mapped codepoints (`ြ ာျူး` where `များ` belongs) because the
+embedded `MyanmarText` subset ships a broken `ToUnicode` CMap. The English text extracts
+correctly; the Burmese does not. The content was recovered by **rasterising the pages with
+pdf.js and reading the glyphs**, not by trusting any extractor. This is
+[ADR-0009](../decisions/ADR-0009-myanmar-script-handling.md)'s problem arriving from the
+outside: a document that *looks* like valid Myanmar text to software and is not.
+
+**Module 4 — restructured, not just extended:**
+- Three sub-modules (Offer Dashboard / Offer Generation & Approval / Pre-boarding &
+  E-Signature) replace the old 4.1–4.4 feature list.
+- **Status vocabulary changed:** `Pending Approval` added; `Signed`→`Accepted`,
+  `Declined`→`Rejected`. ⚠️ `Rejected` now collides with `PipelineStatus.Rejected` — same
+  label, different enum. `StatusPill` is deliberately strict about vocabulary, so
+  `OfferStatus` joins as a fifth enum and the two must not be conflated.
+- **Answers a standing open question:** offers *do* get their own approval chain — over
+  budget or policy-driven, routed to HR Director / Finance.
+- **New scope: HRMS sync via API on day one** (QHRM, BetterHR, GlobalTA, CityHR named).
+  Flagged against ADR-0007: build one export contract as an extension point, not four
+  vendor integrations in core.
+
+**Module 5 — metric definitions changed:**
+- Three sub-modules (Executive Dashboard / Pipeline & Source Analytics / Custom Report
+  Builder).
+- **Both clocks re-defined:** Time-to-Fill now runs from *requisition approved*, and both
+  metrics end at *offer accepted*. Two consequences recorded: the approval wait is excluded
+  by definition, so a requisition stuck twelve days in a chain reports a **shorter**
+  Time-to-Fill; and neither metric is computable until Module 4 exists.
+- **Answers "who may see whose numbers"** with a full per-sub-module permission matrix.
+  Hiring Managers get **no access** to Pipeline & Source Analytics at all.
+- **New: Recruiter Leaderboard** — staff performance ranking. Flagged as an
+  employment-relations and personal-data question, not a neutral chart.
+- **New: Schedule Email**, which forces server-side report generation since no browser is
+  present when it runs.
+
+**One blocker is now shared by three modules:** there is still no email sender and no job
+scheduler in the codebase. That already blocked Module 3's interview invitations; it now
+also blocks Module 4's `Remind Candidate`, `Send to Candidate` and IT/Admin handoff, and
+Module 5's scheduled reports. Recorded as a gap in FEATURE-STATUS rather than four separate
+per-module notes.
+
+**Touched:** `docs/product/modules/04-offer-and-preboarding.md`,
+`docs/product/modules/05-reporting-and-analytics.md`, `docs/status/FEATURE-STATUS.md`.
+
+### 🎨 Screens drawn for Modules 4 and 5
+**Why:** the revised specs needed to be seen, not just read, and the customer has no designer.
+Static HTML in `design/internal/` (and `design/public/` for the one external surface), same
+V1.0 tokens from `ds.js`, so Tailwind classes transfer straight into React.
+
+**Six screens:** offer dashboard, offer generation & approval, candidate offer portal,
+executive dashboard, pipeline & source analytics, custom report builder.
+
+**The designs resolve things the specs only flagged:**
+- The **`Rejected` collision** — the offer pill never appears in a pipeline list, and the row
+  spells out *"Declined by candidate"* beneath it.
+- **Hiring Manager salary hiding** renders as an **absent column**, not a blurred one. A
+  column that is present but obscured advertises that a number exists.
+- The **offer approval reuses Module 1's rail**, visually and structurally, rather than
+  introducing a second approval mechanism.
+- The **funnel band mapping** (4 bands ↔ 8 enum values) is drawn on the screen, including why
+  `Rejected` gets no band.
+- The **recruiter leaderboard is deliberately unsorted**, with the observation that the
+  recruiter with the fewest CVs has the best conversion — any single-column sort would invert
+  the truth.
+- A **proposed fourth KPI tile, "time in approval"**, marked as *not in the requirement*:
+  both required clocks start after approval, so the delay this product exists to remove is
+  invisible on its own dashboard.
+
+**Chart colour was computed, not chosen.** The categorical palette
+`#0D9488 #7C3AED #D97706 #0369A1` was run through the dataviz validator and passes all six
+checks (worst adjacent CVD ΔE 21.0 deutan / 13.6 tritan; normal-vision 30.2). The first
+candidate used the brand teal `#0F766E` and **failed the chroma floor** — it reads as grey in
+a chart — so it was re-stepped to `#0D9488`. Source share and source conversion are two
+separate charts, never one dual-axis chart.
+
+**Touched:** `design/internal/{offer-dashboard,offer-create,analytics-dashboard,analytics-pipeline,report-builder,index}.html`,
+`design/public/offer-portal.html`.
+
+## 2026-08-17
+
+### 🧹 The design system finally went through the pivot, three weeks late
+**Why:** `RecruitOps_Design_System.md` still opened with *"Design system for a B2B Recruitment
+Agency Platform (RAaaS)"* and *"Your agency, running on rails."* — a product
+[ADR-0001](../decisions/ADR-0001-pivot-to-inhouse.md) deleted on 2026-07-27. It specified a
+client portal, Gold/Silver/Bronze client tiers, a client feedback bar, contract-expiry cards,
+and a `Sent to Client` / `Placed` status vocabulary. **The doc and the token file had already
+disagreed** — the preset carried no tier colours — and nothing caught it, because docs have no
+compiler.
+
+**The mechanism that kept the dead code alive.** `packages/ui` still *exported*
+`ClientPortalCard`, `ClientFeedbackBar` and `ExpiryAttentionCard`. Nothing in either app
+imported them; the only importers were **two test files**, `signatureComponents.test.tsx` and
+`challenger_signature_edgecases.test.tsx`. So the suite was green *because* it exercised code
+the product had removed — the tests were the last thing holding the agency model in the build.
+`signatureComponents.test.tsx` opened with a suite literally named "StatusPill Extended
+Vocabulary" asserting `Sent to Client`, `Placed`, `Accepted`, `Need More Info`, `Active`,
+`Expiring Soon` and `Expired`.
+
+**Shape:**
+- `RecruitOps_Design_System.md` rewritten: thesis is now *"every decision has a record"*; three
+  surfaces (internal app, public **applicant** job page, marketing) replace the agency's
+  internal/client-portal split; status vocabulary is exactly the four backend enums; two new
+  signature patterns replace the client ones — **Approval Chain Rail** (rounds stack rather than
+  replace, senior skip-ahead names both parties, threshold breach renders amber) and **Blind
+  Panel Scorecard** (withheld scores are *absent*, never blurred placeholders).
+- `StatusPill`: `ExtendedStatusVocabulary` deleted — all ten labels were agency-era. The
+  vocabulary is now the union of the four enums with **no free-form extension point**, on
+  purpose: a label with no enum behind it is a status the product cannot be in.
+- `PipelineStageRail`: defaults were `Sourced → Shortlisted → Sent to Client → Interview →
+  Placed`, two of them deleted labels. Now the real funnel, `Sourced → Applied → Screening →
+  Shortlisted → Interview → Offer → Hired`. `Rejected` is deliberately excluded — it is an exit
+  from the funnel, and listing it implies candidates flow into it from `Hired`.
+- `ClientPortalCard.tsx` and `ExpiryAttentionCard.tsx` deleted, with their exports.
+
+**Contrast, fixed properly this time.** The doc claimed `-600` on `-100` was "WCAG AA
+guaranteed" and that `ink-400` meta text was pre-checked. Measured at pill size, **five of those
+claims were false**: warning 2.97:1, success 3.62, danger 4.08, info 4.23, `ink-400` on
+`surface-50` 2.77 — against a 4.5:1 floor. Added `-700` text-on-tint steps to the preset
+(success `#146B43`, warning/accent `#8A5A08`, danger `#A63423`, info `#22528F`) and moved
+`StatusPill` onto them. The doc now says *verify, do not assert*.
+
+**Proved to fail first.** The new contrast cases were mutated before being trusted — reverting
+`Hired` to `text-success-600` and `Sourced` to `text-ink-400` produced exactly 2 failures, then
+was restored. A guarantee nobody has seen fail is not a guarantee.
+
+**Touched:** `RecruitOps_Design_System.md`, `packages/ui/tailwind-preset.js`,
+`packages/ui/src/StatusPill.tsx`, `packages/ui/src/PipelineStageRail.tsx`,
+`packages/ui/src/index.ts`, `packages/ui/src/ClientPortalCard.tsx` (deleted),
+`packages/ui/src/ExpiryAttentionCard.tsx` (deleted),
+`frontend/internal/src/components/ui/signatureComponents.test.tsx` (rewritten, 16 cases),
+`frontend/internal/src/components/ui/challenger_signature_edgecases.test.tsx` (trimmed to 9).
+
+**Verified:** `npm run typecheck` clean across both apps; `npm run test` in `frontend/internal`
+**342/342 green across 43 files**.
+
+### 🎨 Marketing landing page, and two contrast bugs it found in the design system
+**Why:** the product needed a public sales surface. Built through the `impeccable` skill
+(installed into this repo at `.claude/skills/impeccable/`), which routes a new surface through
+`PRODUCT.md` → visual direction → build → review.
+
+**Shape:** `marketing/landing.html` — a single self-contained file using the Tailwind CDN and
+Lucide icons, opening in a browser with no build step. It is deliberately **not** a route in
+`frontend/public`; promoting it into the Next.js app is a separate decision. The chosen structure
+is "Before/After Desk": the page opens on the artifacts hiring actually runs on today (an Excel
+headcount tracker, a `RE: RE: FW:` approval thread) and replaces each with the record that
+supersedes it. It inherits the shipped "Clear Pipeline" tokens rather than forking them.
+
+**What it is careful not to claim.** Confirmed with the product owner before writing: no named
+customers or logos, no MMK pricing, and **no PDPA/GDPR/SOC badges** — none of those are real, and
+a compliance badge implying certification would have been the worst thing on the page. Target
+industries read as "built for". The one authorised claim is the **99.9% Enterprise uptime SLA**,
+which is *not yet recorded in any ADR* — see the follow-up below.
+
+**Two real contrast failures found, both inherited, both affecting the product:**
+- `RecruitOps_Design_System.md` §9 states all token pairs are "pre-checked" at ≥4.5:1. They are
+  not. `ink-400` (`#8A99A3`) on `surface-50` measures **2.77:1**, and it is used for meta text.
+- §2 states "text on tint backgrounds always uses the matching `-600` color (WCAG AA
+  guaranteed)". False for **all four** semantic pairs at pill sizes: warning **2.97**, success
+  **3.62**, danger **4.08**, info **4.23**. `StatusPill` is the design system's signature
+  component, so this ships in both frontends today.
+  The landing page fixed both locally (meta text at `ink-600`; new `-700` tint-text steps).
+  **The shared preset and `StatusPill` were fixed the same day** — see the design-system entry
+  above, which adopted the same `-700` steps so the two surfaces agree.
+
+**Also found:** `RecruitOps_Design_System.md` never went through the 2026-07-27 pivot — it still
+describes "a B2B Recruitment Agency Platform (RAaaS)", client tiers, a client feedback bar and the
+deleted `Sent to Client` / `Placed` vocabulary. `packages/ui` still exports `ClientPortalCard`,
+`ClientFeedbackBar` and `ExpiryAttentionCard`, kept alive only by
+`challenger_signature_edgecases.test.tsx` (and `signatureComponents.test.tsx`, which the first
+sweep missed). **Fixed the same day** — see the design-system entry above.
+
+**Touched:**
+- `marketing/landing.html` (new)
+- `PRODUCT.md`, `DESIGN.md` (new, repo root) — product truth and the built visual system
+- `.claude/skills/impeccable/`, `.claude/agents/impeccable-*.md`, `.impeccable/config.json` (new)
+
+**Follow-ups:** write the 99.9% SLA into an ADR and the commercial terms before the page goes
+live; fix the tint-pill contrast in `packages/ui`; pivot the design-system doc.
+
+## 2026-08-16
+
+### ♻️ A rejected requisition can be revised and resubmitted, in rounds (ADR-0023)
+**Why:** the product owner's request — *"if it gets rejected, let it be corrected and
+resubmitted."* `Rejected` was terminal: edits and submits were both `Draft`-only, so the only way
+forward was to raise a brand-new requisition, stranding the rejection comment — the one sentence
+that says what to fix — on a dead record. Notably that rule was enforced by two `if` statements
+and covered by **no test**, so nothing had to be inverted to change it, and nothing was guarding
+it either way.
+
+**Shape:** `Rejected → Draft` for the requester (`POST /api/requisitions/{id}/revise`), then edit,
+then resubmit. Each submission is a **round**; resubmitting stamps out fresh steps at round *n+1*
+and leaves round *n* verbatim. Each round is decided afresh from step 1 — carrying an earlier
+`Approved` forward would credit an approval to a document nobody approved. `Approved` and
+`Cancelled` stay terminal.
+
+**The part that was easy to get wrong:** five sites read `RequisitionApprovals` and all five
+assumed one round. Unscoped, a second round does not throw — the completion check
+(`approvals.All(a => a.Decision == Approved)`) can *never* be true once a rejected round is
+preserved, so a fully-approved round 2 would sit in `PendingApproval` with no `Waiting` step,
+invisible in every inbox, silently. All five are now round-scoped.
+
+**Touched:**
+- `RequisitionApproval.cs` — new `Round` (int, default 1); `AppDbContext.cs` unique index widened
+  `(RequisitionId, Sequence)` → `(RequisitionId, Round, Sequence)`. Without that widening a second
+  round violates the constraint on real Postgres and **would not fail the suite**, which runs on
+  the in-memory provider.
+- `RequisitionService.cs` — new `ReviseAsync`; `SubmitAsync` opens round *n+1*; `DecideAsync`,
+  `GetInboxAsync`, `FetchListAsync` and `BuildDetailAsync` all round-scoped.
+- `RequisitionsController.cs` — `POST /{id}/revise`, gated on `requisitions:update` (revising is
+  the requester's authority, not the approver's — same reasoning as cancel, ADR-0022).
+- `RequisitionDetailPage.tsx` — timeline grouped by round, "Attempt 1 — superseded" / "Attempt 2 —
+  current"; React keys moved from `sequence` to `round-sequence`, which would otherwise collide.
+- `RequisitionReviseAndResubmitTests.cs` (new, 6 tests).
+
+### 🔐 A later approver may approve forward, but never reject forward (ADR-0024)
+**Why:** the product owner's request — *"I'm number 2 and you're number 1: I can skip over you and
+approve both 1 and 2. But it has to show the record of what I did."* The chain models an org
+hierarchy, and a senior willing to sign off should not be blocked by a junior on leave.
+
+**This reverses a deliberate decision.** `GetInboxAsync`'s comment said the lowest-sequence
+`Waiting` step must be the caller's *"or a later approver could act early"*, and three tests
+asserted it. Those tests were **re-scoped, not deleted** — deleting them would have removed the
+only proof that the limits still hold.
+
+**The limits, and why they are not symmetric:** approving forward removes a junior's step but not
+their say — the requisition proceeds, which their approval would have caused anyway. Rejecting
+forward would *end* it before the junior ever saw it, substituting the senior's opinion for a
+review that never happened. So reject stays bound to the caller's own step. Skipping *forward*
+(an earlier approver reaching a later step) also stays blocked — the rule reaches down only.
+
+**Seniority is chain position and nothing else.** No rank attribute was added to users or roles;
+`auth-and-tenancy.md:46` deliberately removed seniority from the role model, and reintroducing it
+to serve one feature would contradict that.
+
+**Touched:**
+- `RequisitionApproval.cs` — new nullable `DecidedByUserId`; null means the assignee decided it
+  themselves, so every pre-existing row stays correct with no backfill. `ApproverUserId` is
+  deliberately *not* overwritten: that would make the row claim the senior was always the
+  assignee, which is false and unfalsifiable afterwards.
+- `RequisitionService.DecideAsync` — selects the caller's *own* waiting step, closes everything at
+  or below it, stamps the real decider on steps that were not theirs.
+- `GetInboxAsync` — second filtering pass dropped; not-yet-your-turn work is now surfaced and
+  *marked* rather than hidden, or the feature would be undiscoverable.
+- `RequisitionListItemDto` / `packages/types` — new `yourStepLabel` alongside `awaitingApprovalFrom`.
+  The Inbox's "Your step" column previously showed `awaitingApprovalFrom`, which for a senior
+  names *someone else entirely*.
+- `RequisitionDetailPage.tsx` — names the steps being closed on others' behalf before the click,
+  hides Reject when it would be forward, renders "Approved by Finance on behalf of HR".
+- 3 tests re-scoped (`A_Later_Approver_Cannot_Jump_The_Queue` → an approve/reject pair,
+  `Inbox_Only_Shows_Requisitions_Waiting_On_You`, `Sequential_Approval_Logic_Enforces_Step_Order`).
+
+**Migration:** `20260815183136_AddApprovalRoundAndActualDecider` — one migration for both features,
+additive, `Round` defaulting to 1 so existing rows backfill. **Proposed, not applied**, per
+CLAUDE.md. Reworked after `db-schema-reviewer`: the generated version dropped the old index first
+inside EF's single transaction, and because Postgres holds DDL locks until commit, that exclusive
+lock covered the whole `CREATE INDEX` build — blocking reads as well as writes on
+`RequisitionApprovals` for its duration. Now: add columns → `CREATE UNIQUE INDEX CONCURRENTLY`
+outside a transaction → drop the old index. `Down()` was reordered so it fails *before* destroying
+the audit columns on any database that has seen a second round, and carries a warning saying so.
+
+**Reviews:** `security-reviewer` (mandatory for authorization changes per CLAUDE.md) found no
+exploitable bypass, no oracle regression, and no way for a client to set `DecidedByUserId`. It
+raised one real test gap — the existing no-oracle test probes with a caller who lacks `approve` and
+is stopped at the policy layer, so it never reaches the guard ordering it claims to protect. Closed
+by `An_Approver_Who_Holds_The_Permission_Still_Learns_Nothing_From_A_Requisition_Not_Theirs`.
+
+**Mutation-checked, and it found a real hole.** Removing the skip-reject guard turned 3 tests red;
+removing `DecideAsync`'s round scoping turned 1 red. But removing `GetInboxAsync`'s round scoping
+left the **entire suite green** — every existing test uses a chain identical across rounds, so
+nothing constructed the case the guard exists for. `An_Approver_Dropped_From_The_Chain_Between_Rounds_Loses_The_Inbox_Item`
+was written to close that, and the mutation now fails as it should.
+
+## 2026-08-15
+
+### 🔐 Approval authority is now permission-driven, not a hardcoded role literal (ADR-0022)
+**Why:** the user's actual request — *"We can config who can do the approval chain base on who
+request or which department."* Module 1.3 already says the chain is "configurable per company, not
+hard-coded," and `permission:requisitions:requisitions:*` / `permission:settings:settings:*` were
+already seeded and displayed in the Role Builder — but `RequisitionsController` and
+`ApprovalChainsController` gated on `RequireRole` role literals, so granting or revoking those
+permissions through the Role Builder changed nothing. See `.agents/tw2/explorer_ac_1/analysis.md`
+(Finding B) and `PROJECT.md` (teamwork run `tw2`, milestone M2).
+
+**Touched:**
+- `RequisitionsController.cs` — controller-level `[Authorize(Policy = Policies.InternalUser)]`
+  replaced with bare `[Authorize]` + a per-action `[HasPermission("permission:requisitions:
+  requisitions:*")]` (read / approve / create / update / approve / update on list / inbox / get /
+  create / update / submit / decision / cancel respectively — see ADR-0022 for the full table).
+- `ApprovalChainsController.cs` — controller-level `[Authorize(Policy = Policies.AdminOnly)]`
+  replaced with bare `[Authorize]` + `[HasPermission("permission:settings:settings:read")]` on the
+  reads and `...settings:update` on create.
+- `backend/tests/RecruitOps.Api.Tests/RequisitionPermissionAuthorityTests.cs` (new) — proves an
+  Approver can decide while a HiringManager 403s; a role without `approve` cannot reach `/inbox`
+  while one that holds it sees real work; HrDirector can now read chains but not create one; **a
+  brand-new custom role, created and granted only `requisitions:approve` through the Role Builder in
+  the test itself, can actually decide a requisition** — the point of the milestone; and the
+  permission gate does not bypass department scoping on create.
+- `RequisitionApprovalFlowTests.cs` — 4 tests updated from `404` to `403` for Approver hitting
+  `/submit`, `/decision` (via Recruiter), `PUT`, `/cancel`: those actions now require
+  `requisitions:update` (which `Approver` never held), so the policy layer stops the call before
+  `RequisitionService.IsOwnerOrCompanyWide` is reached. The guarantee itself — an Approver cannot
+  submit, edit, or cancel someone else's requisition — is unchanged; it is enforced earlier.
+- `docs/decisions/ADR-0022-permission-driven-requisition-authority.md` (new).
+- `docs/status/FEATURE-STATUS.md` — Module 1 section updated with the permission-driven note and the
+  corrected `approvalchains` access description.
+
+**Behaviour changes (intended, all recorded in ADR-0022):** Recruiter **keeps** create and update on
+requisitions — the first cut of this change would have removed them, because `Policies.InternalUser`
+let recruiters raise requisitions while the seed granted them `requisitions:read` only. Making
+permissions authoritative surfaced that contradiction, and it was resolved by correcting the seed
+(`RbacSeedData.cs` now grants Recruiter `requisitions:create` and `requisitions:update`) rather than
+by letting a capability quietly disappear. The two codes are granted as a **pair** on purpose: the
+flow is create → edit the draft → submit, and both the edit and submit endpoints are gated on
+`update`, so `create` alone would produce requisitions their author could neither fix nor submit.
+`requisitions:approve` is still withheld — raising headcount is not authority to approve it.
+Pinned by `Recruiter_Can_Raise_And_Submit_A_Requisition_But_Cannot_Approve_It`, and the Domain
+seed test moved from 23 to 25 permissions for Recruiter with the two new codes asserted by name.
+`GET /inbox` narrows to roles holding `requisitions:approve` (Recruiter/HiringManager's
+inbox already returned `[]`, so nothing visible today disappears); `GET /approvalchains` widens to
+`HrDirector` (fixes a real defect — `Sidebar.tsx` already showed the nav item to `settings:read`
+holders while the API demanded `Admin`); creating a chain still effectively requires `Admin` (only
+role seeded with `settings:update`) but is now expressed as a grantable permission.
+
+**Verified:** `dotnet build backend/src/Api` clean; `dotnet test backend/RecruitOps.sln` — 51 Domain
++ 464 Api = 515/515 passing (up from the 507 recorded 2026-08-13; +8 net from the new file and the
+updated assertions). Mutation-checked: removing `[HasPermission]` from `POST /{id}/decision` turns
+`HiringManager_Without_Approve_Permission_Gets_403_On_Decision_While_Approver_Succeeds` red (expected
+`Forbidden`, got `NotFound`), confirming the new test exercises the attribute rather than passing
+regardless of it.
+
+---
+
+## 2026-08-13
+
+### ✅ Delivery & Deployment Prerequisites Complete (ADR-0004 & ADR-0007)
+**Why:** Provide the operational, versioning, feature-flag add-on gating, container security packaging, and documentation prerequisites required for per-company single-tenant installations.
+
+**Touched:**
+- **Feature Flags Engine**: Implemented `IFeatureFlagService`, `FeatureFlagService`, `[FeatureGate("FeatureName")]` attribute, and `FeatureGateFilter` returning 403 Forbidden with `FeatureDisabled` payload for disabled add-on features. Added `useFeatureFlags` hook, `<FeatureGate>` wrapper component, and dynamic navigation filtering in `Sidebar.tsx`.
+- **System Versioning & Health**: Implemented `GET /api/version` (`VersionController`) returning version string, environment, timestamp, deployment tier, and active feature flags dictionary. Added `/health` alias endpoint to `HealthController`.
+- **Production Container Packaging**: Created `docker-compose.prod.yml` and `infra/nginx/nginx.conf` reverse proxy topology, dropping API port publishing in production and configuring `ReverseProxy__TrustForwardedHeaders=true`.
+- **Operational Documentation**: Created `docs/architecture/deployment-runbook.md` (automated EF Core startup migrations, Postgres backup/restore runbook, upgrade procedures) and `docs/architecture/server-sizing-guide.md` (vCPU/RAM/Storage matrix by company tier).
+- **Test Suite**: Added `FeatureFlagAndVersionTests.cs` and `FeatureGate.test.tsx`, verifying 507/507 backend tests pass and 318/318 frontend tests pass across all workspaces with 0 TypeScript errors.
+
+---
+
+## 2026-08-12
+
+### 🔴 Fixed: the AI endpoints invented candidates instead of reporting the feature was off
+**Why:** `ClaudeOptions`/`GeminiOptions` shipped `EnableFallback = true` and `RequireApiKey = false`,
+and `appsettings.json` carried **no `AI` section at all** — so those defaults were what a customer
+install got. With no API key, `POST /api/ai/parse-resume` answered **200** with a hardcoded
+"Aung Kyaw Thu / +959123456789 / Tech Myanmar Solutions", and `match-candidate` answered **88%
+"Strong Fit"** for every candidate–job pair; the stub ignored the request entirely. Worse, both
+clients wrapped the provider call in `catch (Exception)` and returned the same stub, so an invalid
+key (401), a rate limit (429), a timeout or a network fault also produced a fabricated analysis
+under a 200. ADR-0008 makes AI optional and key-gated; "optional" has to mean the feature reports
+itself off, not that it makes something up. The CV pipeline writes a confirmed parsed profile to the
+candidate record, so this path put invented PII in the database — and a recruiter has no way to tell
+a stub from a real answer.
+
+**Now:**
+- `EnableFallback` defaults to **false**, and `appsettings.json` declares the `AI` section
+  explicitly with a note on why. No key → **402**, as the contract in `PROJECT.md` always said.
+- The stubs survive only as a local-development convenience (`appsettings.Development.json`), and
+  every stubbed response is stamped **`X-Ai-Simulated: true`** via the new scoped
+  `IAiSimulationScope`, set by the provider clients and read by `AiController`.
+- A configured key never falls back. Any unusable provider outcome — non-success status, timeout,
+  transport fault, unexpected body shape — raises the new `AiProviderUnavailableException` and
+  surfaces as **502**. A caller-cancelled request stays a cancellation.
+- `RequireApiKey` and the `X-Require-Api-Key` request header are **gone**. A client-supplied header
+  deciding server-side gating was the only reason the 402 tests passed, and nothing in the frontend
+  ever sent it — the default that actually shipped had no test at all.
+- `AiController`'s five copies of the same `try/catch` are one `RunAsync` helper, so the sibling
+  rule this repo keeps breaking cannot be applied to four endpoints out of five.
+
+**Tests:** 468 → **484**. `AiApiKeyGatingDefaultsTests` boots the API through the new
+`NoAiFallbackWebAppFactory` — the configuration a customer install actually gets — and asserts 402
+plus "the body never contains `Aung Kyaw Thu` or `Strong Fit`". `AiStressAndResilienceTests` had
+four tests *asserting the fabrication was correct behaviour* ("Handles_Http_Errors_Gracefully"
+expected `Aung Kyaw Thu`); they now assert `AiProviderUnavailableException`. Both directions were
+proved by mutation: dropping the `EnableFallback` check fails 6 gating tests, and restoring the
+`catch → stub` line fails 6 resilience tests.
+
+**Touched:** `Infrastructure/Options/{Claude,Gemini}Options.cs`,
+`Infrastructure/Services/{Claude,Gemini}ApiClient.cs`, `Infrastructure/Services/AiSimulationScope.cs`
+(new), `Infrastructure/DependencyInjection.cs`, `Application/Interfaces/IAiSimulationScope.cs` (new),
+`Application/Common/Exceptions/AiProviderUnavailableException.cs` (new),
+`Api/Controllers/AiController.cs`, `Api/appsettings.json`, `Api/appsettings.Development.json`,
+and four test files.
+
+**Still open:** the internal SPA renders a 502 through its existing non-402 error banner, which is
+correct but generic, and it ignores `X-Ai-Simulated` — so a demo environment running with the
+development fallback still shows "88% Match" with no marker on screen. Surfacing that header in
+`SmartMatchBreakdown` and `ExecutiveSummaryPanel` is the obvious follow-up.
+
+## 2026-08-03
+
+### 🔴 Fixed: permission-aware UX was fail-open — every user saw the full admin UI
+**Why:** `hasPermission()` in `frontend/internal/src/lib/auth.ts` returned `true` for a null
+session and for a session whose `permissions` array was absent, the latter commented as a
+"legacy" fallback. It was not legacy. `LoginResponse` on the backend had **no `Permissions`
+member at all** — the record was `(AccessToken, ExpiresAtUtc, Role, DisplayName, UserId)` —
+so `session.permissions` was permanently `undefined` and that branch was the *only* one
+non-admin users ever reached. Every permission-gated control across 12 files — sidebar
+filtering, `RequirePermission` route guards, and the create/update/delete/approve/publish
+buttons on requisitions, postings, interviews, scorecards, users and roles — rendered for
+everyone. The Milestone 5 "Permission-Aware UX Adaptivity (R5)" work was inert from the day
+it shipped.
+
+**Not a privilege escalation.** `PermissionAuthorizationHandler` re-derives permissions
+server-side from the signed JWT and never trusts client state, so the API always enforced
+correctly. This was UI disclosure: users saw controls that would have 403'd on click.
+
+**Touched:**
+- `backend/src/Application/DTOs/LoginResponse.cs` — added required
+  `IReadOnlyCollection<string> Permissions`.
+- `backend/src/Infrastructure/Services/AuthService.cs` — injects `IPermissionEvaluator`,
+  populates the set via `GetUserPermissionsAsync(user.Id, user.TenantId, ct)`.
+- `packages/types/src/index.ts` — `permissions` on `LoginResponse` optional → **required**,
+  so the compiler flags anything constructing the old shape.
+- `frontend/internal/src/lib/auth.ts` — `hasPermission()` fails closed on null session and on
+  absent/empty permissions. Admin/SuperAdmin bypass retained, mirroring the server handler.
+- Tests: new `frontend/internal/src/lib/auth.test.ts` (9), regressions added to
+  `RequirePermission.test.tsx` and `AppLayout.test.tsx`, two new API tests in
+  `AuthLoginTests.cs` asserting the permission set reaches the wire.
+
+⚠️ **Why the existing tests missed it:** every test constructed its session with an explicit
+`permissions` array — a shape the API never produced. The suites exercised a fiction. Making
+the field required surfaced **8 more call sites** doing the same thing, and flipping the
+default broke **8 tests across 4 files** that had been passing only because of the fail-open
+(three suites rendered permission-gated pages with *no session at all*). Those now establish
+the session their scenario requires.
+
+**Verified:** backend 228/228 (51 domain + 177 api), frontend 189/189 across 22 files,
+`npm run typecheck` clean. `security-reviewer` found no exploitable issue and confirmed the
+server-side boundary independently re-derives permissions from the validated token.
+
+**Carried forward (pre-existing, not introduced here):** `AuthService.LoginAsync` resolves the
+account with `FirstOrDefaultAsync` on email across all tenants, so a duplicate email in two
+tenants resolves an arbitrary one. Already noted in the code's own comment; needs a tenant
+selector or a DB-level uniqueness guarantee.
+
+### 🔧 LSP code intelligence wired up (TypeScript + C#)
+**Why:** Symbol-level navigation (`goToDefinition` / `findReferences` / `hover`) is more
+reliable than text search for tracing shared DTOs in `packages/types` to their backend
+counterparts, and for following Application interfaces to their Infrastructure
+implementations. `grep`/`glob` are now demoted to text and non-code files.
+
+**Touched:**
+- `.mcp.json` — added the `lsp` MCP server (`lsp-mcp-server`, 29 `lsp_*` tools) alongside
+  the existing `github` server.
+- `.lsp-mcp.json` (new) — declares two language servers: `typescript` (overrides the
+  built-in default to use the repo-local `typescript-language-server` rather than requiring
+  a global install) and `csharp` (custom; `csharp-ls` is not one of the bridge's ten
+  built-ins). `requestTimeout` raised to 120 s for Roslyn's solution load.
+- `package.json` — `lsp-mcp-server` and `typescript-language-server` added as exact-pinned
+  root devDependencies. `csharp-ls` 0.26.0 installed as a **global .NET tool** — the one
+  manual per-developer step.
+- `CLAUDE.md` — new "Code Intelligence & LSP Guidelines" section with setup + the warm-up
+  gotcha below.
+
+**Verified end-to-end**, not just configured: both servers start and answer over stdio.
+C# `HasPermissionAttribute` → 18 references across 6 files (controllers + tests).
+
+**All five workspace roots verified live** after restart: `backend/` (csharp-ls, including
+the test projects), `frontend/internal`, `frontend/public`, `packages/ui`, `packages/types`.
+`packages/ui` and `packages/types` have no `tsconfig.json` and resolve via `package.json`
+correctly; Next.js bracket routes (`app/jobs/[token]/page.tsx`) work.
+
+⚠️ **Two gotchas found during verification**, both now in CLAUDE.md:
+
+1. **Cold `find_references` under-reports on TypeScript.** `tsserver` only searches files it
+   has opened. `hasPermission` returned **1 reference / 1 file** cold and **16 references /
+   7 files** after `lsp_index_files`. A one-file answer means "not indexed", not "unused".
+   C# is unaffected (Roslyn loads the whole solution up front).
+
+2. **One tsserver per workspace — query shared types from the consumer side.** Asking for
+   `LoginResponse` references *from* `packages/types` (where it is defined) returns **1**,
+   the declaration alone; asking from `frontend/internal` returns **5**, including the
+   declaration. References resolve outward through the import, never inward. Since
+   `@recruitops/types` is consumed by `frontend/internal`, `frontend/public` and
+   `packages/ui`, a complete contract-consumer sweep means one query per consuming
+   workspace — running it from `packages/types` returns a confident, empty-looking answer.
 
 ---
 

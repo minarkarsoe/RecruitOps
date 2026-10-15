@@ -42,13 +42,14 @@ public class ApplicationAccess : IApplicationAccess
         var userId = _user.UserId;
         if (userId is null) return null;
 
-        // Clause 0: roles with no standing reach into candidate data (ADR-0018). An Approver
-        // is company-wide on the requisition axis, which used to mean CanAccessAsync said yes
-        // for every department and handed them every candidate in the company. They skip
-        // clause 1 entirely and reach an application only by being on its panel.
-        if (!_user.IsExcludedFromCandidateData
-            // Clause 1: department scoping (ADR-0003). Company-wide roles land here too.
-            && await _departments.CanAccessAsync(row.DepartmentId, ct))
+        // Clauses 0 and 1 together, and deliberately not spelled out here any more:
+        //   0. roles with no standing reach into candidate data (ADR-0018) — an Approver is
+        //      company-wide on the requisition axis, which used to mean CanAccessAsync said yes
+        //      for every department and handed them every candidate in the company;
+        //   1. department scoping (ADR-0003), which company-wide roles also pass.
+        // Both live in IDepartmentAccess.CanReachCandidatesInAsync now. Writing them out
+        // separately here is what let a later service copy only half of the pair.
+        if (await _departments.CanReachCandidatesInAsync(row.DepartmentId, ct))
         {
             return ViaDepartment(row);
         }

@@ -68,43 +68,51 @@ export default async function PublicJobPage({ params }: Props) {
   if (!job) notFound();
 
   return (
-    <main className="mx-auto max-w-[760px] px-6 py-12">
-      <p className="text-[13px] font-semibold uppercase tracking-wide text-ink-600">
-        {job.companyName}
-      </p>
-      <h1 className="mt-1 font-display text-[32px] font-bold leading-10">{job.title}</h1>
+    // 720px and the kit's rhythm, per `design/public/job.html`.
+    <main className="mx-auto max-w-[720px] px-5 py-8">
+      {/* No uppercase. The kit does not set a heading or an eyebrow in caps anywhere, and a
+          company name is a proper noun — capitalising it costs the reader the word's own shape. */}
+      <p className="text-sm font-medium text-ink-600">{job.companyName}</p>
 
-      <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[15px] text-ink-600">
+      {/* 24px, down from 32. The kit's page title is `text-3xl font-bold tracking-tight`; 32px
+          was a size the type scale does not contain. */}
+      <h1 className="mt-3 text-3xl font-bold tracking-tight">{job.title}</h1>
+
+      {/* Pills, per the kit. Each fact is a discrete thing about the job, and a row of
+          space-separated phrases makes "Yangon" and "Full-time" read as one sentence. */}
+      <dl className="mt-3 flex flex-wrap items-center gap-2">
         {job.location && (
-          <div className="flex gap-2">
+          <div className="inline-flex h-7 items-center rounded-full border border-line bg-white px-3 text-sm">
             <dt className="sr-only">Location</dt>
             <dd>{job.location}</dd>
           </div>
         )}
-        <div className="flex gap-2">
+        <div className="inline-flex h-7 items-center rounded-full border border-line bg-white px-3 text-sm">
           <dt className="sr-only">Employment type</dt>
           <dd>{humanizeEmploymentType(job.employmentType)}</dd>
         </div>
         {/* Only present when the posting opted in — see PublicJobDto. */}
         {job.salaryRange && (
-          <div className="flex gap-2">
+          <div className="inline-flex h-7 items-center rounded-full border border-line bg-white px-3 text-sm">
             <dt className="sr-only">Salary</dt>
-            <dd className="font-mono">{job.salaryRange}</dd>
+            <dd className="font-mono tnum">{job.salaryRange}</dd>
           </div>
         )}
       </dl>
 
-      <article className="mt-10 whitespace-pre-wrap text-[15px] leading-relaxed">
+      <article className="mt-8 whitespace-pre-wrap text-md leading-relaxed text-ink-700">
         {job.description}
       </article>
 
-      <div className="mt-12 rounded-lg border border-line-200 bg-surface-0 p-8 shadow-card">
+      {/* Border, not a shadow. The kit's rule for every panel: cards sit on their border, and a
+          page of drop-shadowed boxes reads as a dashboard demo rather than a job advert. */}
+      <div className="mt-12 rounded-lg border border-line bg-white p-8">
         {job.isOpen ? (
           <ApplicationForm token={params.token} formFieldsJson={job.applicationFormFieldsJson} />
         ) : (
           <>
-            <h2 className="font-display text-[19px] font-semibold">Applications are closed</h2>
-            <p className="mt-2 text-[15px] text-ink-600">
+            <h2 className="text-xl font-semibold tracking-tight">Applications are closed</h2>
+            <p className="mt-2 text-base text-ink-600">
               This vacancy is no longer accepting applications. The page is kept so that
               links already shared don&apos;t break.
             </p>

@@ -1,98 +1,208 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import {
-  auth, hasPermission, isSuperAdmin,
-} from '../lib/auth';
-
-// Internal app shell: fixed 240px sidebar + fluid content, max-width 1280 (design system §4).
+import { useState, useEffect } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
+import { CommandPalette, type CommandItem } from '@recruitops/ui';
+import { auth, hasPermission } from '../lib/auth';
+import { TenantSwitcherBar } from './TenantSwitcherBar';
+import { Sidebar } from './Sidebar';
+import { Header } from './Header';
+import { useSearch } from '../features/search/useSearch';
 
 export function AppLayout() {
   const navigate = useNavigate();
   const session = auth.get();
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  const { query, setQuery, results, isLoading, error, clear } = useSearch({
+    enabled: isCommandPaletteOpen,
+  });
+
+  const searchResults: CommandItem[] = (results?.items ?? []).map((item) => ({
+    id: item.id,
+    title: item.title,
+    description:
+      item.subtitle ||
+      (item.descriptionSnippet ? item.descriptionSnippet.replace(/<[^>]+>/g, '') : undefined),
+    category: item.category === 'Postings' ? 'Job Postings' : item.category,
+    path: item.targetUrl,
+  }));
 
   function signOut() {
     auth.clear();
     navigate('/login', { replace: true });
   }
 
-  const link = ({ isActive }: { isActive: boolean }) =>
-    `block rounded-md px-3 py-2 text-[15px] ${
-      isActive
-        ? 'bg-primary-100 font-semibold text-primary-700'
-        : 'text-ink-600 hover:bg-surface-50'
-    }`;
+  const handleClosePalette = () => {
+    setIsCommandPaletteOpen(false);
+    clear();
+  };
+
+  // Global Ctrl+K / Cmd+K keyboard shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => {
+          if (prev) {
+            clear();
+          }
+          return !prev;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [clear]);
+
+  const rawCommandItems = [
+    {
+      id: 'nav-requisitions',
+      title: 'Requisitions',
+      description: 'View and manage active job requisitions',
+      category: 'Navigation',
+      path: '/requisitions',
+      shortcut: 'G R',
+      permission: 'permission:requisitions:requisitions:read',
+    },
+    {
+      id: 'action-new-requisition',
+      title: 'Create New Requisition',
+      description: 'Submit a new hiring request',
+      category: 'Quick Actions',
+      path: '/requisitions/new',
+      shortcut: 'N R',
+      permission: 'permission:requisitions:requisitions:create',
+    },
+    {
+      id: 'nav-jobpostings',
+      title: 'Job Postings',
+      description: 'Manage external and internal job postings',
+      category: 'Navigation',
+      path: '/jobpostings',
+      shortcut: 'G J',
+      permission: 'permission:postings:postings:read',
+    },
+    {
+      id: 'nav-inbox',
+      title: 'Inbox',
+      description: 'Review pending requisition approvals',
+      category: 'Navigation',
+      path: '/inbox',
+      shortcut: 'G I',
+      permission: 'permission:requisitions:requisitions:approve',
+    },
+    {
+      id: 'nav-jdtemplates',
+      title: 'JD Templates',
+      description: 'Job description templates library',
+      category: 'Navigation',
+      path: '/jdtemplates',
+      permission: 'permission:requisitions:requisitions:read',
+    },
+    {
+      id: 'nav-scorecardtemplates',
+      title: 'Scorecard Templates',
+      description: 'Evaluation criteria & interview rubrics',
+      category: 'Navigation',
+      path: '/scorecardtemplates',
+      permission: 'permission:scorecards:scorecards:manage_templates',
+    },
+    {
+      id: 'nav-analytics',
+      title: 'Reporting & Analytics',
+      description: 'Recruitment KPIs, time-to-hire, funnel conversion & custom reports',
+      category: 'Insights',
+      path: '/analytics',
+      shortcut: 'G A',
+      permission: 'permission:requisitions:requisitions:read',
+    },
+    {
+      id: 'nav-approvalchains',
+      title: 'Approval Chains',
+      description: 'Configure approval workflows',
+      category: 'Governance',
+      path: '/approvalchains',
+      permission: 'permission:settings:settings:read',
+    },
+    {
+      id: 'nav-departments',
+      title: 'Departments',
+      description: 'Manage organization departments',
+      category: 'Governance',
+      path: '/departments',
+      shortcut: 'G D',
+      permission: 'permission:settings:settings:read',
+    },
+    {
+      id: 'nav-users',
+      title: 'Users',
+      description: 'Manage team members and user directory',
+      category: 'Governance',
+      path: '/users',
+      permission: 'permission:users:users:read',
+    },
+    {
+      id: 'nav-roles',
+      title: 'Role Builder',
+      description: 'Configure RBAC roles and permissions',
+      category: 'Governance',
+      path: '/roles',
+      permission: 'permission:roles:roles:read',
+    },
+  ];
+
+  const commandItems = rawCommandItems
+    .filter((item) => hasPermission(session, item.permission))
+    .map(({ permission: _, ...item }) => item);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="flex flex-1">
-        <aside className="w-60 shrink-0 border-r border-line-200 bg-surface-0 p-4">
-          <div className="mb-6 px-3">
-            <span className="font-display text-lg font-bold">RecruitOps</span>
-          </div>
+    // ⚠️ `h-screen` + `overflow-hidden`, NOT `min-h-screen`. This is the app-shell pattern the
+    // kit uses on all 25 screens (`design/internal/board.html`: `body.overflow-hidden` around
+    // `div.flex.h-screen`): the shell is exactly one viewport tall and the CONTENT PANE scrolls
+    // inside it, so the rail never moves.
+    //
+    // It was `min-h-screen` on both this element and the row below, which makes the shell grow
+    // to the height of the tallest page. The rail grew with it, so its footer — the user block
+    // and Sign out — sat at the bottom of a 2000px column and you had to scroll the whole page
+    // to sign out. Reported 2026-08-28 from the Scorecard Templates screen.
+    <div className="h-screen flex flex-col bg-canvas overflow-hidden">
+      {/* SuperAdmin tenant switcher banner. Outside the row on purpose: it takes its natural
+          height and the shell below claims whatever is left, so the rail is never taller than
+          the viewport even when the banner is showing. */}
+      <TenantSwitcherBar />
 
-          <nav className="space-y-1">
-            {hasPermission(session, 'permission:requisitions:requisitions:read') && (
-              <NavLink to="/requisitions" className={link}>Requisitions</NavLink>
-            )}
+      {/* Main shell container. `min-h-0` lets the flex children actually shrink — without it a
+          flex item's default `min-height:auto` floors it at content height and the inner
+          `overflow-y-auto` never engages. */}
+      <div className="flex flex-1 min-h-0">
+        {/* Collateral Grouped Sidebar */}
+        <Sidebar session={session} onSignOut={signOut} />
 
-            {hasPermission(session, 'permission:postings:postings:read') && (
-              <NavLink to="/jobpostings" className={link}>Job postings</NavLink>
-            )}
-
-            {hasPermission(session, 'permission:requisitions:requisitions:approve') && (
-              <NavLink to="/inbox" className={link}>
-                Inbox
-              </NavLink>
-            )}
-
-            {hasPermission(session, 'permission:requisitions:requisitions:read') && (
-              <NavLink to="/jdtemplates" className={link}>JD templates</NavLink>
-            )}
-
-            {hasPermission(session, 'permission:scorecards:scorecards:manage_templates') && (
-              <NavLink to="/scorecardtemplates" className={link}>Scorecard templates</NavLink>
-            )}
-
-            {hasPermission(session, 'permission:settings:settings:read') && (
-              <>
-                <NavLink to="/approvalchains" className={link}>Approval chains</NavLink>
-                <NavLink to="/departments" className={link}>Departments</NavLink>
-              </>
-            )}
-
-            {hasPermission(session, 'permission:users:users:read') && (
-              <NavLink to="/users" className={link}>Users</NavLink>
-            )}
-
-            {hasPermission(session, 'permission:roles:roles:read') && (
-              <NavLink to="/roles" className={link}>Role Builder</NavLink>
-            )}
-          </nav>
-
-          {session && (
-            <div className="mt-8 border-t border-line-200 px-3 pt-4">
-              <div className="flex items-center gap-1.5">
-                <p className="text-[15px] font-semibold">{session.displayName}</p>
-                {isSuperAdmin(session) && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                    👑 Super
-                  </span>
-                )}
-              </div>
-              <p className="text-[13px] text-ink-400">{session.role}</p>
-              <button
-                onClick={signOut}
-                className="mt-2 text-[13px] font-semibold text-primary-600 hover:text-primary-700"
-              >
-                Sign out
-              </button>
-            </div>
-          )}
-        </aside>
-
-        <main className="mx-auto w-full max-w-[1280px] p-6">
-          <Outlet />
-        </main>
+        {/* Content area with sticky Header. This is the scroll container now; the Header's
+            `sticky top-0` sticks to it rather than to the document. */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+          <Header onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
+          <main className="mx-auto w-full max-w-[1280px] p-6 flex-1">
+            <Outlet />
+          </main>
+        </div>
       </div>
+
+      {/* Global Command Palette modal primitive */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={handleClosePalette}
+        onSelectRoute={(path) => {
+          navigate(path);
+          handleClosePalette();
+        }}
+        items={commandItems}
+        searchResults={searchResults}
+        query={query}
+        onQueryChange={setQuery}
+        isLoading={isLoading}
+        error={error}
+      />
     </div>
   );
 }

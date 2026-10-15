@@ -2,8 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { RolesPage } from './RolesPage';
 import { roleService } from '../services/roleService';
-import { mockRoles, mockPermissionsGrouped, mockRoleDetail, adminDirectoryPermissions } from '../test/rbacFixtures';
 import { auth } from '../lib/auth';
+import { mockRoles, mockPermissionsGrouped, mockRoleDetail } from '../test/rbacFixtures';
 
 vi.mock('../services/roleService', () => ({
   roleService: {
@@ -20,14 +20,22 @@ describe('RolesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
+    // The page's create/edit/delete controls are permission-gated. This suite used to run
+    // with no session at all and still saw them, because hasPermission() returned true for
+    // a null session; it now has to grant what the scenarios exercise.
     auth.set({
-      accessToken: 'token-admin',
+      accessToken: 'token-role-admin',
       expiresAtUtc: '2099-01-01T00:00:00Z',
-      role: 'Admin',
-      displayName: 'Admin User',
-      userId: 'usr-1',
+      role: 'Recruiter',
+      displayName: 'Role Manager',
+      userId: 'usr-role-admin',
       isSuperAdmin: false,
-      permissions: adminDirectoryPermissions,
+      permissions: [
+        'permission:roles:roles:read',
+        'permission:roles:roles:create',
+        'permission:roles:roles:update',
+        'permission:roles:roles:delete',
+      ],
     });
     (roleService.getRoles as any).mockResolvedValue(mockRoles);
     (roleService.getPermissions as any).mockResolvedValue(mockPermissionsGrouped);

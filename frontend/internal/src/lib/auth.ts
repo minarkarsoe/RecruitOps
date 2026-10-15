@@ -5,10 +5,19 @@ const STORAGE_KEY = 'recruitops.session';
 export interface Session {
   accessToken: string;
   expiresAtUtc: string;
+  refreshToken?: string;
+  refreshTokenExpiresAtUtc?: string;
   role: UserRole;
   displayName: string;
   userId: string;
   isSuperAdmin?: boolean;
+  activeTenantId?: string;
+  activeTenantName?: string;
+  /**
+   * Optional here — unlike on the API's `LoginResponse`, where it is required — because a
+   * session persisted in `sessionStorage` before the API shipped the field will not have it.
+   * `hasPermission()` treats absent as "no permissions", never as "allow".
+   */
   permissions?: string[];
 }
 
@@ -31,13 +40,9 @@ export const auth = {
     if (!raw) return null;
     try {
       const session = JSON.parse(raw) as Session;
-      // Expired tokens are useless; drop them rather than letting the API 401 later.
-      // A session with no permission list predates the API sending one, and would now render
-      // with no navigation at all — sign in again instead.
-      if (
-        new Date(session.expiresAtUtc).getTime() <= Date.now() ||
-        !Array.isArray(session.permissions)
-      ) {
+      // If access token is expired AND there is no refresh token, drop session.
+      // Silent refresh in apiFetch will handle renewing the access token if refresh token is present.
+      if (!session.refreshToken && new Date(session.expiresAtUtc).getTime() <= Date.now()) {
         sessionStorage.removeItem(STORAGE_KEY);
         return null;
       }
@@ -49,18 +54,54 @@ export const auth = {
   },
 
   set(response: LoginResponse): Session {
+    const current = auth.get();
+    const isSuper = response.isSuperAdmin || response.role === 'SuperAdmin';
+
+    // ⚠️ Only a super-admin carries a tenant override, and this is why.
+    //
+    // `activeTenantId` becomes the `X-Tenant-Id` header, which the API honours **only** for
+    // super-admins (see CurrentTenant). Setting it for everyone — which is what this did until
+    // 2026-08-26 — meant every signed-in user's every request carried a header naming a tenant.
+    // It was harmless while nothing read the header and stayed harmless once something did,
+    // because the server gates on the token rather than on the header. But "every user sends a
+    // tenant id the server is trusted to ignore" is one careless commit away from a breach, and
+    // there is no reason for an ordinary user to send it at all: their tenant is in their token.
+    //
+    // The override survives a token refresh (same user only), so a super-admin looking at another
+    // company does not get silently bounced home when their access token rotates.
+    const keptOverride =
+      isSuper && current?.userId === response.userId ? current.activeTenantId : undefined;
+
     const session: Session = {
       accessToken: response.accessToken,
       expiresAtUtc: response.expiresAtUtc,
+      refreshToken: response.refreshToken,
+      refreshTokenExpiresAtUtc: response.refreshTokenExpiresAtUtc,
       role: response.role,
       displayName: response.displayName,
       userId: response.userId,
-      isSuperAdmin: response.isSuperAdmin || response.role === 'SuperAdmin',
-      // An API that sends no list grants nothing in the UI, rather than everything.
-      permissions: Array.isArray(response.permissions) ? response.permissions : [],
+      isSuperAdmin: isSuper,
+      activeTenantId: isSuper
+        ? keptOverride ?? response.activeTenantId ?? response.tenantId
+        : undefined,
+      activeTenantName: isSuper
+        ? (keptOverride ? current?.activeTenantName : response.activeTenantName)
+        : undefined,
+      permissions: response.permissions,
     };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     return session;
+  },
+
+  setActiveTenant(tenantId: string, tenantName: string): void {
+    const current = auth.get();
+    if (!current) return;
+    const updated: Session = {
+      ...current,
+      activeTenantId: tenantId,
+      activeTenantName: tenantName,
+    };
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   },
 
   clear(): void {
@@ -128,18 +169,29 @@ export function isSuperAdmin(session: Session | null): boolean {
 }
 
 /**
- * Whether to *render* something gated on a permission. Mirrors `PermissionAuthorizationHandler`:
- * SuperAdmin bypasses, everyone else is checked against the set the API sent at login
- * (`LoginResponse.permissions`, which `EffectivePermissionsTests` pins to the handler).
+ * Whether to *render* a permission-gated control. Fails closed on every uncertain input.
  *
- * **Fails closed.** Until 2026-10-15 this returned `true` with no session, for any Admin, and
- * whenever the list was missing — and the API never sent one, so every user saw every link and
- * button. There is deliberately no Admin bypass: the API has none either.
+ * ⚠️ This function used to return `true` for a null session and for a session whose
+ * `permissions` array was absent — the latter commented as a "legacy" fallback. It was not
+ * legacy: the login endpoint never sent `permissions` at all, so that branch was the only
+ * one non-admin users ever reached, and every gated button, sidebar link and route guard in
+ * the app silently rendered for everyone. The tests missed it because they all constructed
+ * sessions with an explicit `permissions` array, a shape the API never actually returned.
+ *
+ * The rule now: unknown means no. An empty array is a real answer ("this user has nothing
+ * granted"), and absence — an old session in `sessionStorage` from before the API shipped
+ * the field — is treated the same way rather than being read as permission to proceed.
+ *
+ * Admin and SuperAdmin still bypass, mirroring `PermissionAuthorizationHandler` server-side.
+ *
+ * As with the role predicates above: this decides what to render, never what is allowed.
+ * The API re-answers every check.
  */
 export function hasPermission(session: Session | null, permissionCode: string): boolean {
   if (!session) return false;
   if (isSuperAdmin(session)) return true;
-  return Array.isArray(session.permissions) && session.permissions.includes(permissionCode);
+  if (session.role === 'Admin') return true;
+  return session.permissions?.includes(permissionCode) ?? false;
 }
 
 

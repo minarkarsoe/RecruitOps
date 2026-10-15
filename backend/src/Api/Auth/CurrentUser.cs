@@ -43,7 +43,23 @@ public sealed class CurrentUser : ICurrentUser
     public bool IsExcludedFromCandidateData =>
         ParsedRole is not { } role || RoleScope.IsExcludedFromCandidateData(role);
 
-    public bool IsSuperAdmin =>
-        string.Equals(Principal?.FindFirstValue(AppClaims.IsSuperAdmin), "true", StringComparison.OrdinalIgnoreCase)
-        || ParsedRole == UserRole.SuperAdmin;
+    public bool IsSuperAdmin => IsSuperAdminPrincipal(Principal);
+
+    /// <summary>Is this principal a super-admin? <b>The one definition</b>, static so that
+    /// <see cref="CurrentTenant"/> can ask the same question without taking a dependency on
+    /// <see cref="ICurrentUser"/>.
+    ///
+    /// <para>Why it is not simply injected there: <c>CurrentTenant</c> is resolved in background
+    /// scopes too, where there is no request and no user, and the worker tests deliberately use
+    /// the real implementation rather than a stand-in. Making tenant resolution require an
+    /// HTTP-shaped service would have meant every composition root that runs a job registering
+    /// one for the sake of a question it never asks.</para>
+    ///
+    /// <para>⚠️ This predicate now decides whether a request may be steered at another company's
+    /// data (<c>X-Tenant-Id</c>). Keep it here, in one place — a second copy that does not follow
+    /// when this one is corrected is this repo's recurring bug, and the blast radius of that
+    /// particular copy would be every tenant.</para></summary>
+    public static bool IsSuperAdminPrincipal(ClaimsPrincipal? principal) =>
+        string.Equals(principal?.FindFirstValue(AppClaims.IsSuperAdmin), "true", StringComparison.OrdinalIgnoreCase)
+        || RoleScope.Parse(principal?.FindFirstValue(ClaimTypes.Role)) == UserRole.SuperAdmin;
 }

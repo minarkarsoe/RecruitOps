@@ -50,4 +50,63 @@ describe('RequirePermission Route Guard Component', () => {
     expect(screen.getByText('403 Access Denied')).toBeInTheDocument();
     expect(screen.getByText(/permission:users:users:read/)).toBeInTheDocument();
   });
+
+  // ---- Fail-closed regressions -------------------------------------------------
+  // Each of these rendered the protected content before the hasPermission() fix.
+
+  it('denies when there is no session', () => {
+    render(
+      <RequirePermission permission="permission:users:users:read">
+        <div data-testid="protected-content">Protected Content</div>
+      </RequirePermission>
+    );
+
+    expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
+    expect(screen.getByText('403 Access Denied')).toBeInTheDocument();
+  });
+
+  it('denies when the session carries no permissions array', () => {
+    // The production shape before the API shipped `permissions` — a fully valid session
+    // whose permission set is simply absent. This used to render the guarded view.
+    sessionStorage.setItem(
+      'recruitops.session',
+      JSON.stringify({
+        accessToken: 'token-123',
+        expiresAtUtc: '2099-01-01T00:00:00Z',
+        role: 'Recruiter',
+        displayName: 'Pre-RBAC User',
+        userId: 'usr-3',
+      })
+    );
+
+    render(
+      <RequirePermission permission="permission:users:users:read">
+        <div data-testid="protected-content">Protected Content</div>
+      </RequirePermission>
+    );
+
+    expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
+    expect(screen.getByText('403 Access Denied')).toBeInTheDocument();
+  });
+
+  it('denies when the permissions array is empty', () => {
+    auth.set({
+      accessToken: 'token-123',
+      expiresAtUtc: '2099-01-01T00:00:00Z',
+      role: 'Recruiter',
+      displayName: 'Ungranted User',
+      userId: 'usr-4',
+      isSuperAdmin: false,
+      permissions: [],
+    });
+
+    render(
+      <RequirePermission permission="permission:users:users:read">
+        <div data-testid="protected-content">Protected Content</div>
+      </RequirePermission>
+    );
+
+    expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument();
+    expect(screen.getByText('403 Access Denied')).toBeInTheDocument();
+  });
 });

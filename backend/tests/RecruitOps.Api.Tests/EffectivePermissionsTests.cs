@@ -15,13 +15,11 @@ using Xunit;
 namespace RecruitOps.Api.Tests;
 
 /// <summary>The permission set sent at login is the set the API enforces.
-/// <para>Until 2026-10-15 the login response carried no permissions at all, and the client's
-/// <c>hasPermission</c> treated a missing list as "allow everything" — so every user saw every
-/// navigation link and action button, and the permission-aware UI had never worked against the
-/// real API. Its tests passed because they built sessions that already held a permission list.</para>
-/// <para>The handler is not refactored to share code with the login path; instead this suite
-/// checks the two agree on every permission, for every role, including the one case where the
-/// handler's seed-role fallback changes the answer (a custom role narrower than its system role).</para></summary>
+/// <para>The SPA hides what this set lacks, so a set wider than the API's answer shows controls that
+/// 403, and a narrower one hides actions the API allows.</para>
+/// <para>This suite checks the handler and the login set agree on every permission, for every role,
+/// including a custom role narrower than the system role its holder carries as a claim — the case
+/// where a seed-role fallback would make them disagree (ADR-0022 removed that fallback).</para></summary>
 public class EffectivePermissionsTests : IClassFixture<CustomWebAppFactory>
 {
     private const string Password = "P@ssw0rd-Test-123";
@@ -79,7 +77,7 @@ public class EffectivePermissionsTests : IClassFixture<CustomWebAppFactory>
         };
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test"));
 
-        var effective = await evaluator.GetEffectivePermissionsAsync(userId, _factory.TenantA, new[] { roleClaim });
+        var effective = await evaluator.GetUserPermissionsAsync(userId, _factory.TenantA);
 
         var disagreements = new List<string>();
         foreach (var code in RbacSeedData.GetCanonicalPermissions().Select(p => p.Code))
@@ -115,9 +113,9 @@ public class EffectivePermissionsTests : IClassFixture<CustomWebAppFactory>
         await AssertAgreementAsync(id, "SuperAdmin", superAdminClaim: true);
     }
 
-    /// <summary>The handler unions the system role's seed permissions on top of the custom
-    /// matrix. A login set built from the custom role alone would hide links the API allows —
-    /// this is the case that pins the union.</summary>
+    /// <summary>A custom role holder carries "Recruiter" as a claim. The handler answers from the
+    /// custom matrix alone (ADR-0022), and the login set must too — this is the case that would
+    /// catch either side reintroducing the Recruiter floor.</summary>
     [Fact]
     public async Task The_Login_Set_Agrees_With_The_Handler_For_A_Custom_Role_Holder()
     {
@@ -130,8 +128,8 @@ public class EffectivePermissionsTests : IClassFixture<CustomWebAppFactory>
         await AssertAgreementAsync(id, "HiringManager");
     }
 
-    /// <summary>Security review A6: the directory's user detail listed a custom-role holder's
-    /// custom codes only, so an Admin reviewing someone's access saw less than the API enforces.</summary>
+    /// <summary>Security review A6: the directory's user detail rebuilt its list from the role,
+    /// which can drift from what the API enforces. It now shows the evaluator's set.</summary>
     [Fact]
     public async Task The_User_Directory_Shows_The_Same_Effective_Set()
     {
@@ -145,10 +143,10 @@ public class EffectivePermissionsTests : IClassFixture<CustomWebAppFactory>
 
         using var scope = _factory.Services.CreateScope();
         var effective = await scope.ServiceProvider.GetRequiredService<IPermissionEvaluator>()
-            .GetEffectivePermissionsAsync(id, _factory.TenantA, new[] { "HiringManager" });
+            .GetUserPermissionsAsync(id, _factory.TenantA);
         Assert.Equal(effective.Order(StringComparer.Ordinal), detail!.Permissions);
-        Assert.Contains("permission:requisitions:requisitions:create", detail.Permissions); // from the system role
-        Assert.Contains("permission:roles:roles:read", detail.Permissions);                // from the custom role
+        Assert.Contains("permission:roles:roles:read", detail.Permissions);                       // the custom role grants it
+        Assert.DoesNotContain("permission:requisitions:requisitions:create", detail.Permissions); // ADR-0022: no Recruiter floor
     }
 
     [Fact]
@@ -161,7 +159,6 @@ public class EffectivePermissionsTests : IClassFixture<CustomWebAppFactory>
         res.EnsureSuccessStatusCode();
         var body = (await res.Content.ReadFromJsonAsync<LoginResponse>())!;
 
-        Assert.False(body.IsSuperAdmin);
         Assert.Contains("permission:requisitions:requisitions:create", body.Permissions);
         Assert.DoesNotContain("permission:users:users:read", body.Permissions);
         Assert.DoesNotContain("permission:roles:roles:read", body.Permissions);

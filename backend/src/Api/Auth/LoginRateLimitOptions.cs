@@ -10,26 +10,13 @@ namespace RecruitOps.Api.Auth;
 /// </summary>
 public class LoginRateLimitOptions
 {
-    /// <summary>Requests per window per client address.
-    ///
-    /// <para>Sized for an office behind one NAT address, and — until a deployment sets
-    /// <c>ReverseProxy:TrustForwardedHeaders</c> — for a whole company arriving through one
-    /// nginx container. The fixed window counts successful logins too, so a value tuned for
-    /// a hostile single host would lock a customer out at 09:00 on Monday. Brute force is
-    /// blocked by the per-account throttle, not by this number.</para></summary>
+    /// <summary>Requests per window per client address. Sized for an office behind one NAT
+    /// address (and, until a deployment sets <c>ReverseProxy:TrustForwardedHeaders</c>, a
+    /// whole company sitting behind one nginx container). The fixed window counts successful
+    /// logins too, so a value tuned for a hostile single host would lock a customer out at
+    /// 09:00 on a Monday. Brute force is blocked by the per-account throttle, not by this
+    /// number.</summary>
     public int PermitLimit { get; set; } = 60;
-
-    public int WindowSeconds { get; set; } = 60;
-}
-
-/// <summary>Bound from <c>RateLimit:PublicApply</c>. Read lazily for the same reason as
-/// <see cref="LoginRateLimitOptions"/>.</summary>
-public class PublicApplyRateLimitOptions
-{
-    /// <summary>Higher than the login limit on purpose. A job link shared to Facebook
-    /// produces a genuine burst of page views from one office or campus NAT address, and
-    /// throttling that turns a successful post into a broken careers page.</summary>
-    public int PermitLimit { get; set; } = 120;
 
     public int WindowSeconds { get; set; } = 60;
 }

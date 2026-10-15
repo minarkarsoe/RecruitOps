@@ -102,7 +102,7 @@ function toRequest(form: FormState): SaveScorecardTemplateRequest {
 }
 
 const field =
-  'h-10 w-full rounded-sm border border-line-200 px-3 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary-600';
+  'h-10 w-full rounded-md border border-line px-3 text-md focus:outline-none focus:ring-2 focus:ring-brand-700';
 
 // ---------------------------------------------------------------------------
 
@@ -128,13 +128,13 @@ function CriteriaBuilder({
 
   return (
     <div>
-      <p className="mb-2 text-[13px] font-semibold">Criteria</p>
+      <p className="mb-2 text-sm font-semibold">Criteria</p>
 
       <ul className="space-y-3">
         {criteria.map((c, i) => (
-          <li key={i} className="rounded-sm border border-line-200 p-3">
+          <li key={i} className="rounded-md border border-line p-3">
             <div className="flex gap-3">
-              <span className="mt-2.5 font-mono text-[13px] text-ink-400">{i + 1}</span>
+              <span className="mt-2.5 font-mono text-sm text-ink-400">{i + 1}</span>
 
               <div className="flex-1 space-y-2">
                 <input
@@ -155,14 +155,14 @@ function CriteriaBuilder({
                 <div className="flex flex-wrap items-center gap-4">
                   <select
                     aria-label={`Criterion ${i + 1} type`}
-                    className="h-10 rounded-sm border border-line-200 px-3 text-[15px]"
+                    className="h-10 rounded-md border border-line px-3 text-md"
                     value={c.type}
                     onChange={(e) => update(i, { type: e.target.value as CriterionType })}
                   >
                     {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
 
-                  <label className="flex items-center gap-2 text-[15px]">
+                  <label className="flex items-center gap-2 text-md">
                     <input
                       type="checkbox"
                       checked={c.isRequired}
@@ -171,7 +171,7 @@ function CriteriaBuilder({
                     Required to submit
                   </label>
 
-                  <span className="text-[13px] text-ink-400">
+                  <span className="text-sm text-ink-400">
                     {TYPES.find((t) => t.value === c.type)?.hint}
                   </span>
                 </div>
@@ -180,21 +180,21 @@ function CriteriaBuilder({
               <div className="flex flex-col gap-1">
                 <button
                   type="button" aria-label={`Move criterion ${i + 1} up`}
-                  className="h-7 w-7 rounded-sm border border-line-200 text-[13px] hover:bg-surface-50 disabled:opacity-40"
+                  className="h-7 w-7 rounded-md border border-line text-sm hover:bg-canvas disabled:opacity-40"
                   disabled={i === 0} onClick={() => move(i, -1)}
                 >
                   ↑
                 </button>
                 <button
                   type="button" aria-label={`Move criterion ${i + 1} down`}
-                  className="h-7 w-7 rounded-sm border border-line-200 text-[13px] hover:bg-surface-50 disabled:opacity-40"
+                  className="h-7 w-7 rounded-md border border-line text-sm hover:bg-canvas disabled:opacity-40"
                   disabled={i === criteria.length - 1} onClick={() => move(i, 1)}
                 >
                   ↓
                 </button>
                 <button
                   type="button" aria-label={`Remove criterion ${i + 1}`}
-                  className="h-7 w-7 rounded-sm border border-line-200 text-[13px] text-danger-600 hover:bg-surface-50 disabled:opacity-40"
+                  className="h-7 w-7 rounded-md border border-line text-sm text-critical-700 hover:bg-canvas disabled:opacity-40"
                   disabled={criteria.length === 1}
                   onClick={() => onChange(criteria.filter((_, j) => j !== i))}
                 >
@@ -214,7 +214,7 @@ function CriteriaBuilder({
         Add criterion
       </Button>
 
-      <p className="mt-2 text-[13px] text-ink-400">
+      <p className="mt-2 text-sm text-ink-400">
         Editing these does not change evaluations already written — each answer keeps the
         wording it was given, so a rename cannot rewrite what someone was asked.
       </p>
@@ -288,7 +288,7 @@ export function ScorecardTemplatesPage() {
     }
   }
 
-  if (error && templates === null) return <p role="alert" className="text-danger-600">{error}</p>;
+  if (error && templates === null) return <p role="alert" className="text-critical-700">{error}</p>;
   if (templates === null) return <p className="text-ink-600">Loading…</p>;
 
   const nameless = form !== null && form.name.trim().length === 0;
@@ -301,8 +301,8 @@ export function ScorecardTemplatesPage() {
     <>
       <header className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold">Scorecard templates</h1>
-          <p className="mt-1 max-w-[70ch] text-[13px] text-ink-600">
+          <h1 className="text-xl font-semibold tracking-tight">Scorecard templates</h1>
+          <p className="mt-1 max-w-[70ch] text-sm text-ink-600">
             An interview is scored against the most specific active template that applies:
             the posting&apos;s own, then its department&apos;s, then the company-wide default.
             Only one template can be active per scope, so there is never a question of which
@@ -312,13 +312,13 @@ export function ScorecardTemplatesPage() {
         {canEdit && editingId === null && <Button onClick={startNew}>New template</Button>}
       </header>
 
-      {error && <p role="alert" className="mb-4 text-[15px] text-danger-600">{error}</p>}
+      {error && <p role="alert" className="mb-4 text-md text-critical-700">{error}</p>}
 
       {editingId !== null && form && (
         <Card>
           <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); void save(); }}>
             <div>
-              <label htmlFor="name" className="mb-1 block text-[13px] font-semibold">Name</label>
+              <label htmlFor="name" className="mb-1 block text-sm font-semibold">Name</label>
               <input
                 id="name" required className={field} value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -326,7 +326,7 @@ export function ScorecardTemplatesPage() {
             </div>
 
             <div>
-              <label htmlFor="desc" className="mb-1 block text-[13px] font-semibold">
+              <label htmlFor="desc" className="mb-1 block text-sm font-semibold">
                 Description <span className="font-normal text-ink-400">(optional)</span>
               </label>
               <input
@@ -336,7 +336,7 @@ export function ScorecardTemplatesPage() {
             </div>
 
             <div>
-              <label htmlFor="scope" className="mb-1 block text-[13px] font-semibold">Applies to</label>
+              <label htmlFor="scope" className="mb-1 block text-sm font-semibold">Applies to</label>
               <select
                 id="scope" className={`${field} max-w-sm`} value={form.scope}
                 onChange={(e) => setForm({ ...form, scope: e.target.value as Scope })}
@@ -373,14 +373,14 @@ export function ScorecardTemplatesPage() {
               )}
             </div>
 
-            <label className="flex items-center gap-2 text-[15px]">
+            <label className="flex items-center gap-2 text-md">
               <input
                 type="checkbox" checked={form.isActive}
                 onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
               />
               Active
             </label>
-            <p className="-mt-3 text-[13px] text-ink-400">
+            <p className="-mt-3 text-sm text-ink-400">
               Deactivating is how a template is retired — it stays attached to the evaluations
               already written against it, so nothing in the record is lost.
             </p>
@@ -408,7 +408,7 @@ export function ScorecardTemplatesPage() {
       {editingId === null && (
         templates.length === 0 ? (
           <Card>
-            <p className="text-[15px] text-ink-600">
+            <p className="text-md text-ink-600">
               No templates yet. Until one exists, an interview has no criteria and the
               scorecard form has nothing to show.
             </p>
@@ -420,17 +420,17 @@ export function ScorecardTemplatesPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-[15px] font-semibold">{t.name}</h2>
+                      <h2 className="text-md font-semibold">{t.name}</h2>
                       {!t.isActive && (
-                        <span className="text-[13px] text-ink-400">inactive</span>
+                        <span className="text-sm text-ink-400">inactive</span>
                       )}
                     </div>
-                    <p className="mt-0.5 text-[13px] text-ink-600">{scopeLabel(t, postings)}</p>
+                    <p className="mt-0.5 text-sm text-ink-600">{scopeLabel(t, postings)}</p>
                     {t.description && (
-                      <p className="mt-1 max-w-[60ch] text-[13px] text-ink-600">{t.description}</p>
+                      <p className="mt-1 max-w-[60ch] text-sm text-ink-600">{t.description}</p>
                     )}
 
-                    <ol className="mt-2 space-y-0.5 text-[13px] text-ink-600">
+                    <ol className="mt-2 space-y-0.5 text-sm text-ink-600">
                       {t.criteria.map((c) => (
                         <li key={c.id}>
                           <span className="font-mono text-ink-400">{c.sequence}.</span> {c.label}

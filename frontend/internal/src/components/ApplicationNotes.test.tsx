@@ -79,6 +79,18 @@ describe('NoteBody', () => {
     render(<ApplicationNotes applicationId="app-1" />);
     expect(await screen.findByText('Mentioned: Bo Bo')).toBeInTheDocument();
   });
+
+  it('handles notes with missing or undefined mentions array without throwing', async () => {
+    const noteWithoutMentions = note({
+      body: 'Note without mentions field',
+      bodyHtml: 'Note without mentions field',
+    });
+    delete (noteWithoutMentions as any).mentions;
+    serve([noteWithoutMentions]);
+
+    render(<ApplicationNotes applicationId="app-1" />);
+    expect(await screen.findByText('Note without mentions field')).toBeInTheDocument();
+  });
 });
 
 describe('the thread', () => {

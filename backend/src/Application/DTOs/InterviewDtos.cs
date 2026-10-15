@@ -13,6 +13,37 @@ public record InterviewParticipantDto(
     bool IsLead,
     bool HasSubmittedScorecard);
 
+/// <summary>One row of the interviews list (<c>GET /api/interviews</c>).
+///
+/// <para><b>What this record deliberately does not carry: any evaluation.</b> No rating, no
+/// recommendation, no summary comment. <see cref="SubmittedCount"/> says how many of the panel
+/// have finished — which is public to the panel by design, the same rule as
+/// <see cref="InterviewParticipantDto.HasSubmittedScorecard"/> — and that is the closest this
+/// list comes to a score. Reading an evaluation goes through
+/// <c>GET /interviews/{id}/scorecards</c>, where the blind rule (ADR-0017 §3) is applied. A
+/// "recommendation" column added here would route around it.</para></summary>
+/// <param name="MyScorecardOutstanding">True when the caller is on the panel and has not
+/// submitted. The one thing on this screen that is genuinely actionable, and nothing else in
+/// the product surfaces it.</param>
+public record InterviewListItemDto(
+    Guid Id,
+    Guid JobApplicationId,
+    string CandidateName,
+    string JobPostingTitle,
+    Guid DepartmentId,
+    string DepartmentName,
+    int Round,
+    DateTimeOffset ScheduledStart,
+    int DurationMinutes,
+    string Mode,
+    string? Location,
+    string Status,
+    IReadOnlyList<string> PanelNames,
+    int PanelSize,
+    int SubmittedCount,
+    bool IsOnPanel,
+    bool MyScorecardOutstanding);
+
 /// <summary>One scheduled round.</summary>
 public record InterviewDto(
     Guid Id,

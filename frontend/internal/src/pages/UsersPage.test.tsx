@@ -4,7 +4,7 @@ import { UsersPage } from './UsersPage';
 import { userService } from '../services/userService';
 import { roleService } from '../services/roleService';
 import { auth } from '../lib/auth';
-import { mockRoles, mockPagedUsers, adminDirectoryPermissions } from '../test/rbacFixtures';
+import { mockRoles, mockPagedUsers } from '../test/rbacFixtures';
 
 vi.mock('../services/userService', () => ({
   userService: {
@@ -34,7 +34,7 @@ describe('UsersPage', () => {
       displayName: 'Admin User',
       userId: 'usr-1',
       isSuperAdmin: false,
-      permissions: adminDirectoryPermissions,
+      permissions: [],
     });
 
     (userService.getUsers as any).mockResolvedValue(mockPagedUsers);
@@ -81,6 +81,8 @@ describe('UsersPage', () => {
     fireEvent.change(screen.getByPlaceholderText('Minimum 8 characters'), {
       target: { value: 'password123' },
     });
+
+    // No role is preselected (it used to default to "Admin", alphabetically first) — choose one.
     fireEvent.change(screen.getByText(/Assigned Role/).parentElement!.querySelector('select')!, {
       target: { value: 'role-admin' },
     });
@@ -117,9 +119,9 @@ describe('UsersPage', () => {
     expect(userService.createUser).not.toHaveBeenCalled();
   });
 
-  // ADR-0021: the API refuses SuperAdmin and custom roles on assignment, so the picker must
-  // not offer them. The table's role *filter* is a different control and keeps every role.
-  it('offers only assignable roles when creating a user', async () => {
+  // ADR-0021: the API refuses SuperAdmin on assignment, so the picker must not offer it. Custom
+  // roles stay on offer (ADR-0022); inactive ones cannot be assigned.
+  it('offers custom and system roles but never SuperAdmin or an inactive role', async () => {
     (roleService.getRoles as any).mockResolvedValue([
       ...mockRoles,
       { ...mockRoles[0], id: 'role-super', name: 'SuperAdmin', code: 'SuperAdmin', isSuperAdmin: true },
@@ -131,46 +133,23 @@ describe('UsersPage', () => {
     fireEvent.click(screen.getByText('+ Create User'));
 
     const picker = screen.getByText(/Assigned Role/).parentElement!.querySelector('select')!;
-    const offered = Array.from(picker.options).filter((o) => o.value !== '').map((o) => o.textContent);
-    expect(offered).toEqual(['Admin']);
+    const offered = Array.from(picker.options).filter((o) => o.value !== '').map((o) => o.value);
+    expect(offered).toEqual(mockRoles.filter((r) => r.isActive && !r.isSuperAdmin).map((r) => r.id));
   });
 
-  // Security review A5: a user whose current role cannot be assigned (a legacy custom role,
-  // SuperAdmin) used to show the first option ("Admin") while holding the old id — and every
-  // save resent a role, so even a rename failed with 409/400.
-  it('renames a custom-role holder without touching their role', async () => {
+  // Security review A5 + second review: a rename must not resend the role. Resending it is how an
+  // edit of a SuperAdmin failed (400), and an unchanged role is the most common edit there is.
+  it('renames a user without sending their unchanged role', async () => {
     (userService.updateUser as any).mockResolvedValue({});
     render(<UsersPage />);
     await screen.findByText('User Directory');
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[1]); // Jane, custom role
-    const picker = screen.getByText('Assigned Role').parentElement!.querySelector('select')!;
-    expect(picker.selectedOptions[0].textContent).toMatch(/Custom Recruiter.*unchanged/);
-
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[1]);
     fireEvent.change(screen.getByDisplayValue('Jane Recruiter'), { target: { value: 'Jane R.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     await waitFor(() =>
       expect(userService.updateUser).toHaveBeenCalledWith('usr-2', { displayName: 'Jane R.', roleId: null, role: null }));
-  });
-
-  it('sends the new role when one is actually chosen', async () => {
-    (userService.updateUser as any).mockResolvedValue({});
-    (roleService.getRoles as any).mockResolvedValue([
-      ...mockRoles,
-      { ...mockRoles[0], id: 'role-recruiter', name: 'Recruiter', code: 'Recruiter' },
-    ]);
-    render(<UsersPage />);
-    await screen.findByText('User Directory');
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[1]);
-    const picker = screen.getByText('Assigned Role').parentElement!.querySelector('select')!;
-    fireEvent.change(picker, { target: { value: 'role-recruiter' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
-
-    await waitFor(() =>
-      expect(userService.updateUser).toHaveBeenCalledWith('usr-2',
-        { displayName: 'Jane Recruiter', roleId: 'role-recruiter', role: 'Recruiter' }));
   });
 
   it('disables self-deactivation button for current session user', async () => {

@@ -1,111 +1,70 @@
-# ADR-0021 — Who can be given which role, and what a custom role is allowed to mean
+# ADR-0021 — Who can be given which role, and which enum a custom role holder carries
 
-**Status:** Accepted (containment) · **Proposed** (custom-role model — decision needed) · **Date:** 2026-10-15
-**Relates to:** [ADR-0003](ADR-0003-department-scoping.md), [ADR-0018](ADR-0018-approver-candidate-data-exclusion.md), [ADR-0004](ADR-0004-single-tenant-deployment.md)
-**Found by:** driving the running stack against Postgres, not by the test suite
+**Status:** Accepted (SuperAdmin containment) · **Proposed** (custom-role enum — decision needed) · **Date:** 2026-10-15
+**Relates to:** [ADR-0022](ADR-0022-permission-driven-requisition-authority.md), [ADR-0003](ADR-0003-department-scoping.md), [ADR-0018](ADR-0018-approver-candidate-data-exclusion.md), [ADR-0004](ADR-0004-single-tenant-deployment.md)
+**Found by:** driving the running stack against Postgres, then two security reviews
 
 ## Context
 
-Milestone 4 (2026-07-30) added a Role Builder: Admins create custom roles with a permission
-matrix and assign them to users. ADR-0003 had said the five-role model "covers the stated users
-— revisit if customers demand custom roles". No ADR was written when that revisit happened, and
-the gap shows in how a role reaches a user.
+Authorization runs on **two axes**:
 
-Authorization in this codebase runs on **two axes that the Role Builder only half-joined**:
+1. **The `UserRole` enum** in the JWT role claim. It drives the role policies (`RecruitmentStaff`,
+   `InternalUser`, `AdminOnly`) and `RoleScope` (department scoping, ADR-0003; candidate-data
+   exclusion, ADR-0018).
+2. **The permission matrix**, enforced by `[HasPermission]`. Since ADR-0022 that covers the RBAC
+   endpoints, requisitions and approval chains — and the evaluator's answer is final, with no
+   role-claim fallback.
 
-1. **The `UserRole` enum** in the JWT role claim. It drives the role policies
-   (`RecruitmentStaff`, `InternalUser`, `AdminOnly`), which guard almost every hiring
-   endpoint, and `RoleScope`, which decides department scoping (ADR-0003) and candidate-data
-   exclusion (ADR-0018). These are the security-critical rules.
-2. **The permission matrix** (`[HasPermission]`), which guards the RBAC endpoints themselves
-   and drives what the UI shows.
-
-`UserService.AssignRoleToUserAsync` bridged the two with `Enum.TryParse<UserRole>`, which led
-to three defects, all reproduced against the dev stack on 2026-10-15:
+`UserService.AssignRoleToUserAsync` bridged them with `Enum.TryParse<UserRole>`, which accepts every
+enum name **and any numeric string**. Reproduced on 2026-10-15:
 
 | # | Request | Result | Severity |
 |---|---|---|---|
-| 1 | `POST /api/users` with `"role": "SuperAdmin"` | User created as **SuperAdmin** — bypasses every `[HasPermission]` check, so can create Admins with known passwords and rewrite every role | 🔴 Critical |
-| 2 | `"role": "0"`, or a custom role with code `"0"` | Also **SuperAdmin**: `TryParse` accepts numeric strings, and `SuperAdmin = 0` | 🔴 Critical |
-| 3 | Assign a custom role with **zero** permissions | User logs in as **Recruiter** (the fallback) and reads every posting, requisition and candidate pipeline in the company | 🟠 High |
+| 1 | `POST /api/users` with `"role": "SuperAdmin"` | User created as **SuperAdmin** | 🔴 Critical |
+| 2 | `"role": "0"`, or a custom role coded `"0"` | Also **SuperAdmin** (`SuperAdmin = 0`) | 🔴 Critical |
+| 3 | Assign any other custom role | The enum becomes **Recruiter** | 🟠 High — see below |
 
-Defect 3 is structural, not a typo. Even with a correct mapping, a custom role has no answer
-to the questions axis 1 asks: *is this person department-scoped? may they reach candidate
-data?* Whatever enum value is picked answers those questions on the role's behalf, and the
-permission matrix cannot narrow it, because the role policies never consult the matrix. The
-handler's seed-role fallback makes it worse: it unions the enum's seed permissions on top of
-the custom matrix, so a custom role can never grant *less* than its enum.
+SuperAdmin bypasses every `[HasPermission]` check and, on develop, may override its tenant with
+`X-Tenant-Id` (`SuperAdminTenantOverrideMiddleware`) — so a tenant Admin who could mint one reached
+other tenants' data. That is what made 1 and 2 Critical.
 
-## Decision — containment (in force now)
+**Defect 3 is structural.** ADR-0022 made the custom matrix authoritative for requisitions and
+approval chains, and removed the handler's Recruiter floor there. But the enum still says
+Recruiter, and most of the hiring surface — applications, candidates, interviews, job postings,
+notes, search, analytics — is guarded by role policies that read the enum. So a custom role built
+to *only* approve requisitions gives its holder the whole pipeline, company-wide.
 
-1. **SuperAdmin is never assignable through the tenant directory**, by name, by numeric value,
-   or by the system role's id. It is provisioned out of band. A tenant Admin who could grant it
-   could grant themselves everything.
-2. **Role names are matched exactly**, against a fixed list of assignable enum names. Numeric
-   strings are refused; `Enum.TryParse` is not used.
-3. **Custom roles can be created and edited, but not assigned** (409, naming this ADR). This
-   is fail-closed: the feature becomes inert instead of silently escalating. No customer data
-   exists yet (pre-pilot), so no assigned custom roles need migrating.
-4. **Custom role codes must start with a letter** (`^[A-Z][A-Z0-9_]{0,63}$`), so a code can
-   never look like an enum value. Codes derived from Burmese names fall back to a random
-   `ROLE_…` code; the name is what people read.
-5. A role assignment by name **clears a stale `RoleId`** instead of leaving the previous
-   role's id in place. The evaluator reads `RoleId` first, so a stale id kept granting the old
-   role's permissions under the new role's name.
+## Decision — in force
 
-## Decision needed — what a custom role should mean
+1. **SuperAdmin is never assignable through the user directory** — by name, by numeric value, or
+   by the system role's id. It is provisioned out of band.
+2. **System role names are matched exactly** against an explicit list; numeric strings are refused.
+3. **A custom role's code is never parsed as an enum.** Codes must also start with a letter
+   (`^[A-Z][A-Z0-9_]{0,63}\z`); codes derived from Burmese names fall back to a random `ROLE_…` code.
+4. **Directory guards:** a role is required on create; nobody changes their own role; the last
+   active Admin cannot be demoted; a SuperAdmin account's role is not managed here; the seeder links
+   users to roles without ever setting `IsSuperAdmin`.
+5. **Every request re-checks the token's account** (exists, active, same role and SuperAdmin flag),
+   so a role change or deactivation takes effect immediately rather than after 8 hours.
 
-Options for the product owner. Each is a real model; they differ in what an Admin can express
-and in how much of the authorization code must change.
+**Custom roles remain assignable** (ADR-0022 depends on it) and their holders still carry
+`Recruiter`. That is unchanged — deliberately, so nothing that works today breaks — and is the
+decision below.
 
-| Option | A custom role is… | Can it narrow a system role? | Cost |
+## Decision needed — what enum a custom role holder carries
+
+| Option | A custom-role holder… | Effect on ADR-0022 roles | Cost |
 |---|---|---|---|
-| **A. Base role + extras** | a system role (chosen explicitly by the Admin at creation) plus extra permissions | No — it can only add | Small: one `BaseRole` column, assignment uses it. Honest about what it is. |
-| **B. Scope + matrix** | a permission matrix plus an explicit **data scope** (department-scoped? candidate-data reach?) | Yes | Large: every role-policy endpoint moves to `[HasPermission]`, `RoleScope` reads the role's scope instead of the enum. A second security review. |
-| **C. No custom roles** | — (remove the Role Builder's create/assign) | — | Smallest. Matches ADR-0003's original stance until a customer actually asks. |
+| **A. Base role + extras** | carries a system role chosen explicitly by the Admin when building the role | Works; the Admin decides what the holder also reaches through role policies | Small: a `BaseRole` on `Role`, a picker in the Role Builder |
+| **B. Finish ADR-0022** | is governed by the matrix everywhere: move the remaining role-policy endpoints to `[HasPermission]`, and give a custom role an explicit data scope for `RoleScope` | Works, and is the "real" RBAC | Large: every remaining endpoint, plus a second security review |
+| **C. A no-access enum** | carries an enum no role policy admits | Works for requisitions/chains; the holder reaches nothing else | Smallest, but a custom "Senior Recruiter" can no longer do recruiter work |
 
-**Recommendation: A for the pilot, B only if a customer needs a role narrower than any system
-role.** A is honest (the UI can say "Recruiter + 2 extra permissions"), small, and keeps the
-security-critical rules in `RoleScope` where every existing test pins them. B is the
-"real" RBAC, but it rewrites the authorization of every endpoint, and that should be driven by
-a real requirement, not by the feature existing.
+**Recommendation: A now, B as ADR-0022 continues.** A is honest — the Role Builder can say
+"Recruiter + approve" — and stops the silent escalation without breaking anyone. B is where ADR-0022
+was heading anyway; A's base role becomes the data scope B needs.
 
-## Consequences
-
-- The Users page offers only assignable roles; the Role Builder still works for designing roles.
-- The permission handler's seed-role fallback (step 3 in `PermissionAuthorizationHandler`) is
-  unchanged. Under option A it becomes the defined behaviour; under B it must go.
-- `RoleAssignmentEscalationTests` pins the containment: every refusal is paired with a case
-  proving the legitimate assignment still works.
-
-## Follow-up — security review, 2026-10-15
-
-An independent review of the containment found no Critical or High issue in it, and these
-corrections and additions, all now in place:
-
-- **What SuperAdmin actually reaches.** Earlier text called it "the cross-tenant bypass role". In
-  the code it bypasses `[HasPermission]` (the RBAC endpoints) and nothing else: the role policies
-  (`RecruitmentStaff`, `InternalUser`, `AdminOnly`) do not include it, and nothing reads a tenant
-  override. Defect 1 stays Critical — a SuperAdmin can create an Admin with a known password — but
-  "cross-tenant" overstated it.
-- **Tokens are re-checked on every request.** Containment only stops *new* grants; a JWT lives 8
-  hours, and a deactivated Admin could still create a fresh Admin with it. The account behind a
-  token must now exist, be active, and hold the role and SuperAdmin flag the token claims.
-- **Directory guards:** a role is required on create (no silent Recruiter); nobody changes their
-  own role; the last active Admin cannot be demoted (deactivation already had that floor); a
-  SuperAdmin account's role is not managed through the directory; the dev seeder no longer sets
-  `IsSuperAdmin` while linking users to roles.
-- **The user directory shows the effective set** the API enforces, not the custom role's codes alone.
-
-### Preconditions for options A or B
-
-Before custom-role assignment is re-enabled, whichever option is chosen:
-
-1. **A grantor ceiling.** Today only Admin and SuperAdmin hold `users:create`/`users:update`, so
-   "who can grant Admin" is "Admins". A custom role holding `users:update` would be
-   Admin-equivalent. A role change must require the target role's permissions to be a subset of the
-   actor's effective permissions, and `roles:create`/`roles:update` must not put into a role a
-   permission the actor lacks.
-2. **Fix the over-broad seed grants** listed in FEATURE-STATUS (HM `move_stage`, HrDirector
-   `settings:read`, `users:read`) — under option B they would become real access.
-3. **Decide what `Interviewer` is.** It is assignable, but no role policy admits it.
+### Preconditions for A or B
+1. **A grantor ceiling.** A role change must require the target role's permissions to be a subset
+   of the actor's; `roles:create`/`roles:update` must not grant what the actor lacks.
+2. **Fix over-broad seed grants** before any endpoint moves onto permissions.
+3. **Decide what `Interviewer` is** — it is assignable, but no role policy admits it.

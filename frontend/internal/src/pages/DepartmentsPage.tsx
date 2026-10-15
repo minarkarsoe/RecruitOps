@@ -67,16 +67,16 @@ export function DepartmentsPage() {
       }));
     });
 
-  const field = 'h-10 w-full rounded-sm border border-line-200 px-3 focus:outline-none focus:ring-2 focus:ring-primary-600';
+  const field = 'h-10 w-full rounded-md border border-line px-3 focus:outline-none focus:ring-2 focus:ring-brand-700';
 
   return (
     <>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold">Departments</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Departments</h1>
         {!creating && <Button onClick={() => setCreating(true)}>New department</Button>}
       </div>
 
-      {error && <p role="alert" className="mb-4 text-[15px] text-danger-600">{error}</p>}
+      {error && <p role="alert" className="mb-4 text-md text-critical-700">{error}</p>}
 
       {creating && (
         <div className="mb-6">
@@ -94,12 +94,12 @@ export function DepartmentsPage() {
             >
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="name" className="mb-1 block text-[13px] font-semibold">Name</label>
+                  <label htmlFor="name" className="mb-1 block text-sm font-semibold">Name</label>
                   <input id="name" required minLength={2} maxLength={200} className={field}
                     value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div>
-                  <label htmlFor="code" className="mb-1 block text-[13px] font-semibold">
+                  <label htmlFor="code" className="mb-1 block text-sm font-semibold">
                     Code <span className="font-normal text-ink-400">(optional)</span>
                   </label>
                   <input id="code" maxLength={50} className={field}
@@ -120,12 +120,12 @@ export function DepartmentsPage() {
       {items && (
         <Card>
           {items.length === 0 ? (
-            <p className="text-[15px] text-ink-600">
+            <p className="text-md text-ink-600">
               No departments yet. Requisitions are owned by a department, so at least one is
               needed before anyone can raise work.
             </p>
           ) : (
-            <ul className="divide-y divide-line-200">
+            <ul className="divide-y divide-line">
               {items.map((d) => (
                 <li key={d.id} className="py-3">
                   {editingId === d.id ? (
@@ -142,13 +142,13 @@ export function DepartmentsPage() {
                       }}
                     >
                       <div className="flex-1">
-                        <label className="mb-1 block text-[13px] font-semibold">Name</label>
+                        <label className="mb-1 block text-sm font-semibold">Name</label>
                         <input required minLength={2} maxLength={200} className={field}
                           value={editForm.name}
                           onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
                       </div>
                       <div className="w-40">
-                        <label className="mb-1 block text-[13px] font-semibold">Code</label>
+                        <label className="mb-1 block text-sm font-semibold">Code</label>
                         <input maxLength={50} className={field}
                           value={editForm.code ?? ''}
                           onChange={(e) => setEditForm({ ...editForm, code: e.target.value })} />
@@ -164,10 +164,10 @@ export function DepartmentsPage() {
                         <p className="font-semibold">
                           {d.name}
                           {!d.isActive && (
-                            <span className="ml-2 text-[13px] font-normal text-ink-400">(inactive)</span>
+                            <span className="ml-2 text-sm font-normal text-ink-400">(inactive)</span>
                           )}
                         </p>
-                        <p className="text-[13px] text-ink-600">
+                        <p className="text-sm text-ink-600">
                           <span className="font-mono">{d.code ?? '—'}</span>
                           {' · '}
                           {d.memberCount} {d.memberCount === 1 ? 'member' : 'members'}
@@ -209,16 +209,16 @@ export function DepartmentsPage() {
                   )}
 
                   {membersFor === d.id && (
-                    <div className="mt-3 rounded-sm border border-line-200 p-3">
-                      <p className="mb-1 text-[13px] font-semibold">Who can see this department</p>
-                      <p className="mb-3 text-[13px] text-ink-600">
+                    <div className="mt-3 rounded-md border border-line p-3">
+                      <p className="mb-1 text-sm font-semibold">Who can see this department</p>
+                      <p className="mb-3 text-sm text-ink-600">
                         Hiring Managers see only the departments they belong to. Admin, HR
                         Director and Recruiter see every department regardless of this list.
                       </p>
                       <ul className="mb-3 space-y-1">
                         {members.map((m) => (
                           <li key={m.userId}>
-                            <label className="flex items-center gap-2 text-[15px]">
+                            <label className="flex items-center gap-2 text-md">
                               <input
                                 type="checkbox" checked={m.isMember}
                                 onChange={(e) =>
@@ -227,7 +227,7 @@ export function DepartmentsPage() {
                                 }
                               />
                               {m.displayName}
-                              <span className="text-[13px] text-ink-400">{m.role} · {m.email}</span>
+                              <span className="text-sm text-ink-400">{m.role} · {m.email}</span>
                             </label>
                           </li>
                         ))}

@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Career page</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../internal/ds.js"></script>
+<link rel="stylesheet" href="../internal/ds.css" />
+</head>
+<body class="bg-canvas text-ink-900">
+
+<!--
+  MODULE 2.1 — THE COMPANY CAREER PAGE (frontend/public, Next.js SSR).
+
+  Audience rules, all different from the internal app:
+    · phone first — this market reads job ads on a phone, over mobile data
+    · Burmese first-class, not a translation bolted on. The language switch is in
+      the header, before anything else, and Burmese runs carry .mm
+    · server-rendered because it must be indexable and must produce Open Graph
+      cards when someone shares it to Facebook. That is the whole reason this app
+      exists separately from the SPA (ADR-0012)
+    · anonymous: no tenant claim on this path. The company is identified by the
+      deployment/domain, and an individual job by its own public token
+
+  What must NOT appear: salary unless the posting opted in, any requisition id,
+  department budget, headcount, or the internal job title. PublicJobDto is a
+  deliberately narrower type than the internal one and this page is why.
+-->
+
+<div class="min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-line sticky top-0 z-20">
+    <div class="max-w-[880px] mx-auto px-5 h-14 flex items-center gap-3">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true" class="shrink-0">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight truncate">Yoma Commercial Bank</span>
+      <div class="ml-auto flex items-center rounded-md border border-line p-0.5 shrink-0">
+        <button class="h-8 px-3 rounded text-sm font-medium bg-ink-900 text-white">EN</button>
+        <button class="h-8 px-3 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors mm">မြန်မာ</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+    <div class="max-w-[880px] mx-auto px-5 py-8">
+
+      <h1 class="text-3xl font-bold tracking-tight">Open positions</h1>
+      <p class="mt-2 text-md text-ink-600 max-w-[60ch]">
+        We are hiring across branches, credit and technology. Applications are read by our own
+        recruitment team.
+      </p>
+
+      <!-- Filters: two, both of which a candidate actually thinks in. -->
+      <div class="mt-6 flex flex-wrap items-center gap-2">
+        <div class="relative flex-1 min-w-[200px]">
+          <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="m10.5 10.5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <input placeholder="Search positions" class="w-full h-11 pl-9 pr-3 rounded-md border border-line bg-white text-base placeholder:text-ink-400 outline-none focus:border-brand-700 transition-colors" />
+        </div>
+        <select class="h-11 px-3 rounded-md border border-line bg-white text-base shrink-0"><option>All locations</option><option>Yangon</option><option>Mandalay</option><option>Nay Pyi Taw</option></select>
+        <select class="h-11 px-3 rounded-md border border-line bg-white text-base shrink-0"><option>All teams</option><option>Branch &amp; Retail</option><option>Credit</option><option>Technology</option></select>
+      </div>
+
+      <p class="mt-4 text-sm text-ink-600 tnum">5 open positions</p>
+
+      <ul class="mt-3 space-y-3">
+
+        <li>
+          <a href="job.html" class="block rounded-lg border border-line bg-white p-5 hover:border-brand-700 transition-colors">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <h2 class="text-lg font-semibold tracking-tight">Collections Officer (Field) — Yangon</h2>
+                <p class="mt-1 text-base text-ink-600">Collections · Yangon · Full time</p>
+              </div>
+              <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-brand-50 text-brand-800 text-xs font-medium shrink-0">New</span>
+            </div>
+            <p class="mt-2.5 text-base text-ink-700 max-w-[70ch]">
+              Visit customers across Yangon to agree repayment plans, working with branch teams and
+              the credit risk unit. Motorbike licence required.
+            </p>
+            <p class="mt-3 text-sm text-ink-500">Posted 3 days ago</p>
+          </a>
+        </li>
+
+        <li>
+          <a href="job.html" class="block rounded-lg border border-line bg-white p-5 hover:border-brand-700 transition-colors">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <h2 class="text-lg font-semibold tracking-tight">Senior Credit Analyst</h2>
+                <p class="mt-1 text-base text-ink-600">Credit Risk · Yangon · Full time</p>
+              </div>
+              <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-700 text-xs font-medium shrink-0 font-mono tnum">480,000+ MMK</span>
+            </div>
+            <p class="mt-2.5 text-base text-ink-700 max-w-[70ch]">
+              Assess corporate lending proposals and present them to the credit committee.
+            </p>
+            <p class="mt-3 text-sm text-ink-500">Posted 2 weeks ago</p>
+          </a>
+        </li>
+
+        <li>
+          <a href="job.html" class="block rounded-lg border border-line bg-white p-5 hover:border-brand-700 transition-colors">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <h2 class="text-lg font-semibold tracking-tight mm">ဘဏ်ခွဲ ငွေကိုင် — အင်းစိန်</h2>
+                <p class="mt-1 text-base text-ink-600 mm">ဘဏ်ခွဲလုပ်ငန်း · ရန်ကုန် · အချိန်ပြည့်</p>
+              </div>
+            </div>
+            <p class="mt-2.5 text-base text-ink-700 max-w-[70ch] mm">
+              ဘဏ်ခွဲတွင် ဖောက်သည်များအား ငွေသွင်း၊ ငွေထုတ် ဝန်ဆောင်မှုပေးရန်။ ဘဏ္ဍာရေးဆိုင်ရာ ဘွဲ့ရ ဖြစ်ရပါမည်။
+            </p>
+            <p class="mt-3 text-sm text-ink-500">Posted 5 days ago</p>
+          </a>
+        </li>
+
+        <li>
+          <a href="job.html" class="block rounded-lg border border-line bg-white p-5 hover:border-brand-700 transition-colors">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <h2 class="text-lg font-semibold tracking-tight">Backend Engineer (.NET)</h2>
+                <p class="mt-1 text-base text-ink-600">Technology · Yangon · Full time · Hybrid</p>
+              </div>
+            </div>
+            <p class="mt-2.5 text-base text-ink-700 max-w-[70ch]">
+              Build and maintain the services behind our mobile banking platform.
+            </p>
+            <p class="mt-3 text-sm text-ink-500">Posted 1 week ago</p>
+          </a>
+        </li>
+
+        <li>
+          <a href="job.html" class="block rounded-lg border border-line bg-white p-5 hover:border-brand-700 transition-colors">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <h2 class="text-lg font-semibold tracking-tight">Branch Manager — Mandalay</h2>
+                <p class="mt-1 text-base text-ink-600">Branch &amp; Retail · Mandalay · Full time</p>
+              </div>
+            </div>
+            <p class="mt-2.5 text-base text-ink-700 max-w-[70ch]">
+              Run a branch of 18 people, own its targets, and grow the local customer base.
+            </p>
+            <p class="mt-3 text-sm text-ink-500">Posted 3 weeks ago</p>
+          </a>
+        </li>
+      </ul>
+
+      <!-- Empty state -->
+      <div class="mt-8 rounded-lg border border-line bg-white px-5 py-10 text-center">
+        <p class="text-base font-medium">No positions match that search</p>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[46ch] mx-auto">
+          Clear the filters to see all five open positions, or check back — we post new roles most weeks.
+        </p>
+        <button class="mt-4 h-11 px-4 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Clear filters</button>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="border-t border-line bg-white">
+    <div class="max-w-[880px] mx-auto px-5 py-6">
+      <p class="text-sm text-ink-600">
+        Yoma Commercial Bank · Recruitment. We keep your application on file so we can tell you
+        about future roles. You can ask us to remove it at any time.
+      </p>
+    </div>
+  </footer>
+</div>
+
+<!-- ==================== DESIGN NOTES (kit chrome, never ships) ==================== -->
+<div class="border-t-2 border-line bg-canvas">
+  <div class="max-w-[880px] mx-auto px-5 py-8">
+    <p class="spec-label">design/public/jobs.html</p>
+    <h2 class="mt-1.5 text-2xl font-semibold tracking-tight">Notes</h2>
+
+    <div class="mt-4 grid md:grid-cols-2 gap-4">
+      <div class="rounded-lg border border-line bg-white p-5">
+        <p class="text-base font-semibold">One card shows a salary, four do not</p>
+        <p class="mt-1.5 text-sm text-ink-600">
+          That is the opt-in working, not an inconsistency. Salary travels from the requisition to
+          the posting but is private unless the recruiter deliberately publishes it. A layout that
+          reserved a salary slot on every card would make the four blanks look like missing data
+          and pressure recruiters into filling them.
+        </p>
+      </div>
+      <div class="rounded-lg border border-line bg-white p-5">
+        <p class="text-base font-semibold">Mixed-language listings are the normal case</p>
+        <p class="mt-1.5 text-sm text-ink-600">
+          A teller role is written in Burmese and an engineering role in English, because that is who
+          reads each one. The header switch changes the page's own furniture; it does not translate a
+          posting the recruiter wrote. Pretending otherwise would need machine translation of job
+          adverts, which is a promise nobody should make.
+        </p>
+      </div>
+      <div class="rounded-lg border border-line bg-white p-5">
+        <p class="text-base font-semibold">No account, no saved jobs, no alerts</p>
+        <p class="mt-1.5 text-sm text-ink-600">
+          Every one of those needs a candidate login, which needs password reset, session handling and
+          a second identity system. Nothing in Module 2 asks for it. The link is the account: it is
+          shareable, resumable and costs nothing to maintain.
+        </p>
+      </div>
+      <div class="rounded-lg border border-line bg-white p-5">
+        <p class="text-base font-semibold">Two filters, not seven</p>
+        <p class="mt-1.5 text-sm text-ink-600">
+          Five open roles do not need faceted search. Location and team are the two axes a candidate
+          actually thinks in; an experience-level or salary-band filter over five results is furniture
+          that costs a mobile data round trip.
+        </p>
+      </div>
+    </div>
+
+    <p class="mt-6"><a href="../internal/index.html" class="text-base font-medium text-brand-700 hover:text-brand-800">← All screens</a></p>
+  </div>
+</div>
+
+</body>
+</html>

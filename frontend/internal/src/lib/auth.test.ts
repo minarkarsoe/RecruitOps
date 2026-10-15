@@ -1,63 +1,77 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import type { LoginResponse } from '@recruitops/types';
-import { auth, hasPermission, type Session } from './auth';
-
-const login = (overrides: Partial<LoginResponse> = {}): LoginResponse => ({
-  accessToken: 'token',
-  expiresAtUtc: '2099-01-01T00:00:00Z',
-  role: 'HiringManager',
-  displayName: 'Someone',
-  userId: 'usr-1',
-  isSuperAdmin: false,
-  permissions: ['permission:requisitions:requisitions:read'],
-  ...overrides,
-});
+import { describe, expect, it } from 'vitest';
+import { hasPermission, type Session } from './auth';
 
 /**
- * `hasPermission` decides what to render. Until 2026-10-15 it returned true with no session, for
- * every Admin, and whenever the permission list was missing — which, since the API never sent
- * one, was always. These pin the fail-closed behaviour that replaced it.
+ * Regression cover for the fail-open `hasPermission()`.
+ *
+ * The original bug was not that some edge case returned the wrong answer — it was that the
+ * *only* branch non-admin users ever reached returned `true`. The API's `LoginResponse` had
+ * no `permissions` field at all, so `session.permissions` was always `undefined`, so the
+ * "legacy fallback" granted every permission to everyone.
+ *
+ * The existing component tests all passed an explicit `permissions` array, so they exercised
+ * a session shape the API never produced and the hole stayed invisible. These tests cover the
+ * shapes that actually occur: absent, empty, and populated.
  */
-describe('hasPermission', () => {
-  it('grants what the session lists, and nothing else', () => {
-    const session = auth.set(login());
-    expect(hasPermission(session, 'permission:requisitions:requisitions:read')).toBe(true);
-    expect(hasPermission(session, 'permission:users:users:read')).toBe(false);
+
+const session = (over: Partial<Session> = {}): Session => ({
+  accessToken: 'token',
+  expiresAtUtc: '2099-01-01T00:00:00Z',
+  role: 'Recruiter',
+  displayName: 'Test User',
+  userId: 'usr-1',
+  permissions: [],
+  ...over,
+});
+
+const READ = 'permission:users:users:read';
+
+describe('hasPermission — fails closed', () => {
+  it('denies when there is no session at all', () => {
+    expect(hasPermission(null, READ)).toBe(false);
   });
 
-  it('grants nothing without a session', () => {
-    expect(hasPermission(null, 'permission:requisitions:requisitions:read')).toBe(false);
+  it('denies when permissions is absent (pre-RBAC session in sessionStorage)', () => {
+    // The exact production shape before this fix: a valid session, no permissions field.
+    const stale = session();
+    delete (stale as { permissions?: string[] }).permissions;
+    expect(stale.permissions).toBeUndefined();
+    expect(hasPermission(stale, READ)).toBe(false);
   });
 
-  it('grants nothing when the list is missing', () => {
-    const legacy = { ...auth.set(login()), permissions: undefined } as unknown as Session;
-    expect(hasPermission(legacy, 'permission:requisitions:requisitions:read')).toBe(false);
+  it('denies when permissions is empty — "nothing granted" is a real answer, not "unknown"', () => {
+    expect(hasPermission(session({ permissions: [] }), READ)).toBe(false);
   });
 
-  it('gives an Admin only what their list says — the API has no Admin bypass', () => {
-    const session = auth.set(login({ role: 'Admin', permissions: ['permission:users:users:read'] }));
-    expect(hasPermission(session, 'permission:users:users:read')).toBe(true);
-    expect(hasPermission(session, 'permission:system:system:manage')).toBe(false);
+  it('denies a permission the user was not granted', () => {
+    expect(
+      hasPermission(session({ permissions: ['permission:requisitions:requisitions:read'] }), READ)
+    ).toBe(false);
   });
 
-  it('lets a SuperAdmin through, mirroring the API bypass', () => {
-    const session = auth.set(login({ role: 'SuperAdmin', isSuperAdmin: true, permissions: [] }));
-    expect(hasPermission(session, 'permission:system:system:manage')).toBe(true);
+  it('grants a permission the user was granted', () => {
+    expect(hasPermission(session({ permissions: [READ] }), READ)).toBe(true);
   });
 });
 
-describe('auth session storage', () => {
-  beforeEach(() => sessionStorage.clear());
-
-  it('stores an empty list when the API sends none, rather than nothing', () => {
-    const session = auth.set({ ...login(), permissions: undefined } as unknown as LoginResponse);
-    expect(session.permissions).toEqual([]);
+describe('hasPermission — admin bypass mirrors PermissionAuthorizationHandler', () => {
+  it('grants Admin regardless of the permissions array', () => {
+    expect(hasPermission(session({ role: 'Admin', permissions: [] }), READ)).toBe(true);
   });
 
-  it('drops a stored session that predates the permission list, forcing a fresh sign-in', () => {
-    const { permissions: _dropped, ...legacy } = auth.set(login());
-    sessionStorage.setItem('recruitops.session', JSON.stringify(legacy));
-    expect(auth.get()).toBeNull();
-    expect(sessionStorage.getItem('recruitops.session')).toBeNull();
+  it('grants SuperAdmin by role', () => {
+    expect(hasPermission(session({ role: 'SuperAdmin', permissions: [] }), READ)).toBe(true);
+  });
+
+  it('grants SuperAdmin by the isSuperAdmin flag on a non-SuperAdmin role', () => {
+    expect(
+      hasPermission(session({ role: 'Recruiter', isSuperAdmin: true, permissions: [] }), READ)
+    ).toBe(true);
+  });
+
+  it('does not grant a non-admin role with the flag unset', () => {
+    expect(
+      hasPermission(session({ role: 'HrDirector', isSuperAdmin: false, permissions: [] }), READ)
+    ).toBe(false);
   });
 });

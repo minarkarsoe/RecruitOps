@@ -65,7 +65,14 @@ public static class RbacSeedData
 
         // 9. System
         new Permission { Module = "system", Feature = "system", Action = "manage", Name = "Manage System", Description = "Full administrative control over system infrastructure", Code = "permission:system:system:manage" },
-        new Permission { Module = "system", Feature = "system", Action = "audit", Name = "Audit System", Description = "View system audit logs and metrics", Code = "permission:system:system:audit" }
+        new Permission { Module = "system", Feature = "system", Action = "audit", Name = "Audit System", Description = "View system audit logs and metrics", Code = "permission:system:system:audit" },
+
+        // 10. AI Services
+        new Permission { Module = "ai", Feature = "resume", Action = "parse", Name = "Parse Resume", Description = "Parse and structure resume documents using Claude AI", Code = "permission:ai:resume:parse" },
+        new Permission { Module = "ai", Feature = "matching", Action = "analyze", Name = "Analyze Candidate Matching", Description = "Perform detailed candidate-job matching analysis using Claude AI", Code = "permission:ai:matching:analyze" },
+        new Permission { Module = "ai", Feature = "summary", Action = "generate", Name = "Generate Executive Summary", Description = "Generate executive summary and interview questions using Gemini AI", Code = "permission:ai:summary:generate" },
+        new Permission { Module = "ai", Feature = "document", Action = "prepare", Name = "Prepare Dossier & Interview Kit", Description = "Prepare client dossiers and interview kits using Gemini AI", Code = "permission:ai:document:prepare" },
+        new Permission { Module = "ai", Feature = "localization", Action = "translate", Name = "Burmese Localization", Description = "Translate content between English and Burmese using Gemini AI", Code = "permission:ai:localization:translate" }
     };
 
     public static List<SystemRoleSeedDefinition> GetSystemRoles() => new()
@@ -99,7 +106,8 @@ public static class RbacSeedData
                 "permission:applications:applications:read", "permission:applications:applications:create", "permission:applications:applications:update", "permission:applications:applications:delete", "permission:applications:applications:move_stage",
                 "permission:interviews:interviews:read", "permission:interviews:interviews:create", "permission:interviews:interviews:update", "permission:interviews:interviews:cancel",
                 "permission:scorecards:scorecards:read", "permission:scorecards:scorecards:submit", "permission:scorecards:scorecards:manage_templates",
-                "permission:users:users:read", "permission:roles:roles:read", "permission:settings:settings:read", "permission:system:system:audit"
+                "permission:users:users:read", "permission:roles:roles:read", "permission:settings:settings:read", "permission:system:system:audit",
+                "permission:ai:resume:parse", "permission:ai:matching:analyze", "permission:ai:summary:generate", "permission:ai:document:prepare", "permission:ai:localization:translate"
             }
         },
         new SystemRoleSeedDefinition
@@ -108,17 +116,22 @@ public static class RbacSeedData
             Name = "Recruiter",
             Description = "Recruiter managing job postings, candidate applications, interview scheduling, and evaluations",
             IsSuperAdmin = false,
-            // Requisition create/update/delete/approve and template management: the API already
-            // admits Recruiters to all of them (InternalUser / RecruitmentStaff); without these
-            // codes the fail-closed UI hid them. Pinned by SeedMatrixMirrorsPoliciesTests.
             PermissionCodes = new[]
             {
-                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:create", "permission:requisitions:requisitions:update", "permission:requisitions:requisitions:delete", "permission:requisitions:requisitions:approve",
+                // Create and update are granted together on purpose. Under ADR-0022 the
+                // requisition flow is create -> edit the draft -> submit, and both the edit
+                // and the submit endpoints are gated on `update`. Granting `create` alone
+                // would let a recruiter raise a requisition they could then neither correct
+                // nor submit, which is worse than not being able to raise one at all.
+                // Approve is deliberately NOT granted: raising headcount and approving it
+                // are different authorities, and the chain decides the second one.
+                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:create", "permission:requisitions:requisitions:update",
                 "permission:postings:postings:read", "permission:postings:postings:create", "permission:postings:postings:update", "permission:postings:postings:delete", "permission:postings:postings:publish",
                 "permission:applications:applications:read", "permission:applications:applications:create", "permission:applications:applications:update", "permission:applications:applications:delete", "permission:applications:applications:move_stage",
                 "permission:interviews:interviews:read", "permission:interviews:interviews:create", "permission:interviews:interviews:update", "permission:interviews:interviews:cancel",
-                "permission:scorecards:scorecards:read", "permission:scorecards:scorecards:submit", "permission:scorecards:scorecards:manage_templates",
-                "permission:users:users:read"
+                "permission:scorecards:scorecards:read", "permission:scorecards:scorecards:submit",
+                "permission:users:users:read",
+                "permission:ai:resume:parse", "permission:ai:matching:analyze", "permission:ai:summary:generate", "permission:ai:document:prepare", "permission:ai:localization:translate"
             }
         },
         new SystemRoleSeedDefinition
@@ -127,11 +140,9 @@ public static class RbacSeedData
             Name = "Hiring Manager",
             Description = "Department manager submitting requisitions, reviewing department applications, and conducting interviews",
             IsSuperAdmin = false,
-            // delete = cancelling their own requisition; approve = deciding when an approval chain
-            // names them (typically the Dept Head step). The API admits both.
             PermissionCodes = new[]
             {
-                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:create", "permission:requisitions:requisitions:update", "permission:requisitions:requisitions:delete", "permission:requisitions:requisitions:approve",
+                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:create", "permission:requisitions:requisitions:update",
                 "permission:postings:postings:read",
                 "permission:applications:applications:read", "permission:applications:applications:move_stage",
                 "permission:interviews:interviews:read", "permission:interviews:interviews:create", "permission:interviews:interviews:update",
@@ -144,13 +155,9 @@ public static class RbacSeedData
             Name = "Approver",
             Description = "Approver responsible for reviewing and approving job requisitions",
             IsSuperAdmin = false,
-            // create/update/delete: the API treats an Approver as company-wide for requisitions.
-            // scorecards:submit: an Approver reaches an application only by sitting on its interview
-            // panel (ADR-0018), and must then be able to score it.
             PermissionCodes = new[]
             {
-                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:create", "permission:requisitions:requisitions:update", "permission:requisitions:requisitions:delete", "permission:requisitions:requisitions:approve",
-                "permission:scorecards:scorecards:submit"
+                "permission:requisitions:requisitions:read", "permission:requisitions:requisitions:approve"
             }
         },
         new SystemRoleSeedDefinition

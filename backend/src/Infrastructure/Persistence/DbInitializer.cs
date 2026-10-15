@@ -10,29 +10,22 @@ using RecruitOps.Domain.Enums;
 namespace RecruitOps.Infrastructure.Persistence;
 
 /// <summary>What a database needs before the API can serve it (ADR-0004: unattended installs).
-/// <para>Until 2026-10-15 all of this ran in Development only, so a production install had no
-/// permissions or system roles in its database and no way to create its first user.</para></summary>
+/// Reference data (permissions, system roles) is seeded in every environment; the first Admin
+/// comes from configuration — see <see cref="SeedAdminAsync"/>.</summary>
 public static class DbInitializer
 {
     /// <summary>Production minimum for a bootstrap password: it creates the most powerful account
     /// in the company, and it sits in a deployment file until someone removes it.</summary>
     public const int MinimumBootstrapPasswordLength = 12;
 
-    /// <summary>Canonical permissions and system roles. Reference data, not test data: every
-    /// environment, every startup, idempotently.</summary>
-    public static async Task SeedReferenceDataAsync(IServiceProvider services, CancellationToken ct = default)
-    {
-        using var scope = services.CreateScope();
-        await SeedPermissionsAndRolesAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>(), ct);
-    }
-
     /// <summary>Creates the company and its first Admin from <c>Seed:AdminEmail</c> /
     /// <c>Seed:AdminPassword</c>.
     /// <para><b>Development:</b> whenever that email is not yet a user — a convenience over a
     /// disposable database.</para>
     /// <para><b>Everywhere else:</b> only while the database holds no users at all — the first run
-    /// of an install. Once anyone exists the settings are ignored, with a warning, so a value left in
-    /// a deployment file can never mint a second Admin later. A password shorter than
+    /// of an install. Until 2026-10-15 this was Development-only, so a production install had no way
+    /// to create its first user. Once anyone exists the settings are ignored, with a warning, so a
+    /// value left in a deployment file can never mint a second Admin later. A password shorter than
     /// <see cref="MinimumBootstrapPasswordLength"/> stops startup instead of creating a weak Admin.</para></summary>
     public static async Task SeedAdminAsync(IServiceProvider services, bool firstRunOnly, CancellationToken ct = default)
     {
@@ -72,12 +65,18 @@ public static class DbInitializer
             return;
         }
 
-        // Reused when present. The Development path used to add a second "default" company for a
-        // new seed email, which the unique slug index refuses — and the API then never started.
+        // Reused when present: adding a second "default" company for a new seed email is refused by
+        // the unique slug index, and the API then never started. TimeZoneId is set on purpose: an
+        // invitation rendered in UTC is the failure the field exists to prevent (ADR-0026).
         var company = await db.Companies.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Slug == "default", ct);
         if (company is null)
         {
-            company = new Company { Name = "Default Company", Slug = "default" };
+            company = new Company
+            {
+                Name = "Default Company",
+                Slug = "default",
+                TimeZoneId = "Asia/Yangon",
+            };
             db.Companies.Add(company);
         }
 
@@ -99,7 +98,14 @@ public static class DbInitializer
         db.Users.Add(admin);
 
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Created the first Administrator account ({Email}).", email);
+        logger.LogInformation("Created the first Administrator account.");
+    }
+
+    public static async Task SeedPermissionsAndRolesAsync(IServiceProvider services, CancellationToken ct = default)
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await SeedPermissionsAndRolesAsync(db, ct);
     }
 
     /// <summary>Idempotently seeds permissions and system roles into database and links existing users without a RoleId to their corresponding seeded Role (Requirement R2).</summary>

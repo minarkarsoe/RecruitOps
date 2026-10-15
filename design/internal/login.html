@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Sign in</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="ds.js"></script>
+<link rel="stylesheet" href="ds.css" />
+</head>
+<body class="bg-canvas text-ink-900">
+
+<!--
+  MODULE 7 — SIGN IN.
+
+  Two decisions on this screen are not cosmetic, and both come from ADR-0004
+  (one instance + one database per company):
+
+  1. THERE IS NO WORKSPACE FIELD. Almost every B2B login asks for a workspace,
+     subdomain or tenant. This product must not: the URL already is the company.
+     Asking would invent an identity the deployment does not have, and would
+     imply to a buyer that their data sits beside someone else's.
+
+  2. THE LANGUAGE TOGGLE IS ON THE SIGNED-OUT PAGE. A language preference stored
+     against a user account is useless to someone who cannot read the page that
+     signs them in. It sits above the form, not in a settings screen.
+
+  The failure states are NOT open questions. ADR-0016 is accepted and implemented:
+  two-axis brute-force protection, 5 failures → 15 minute lockout, counted for
+  every email whether or not it is a real account, and deliberately no admin
+  unlock. This screen renders that decision rather than proposing one — see the
+  notes under state 4.
+
+  What the API actually returns, which is what constrains the copy:
+    · bad credentials → 401 with NO body. The page cannot say how many attempts
+      remain, because nothing tells it.
+    · locked → 429 + a Retry-After header in seconds. The countdown is real.
+-->
+
+<div class="max-w-[1180px] mx-auto px-8 py-10">
+
+  <p class="spec-label">design/internal/login.html</p>
+  <h1 class="mt-2 text-3xl font-bold tracking-tight">Sign in</h1>
+  <p class="mt-3 text-md text-ink-600 max-w-[68ch]">
+    The only screen an unauthenticated person can reach in the internal app. Every state is
+    drawn — including the two failure states, whose wording is a security decision rather
+    than a copy decision.
+  </p>
+
+  <!-- ============================================================ DEFAULT -->
+  <p class="spec-label mt-10">1 — Default</p>
+  <div class="mt-2 rounded-xl border border-line bg-white overflow-hidden">
+    <div class="min-h-[540px] grid place-items-center bg-canvas p-8">
+
+      <div class="w-full max-w-[380px]">
+
+        <!-- Language sits above the card: it governs the card. -->
+        <div class="flex justify-end mb-3">
+          <div class="flex items-center rounded-md border border-line bg-white p-0.5">
+            <button class="h-7 px-3 rounded text-sm font-medium bg-ink-900 text-white">EN</button>
+            <button class="h-7 px-3 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors mm">မြန်မာ</button>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-line bg-white shadow-card p-7">
+
+          <div class="flex items-center gap-2.5">
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+              <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+              <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+              <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <span class="text-lg font-semibold tracking-tight">RecruitOps</span>
+          </div>
+
+          <!-- The company name is a fact of the deployment, so it is stated, not asked for. -->
+          <p class="mt-4 text-base text-ink-600">Yoma Bank · Talent Acquisition</p>
+
+          <div class="mt-6 space-y-4">
+            <div>
+              <label for="l-email" class="block text-sm font-medium text-ink-700">Work email</label>
+              <input id="l-email" type="email" autocomplete="username" placeholder="name@yomabank.com"
+                     class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-white text-base placeholder:text-ink-400 focus:border-brand-700 outline-none transition-colors" />
+            </div>
+            <div>
+              <div class="flex items-baseline justify-between">
+                <label for="l-pass" class="block text-sm font-medium text-ink-700">Password</label>
+                <a href="#forgot" class="text-sm font-medium text-brand-700 hover:text-brand-800">Forgot password?</a>
+              </div>
+              <input id="l-pass" type="password" autocomplete="current-password" value="••••••••••"
+                     class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-white text-base focus:border-brand-700 outline-none transition-colors" />
+            </div>
+
+            <label class="flex items-center gap-2.5 select-none cursor-pointer">
+              <input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E]" />
+              <span class="text-base text-ink-700">Keep me signed in on this device</span>
+            </label>
+
+            <button class="w-full h-10 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">
+              Sign in
+            </button>
+          </div>
+        </div>
+
+        <p class="mt-4 text-center text-sm text-ink-500">
+          Accounts are created by your administrator. There is no self-signup.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3 rounded-lg border border-line bg-white p-5">
+    <p class="text-base font-semibold">No “Sign up” link, and that is the product</p>
+    <p class="mt-1.5 text-sm text-ink-600 max-w-[74ch]">
+      Every account here belongs to an employee, and employees are provisioned by an admin on
+      the Users screen. A self-signup link on a system that holds salary bands and rejection
+      reasons would be a defect, so the absence is stated in words rather than left as a
+      missing element the user hunts for.
+    </p>
+  </div>
+
+  <!-- ======================================================== SUBMITTING -->
+  <div class="grid lg:grid-cols-2 gap-6 mt-10">
+
+    <div>
+      <p class="spec-label">2 — Submitting</p>
+      <div class="mt-2 rounded-xl border border-line bg-canvas p-8 grid place-items-center min-h-[360px]">
+        <div class="w-full max-w-[380px] rounded-xl border border-line bg-white shadow-card p-7">
+          <div class="flex items-center gap-2.5 opacity-60">
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+              <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+              <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+              <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <span class="text-lg font-semibold tracking-tight">RecruitOps</span>
+          </div>
+          <div class="mt-6 space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-ink-500">Work email</label>
+              <div class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-canvas text-base text-ink-500 flex items-center">thura.win@yomabank.com</div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-ink-500">Password</label>
+              <div class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-canvas text-base text-ink-500 flex items-center">••••••••••</div>
+            </div>
+            <button disabled class="w-full h-10 rounded-md bg-brand-700 text-white text-base font-medium inline-flex items-center justify-center gap-2 cursor-wait">
+              <svg class="w-4 h-4 animate-spin" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-opacity=".3" stroke-width="1.8"/>
+                <path d="M14.2 8A6.2 6.2 0 0 0 8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              Signing in…
+            </button>
+          </div>
+        </div>
+      </div>
+      <p class="mt-2 text-sm text-ink-600 max-w-[52ch]">
+        The one place in this app where a spinner is correct: nothing is arriving whose shape
+        could be skeletoned, and the wait is a round trip the user just started.
+      </p>
+    </div>
+
+    <!-- ============================================================ ERROR -->
+    <div>
+      <p class="spec-label">3 — Rejected</p>
+      <div class="mt-2 rounded-xl border border-line bg-canvas p-8 grid place-items-center min-h-[360px]">
+        <div class="w-full max-w-[380px] rounded-xl border border-line bg-white shadow-card p-7">
+          <div class="flex items-center gap-2.5">
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+              <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+              <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+              <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+              <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <span class="text-lg font-semibold tracking-tight">RecruitOps</span>
+          </div>
+
+          <div role="alert" class="mt-5 rounded-md border border-critical-100 bg-critical-50 px-3.5 py-3">
+            <p class="text-base font-medium text-critical-700">Email or password is incorrect</p>
+          </div>
+
+          <div class="mt-5 space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-ink-700">Work email</label>
+              <input type="email" value="thura.win@yomabank.com"
+                     class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-white text-base outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-ink-700">Password</label>
+              <input type="password" value="••••"
+                     class="mt-1.5 w-full h-10 px-3 rounded-md border-2 border-critical-500 bg-white text-base outline-none" />
+            </div>
+            <button class="w-full h-10 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors">Sign in</button>
+          </div>
+        </div>
+      </div>
+      <p class="mt-2 text-sm text-ink-600 max-w-[52ch]">
+        The message never says <em>which</em> of the two was wrong — that difference tells a
+        stranger whether an email address is a real employee, and <code class="font-mono text-xs">AuthService</code>
+        returns an identical 401 either way for exactly that reason. Only the password field is
+        outlined, because only it is worth retyping.
+      </p>
+      <p class="mt-2 text-sm text-ink-600 max-w-[52ch]">
+        There is deliberately no “2 attempts remaining” hint: the 401 carries no body, so the
+        page has nothing to count with. Adding the hint means changing the API, and that is a
+        security change, not a copy change.
+      </p>
+    </div>
+  </div>
+
+  <!-- =========================================================== LOCKED -->
+  <p class="spec-label mt-10">4 — Locked</p>
+  <div class="mt-2 grid lg:grid-cols-[1fr_360px] gap-6 items-start">
+    <div class="rounded-xl border border-line bg-canvas p-8 grid place-items-center min-h-[360px]">
+      <div class="w-full max-w-[380px] rounded-xl border border-line bg-white shadow-card p-7">
+        <div class="flex items-center gap-2.5">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+            <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+            <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+            <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+            <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <span class="text-lg font-semibold tracking-tight">RecruitOps</span>
+        </div>
+
+        <div role="alert" class="mt-5 rounded-md border border-warn-100 bg-warn-50 px-3.5 py-3">
+          <p class="text-base font-medium text-warn-700">Too many attempts</p>
+          <p class="mt-1 text-sm text-warn-700">Too many failed sign-in attempts. Try again in <span class="font-medium tnum">14 min 32 s</span>.</p>
+        </div>
+
+        <div class="mt-5 space-y-4 opacity-50 pointer-events-none">
+          <div>
+            <label class="block text-sm font-medium text-ink-700">Work email</label>
+            <div class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-canvas text-base text-ink-500 flex items-center">thura.win@yomabank.com</div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-ink-700">Password</label>
+            <div class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-canvas"></div>
+          </div>
+          <div class="w-full h-10 rounded-md bg-ink-400 text-white text-base font-medium grid place-items-center">Sign in</div>
+        </div>
+
+        <p class="mt-4 text-sm text-ink-600">
+          The lock clears itself. No administrator can lift it early.
+        </p>
+      </div>
+    </div>
+
+    <div class="rounded-lg border border-line bg-white p-5">
+      <p class="text-base font-semibold">Why this state does not leak an account</p>
+      <p class="mt-1.5 text-sm text-ink-600">
+        The obvious worry is that “too many attempts” tells a stranger the address is real,
+        undoing the identical-401 the rejected state works so hard for. It does not, because
+        <strong class="font-medium text-ink-900">failures are counted for every email, real or
+        not</strong> — an invented address locks out exactly the same way. That is a deliberate
+        choice in ADR-0016, asserted by <code class="font-mono text-xs">LoginThrottleTests</code>,
+        and the screen inherits it for free.
+      </p>
+      <p class="mt-2.5 text-sm text-ink-600">
+        <strong class="font-medium text-ink-900">No “contact your administrator to unlock”.</strong>
+        Admin unlock was considered and rejected: any sticky lockout is a griefing weapon —
+        anyone who knows a colleague's email could lock them out at will. 15 minutes, self-clearing,
+        is the whole policy. The screen must not offer an escape hatch the product refuses to build.
+      </p>
+      <p class="mt-2.5 text-sm text-ink-600">
+        The countdown is real rather than decorative: the 429 carries a
+        <code class="font-mono text-xs">Retry-After</code> header in seconds.
+      </p>
+    </div>
+  </div>
+
+  <!-- ========================================================== BURMESE -->
+  <div class="grid lg:grid-cols-2 gap-6 mt-10">
+    <div>
+      <p class="spec-label">5 — Burmese</p>
+      <div class="mt-2 rounded-xl border border-line bg-canvas p-8 grid place-items-center min-h-[420px]">
+        <div class="w-full max-w-[380px]">
+          <div class="flex justify-end mb-3">
+            <div class="flex items-center rounded-md border border-line bg-white p-0.5">
+              <button class="h-7 px-3 rounded text-sm text-ink-600 hover:text-ink-900 transition-colors">EN</button>
+              <button class="h-8 px-3 rounded text-sm font-medium bg-ink-900 text-white mm">မြန်မာ</button>
+            </div>
+          </div>
+          <div class="rounded-xl border border-line bg-white shadow-card p-7">
+            <div class="flex items-center gap-2.5">
+              <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+                <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+                <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+                <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+                <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+              <span class="text-lg font-semibold tracking-tight">RecruitOps</span>
+            </div>
+            <p class="mt-4 text-base text-ink-600">Yoma Bank · Talent Acquisition</p>
+            <div class="mt-6 space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-ink-700 mm">အလုပ်သုံး အီးမေးလ်</label>
+                <input type="email" placeholder="name@yomabank.com"
+                       class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-white text-base placeholder:text-ink-400 outline-none" />
+              </div>
+              <div>
+                <div class="flex items-baseline justify-between gap-3">
+                  <label class="block text-sm font-medium text-ink-700 mm">စကားဝှက်</label>
+                  <a href="#forgot" class="text-sm font-medium text-brand-700 hover:text-brand-800 mm shrink-0">စကားဝှက် မေ့နေပါသလား</a>
+                </div>
+                <input type="password" value="••••••••••"
+                       class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-white text-base outline-none" />
+              </div>
+              <label class="flex items-center gap-2.5 select-none cursor-pointer">
+                <input type="checkbox" class="w-4 h-4 rounded border-line-strong accent-[#0F766E] shrink-0" />
+                <span class="text-base text-ink-700 mm">ဤစက်တွင် ဝင်ရောက်ထားမှုကို မှတ်ထားပါ</span>
+              </label>
+              <button class="w-full h-11 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-medium transition-colors mm">ဝင်ရောက်ရန်</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="mt-2 text-sm text-ink-600 max-w-[52ch]">
+        Every Burmese run carries <code class="font-mono text-xs">.mm</code>, and the primary
+        button grows from 40px to 44px to hold the taller line box. A Burmese label in a
+        control sized for Latin text clips its diacritics — the same trap the status chips hit.
+      </p>
+    </div>
+
+    <!-- ========================================================== FORGOT -->
+    <div id="forgot">
+      <p class="spec-label">6 — Reset requested</p>
+      <div class="mt-2 rounded-xl border border-line bg-canvas p-8 grid place-items-center min-h-[420px]">
+        <div class="w-full max-w-[380px] rounded-xl border border-line bg-white shadow-card p-7">
+          <div class="w-10 h-10 rounded-full bg-brand-50 grid place-items-center">
+            <svg class="w-5 h-5 text-brand-700" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <rect x="2.5" y="4.5" width="15" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/>
+              <path d="m3 6 7 5 7-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h2 class="mt-4 text-xl font-semibold tracking-tight">Check your email</h2>
+          <p class="mt-2 text-base text-ink-600">
+            If <span class="font-medium text-ink-900">thura.win@yomabank.com</span> belongs to an
+            account, a reset link is on its way. The link works once and expires in 30 minutes.
+          </p>
+          <button class="mt-5 w-full h-10 rounded-md border border-line bg-white hover:border-line-strong text-base font-medium transition-colors">
+            Back to sign in
+          </button>
+          <p class="mt-4 text-sm text-ink-500">
+            Didn't arrive? Check spam, then contact your administrator.
+          </p>
+        </div>
+      </div>
+      <p class="mt-2 text-sm text-ink-600 max-w-[52ch]">
+        “<span class="italic">If</span> … belongs to an account” is doing the same work as the
+        rejected state: the page is identical whether or not the address exists, so it cannot
+        be used to enumerate staff.
+      </p>
+    </div>
+  </div>
+
+  <div class="mt-10 rounded-lg border border-line bg-white p-5">
+    <p class="text-base font-semibold">What is deliberately not on this screen</p>
+    <ul class="mt-2.5 space-y-2 text-sm text-ink-600 max-w-[74ch]">
+      <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2 shrink-0"></span><span><strong class="font-medium text-ink-900">Single sign-on.</strong> Module 7.3 covers Microsoft 365 and Google Workspace for <em>calendar and mail</em>. That is not the same as SSO, and no ADR grants it. A “Sign in with Microsoft” button here would be a promise the backend cannot keep.</span></li>
+      <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2 shrink-0"></span><span><strong class="font-medium text-ink-900">A CAPTCHA, and any “unusual sign-in” notice.</strong> ADR-0016 puts both explicitly out of scope for now. Drawing them would misrepresent a decision that was made and written down.</span></li>
+      <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2 shrink-0"></span><span><strong class="font-medium text-ink-900">Two-factor.</strong> Not in any module doc or ADR. Worth raising for a system holding salary bands, but it is a product decision, not something a design page should quietly invent.</span></li>
+      <li class="flex gap-2.5"><span class="w-1 h-1 rounded-full bg-ink-400 mt-2 shrink-0"></span><span><strong class="font-medium text-ink-900">A workspace / subdomain field.</strong> See the note at the top — the deployment is the company.</span></li>
+    </ul>
+  </div>
+
+  <p class="mt-8"><a href="index.html" class="text-base font-medium text-brand-700 hover:text-brand-800">← All screens</a></p>
+
+</div>
+</body>
+</html>

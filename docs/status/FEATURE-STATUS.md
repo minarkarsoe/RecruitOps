@@ -1,26 +1,37 @@
 # Feature Status
 
-**Last updated:** 2026-10-15 (RBAC security fixes + operational foundations — backend **323/323** (65 domain + 258 api), frontend **66/66** across 11 files, typecheck clean, both apps build) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
+> 🔐 **2026-10-15 — security fixes merged** (see CHANGELOG). Suites on the merged code: **backend
+> 759/759** (76 domain + 683 api), **frontend 441/441** (50 files) + **public 24/24**, typecheck clean,
+> both apps build. The SPA ran under its new CSP behind real nginx with zero violations.
 
-> ✅ **Backend: 323/323 green** (65 domain + 258 api). Adds, on 2026-10-15: role-assignment
-> escalation, permission revocation, effective-permission agreement, seed-matrix ↔ policy
-> mirroring, per-request token revalidation, user-directory guards, install bootstrap, security
-> headers/CORS, health/version and error-contract suites.
+**Last updated:** 2026-08-18 (**status re-derived from the code, not from the previous version of this file** — the module table below was wrong about four modules; see the note under it. Suites re-run the same day: **backend 527/527**, frontend 342/342, typecheck clean. Also: **UI/UX design kit complete — 25 static screens across all seven modules**, in `design/internal/` and `design/public/`, indexed at `design/internal/index.html`; five spec gaps it surfaced are logged under Known gaps) · Previously 2026-08-17 (marketing landing page added; design system pivoted off the agency model and its contrast failures fixed — frontend now **342/342 Vitest green**, 43 files, 0 typecheck errors) · Previously 2026-08-13 (Delivery Readiness & Feature Flags complete — 507/507 backend tests + 318/318 frontend tests green, 0 typecheck errors) · Legend: ✅ done · 🚧 partial · ⬜ not started · ❌ removed/to remove
+
+> 🎨 **Marketing surface (2026-08-17):** `marketing/landing.html` — standalone single-file
+> HTML + Tailwind CDN, not a route in either app. Visual system recorded in `DESIGN.md`,
+> product truth in `PRODUCT.md` (both at repo root). No backend or frontend code was touched.
+
+> ✅ **Backend: 644/644 green** (62 domain + 582 api), re-run 2026-08-26. That day's ADR-0026 security review found and fixed a HIGH — an Approver could bulk-upload CVs into any posting in the tenant, and read the batch back ([SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md)) — and its `X-Tenant-Id` observation was then closed by wiring the header up for super-admins only (+19 tests). Covers Module 1 end to end, login
+> throttling, department administration, Module 2 requisitions/postings/pipeline/CV ingestion/Full-Text search, Module 3 interviews/scorecards/notes, Module 5 Reporting & Analytics, Module 7 Dynamic RBAC & User Management, and Delivery Prerequisites (`/api/version`, Feature Flags, Healthchecks).
 >
-> 🔴→✅ **2026-10-15 security fixes (Module 7 RBAC).** Driving the stack found that the user
-> directory could mint a **SuperAdmin** (`"role": "SuperAdmin"` or `"0"`), that any custom role
-> silently became **Recruiter** (company-wide candidate access), that revoking a permission never
-> took effect for active users, and that the permission-aware UI had never worked (the API sent no
-> permissions; the client failed open). A security review then found that a JWT was never
-> re-checked for its 8 hours (a deactivated Admin could create a backdoor Admin) and that a
-> production install had no roles, no permissions and no way to create its first user. All fixed,
-> test-first — see [ADR-0021](../decisions/ADR-0021-role-assignment-and-custom-role-scope.md) and
-> the CHANGELOG. **Custom roles can be built but not assigned** until ADR-0021's decision is made.
+> ✅ **`docker compose up --build` runs** — Postgres + API + both frontends, migrations applying on startup.
 >
-> ⚠️ **`docker compose up --build` could not be re-run on 2026-10-15** — the authoring sandbox
-> cannot pull from Docker Hub. The stack was run natively instead (Postgres 16, .NET 10 SDK, Vite /
-> Next dev servers, the SPA's production build under `vite preview`). The Dockerfile gained a
-> `GIT_SHA` build argument that CI will exercise first.
+> ✅ **Frontend: 375/375 Vitest passing** across 46 test files, `npm run typecheck` 0 errors across both apps, `npm run build` clean (re-run 2026-08-25 after `features/pipeline`, `features/analytics` and `frontend/public/app` were rebuilt against the design kit; `ChartMarks.test.tsx` and `DeliveryLogPage.test.tsx` are new — the first pins the charts to one hue, `aria-pressed`, `role="img"` and no `dark:` variants; the second pins the delivery log's failure reason, its neutral treatment of `Suppressed`, and that filtering reaches the server rather than the browser).
+>
+> ⚠️ **The public app (`frontend/public`) has no tests at all.** It is a stranger's only view of
+> the product and the least-covered surface in the repo; its rebuild was verified from the built
+> stylesheet because the job page needs a running API.
+>
+> ✅ **Granular Dynamic RBAC & Permission-Aware UX complete** — `/api/roles`, `/api/permissions`, `/api/users`, `[HasPermission]` policy attribute, User Directory (`/users`), Role Builder (`/roles`), and dynamic permission-aware UI filtering across navigation sidebar and action buttons.
+>
+> 🔴 **Fixed 2026-08-03 — the permission-aware UX was inert from the day it shipped.**
+> `LoginResponse` had no `Permissions` member, so the SPA's `session.permissions` was always
+> `undefined`, and `hasPermission()` treated "no permissions field" as "unknown → allow".
+> Every gated sidebar link, action button and `RequirePermission` route guard rendered for
+> every user. Server-side `[HasPermission]` enforcement was never affected — the API re-derives
+> permissions from the signed JWT — so this was a UI-disclosure bug, not a privilege
+> escalation. The API now ships the permission set and the client fails closed.
+> **The tests did not catch it because every one of them constructed a session with an
+> explicit `permissions` array — a shape the API never returned.**
 
 ## Summary by module
 
@@ -29,32 +40,59 @@
 | — | Foundation (scaffold, layering, CI-less tooling) | ✅ | Structure per CLAUDE.md |
 | — | Multi-tenancy | ✅ | Query filters + claim-based resolver, isolation-tested |
 | 1 | Job Requisition & Approval | ✅ API + UI | ⭐ MVP · full loop drivable from the browser: chain config → requisition → submit → sequential approve/reject → cancel. |
-| 2 | ATS & Sourcing | 🚧 | ⭐ MVP · **2.1/2.2/2.5/2.7 built** (posting → public page + custom form → application → pipeline). 2.3 OCR, 2.4 Smart Match, 2.6 search not started. |
-| 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). 3.1 calendar / 3.2 invitations deferred to Module 7 — no email sender or calendar client exists. |
-| 4 | Offer & Pre-boarding | ⬜ | Deferred (post-MVP) |
-| 5 | Reporting & Analytics | ⬜ | ⭐ MVP · build last · blocked on stage history (Module 2) |
-| 6 | Planning & Budgeting | ⬜ | Deferred (post-MVP) |
-| 7 | Settings & Integrations | ✅ | Dynamic RBAC, Authorization Engine, Roles & Permissions Management, User Directory & Role Builder UI, Permission-Aware UX ✅; integrations ⬜ |
-| 8 | Multi-Channel Sourcing (bots) | ⬜ | First post-MVP; contracted in Mid-Tier (ADR-0014) |
+| 2 | ATS & Sourcing | 🚧 API + UI | ⭐ MVP · **2.1, 2.2, 2.4, 2.5, 2.6, 2.7 built. 2.3 is text-only — no OCR, so image and scanned CVs yield nothing.** 2.4 Smart Match and 2.5's Kanban + 360° view were wired on 2026-08-29; both had been written and left unreachable. Posting → public page + custom form → application → pipeline; bulk CV ingestion with local extraction (`BulkResumeService` + `BulkResumeWorker`, `DocumentExtraction/`) — **rewritten 2026-08-21 onto ADR-0026's durable queue**, so a batch survives a restart and the uploaded bytes live in object storage rather than in process memory; AI profiling behind a key (`AiIntegrationService`); trigram search (`SearchService`, `AddPgTrgmAndSearchIndexes`). Remaining: file-upload field type (waits on ADR-0013), the merge-two-existing-candidates UI, and **wiring the AI surface to a route** — see the AI row below. |
+| 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). **3.2 invitations built 2026-08-20** — scheduling and rescheduling queue a candidate email through the ADR-0026 outbox, sent by the worker over SMTP; cancelling suppresses a queued one. 3.1 calendar free/busy still deferred — no calendar client exists. **The delivery log landed 2026-08-25** (`GET /api/delivery`, `/delivery`), so a failed or suppressed invitation is now visible to the recruiter instead of only to the database. ⚠️ Three behaviours have never been eyeballed — see the warning below the table. |
+| 4 | Offer & Pre-boarding | ⬜ code · ✅ spec + design | Post-MVP. Scope rewritten 2026-08-18; 4 screens drawn. **No longer blocked** — `IEmailSender` and the outbox exist; 4.1/4.2/4.3 each need a handler and an enqueue call. |
+| 5 | Reporting & Analytics | ✅ API + UI | ⭐ MVP · `AnalyticsController` + `AnalyticsService` + `AnalyticsPage.tsx`, built on Module 2's stage history. ⚠️ The 2026-08-18 spec re-defines both Time-to-* clocks to end at *offer accepted*, so **the shipped metrics do not match the current spec** and neither is computable until Module 4 exists. Scheduled report *delivery* is unblocked — `IEmailSender` exists — but needs a `ScheduledReport` handler and attachment support, which `EmailMessage` does not have yet. |
+| 6 | Planning & Budgeting | ⬜ code · ✅ spec + design | Post-MVP. Needs `Requisition → HeadcountPlan` decided first, or its headline number is uncomputable. |
+| 7 | Settings & Integrations | 🚧 | 7.1 RBAC ✅ (authorization engine, roles & permissions, User Directory, Role Builder UI, permission-aware UX). 7.2 HRMS / 7.3 mail & calendar / 7.4 retention ⬜ — all four screens drawn. |
+| 8 | Multi-Channel Sourcing (bots) | ⬜ code · ✅ design | First post-MVP; contracted in Mid-Tier (ADR-0014). ⚠️ May be unbuildable on-premise — see Known gaps. |
+| — | **AI (Claude + Gemini)** | ✅ **API + UI** | Five endpoints: `parse-resume`, `match-candidate`, `executive-summary`, `document-prep`, `burmese-localization`. **Reachable from the SPA since 2026-08-29**, when the pipeline board and Candidate 360 drawer were wired into `/jobpostings/:id` — Smart Match and Executive Summary render in the drawer's AI Insights tab. Verified in the built bundle, not inferred: `AI Smart Match Analysis`, `Analyze Fit`, `Generate AI Summary`, `match-candidate` and `executive-summary` are all present. Unconfigured keys still return 402 and the drawer shows its own banner. `document-prep` has no caller yet |
+
+> ⚠️ **This table was materially wrong until 2026-08-18** and is worth a note, because the
+> failure mode repeats. It listed Module 5 as not started, and 2.3 / 2.4 / 2.6 as not started,
+> while `AnalyticsController`, `SearchController`, `BulkResumeService` and
+> `MyanmarScriptNormalizer` were all in the tree and covered by passing tests. `NEXT-SESSION.md`
+> said the opposite of this file. Two status docs disagreeing with each other and with the code
+> is how a session gets sent to rebuild something that already ships. **Re-derive this table
+> from the code, not from the previous version of the table.**
 
 ## Delivery readiness (ADR-0004)
 
-Per-company install, subdomain routing. **None of the operational prerequisites exist yet:**
+Per-company install, subdomain routing. **Most prerequisites now exist — one real gap left**
+(verified against the code 2026-08-18, not carried forward from a previous note):
 
 | Item | Status |
 |---|---|
-| Docker/Compose packaging | ✅ **verified running** |
-| Feature-flag mechanism (add-on gating) | ⬜ |
-| Background job runner (bulk CV processing) | ⬜ |
+| Docker/Compose packaging | ✅ **verified running** — `docker-compose.yml` + `docker-compose.prod.yml` |
+| Feature-flag mechanism (add-on gating) | ✅ **done** — `FeatureFlagService`, `[FeatureGate]` |
+| Background job runner (bulk CV processing) | ✅ **done 2026-08-21** — `BulkResumeWorker` on ADR-0026's durable queue; see the block below for what it replaced |
 | Automated EF migrations on startup | ✅ **done** — `InitialCreate` generated |
-| `/api/version` + customer/version registry | 🚧 **endpoint done 2026-10-15** — version + commit (signed-in only); the registry itself does not exist |
-| Liveness / readiness (`/health/live`, `/health/ready`) | ✅ **2026-10-15** — anonymous, status word only; readiness = database, verified 503 during a real Postgres outage |
-| Structured logs + error contract | ✅ **2026-10-15** — JSON console logs outside Development with per-request TraceId; one access line per request (method, path, status, duration — no query string, no headers); unhandled exceptions → problem details with `traceId`, never the exception text; SQL command logging off outside Development |
-| API security headers + CORS | ✅ **2026-10-15** — nosniff, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `default-src 'none'` CSP, `Cache-Control: no-store` on `/api`. CORS off unless `Cors:AllowedOrigins` is set (Development lists the dev servers; before, localhost was allowed in every environment). TLS/HSTS belong to the TLS terminator |
-| Reference data + first-Admin bootstrap | ✅ **2026-10-15** — permissions and system roles seeded idempotently in every environment (were Development-only: a production install had none, and no way to create its first user). `Seed:AdminEmail`/`Seed:AdminPassword` create the first Admin outside Development only while the database has no users, 12+ char password, ignored with a warning afterwards. Verified on a fresh Production boot against empty Postgres |
+| `/api/version` + customer/version registry | ✅ **done** — `VersionController`; registry still manual |
 | Support policy (latest, latest-1) | ⬜ |
-| Server sizing guide | ⬜ |
-| Backup/restore + upgrade runbooks | ⬜ |
+| Server sizing guide | ✅ **done** — `docs/architecture/server-sizing-guide.md` |
+| Backup/restore + upgrade runbooks | ✅ **done** — `docs/architecture/deployment-runbook.md` |
+
+✅ **Bulk CV upload was rewritten onto ADR-0026 on 2026-08-21.** It is kept here as a record of
+what was wrong, because the entry sat at "asynchronous ✅" for weeks while it was none of these
+things.
+
+`BulkResumeService` used to hold batches in `private static readonly ConcurrentDictionary<Guid,
+BatchStateHolder> Batches` — **including the raw uploaded file bytes** — and launch
+`_ = Task.Run(() => ProcessBatchAsync(batchId))`. Nothing was written to the database.
+
+| What was wrong | What it is now |
+|---|---|
+| A restart **lost the batch outright**, so `GetBatchStatusAsync` returned null and the recruiter's 50 files 404'd with no way to tell whether any candidate was created | `BulkUploadBatch` + `BulkUploadFile` rows, written before the response returns. A claim only pushes a due time forward, so a process that dies mid-batch leaves work that becomes due again by itself |
+| Fifty CVs of several MB each sat in RAM per concurrent upload, which the sizing guide did not account for | Bytes go to object storage at upload (ADR-0013); the row keeps a key. The same object later becomes the application's résumé — uploaded once, referenced, never copied |
+| An exception inside `Task.Run` was unobserved: no handler, no retry | Retry with exponential backoff and an attempt cap of 3, plus the between-claim-and-record wrapper the 2026-08-20 security review forced onto the mail worker |
+| Two replicas would not see each other's batches | The queue is a table, so they would. It is still one worker per ADR-0004 |
+| The candidate lookup used `IgnoreQueryFilters()` with a hand-written `c.TenantId == …` predicate | Ordinary filtered queries. The worker enters the tenant; there is no predicate left to forget (ADR-0026 §4) |
+
+ADR-0008 required this to be asynchronous; what shipped was the *shape* of asynchronous, not the
+thing. Replaced, not extended, by
+[ADR-0026](../decisions/ADR-0026-outbound-delivery-and-background-jobs.md) — leaving it would have
+meant two job mechanisms, which is the outcome the ADR exists to prevent.
 
 ## Built in detail
 
@@ -88,8 +126,16 @@ Per-company install, subdomain routing. **None of the operational prerequisites 
   already recorded — the audit trail stays truthful
 - `GET/POST /api/requisitions`, `GET /inbox`, `GET /{id}`, `PUT /{id}`,
   `POST /{id}/submit`, `POST /{id}/decision`, `POST /{id}/cancel`
-- `GET/POST /api/approvalchains` (**Admin only** — editing a chain is equivalent to being
-  able to approve), `GET /{id}`
+- **Authority is permission-driven, not a role literal (ADR-0022, 2026-08-15).** Every action
+  above carries a `[HasPermission("permission:requisitions:requisitions:*")]` attribute
+  resolved against the caller's actual role (system or custom) via the Role Builder — not
+  `RequireRole` against the fixed five-value enum. See the mapping and behaviour changes in
+  ADR-0022. Department scoping (ADR-0003) remains the security-critical, per-resource filter;
+  the permission is a coarse gate in front of it.
+- `GET/POST /api/approvalchains` (**`settings:read`/`settings:update`, ADR-0022** — was
+  Admin-only by role literal; HrDirector now reads chains too, matching the nav item it was
+  already shown, and any role can be granted chain-authoring through the Role Builder),
+  `GET /{id}`
 - `GET/POST /api/jdtemplates` (read: any internal user; create: recruitment staff)
 - `GET /api/users` (**Admin only**) — populates the approver picker in the chain builder
 - Approvers are validated on chain creation, so a requisition can never be submitted into
@@ -208,27 +254,13 @@ Decisions: [ADR-0017](../decisions/ADR-0017-interview-and-assessment.md).
 - **Tested:** tenant A sees only its rows; B can't see A's; 401 unauthenticated; 403 wrong role
 
 ### ✅ Authentication & RBAC (Module 7 partial)
-- JWT bearer with full validation (issuer, audience, lifetime, signing key), HS256, 8h
-- **Every authenticated request re-checks the token's account** (`OnTokenValidated` →
-  `IUserSessionValidator`): it must exist in the token's tenant, be active, and hold exactly the
-  role and SuperAdmin flag the token claims — else 401. One PK read per request, uncached
-- `POST /api/auth/login` returns the **effective permission set** the API enforces (role
-  permissions ∪ the system role's seed permissions) and `isSuperAdmin`. Permissions are **not** in
-  the token. The SPA's `hasPermission` **fails closed**; SuperAdmin bypasses, Admin does not (the
-  API has no Admin bypass — Admin holds every permission except `system:manage`)
-- Role policies `RecruitmentStaff` / `InternalUser` / `AdminOnly` guard the hiring endpoints;
-  `[HasPermission]` guards only the RBAC endpoints (`/api/roles`, `/api/permissions`,
-  `/api/users/{id}`, user create/update/deactivate). See ADR-0021 for why that split matters
-- **Role assignment:** exact system-role names only; **SuperAdmin never assignable** through the
-  directory; **custom roles not assignable** (ADR-0021); role required on create; no changing your
-  own role; last active Admin cannot be demoted or deactivated; SuperAdmin accounts' roles not
-  managed through the directory
-- Permission cache: generation-keyed, absolute 10-min expiry; a role edit takes effect on the next
-  request; a deactivated role grants nothing
-- Reference data (permissions, system roles) seeded in every environment; first Admin bootstrapped
-  from `Seed:AdminEmail`/`Seed:AdminPassword` — Development: whenever absent; elsewhere: only on an
-  empty install, 12+ char password
-- Login throttling per IP + per account (ADR-0016)
+- JWT bearer with full validation (issuer, audience, lifetime, signing key)
+- `POST /api/auth/login` → `AuthService` + `JwtTokenService` (HS256, 8h)
+- Password hashing via framework `IPasswordHasher<User>`
+- Policies `AgencyStaff` / `AdminOnly`; **`FallbackPolicy` = authenticated by default**
+- Dev-only `DbInitializer` seeds one tenant + admin, gated on config-supplied credentials
+- **Tested:** valid login, wrong password → 401, unknown email → 401 (no enumeration), token claims
+- ⚠️ **Role set is agency-flavoured — must be revised** (see auth doc)
 
 ### ✅ Frontend restructured (ADR-0012)
 - **npm workspaces** at the repo root; `packages/ui` (Tailwind preset + StatusPill/Button/Card)
@@ -262,9 +294,6 @@ Decisions: [ADR-0017](../decisions/ADR-0017-interview-and-assessment.md).
 - **Tests rewritten:** isolation tests now exercise `Department`; role/vocabulary guards updated
 
 ## Test inventory
-
-**Current (2026-10-15): backend 323/323 (65 domain + 258 api), frontend 66/66.** The table below is the
-2026-07-28 inventory, kept for the history of how those counts were established.
 
 | Suite | Count | Run? |
 |---|---|---|
@@ -425,9 +454,17 @@ What the suite proves:
 - Login works — valid credentials return a token; wrong password and unknown email both → 401 (no user enumeration)
 - JWT carries `tenant_id`, role and `sub`, and refuses to sign without a key (ADR-0002)
 - .NET 10 (ADR-0010) and the container build (ADR-0015) both work
-- The approval chain runs in sequence, a later approver cannot jump the queue, a rejection
-  at step 1 leaves step 2 `Waiting` rather than auto-deciding it, and cancelling clears the
-  requisition out of the approver's inbox
+- The approval chain runs in sequence, a rejection at step 1 leaves step 2 `Waiting` rather
+  than auto-deciding it, and cancelling clears the requisition out of the approver's inbox
+- A **later approver outranks an earlier one** (ADR-0024): they can approve every waiting step
+  at or below their own in one action, and the closed steps record who really decided them.
+  They cannot reject on a junior's behalf, and an earlier approver still cannot reach a later
+  step — the rule reaches down the chain only
+- A **rejected requisition can be revised and resubmitted** (ADR-0023): it returns to `Draft`
+  for its requester, and resubmitting opens a new round beside the rejected one rather than
+  over it, so the rejection and its comment stay readable. `Approved` and `Cancelled` remain
+  terminal. An approver dropped from the chain between rounds loses the inbox item; a
+  superseded round's leftover `Waiting` rows never resurface as work
 - A Draft is editable by its requester but frozen after submit, and cannot be moved into a
   department the caller can't reach; an Approver can neither submit nor edit nor cancel
   someone else's requisition, and cannot learn its status by probing `/decision`
@@ -453,21 +490,31 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 
 | Issue | Severity | Where |
 |---|---|---|
-| Last-Admin floor is not atomic; "who is an Admin" defined three ways | 🔵 Low | Two Admins demoting each other concurrently can both pass the count (needs a serializable transaction or row lock). Deactivation, role change and `AdminOnly` disagree on whether SuperAdmin or a SuperAdmin-flagged custom role counts. Define one predicate (second security review (a)-3) |
-| Token revalidation is state-matching, not revocation | 🔵 Low | Deactivate→reactivate (or demote→re-promote) within 8h revives an old token. Add a security-stamp claim rotated on those changes (review (a)-4) |
-| No change-password / reset | 🟡 Medium | The bootstrap password stays the first Admin's password. Needs the email platform for reset; a signed-in change-password can come first |
-| SuperAdmin accounts: Admin can still deactivate / rename them | 🔵 Low | Role changes are refused; deactivation is arguably the customer's right (vendor access on their install) — decide, then make the message match |
-| SuperAdmin gets 403 on `AdminOnly` screens | 🔵 Info | Role policies do not include SuperAdmin; the SPA's `isAdmin` does. Decide what SuperAdmin is for (ADR-0021) |
-| Compose defaults are weak | 🔵 Low | `postgres/postgres` and MinIO `minioadmin` published on all interfaces. Fine for dev; an install must override them — belongs in the install runbook |
-| **Custom roles cannot be assigned** (containment) | 🟠 Decision needed | ADR-0021: a custom role has no data scope, so it used to become Recruiter. Pick option A (base role + extras), B (scope + matrix) or C (no custom roles). A or B also needs the grantor ceiling the review asked for (a `users:update` holder must not grant more than they hold) |
-| Seed grants broader than their endpoints | 🟡 Medium | The UI shows a control the API then refuses: HM `applications:move_stage` (stage move is `RecruitmentStaff`), HrDirector `settings:read` (chains/departments are `AdminOnly`), Recruiter + HrDirector `users:read` (the list is `AdminOnly`). Harmless today (no endpoint uses these codes except `users:read`); **must be fixed before ADR-0021 option B moves endpoints onto permissions** |
-| `GET /api/users/{id}` is wider than the list | 🔵 Low | `users:read` (Recruiter, HrDirector) reaches any user's email, role and permissions by id, while the list is `AdminOnly` (security review B4) |
-| `Interviewer` system role reaches nothing | 🟡 Medium | It is assignable and has a seed matrix, but no role policy admits it — every hiring endpoint returns 403. Decide what it is for, or stop offering it |
-| Permission list is a login-time snapshot | 🔵 Low | The API applies a role edit on the next request; the UI shows it after the next sign-in. A role *change* forces sign-in (token revalidation) |
-| Role create/delete can 500 | 🔵 Low | Name > 200 chars is not validated; deleting a role with only inactive holders hits the FK (security review B6) |
-| Public site has no **script** CSP | 🔵 Low | SPA: strict `'self'` CSP + headers in `nginx.conf` ✅ (2026-10-15 — run under real nginx, 17 pages × 4 roles, zero violations). Public site: frame/nosniff/referrer/permissions headers ✅; a script CSP needs a per-request nonce for Next's inline hydration scripts |
-| No audit log | 🟡 Medium | Module 7 `AuditLog` entity; needed for bank customers and SLA claims |
+| **Custom-role holders carry the `Recruiter` enum** | 🟠 High — decision needed | Every role-policy endpoint (applications, candidates, interviews, postings, notes, search, analytics) admits them whatever their matrix says. ADR-0021 options; recommended: an explicit base role |
+| SuperAdmin minting via the user directory | ✅ **fixed 2026-10-15** | Never assignable; exact names; custom codes never parsed (ADR-0021) |
+| Role permission revocation never took effect | ✅ **fixed 2026-10-15** | Generation-keyed cache, absolute expiry, inactive roles grant nothing |
+| A JWT was never re-checked for 8h | ✅ **fixed 2026-10-15** | `OnTokenValidated` + `IUserSessionValidator`; tested on the real JWT scheme |
+| `docker-compose` runs the backend as Development | 🟡 Medium | Kept (develop's tripwire test pins it). A real install must not: Development turns off the signing-key check, the first-run-only bootstrap and JSON logs |
+| Fonts come from Google Fonts | 🔵 Low | An install with no internet loses Inter / Noto Sans Myanmar; self-hosting removes that and the CSP's two font origins |
+| Last-Admin floor is not atomic | 🔵 Low | Two Admins demoting each other concurrently can both pass the count; deactivation, role change and `AdminOnly` disagree on who counts as an Admin |
+| Token revalidation is state matching | 🔵 Low | Deactivate→reactivate within 8h revives an old access token; a security-stamp claim would close it |
+| **Design-system tint pills fail WCAG AA** | ✅ **fixed 2026-08-17** | `-700` text-on-tint steps added to `packages/ui/tailwind-preset.js` (success `#146B43`, warning/accent `#8A5A08`, danger `#A63423`, info `#22528F`); `StatusPill` moved onto them and off `ink-400`. Pinned by 6 new cases in `signatureComponents.test.tsx`, **proved to fail first** by mutating two style entries |
+| **Design system doc never pivoted (agency-era)** | ✅ **fixed 2026-08-17** | `RecruitOps_Design_System.md` rewritten for the in-house product. `ClientPortalCard`, `ClientFeedbackBar` and `ExpiryAttentionCard` deleted with their exports; `ExtendedStatusVocabulary` removed from `StatusPill`; `PipelineStageRail` defaults corrected to the real funnel |
+| **No email sender and no job scheduler — now blocking 3 modules** | 🟠 High | Neither exists in the codebase. Already blocked Module 3 interview invitations; the 2026-08-18 scope revision adds Module 4 (`Remind Candidate`, `Send to Candidate`, IT/Admin handoff notifications) and Module 5 (`Schedule Email` for recurring reports). This is one shared capability, not four features — decide the provider and the job runner once, before any of the three modules starts |
+| **Module 4 & 5 scope revised, specs ahead of code** | 🟡 Medium | Rewritten 2026-08-18 from sales requirement PDFs. Module 4 gains a second approval chain, an `OfferStatus` enum whose `Rejected` collides with `PipelineStatus.Rejected`, and HRMS API sync (QHRM/BetterHR/GlobalTA/CityHR — treat as ADR-0007 extension point, not core). Module 5 re-defines both Time-to-* clocks to end at *offer accepted*, so **neither metric is computable until Module 4 ships**, and adds a Recruiter Leaderboard that ranks named staff. See the module docs for the open questions |
+| **Two token systems are now written down** | 🟡 Medium | A "RecruitOps V1.0" spec (slate `#0F172A` / emerald `#10B981` / Plus Jakarta Sans) was supplied 2026-08-17 and captured as [ADR-0025](../decisions/ADR-0025-token-system-v1-proposal.md), **Proposed, not adopted — no code implements it**. It conflicts with the shipped Clear Pipeline preset on ink, primary, attention colour, alert, border, display face, radius and elevation, and it drops the amber reservation. Adopt it, reconcile it, or mark it Rejected — leaving two systems written down is the exact condition that produced the agency-era design-doc rot |
+| **The threshold-based extra approver is drawn but not modelled** | 🟠 High | Three design screens (`requisition-detail`, `requisition-new`, `offer-create`) show an approver *"added by threshold rule"*. `ApprovalChain` stores `Name`, `DepartmentId?` and `IsActive` — **no condition, no amount, no operator**, and `grep -i threshold` finds nothing in Domain, Application or Module 1's doc. Either the entity gains condition fields or those three screens are describing a feature that does not exist. Surfaced on `design/internal/settings-org.html`, where an admin would look for the switch |
+| **An approval step names a person, not a role** | 🟡 Medium | `ApprovalChainStep.ApproverUserId` is a user id. Disabling a user on the Users screen therefore stalls every requisition waiting at their step, indefinitely and silently — nothing in the data links the two actions. The disable flow needs to name the chains it breaks before the admin confirms. Drawn as the "broken chain" state on `design/internal/settings-org.html` |
+| **Module 8 may be unbuildable on-premise** | 🟠 High | Viber, Telegram and Facebook deliver by webhook; an on-prem install behind a corporate firewall has no publicly reachable endpoint. The module doc records this; nothing decides it. Three exits — publish an endpoint through the DMZ, sell sourcing channels as hosted-tier only, or outbound polling (Telegram supports it, Facebook does not). This is the module positioned as the **primary competitive differentiator**, so the answer is commercial as much as technical. `design/internal/channels.html` is drawn blocked-first for this reason |
+| **Module 6 needs `Requisition → HeadcountPlan` decided first** | 🟡 Medium | "Are we over headcount?" is the question Module 6 exists to answer and it is uncomputable without that relationship, which the module doc lists as open. Without it the headcount table is hand-typed and stale within a week. Visible on `design/internal/planning-budget.html` — Credit Risk at −2 against plan is the case the screen is built around |
+| **Age/gender filtering is unconfirmed for this market** | 🟡 Medium | Module 2.6 lists filtering by age and gender with data-protection implications not yet confirmed as lawful or intended. `design/internal/talent-pool.html` holds both behind a click with the question attached rather than placing them in the filter row. Resolve to: keep, gate behind a permission, or drop |
+| **99.9% SLA is claimed publicly but recorded nowhere** | 🟡 Medium | `marketing/landing.html` states a 99.9% Enterprise uptime SLA on the product owner's authorisation (2026-08-17). No ADR, no commercial terms, and ADR-0004's operational prerequisites (sizing guide, runbooks, `/api/version`) are still open. Write the ADR before the page goes live |
 | `System.Security.Cryptography.Xml` CVE-2026-33116 | ✅ **fixed** | Pinned to 10.0.6 in Infrastructure + Api.Tests (10.0.0–10.0.5 are also vulnerable) |
+| ~~The Interviews screen's "Upcoming" filter is not upcoming~~ | ✅ **fixed 2026-08-29** | "Upcoming" and "All" returned identical rows: the tab sends no `status` and `InterviewService` read that as *every status except Cancelled*, so on 29 August a recruiter was shown rounds that finished on the 17th. Fixed in the **service default**, not the tab, so the meaning stays defined in one place — the default is now "rounds that have not **concluded**", excluding Cancelled **and Completed**; both stay recoverable on their own tabs. Kept as an *exclusion* so a status added to the enum later appears by default instead of vanishing, and cut on status rather than date on purpose: **a Scheduled round whose time has passed is the one someone has to chase**, and a date filter would hide exactly the work that needs doing. Verified live — Upcoming 1 · Completed 2 · All 3 |
+| ~~The whole client-side AI surface is orphaned~~ | ✅ **resolved 2026-08-29** | The product owner decided: delete the duplicates, wire the pipeline. `features/interviews/` (a duplicate of the shipped `InterviewDetailPage`) and `features/requisitions/` (no kit design) are gone; `PipelineKanbanBoard` + `CandidateSlideOver` are wired into `/jobpostings/:id` from `design/internal/board.html`. **Nothing under `src/` is unreachable from `main.tsx` any more** except the test fixtures and a test-only re-export shim — measured with an import-graph walk, because a barrel file made every orphan *look* imported while the barrel itself had no importer |
+| ~~The kit draws a Kanban pipeline; the app ships a table~~ | ✅ **resolved 2026-08-29** | `/jobpostings/:id` now renders `PipelineKanbanBoard` with the drawer beside it, as `board.html` specifies. The row list and its per-row "Move to…" select are gone. Interview scheduling moved into the drawer's Interviews tab via a new `interviewsSlot` prop — the drawer can only *list* rounds, so wiring it without `ApplicationDebrief` would have looked finished while dropping scheduling out of the pipeline |
+| **All three AI response contracts in `packages/types` were fiction** | ✅ **closed 2026-08-28** | `generateExecutiveSummary`, `prepareDocument` and `matchCandidate` each declared a response the API has never sent; all three now verified against the running service's OpenAPI *and* a live `200`. The last one had UI on it, so it did not render blanks — it rendered a red "Low Match" badge and "No critical gaps identified." over an 88-point Strong Fit whose concerns the model had actually listed. **The cause was a testing habit, not three separate slips: every fixture mocked the response in the shape the caller wanted**, so mock and interface agreed and neither was ever compared to the API. `SmartMatchLiveContract.test.tsx` now pins a verbatim live capture, typed rather than cast, so the next drift fails to compile |
+| **A shared-type name can collide while the type disagrees** | 🟡 Medium | The Smart Match badge was wrong for a subtler reason than the blank panels: `recommendation` existed on *both* sides, so nothing looked missing — the API sends a sentence, the SPA typed it as a 4-member enum and `switch`ed on it, and every real value fell to `default:`. Rule adopted: **free model text may be displayed, never decided on.** Anywhere a `switch` runs over a value the backend types as `string`, the default arm is a bug waiting for its first real input |
 
 
 
@@ -475,8 +522,8 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | Module 3 authorization surfaces not security-reviewed | ✅ **done** | 2026-07-28 — [`SECURITY-REVIEW-MODULE-3.md`](SECURITY-REVIEW-MODULE-3.md). Two High findings, both fixed (ADR-0018); blind filter cleared |
 | The ADR-0018 fix was unbuilt | ✅ **fixed** | CI green; 169/169 |
 | `GET /api/users/selectable` needed human review | ✅ **closed 2026-07-29** | ADR-0019. 11 cases (`UserDirectoryTests.cs`) green, and the authorization diff has been read by a human per CLAUDE.md |
-| CI `Test counts` summary step is unreliable | ✅ **removed 2026-10-15** | Deleted rather than fixed a fourth time. The backend job's exit code is the authority (`TreatNoTestsAsError` + one `RUN` per project); counts are in the step log or via `count-tests.ps1` |
-| `GET /api/users` projects `enum.ToString()` inside the query | ✅ **closed 2026-10-15** | The endpoint was fine (two-step pattern, 200 against Postgres) — **but the screen it was meant to check was broken**: the approval-chain builder read the now-paged `/users` as an array and went blank once a chain existed. Fixed to use `/users/selectable`; `ApprovalChainsPage.test.tsx` serves the real shapes |
+| CI `Test counts` summary step is unreliable | 🟢 Low (cosmetic) | It reports; it does not adjudicate, so it cannot fail a green suite any more. But it can still print a number nobody should trust. Fix or delete — see the inventory note |
+| `GET /api/users` projects `enum.ToString()` inside the query | 🟡 Medium | EF Core 10 does not translate it. The stack now runs against real Postgres, so this is **cheap to settle**: open the approval-chain builder as an Admin. Two-step pattern if it throws (ADR-0019 follow-up) |
 | Module 3 UI has run, but 3 behaviours are un-eyeballed | 🟡 Medium | Stack came up 2026-07-29. Still unseen: (a) the **panel picker populated as a Recruiter** — ADR-0019's entire reason to exist, and it has never been observed working; (b) the **blind state** on `/interviews/:id` with two panel members; (c) **`.mention` styling surviving the Tailwind build** (the markup comes from C#, so the content scanner cannot see the class) |
 | Mention resolution loads every active user, then N+1s | 🔵 Low (perf) | `NoteService.ResolveMentionsAsync` — full user scan per note POST, plus 2–3 queries per matched handle. Also `InterviewService.ListForApplicationAsync` (4 queries per round) |
 | Role set is too coarse | 🟡 Medium | ADR-0018 needed a second axis because `Approver` fits neither "scoped" nor "sees everything". A third role reading candidate data will force the same question again |
@@ -487,7 +534,7 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | No rate limiting / lockout on login | ✅ **fixed** | ADR-0016 — per-IP limiter + per-account throttle |
 | `LoginThrottle` counters are in-process | 🟡 Medium | Fine for one instance per company (ADR-0004). **Must move to Redis/DB before running two replicas for one customer**, or the effective limit becomes N × the configured value |
 | Compose publishes the API port, so `TrustForwardedHeaders` is off | 🟡 Medium | The per-IP limiter sees nginx, not the client. Production installs must drop the port mapping and enable the flag (ADR-0016) |
-| No refresh token | 🟡 Medium | Tokens live 8h; **revocation is now immediate** (every request re-checks the account), so the remaining gap is session length and httpOnly-cookie storage (ADR-0016 follow-ups) |
+| No refresh token | 🟡 Medium | Auth |
 | No edit/update on a Draft requisition | ✅ **fixed** | `PUT /api/requisitions/{id}`, Draft-only |
 | Frontend has **no tests at all** | ✅ **fixed** | Vitest wired into `frontend/internal`; 27 tests over Module 3's blind rule, scorecard payload rules and note rendering. Modules 1–2 screens are still untested |
 | **No CI** — nothing compiled the backend for three sessions | ✅ **fixed** | `github.com/minarkarsoe/RecruitOps`, first run green on both jobs 2026-07-28. Actions pinned to the Node 24 runtime (checkout@v5, setup-node@v5, setup-buildx@v4); app built on Node 22 |
@@ -500,10 +547,35 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 
 | No `package-lock.json` at the workspace root | 🟢 Low | A root `package-lock.json` now exists (2026-07-28). Remaining work: switch the frontend images to `npm ci` |
 | Frontend images never built; only type-checked | ✅ **fixed** | `docker compose up --build` builds and serves both apps (2026-07-29) |
-| No feature-flag mechanism (needed for add-ons, ADR-0007) | 🟡 Medium | Cheap now, invasive later |
+| No feature-flag mechanism (needed for add-ons, ADR-0007) | ✅ **fixed** | `IFeatureFlagService` + `[FeatureGate]`; `FeatureGate.test.tsx` on the client |
 | PDF/OCR library licences not yet reviewed | 🟡 Medium | Copyleft would be disqualifying |
-| Zawgyi→Unicode normalization not implemented | 🔴 High | Affects MVP Phase 1, not just OCR (ADR-0009) |
-| No .NET client for `myanmar-tools` — integration undecided | 🟡 Medium | Resolve before Module 2 ingest |
-| Burmese OCR accuracy unverified | 🟡 Medium | Deferred; evaluation plan in ADR-0009 |
-| Burmese keyword search needs trigram/segmentation | 🟡 Medium | Module 2.6; default Postgres FTS won't work |
-| No `/api/version`, sizing guide, or upgrade runbook | 🟡 Medium | Required before first install |
+| Zawgyi→Unicode normalization not implemented | ✅ **fixed** | `MyanmarScriptNormalizer` + `IMyanmarScriptNormalizer`, applied at ingest across CV extraction, search and `JobApplication`. This row sat at 🔴 High for days after the code landed |
+| No .NET client for `myanmar-tools` — integration undecided | ✅ **resolved** | Superseded by `MyanmarScriptNormalizer` — no external client was needed |
+| ~~Burmese OCR accuracy unverified~~ **There is no OCR at all** | ⏸ **Paused 2026-08-29 by the product owner** — images are now rejected rather than silently mis-imported; the build/buy decision is deferred. Both upload paths accept **PDF and DOCX only**, and a scanned PDF (unidentifiable until its text stream comes back empty) is marked **`Skipped`**, not Failed, with a reason the recruiter can read. `BulkFileStatus.Skipped` — whose own comment said "nothing produces it today" — now has a producer. The extractor's image path returns empty instead of fabricating; `IDocumentTextExtractor` documents that **empty means "not read", never "read, found nothing"**. 9 tests, 3 mutations. Detail below | This row said "accuracy unverified", which reads as *OCR exists and nobody has measured it*. Read the code 2026-08-29: `DocumentTextExtractor.ExtractFromImageOrScannedAsync` performs **no character recognition**. It reads the PNG header for width/height and returns a string like `Image Document: cv.png \| Format: PNG \| Dimensions: 800x600 \| Size: 41213 bytes`. That is the path taken by every `.png` / `.jpg` / `.jpeg`, **and by every PDF whose text stream is empty** — i.e. every scanned CV. Consequences, none of them visible to the recruiter: the placeholder is stored as `JobApplication.ResumeExtractedText`, so it is what trigram search indexes (a photographed Burmese CV is unfindable, and searching `Image Document` returns all of them); contact parsing is regex over that same string, so name/email/phone come back empty and `FindOrCreateCandidateAsync` makes a blank candidate; and the file is still reported **Success**, not Skipped. Module doc 2.3 promises "OCR reads the documents and auto-builds candidate profiles" — that promise is unmet for images and scans. Fixing it means a real OCR engine (Tesseract with Burmese traineddata, or a vision model call), which is **a new dependency — ask first** per CLAUDE.md. ADR-0009's evaluation plan cannot start until something exists to evaluate |
+| Burmese keyword search needs trigram/segmentation | ✅ **fixed** | `AddPgTrgmAndSearchIndexes` migration + `SearchService`. Still unverified against a corpus of real Burmese CVs — trigram *runs*, but nobody has measured whether its results are good |
+| No `/api/version`, sizing guide, or upgrade runbook | ✅ **fixed** | `VersionController`, `docs/architecture/server-sizing-guide.md`, `docs/architecture/deployment-runbook.md`. The customer/version *registry* is still a manual list |
+| Migration `AddOutboundDeliveryAndScheduledJobs` | ✅ applies on startup | `20260820072400`. Creates `OutboundMessages` and `ScheduledJobs` with three indexes and three check constraints. **Nobody runs `dotnet ef database update` in this project** — Postgres only exists in Docker, and `DatabaseStartup.MigrateAsync` applies pending migrations when the API container starts. Rebuilding the stack is the whole procedure |
+| Two migrations directories exist | 🟢 Low | `backend/src/Infrastructure/Migrations/` is canonical (holds every migration and the snapshot). `backend/src/Infrastructure/Persistence/Migrations/` holds one stray duplicate of `AddPgTrgmAndSearchIndexes`. Harmless today, confusing the first time someone adds a migration to the wrong one |
+| `ITenantScoped` doc comment still says "agency" | 🟢 Low | `backend/src/Domain/Common/ITenantScoped.cs` — "belongs to a single tenant (agency)". Missed by the 2026-07-27 pivot; a tenant is a **company** |
+| **No email sender anywhere in the codebase** | ✅ **built 2026-08-20** | `IEmailSender` + `SmtpEmailSender` (`System.Net.Mail`, no new package), wired to the ADR-0026 outbox and driven by the worker. The first handler, `InterviewInvitationHandler`, ships with it. What this unblocked: Module 3.2 (**done**), Module 4.1/4.2/4.3, Module 5.3, Module 8 — each now needs a handler, not a capability. See the four rows below for what the adapter cannot do |
+| SMTP adapter: no XOAUTH2, no implicit TLS | 🟠 High | `System.Net.Mail.SmtpClient` speaks STARTTLS on 587 and username/password only. **Microsoft 365 and Google Workspace both require XOAUTH2** — and `design/internal/settings-integrations.html` draws all three as first-class choices, so today two of those three tiles cannot be honoured. A relay offering only implicit TLS on 465 also cannot be used. Both are fixed by MailKit; that is a package decision ADR-0026 deliberately did not take, not an oversight to patch quietly |
+| Candidate-facing email is English only | 🟡 Medium | `InterviewInvitationHandler` renders one language. `design/internal/postings.html` offers a per-posting language choice (Burmese / English / Both) that has **no backing field**, so there is nothing to render from. A Yangon field role advertised in Burmese currently gets its interview invitation in English |
+| Nobody is told when a message reaches `Failed` | 🟠 High | The row records it and `design/internal/channels.html` draws the delivery log, but **no UI reads `OutboundMessages` yet**. So "the candidate was never told" is currently discoverable only by querying the database — which is the failure mode ADR-0026 exists to remove. The outbox is only half the answer without the screen |
+| Sender identity is still `noreply@` | 🟡 Medium | One company-wide `Smtp:FromAddress`. A candidate replying to an interview invitation — which the body explicitly invites them to do — replies into a mailbox nobody may be reading. ADR-0026 lists sending as the acting recruiter (via Microsoft 365 delegated permission) as an open question; it is now a live one, because invitations are actually going out |
+| Migration `AddBulkUploadPersistence` | ✅ applies on startup | `20260821…`. Creates `BulkUploadBatches` and `BulkUploadFiles` with three indexes. Additive — no existing table is touched, and there is nothing to back-fill because the state it replaces only ever existed in memory |
+| Two `IBulkResumeService` interfaces existed | ✅ **deleted 2026-08-21** | An identical copy lived in `Application.Common.Interfaces` and was registered in DI alongside the real one. Nothing consumed it. Removed with the rewrite rather than carried forward |
+| Migration `AddCompanyTimeZone` | ✅ applies on startup | `20260820081448`. Adds nullable `Companies.TimeZoneId` (IANA, e.g. `Asia/Yangon`). Needed because Npgsql stores `DateTimeOffset` as `timestamptz` and normalises to UTC — the instant survives a round-trip and the recruiter's *o'clock* does not, and "09:00" is the one thing a candidate acts on. Null falls back to UTC and the email labels itself UTC rather than lying |
+| **`ICurrentTenant` is now settable** | ✅ **security-reviewed 2026-08-20 — no tenant-isolation finding** | Reviewed against `a2de09c`. Verified: an ambient tenant cannot redirect an authenticated request (middleware order checked, `EnterTenant` called from exactly one place); a scope carries at most one tenant and `CurrentTenant` resolves the same instance the worker set; the cross-tenant claim is contained and the claimed entity is never reattached to a later scope; `PublicJobService` is unaffected. The review found **one Low robustness defect, now fixed** — see the row below | ADR-0026 §4. `IAmbientTenantScope` lets the delivery worker establish a tenant with no HTTP request, so handlers query with filters on. The safety property is ordering: the request claim is read first and wins, making an ambient tenant inert inside a request — asserted by `CurrentTenantResolutionTests`, and a failure there is a security finding. `EnterTenant` refuses a second call so a recycled scope crashes rather than reading cross-tenant |
+| Step 3 (invitations + SMTP) | ✅ **security-reviewed 2026-08-20 — nothing found** | Reviewed against `b7f65d3`. Six claims put up to be **disproved**, all held: (1) no path reads across tenants — the unfiltered `Companies` lookup is safe because `message.TenantId` itself comes from a tenant-filtered re-read, so it cannot diverge from the scope's tenant; (2) `Recipient` has exactly one write site and neither request DTO carries an address field, so nobody can have another candidate's details mailed to an address they control; (3) the absent department scoping is sound because `SubjectId` is only ever set inside an authorised write, so the handler's FK chain is the chain that was authorised — and `RescheduleAsync` re-reads the application only *after* `LoadWritableAsync`; (4) header injection blocked — the reviewer tested `MailAddress` against four CRLF variants directly rather than trusting the read, all rejected; (5) no credential or candidate data in any log or payload, nothing real committed to either `appsettings`; (6) the worker change is inside `ConfigureTestServices` and `Program.cs` still registers the real hosted service |
+| A slow relay throttles a company's own queue | 🟢 Low | Raised by that review. A pass drains its batch sequentially, so its worst case is `BatchSize × Smtp:TimeoutSeconds` — 20 × 30 s = **10 minutes** against a 5-minute visibility timeout. **No duplicate sends today**: one worker, and passes never overlap. It is a throughput ceiling for one company with a degraded relay, and it becomes a duplicate-send bug the moment anyone runs two replicas — the **fourth** thing on that list. Recorded in `OutboundDeliveryOptions.BatchSize`; bounded parallelism is a product call, not a fix |
+| A failure between claiming and recording dodged the attempt cap | ✅ **fixed 2026-08-20** | Found by the security review. Anything thrown between claiming a message and `Record()` escaped to the pass-level catch, so the row's cap was never checked: it could be reclaimed every visibility window **forever** — the exact poison message the cap exists to stop, dodging the cap — and it abandoned the rest of that pass's batch. Now wrapped: the failure is a counted, capped retry, and the batch continues. Two tests, proved to fail first |
+| Claim is EF-level, not `FOR UPDATE SKIP LOCKED` | 🟡 Medium | ADR-0026 §3 promised `SKIP LOCKED`; the implementation reads then updates through EF. Crash safety is unchanged, but **two workers could claim the same batch and send twice**. Fine on one instance (ADR-0004). The list of things riding on "one replica" changed on 2026-08-21: the bulk dictionary **came off it** (it is a table now), so what is left is `LoginThrottle` (ADR-0016), this EF-level claim, and the pass-duration point in the row above — **two workers, not three**, plus one tuning invariant. Audit them together before any customer gets a second replica, not after |
+| Dead code: `frontend/internal/src/features/requisitions/` | 🟡 Medium | Zero importers repo-wide (verified 2026-08-18, LSP + grep). Five files including `requisitions.test.tsx`, which passes and proves nothing about the shipped app. Delete it, or wire it up |
+| ADR-0025 step 3 | 🚧 **3a–3c done 2026-08-21, 3d next** | The preset **is** V1.0 — a copy of `design/internal/ds.js` plus a fenced compat block, so both apps already render V1.0 colours and only the class *names* are old. Base CSS and fonts ported from `ds.css`. `packages/ui/src` is fully migrated (**0 left**), built against `components.html` and verified by computed style in a browser. `packages/ui/src`, `components/` and `pages/` are all at **0**, and `LoginPage` is rebuilt against its kit screen — all verified by computed style in a browser. Remaining: **340** — `features` 323, `public/app` 17. Delete the compat block when that reaches zero; the command is in NEXT-SESSION §0 |
+| A failed login said "your session has expired" | ✅ **fixed 2026-08-21** | `apiFetch` mapped every 401 to that copy; the refresh branch excluded `/auth/login` but the fallthrough did not. Someone mistyping a password was told their session had expired and sent looking for a problem that did not exist. Now "Email or password is incorrect." — also the only thing ADR-0016 permits, since naming the field reveals whether an address belongs to a real employee |
+| `Retry-After` was discarded, so the lockout had no countdown | ✅ **fixed 2026-08-21** | ADR-0016's 429 carries the remaining lock in seconds and `ApiError` had nowhere to put it, so the UI could not render the countdown the design draws. `ApiError.retryAfterSeconds` now carries it; the login screen counts down from the server's number and falls back to the full 15 minutes only when the header is absent — never a shorter guess |
+| Kit nav labels failed contrast at `white/40` | ✅ **fixed 2026-08-21** | The design kit's own nav group labels were `text-white/40`, which on `ink-900` measures **3.81:1** — below AA for 11px text. Raised to `white/50` (5.23:1) in the code and in all 19 kit screens; `design/` is the source of truth and must not carry the defect. Found by measuring the dark rail rather than assuming a design file is right |
+| Most screens hand-roll their controls | 🟠 High | Found 2026-08-21 while verifying the `packages/ui` migration: `frontend/internal/src` contains **50 raw `<input>`, 63 raw `<button>`, 24 raw `<select>`**, against 24 files importing `Button` and 9 importing `Input`. The login field is 40px/r6 — not the `Input` component. So a shared-component fix reaches a minority of the surface, and every rebrand costs the same again. Per-screen decision during 3d: adopt the shared component or restyle the local one |
+| **163 shipped classes emitted no CSS** | ✅ **fixed 2026-08-21** | Found by building `frontend/internal` and grepping `dist/assets/*.css`: `text-ink-500` (57 uses), `text-ink-700` (39), `text-ink-800` (20), `border-line-300` (28), `bg-surface-100` (13), `border-line-100` (5), `bg-surface-200` (1) were **ABSENT** — the old preset defined `ink` at 900/600/400, `surface` at 0/50, `line` at 200 only, so those elements silently inherited their parent's colour. The V1.0 preset defines every step; re-verified in the build, all seven now PRESENT. It had been shipping that way |
+| Fonts: Bricolage + IBM Plex were still downloading | ✅ **fixed 2026-08-21** | V1.0 drops both. Editing the `@import` in `index.css` was not enough — the real request is a `<link>` in `frontend/internal/index.html` and `frontend/public/app/layout.tsx`, so both faces kept loading after the "fix". Caught by reading `document.fonts` in the browser rather than trusting the diff. Now one request, three families: Inter, JetBrains Mono, Noto Sans Myanmar |
+| Build warning `CS8604` in `ApplicationFormSchema.cs:102` | 🟢 Low | Possible null reference argument to `HashSet<string>.Add`. Nullable reference types are enabled, so this is a real path the compiler cannot prove safe |

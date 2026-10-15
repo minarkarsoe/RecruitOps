@@ -26,15 +26,27 @@ export type SourceChannel =
 // ---------- Auth ----------
 export interface LoginRequest { email: string; password: string; }
 
+export interface RefreshRequest {
+  refreshToken: string;
+}
+
 export interface LoginResponse {
   accessToken: string;
   expiresAtUtc: string;
+  refreshToken?: string;
+  refreshTokenExpiresAtUtc?: string;
   role: UserRole;
   displayName: string;
   userId: string;
-  /** Mirrors the API's SuperAdmin bypass. */
-  isSuperAdmin: boolean;
-  /** The effective permission set the API enforces for this user, as of login. */
+  isSuperAdmin?: boolean;
+  tenantId?: string;
+  activeTenantId?: string;
+  activeTenantName?: string;
+  /**
+   * The user's resolved permission codes. Required, not optional: `hasPermission()` must be
+   * able to distinguish "no permissions" (empty array) from "not sent" — when this was
+   * optional, the missing case was read as "unknown, allow" and every user saw the full UI.
+   */
   permissions: string[];
 }
 
@@ -164,6 +176,13 @@ export interface UpdateUserRequest {
   role?: string | null;
 }
 
+export interface TenantInfo {
+  id: string;
+  name: string;
+  code: string;
+  isActive: boolean;
+}
+
 
 // ---------- Module 1: Requisition & Approval ----------
 export interface DepartmentListItem {
@@ -214,17 +233,37 @@ export interface RequisitionListItem {
   status: RequisitionStatus;
   submittedAt: string | null;
   /** Label of the approval step currently waiting, if any. */
+  /** Label of the step the chain is currently waiting on — i.e. whose turn it is. */
   awaitingApprovalFrom: string | null;
+  /**
+   * Label of the caller's *own* waiting step in the current round, if they have one. Differs
+   * from `awaitingApprovalFrom` exactly when it is not yet the caller's turn but they are
+   * senior enough to approve ahead anyway (ADR-0024). Null when they hold no step here.
+   */
+  yourStepLabel: string | null;
 }
 
 /** One step in the snapshotted approval chain. */
 export interface ApprovalStep {
+  /**
+   * Which submission attempt this step belongs to, 1-based. A rejected requisition can be
+   * revised and resubmitted, which opens a new round beside the old one rather than over it
+   * (ADR-0023) — so `sequence` is unique only *within* a round. Anything keyed on sequence
+   * alone (React keys included) will collide across rounds.
+   */
+  round: number;
   sequence: number;
   label: string;
+  /** Who the step was assigned to. */
   approverUserId: string;
   decision: ApprovalDecision;
   decidedAt: string | null;
   comment: string | null;
+  /**
+   * Who actually decided it, when a more senior approver closed this step on the assignee's
+   * behalf (ADR-0024). Null means the assigned approver decided it themselves.
+   */
+  decidedByUserId: string | null;
 }
 
 /** Full detail — returned by GET /api/requisitions/:id. */
@@ -478,6 +517,42 @@ export interface Interview {
 }
 
 /**
+ * One row of `GET /api/interviews` — mirrors `InterviewListItemDto`.
+ *
+ * ⚠️ **No evaluation content, and it must stay that way.** `submittedCount` says how many of the
+ * panel have finished, which is public to the panel by design; nothing here carries a rating, a
+ * recommendation or a summary comment. Those come from `GET /interviews/{id}/scorecards`, which
+ * applies the blind rule (ADR-0017 §3). Adding a `recommendation` field to this interface would
+ * be asking the API to route around it.
+ */
+export interface InterviewListItem {
+  id: string;
+  jobApplicationId: string;
+  candidateName: string;
+  jobPostingTitle: string;
+  departmentId: string;
+  departmentName: string;
+  round: number;
+  scheduledStart: string;
+  durationMinutes: number;
+  mode: InterviewMode;
+  location: string | null;
+  status: InterviewStatus;
+  panelNames: string[];
+  panelSize: number;
+  submittedCount: number;
+  isOnPanel: boolean;
+  /** The caller is on the panel and has not submitted — the only actionable state on the list. */
+  myScorecardOutstanding: boolean;
+}
+
+/** Query for `GET /api/interviews`. Omitting `status` gives everything except `Cancelled`. */
+export interface InterviewListQuery {
+  status?: InterviewStatus[];
+  onlyMine?: boolean;
+}
+
+/**
  * Scheduling also moves the application's stage and writes an `ApplicationStageHistory`
  * row in the same transaction — so a successful POST invalidates any pipeline or history
  * view the caller is holding.
@@ -687,3 +762,351 @@ export interface CreateNoteRequest {
   /** Optionally pin the note to one interview round. */
   interviewId?: string | null;
 }
+
+// ---------- Hybrid AI Integration (Milestone 2 / 3) ----------
+// Mirrors RecruitOps.Application.DTOs.Ai — Claude handles data analytics,
+// Gemini handles document generation & localization (ADR-0021).
+
+// ── Claude: Resume Parsing ────────────────────────────────────────────────
+export interface ParseResumeRequest {
+  resumeText: string;
+  /** e.g. "PDF", "DOCX", "plain" */
+  sourceFormat?: string;
+  language?: string;
+}
+
+export interface ParsedSkill {
+  name: string;
+  level?: string;
+}
+
+export interface ParsedExperience {
+  company: string;
+  title: string;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+}
+
+export interface ParsedEducation {
+  institution: string;
+  degree?: string;
+  field?: string;
+  graduationYear?: number;
+}
+
+export interface ParsedResumeResult {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  summary?: string;
+  skills: ParsedSkill[];
+  experience: ParsedExperience[];
+  education: ParsedEducation[];
+  languages?: string[];
+  confidenceScore: number;
+  rawMarkdown?: string;
+}
+
+// ── Claude: Candidate Matching ────────────────────────────────────────────
+export interface MatchCandidateRequest {
+  candidateId: string;
+  jobPostingId: string;
+}
+
+// ⚠️ Corrected 2026-08-28 — the third endpoint in this file found to describe an API that does
+// not exist, after `generateExecutiveSummary` and `prepareDocument`. This one had shipped UI on
+// top of it, so it was not merely blank: it was *wrong in the recruiter's favour-reversing
+// direction*. Captured live before correcting (`POST /api/Ai/claude/match-candidate` -> 200):
+//
+//   api returns:  matchScore, overallVerdict, matchedSkills, missingSkills,
+//                 strengths, concerns, recommendation
+//   spa read:     candidateId, jobPostingId, overallScore, recommendation,
+//                 strengths, gaps, criteria, suggestedInterviewQuestions, summary
+//
+// Only `strengths` ever matched. `recommendation` matched by *name* while disagreeing on type —
+// the API sends a sentence ("Proceed to Technical Deep Dive Interview."), the SPA typed it as a
+// four-member enum and switched on it, so every candidate fell to `default:` and was painted
+// critical-red "Low Match" beside an "undefined% Match" score. `gaps` was undefined, so an
+// 88-point candidate's real concern was replaced with "No critical gaps identified."
+//
+// `criteria` / `MatchCriterion` and `suggestedInterviewQuestions` are gone rather than wired up:
+// nothing on the backend produces a per-criterion breakdown, and interview questions come from
+// `prepareDocument`'s InterviewKit. Mirrors `CandidateMatchAnalysisDto` in
+// `backend/src/Application/DTOs/Ai/AiIntegrationDtos.cs`.
+export interface CandidateMatchAnalysis {
+  /** 0–100. */
+  matchScore: number;
+  /** Free-form model text, e.g. "Strong Fit" / "Gap Identified". Never switch on it. */
+  overallVerdict: string;
+  matchedSkills: string[];
+  missingSkills: string[];
+  strengths: string[];
+  concerns: string[];
+  /** A next-step sentence, not a grade. */
+  recommendation: string;
+}
+
+// ── Gemini: Executive Summary ─────────────────────────────────────────────
+//
+// ⚠️ These two mirror `GenerateExecutiveSummaryRequest` / `ExecutiveSummaryDto` in
+// `backend/src/Application/DTOs/Ai/AiIntegrationDtos.cs`. Until 2026-08-28 they mirrored
+// nothing — every field name below was different from the one the API actually uses, and the
+// difference was invisible because `ai.test.ts` mocked the response in the *frontend's* shape.
+// Verified against the live API's own OpenAPI document before correcting:
+//
+//   request  api accepts:  candidateId, jobPostingId, tone
+//            spa was sending: candidateId, jobPostingId, audience, language   <- both dropped
+//   response api returns:  headline, executiveSummary, keyHighlights, recommendedInterviewQuestions
+//            spa was reading:  headline, summary, keyStrengths, suggestedInterviewQuestions
+//
+// Only `headline` ever matched, so the panel rendered a headline over three blanks.
+//
+// `audience` is GONE rather than wired up. It was `'client' | 'internal'`, and clients were
+// deleted by ADR-0001 on 2026-07-27 — there is no client portal for a summary to be safe for.
+export interface GenerateExecutiveSummaryRequest {
+  candidateId: string;
+  jobPostingId?: string;
+  /** Free-form steer on the writing. The API accepts it; nothing sends one yet. */
+  tone?: string;
+  /**
+   * Output language. `undefined` means English.
+   *
+   * Wired end to end on 2026-08-28 — it reaches `GenerateExecutiveSummaryRequest.Language` in
+   * the backend and becomes a prompt instruction. Burmese is requested as **Unicode
+   * explicitly**, because a model asked for "Burmese" can return Zawgyi, which renders as
+   * garbage and never matches a search (ADR-0009).
+   */
+  language?: 'en' | 'my' | 'bilingual';
+}
+
+export interface ExecutiveSummaryResult {
+  headline: string;
+  executiveSummary: string;
+  keyHighlights: string[];
+  recommendedInterviewQuestions: string[];
+}
+
+// ── Gemini: Document Preparation ─────────────────────────────────────────
+/**
+ * The documents the API knows how to prepare — a closed set as of 2026-08-28, mirroring
+ * `DocumentTypes.All`. Anything else is a 400.
+ *
+ * ⚠️ This used to be `documentType: string` commented as
+ * `"InterviewKit" | "ClientDossier" | "OfferLetter" | "JobDescription"`, and **three of those
+ * four were fiction**. `ClientDossier` is agency-era (ADR-0001 removed clients); `OfferLetter`
+ * and `JobDescription` were never implemented. The backend called the JD document `JdDraft`, a
+ * test called it `JdBrief`, another sent `Dossier` — five names for two documents, and every one
+ * returned 200, because the field was an unvalidated string and the switch had a default arm.
+ */
+export type DocumentType = 'InterviewKit' | 'JdDraft';
+
+export interface PrepareDocumentRequest {
+  candidateId: string;
+  jobPostingId: string;
+  documentType: DocumentType;
+  // ⚠️ NO `language` here, and its absence is deliberate. This interface carried
+  // `language?: 'en' | 'my' | 'bilingual'` and the API's record never had one, so model binding
+  // discarded it — the identical bug fixed on the Executive Summary endpoint the same day, in
+  // the neighbouring method. Do not add it back without adding it to
+  // `PrepareDocumentRequest` in `AiIntegrationDtos.cs` at the same time; a field the caller can
+  // set and the server cannot see is worse than no field at all.
+}
+
+/**
+ * ⚠️ Corrected 2026-08-28 against the running service's OpenAPI document. **Every one of the six
+ * fields this interface previously declared was fiction** — it said `candidateId`,
+ * `jobPostingId`, `documentType`, `markdownContent`, `htmlContent`, `generatedAtUtc`; the API
+ * returns the three below and nothing else. Nothing caught it because no screen consumes this
+ * endpoint and `lib/ai.test.ts` mocked the response in the shape the interface claimed — the
+ * same way the Executive Summary's fictional contract survived for months.
+ */
+export interface DocumentPrepResult {
+  documentTitle: string;
+  contentMarkdown: string;
+  contentHtml: string;
+}
+
+// ── Gemini: Burmese Localization ──────────────────────────────────────────
+export interface BurmeseLocalizationRequest {
+  sourceText: string;
+  /** "en" → "my", or "my" → "en" */
+  targetLanguage: 'en' | 'my';
+  context?: string;
+}
+
+export interface BurmeseLocalizationResult {
+  originalText: string;
+  translatedText: string;
+  targetLanguage: string;
+  confidenceScore: number;
+}
+
+// ── Single CV Extraction & Human Review DTOs (Milestones 1 & 3) ──────────────
+
+export interface ParsedContactInfo {
+  candidateName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  yearsOfExperience?: number | null;
+  skills?: string[];
+}
+
+export interface ResumeExtractionResult {
+  applicationId: string;
+  fileKey: string;
+  fileName: string;
+  fileSizeBytes: number;
+  extractedText: string;
+  originalText?: string | null;
+  detectedLanguage: string;
+  isZawgyiNormalized: boolean;
+  parsedContactInfo: ParsedContactInfo | null;
+  processedAt: string;
+}
+
+export interface ConfirmParsedProfileRequest {
+  candidateName: string;
+  email?: string | null;
+  phone?: string | null;
+  yearsOfExperience?: number | null;
+  skills?: string[];
+}
+
+// ── Bulk CV Upload & Background Processing DTOs (Milestones 2 & 3) ─────────
+
+export type BulkFileStatus = 'Queued' | 'Processing' | 'Success' | 'Skipped' | 'Failed';
+
+export interface BulkFileItemStatus {
+  fileId?: string | null;
+  fileName: string;
+  fileSizeBytes: number;
+  status: BulkFileStatus;
+  errorMessage?: string | null;
+  createdApplicationId?: string | null;
+  createdCandidateId?: string | null;
+  candidateName?: string | null;
+}
+
+export interface BulkResumeUploadResponse {
+  batchId: string;
+  jobPostingId: string;
+  totalFiles: number;
+  status: 'Queued' | 'Processing' | 'Completed' | 'PartialSuccess' | 'Failed' | string;
+  createdAt: string;
+}
+
+export interface BulkResumeBatchStatus {
+  batchId: string;
+  jobPostingId: string;
+  totalFiles: number;
+  processedCount: number;
+  successCount: number;
+  failedCount: number;
+  skippedCount?: number;
+  status: 'Queued' | 'Processing' | 'Completed' | 'PartialSuccess' | 'Failed' | string;
+  files: BulkFileItemStatus[];
+  createdAt: string;
+  completedAt?: string | null;
+}
+
+export * from './analytics';
+
+// ── Search & Command Palette DTOs (Milestones 1, 2, 3) ─────────────────────
+
+export type SearchCategory = 'All' | 'Candidates' | 'Postings' | 'Requisitions';
+
+export interface SearchQueryParameters {
+  q: string;
+  category?: SearchCategory | string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CategoryCounts {
+  all: number;
+  candidates: number;
+  postings: number;
+  requisitions: number;
+}
+
+export interface SearchResultItem {
+  id: string;
+  category: SearchCategory | string;
+  title: string;
+  subtitle: string;
+  descriptionSnippet: string | null;
+  targetUrl: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  relevanceScore: number;
+  createdAt: string;
+}
+
+export interface SearchResponse {
+  query: string;
+  normalizedQuery: string;
+  category: SearchCategory | string;
+  totalMatches: number;
+  categoryCounts: CategoryCounts;
+  items: SearchResultItem[];
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+// ---------------------------------------------------------------------------
+// Delivery log — the read side of the outbox (ADR-0026).
+//
+// Mirrors `DeliveryLogEntryDto`. ⚠️ There is no `payloadJson` here and there must not be: the
+// payload holds render inputs and, for an offer, a salary, and this list is read by a Hiring
+// Manager. `DeliveryLogTests.The_Payload_Never_Crosses_The_Wire` asserts on the raw response body
+// so that adding it to either side fails on the server rather than shipping.
+// ---------------------------------------------------------------------------
+
+export type OutboundMessageKind =
+  | 'InterviewInvitation'
+  | 'OfferSent'
+  | 'OfferReminder'
+  | 'PreboardingHandoff'
+  | 'ScheduledReport'
+  | 'ChannelNotification';
+
+/** `Suppressed` is a **correct outcome, not an error** — an opt-out honoured, or a message that
+ *  became irrelevant before it was sent. The UI must not colour it red: rendering an honoured
+ *  opt-out as a failure teaches recruiters to ignore the failure colour (ADR-0026). */
+export type OutboundMessageStatus = 'Pending' | 'Sent' | 'Failed' | 'Suppressed';
+
+export interface DeliveryLogEntry {
+  id: string;
+  kind: OutboundMessageKind | string;
+  /** Resolved server-side so the log and its filter cannot end up with two names for one kind. */
+  kindLabel: string;
+  channel: string;
+  recipient: string;
+  candidateName: string | null;
+  subjectType: string | null;
+  subjectId: string | null;
+  status: OutboundMessageStatus | string;
+  attempts: number;
+  /** Null on terminal rows — a `Failed` message is not waiting for anything. */
+  nextAttemptAt: string | null;
+  /** Written for a recruiter, not for a log file. Shown verbatim under the status. */
+  lastError: string | null;
+  sentAt: string | null;
+  createdAt: string;
+}
+
+export interface DeliveryLogQuery {
+  status?: OutboundMessageStatus;
+  kind?: OutboundMessageKind;
+  subjectType?: string;
+  subjectId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export * from './version';
+
+

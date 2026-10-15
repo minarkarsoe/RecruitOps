@@ -160,11 +160,10 @@ public class UserService : IUserService
             }
         }
 
-        // What the API actually enforces for this user — the same set login sends. The custom
-        // role's own codes alone understated it: the handler also grants the system role's seed
-        // permissions (security review A6, 2026-10-15).
-        permissions = (await _permissionEvaluator.GetEffectivePermissionsAsync(
-                user.Id, user.TenantId, new[] { user.Role.ToString() }, ct))
+        // What the API actually enforces for this user: the evaluator's set, which the handler's
+        // answer is final on (ADR-0022) and which login also sends. A list rebuilt here from the
+        // role could drift from it (security review A6, 2026-10-15).
+        permissions = (await _permissionEvaluator.GetUserPermissionsAsync(user.Id, user.TenantId, ct))
             .Order(StringComparer.Ordinal)
             .ToList();
 
@@ -377,18 +376,16 @@ public class UserService : IUserService
                 throw new InvalidOperationException($"Role with ID '{roleId.Value}' was not found or is inactive.");
             }
 
-            // A custom role used to fall through to UserRole.Recruiter, and the role policies,
-            // RoleScope and the seed-role permission fallback all key off that enum — so a role
-            // with an empty matrix still reached every candidate in the company. Until a custom
-            // role carries its own data scope, assigning one is refused rather than guessed.
-            if (!role.IsSystemRole)
-            {
-                throw new InvalidOperationException(
-                    $"Custom role '{role.Name}' cannot be assigned to users yet: a custom role does not " +
-                    "define which departments and candidates its holders may reach (ADR-0021).");
-            }
-
-            user.Role = ParseAssignableRole(role.Code);
+            // A custom role's code is never parsed as a UserRole: Enum.TryParse accepted "0", and a
+            // custom role coded "0" made its holder a SuperAdmin (ADR-0021).
+            //
+            // ⚠️ OPEN — ADR-0021. A custom role still sets the enum to Recruiter, as before. Since
+            // ADR-0022 the requisition and approval-chain endpoints honour the custom matrix, but
+            // the role-policy endpoints (pipeline, candidates, interviews, postings, notes, search,
+            // analytics) read the enum — so every custom-role holder reaches all of them as a
+            // Recruiter, whatever their matrix says. Kept unchanged here so that ADR-0022's custom
+            // approver roles keep working; the fix is a product decision recorded in ADR-0021.
+            user.Role = role.IsSystemRole ? ParseAssignableRole(role.Code) : UserRole.Recruiter;
             user.RoleId = role.Id;
         }
         else if (!string.IsNullOrWhiteSpace(roleName))

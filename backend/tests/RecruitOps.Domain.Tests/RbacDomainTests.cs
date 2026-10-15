@@ -272,7 +272,7 @@ public class RbacDomainTests
     }
 
     [Fact]
-    public async Task DbInitializer_SeedPermissionsAndRolesAsync_Verifies_Exact_34_Permissions_And_7_System_Roles()
+    public async Task DbInitializer_SeedPermissionsAndRolesAsync_Verifies_Exact_39_Permissions_And_7_System_Roles()
     {
         using var db = CreateDbContext();
 
@@ -282,8 +282,8 @@ public class RbacDomainTests
         var roles = await db.Roles.IgnoreQueryFilters().Include(r => r.RolePermissions).ThenInclude(rp => rp.Permission).ToListAsync();
 
         // Verification of requirement R2 & milestone scope:
-        // Canonical permission count: 34 permissions total across 9 modules (exceeds the 29 requirement threshold)
-        Assert.Equal(34, permissions.Count);
+        // Canonical permission count: 39 permissions total across 10 modules (exceeds the 29 requirement threshold)
+        Assert.Equal(39, permissions.Count);
         Assert.True(permissions.Count >= 29);
 
         // Canonical system roles: 7 default roles
@@ -291,29 +291,34 @@ public class RbacDomainTests
 
         var roleMap = roles.ToDictionary(r => r.Code);
 
-        // SuperAdmin: Has all 34 permissions
+        // SuperAdmin: Has all 39 permissions
         Assert.True(roleMap["SuperAdmin"].IsSuperAdmin);
-        Assert.Equal(34, roleMap["SuperAdmin"].RolePermissions.Count);
+        Assert.Equal(39, roleMap["SuperAdmin"].RolePermissions.Count);
 
-        // Admin: Has 33 permissions (all except permission:system:system:manage)
+        // Admin: Has 38 permissions (all except permission:system:system:manage)
         Assert.False(roleMap["Admin"].IsSuperAdmin);
-        Assert.Equal(33, roleMap["Admin"].RolePermissions.Count);
+        Assert.Equal(38, roleMap["Admin"].RolePermissions.Count);
         Assert.DoesNotContain(roleMap["Admin"].RolePermissions, rp => rp.Permission.Code == "permission:system:system:manage");
 
-        // HrDirector: 26 permissions
-        Assert.Equal(26, roleMap["HrDirector"].RolePermissions.Count);
+        // HrDirector: 31 permissions
+        Assert.Equal(31, roleMap["HrDirector"].RolePermissions.Count);
 
-        // Recruiter: 23 permissions — 18, plus requisition create/update/delete/approve and
-        // template management, which the API already admitted (SeedMatrixMirrorsPoliciesTests).
-        Assert.Equal(23, roleMap["Recruiter"].RolePermissions.Count);
+        // Recruiter: 25 permissions — was 23 until ADR-0022 added
+        // requisitions:create and requisitions:update. Under the old role literal
+        // (Policies.InternalUser) recruiters could already raise requisitions, but the seed
+        // did not say so; making permissions authoritative forced that gap to be closed
+        // deliberately rather than silently removing the capability.
+        Assert.Equal(25, roleMap["Recruiter"].RolePermissions.Count);
+        Assert.Contains(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:requisitions:requisitions:create");
+        Assert.Contains(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:requisitions:requisitions:update");
+        // Approving is a different authority from raising — the chain decides it.
+        Assert.DoesNotContain(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:requisitions:requisitions:approve");
 
-        // HiringManager: 13 permissions — 11, plus requisition delete (cancel their own) and
-        // approve (when a chain names them).
-        Assert.Equal(13, roleMap["HiringManager"].RolePermissions.Count);
+        // HiringManager: 11 permissions
+        Assert.Equal(11, roleMap["HiringManager"].RolePermissions.Count);
 
-        // Approver: 6 permissions — 2, plus requisition create/update/delete (company-wide for
-        // requisitions) and scorecard submit (reached via an interview panel, ADR-0018).
-        Assert.Equal(6, roleMap["Approver"].RolePermissions.Count);
+        // Approver: 2 permissions
+        Assert.Equal(2, roleMap["Approver"].RolePermissions.Count);
 
         // Interviewer: 3 permissions
         Assert.Equal(3, roleMap["Interviewer"].RolePermissions.Count);

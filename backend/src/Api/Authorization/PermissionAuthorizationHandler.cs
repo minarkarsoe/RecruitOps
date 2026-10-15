@@ -58,19 +58,47 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
 
         if (Guid.TryParse(sub, out var userId) && Guid.TryParse(tenantClaim, out var tenantId))
         {
+            // The token carries a real identity, so the database is authoritative and its
+            // answer is final — including when that answer is "no".
+            //
+            // A claim-based fallback used to run after this on a DENIED result, matching the
+            // JWT's role claim against the static RbacSeedData list and granting on a hit.
+            // That made the Role Builder unable to *withhold* anything (ADR-0022):
+            // AssignRoleToUserAsync sets `user.Role = UserRole.Recruiter` for every custom
+            // role (UserService.cs:318-325) — a custom role's generated code never parses as
+            // a UserRole, so that is the only reachable branch — and that literal becomes the
+            // JWT role claim (JwtTokenService.cs:45). So a tenant who built a read-only role
+            // and deliberately withheld requisitions:create got users who could create
+            // requisitions anyway, topped up to Recruiter's entire seeded set.
+            //
+            // "Denied" is not "unknown". Returning here is the whole fix.
             var hasPermission = await _permissionEvaluator.HasPermissionAsync(
                 userId, tenantId, requirement.PermissionCode);
 
             if (hasPermission)
             {
                 context.Succeed(requirement);
-                return;
             }
+            else
+            {
+                _logger.LogWarning(
+                    "User {Sub} in Tenant {Tenant} denied permission '{PermissionCode}'",
+                    sub, tenantClaim, requirement.PermissionCode);
+            }
+            return;
         }
 
         // -------------------------------------------------------------------------
-        // 3. ROLE-BASED CLAIM FALLBACK FOR SYSTEM ROLES
+        // 3. NO RESOLVABLE IDENTITY — SEEDED SYSTEM-ROLE FALLBACK
         // -------------------------------------------------------------------------
+        // Only reached when the token has no parseable `sub`/`tenant_id`, so the evaluator
+        // was never consulted and there is no database answer to override. This is the
+        // narrow case the fallback was written for — an authenticated principal carrying a
+        // system role claim but no usable identity. It mirrors PermissionEvaluator.cs:99,
+        // which applies the seed only when the resolved permission set is empty.
+        //
+        // It must never run after a denial: that is what let a custom role inherit
+        // Recruiter's floor.
         var systemRoles = RbacSeedData.GetSystemRoles();
         foreach (var roleName in roleClaims)
         {

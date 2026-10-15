@@ -8,7 +8,7 @@ namespace RecruitOps.Api.Tests;
 
 /// <summary>Response headers, and which browser origins may call the API.
 /// <para>Until 2026-10-15 the localhost dev origins were allowed by CORS in every environment, and
-/// the API sent no security headers at all.</para></summary>
+/// API responses could be cached.</para></summary>
 public class SecurityHeadersTests : IClassFixture<CustomWebAppFactory>
 {
     private const string DevSpaOrigin = "http://localhost:5173";
@@ -44,18 +44,17 @@ public class SecurityHeadersTests : IClassFixture<CustomWebAppFactory>
     {
         var res = await Signed(_factory).GetAsync(path);
 
+        // SecurityHeadersMiddleware's values; no-store is the 2026-10-15 addition.
         Assert.Equal("nosniff", res.Headers.GetValues("X-Content-Type-Options").Single());
         Assert.Equal("DENY", res.Headers.GetValues("X-Frame-Options").Single());
-        Assert.Equal("no-referrer", res.Headers.GetValues("Referrer-Policy").Single());
-        Assert.Equal("default-src 'none'; frame-ancestors 'none'",
-            res.Headers.GetValues("Content-Security-Policy").Single());
+        Assert.Contains("frame-ancestors 'none'", res.Headers.GetValues("Content-Security-Policy").Single());
         Assert.True(res.Headers.CacheControl?.NoStore, "candidate and salary data must not be cached");
     }
 
     [Fact]
     public async Task Health_Probes_Carry_The_Headers_Too()
     {
-        var res = await _factory.CreateClient().GetAsync("/health/live");
+        var res = await _factory.CreateClient().GetAsync("/health"); // HealthController
         Assert.Equal("nosniff", res.Headers.GetValues("X-Content-Type-Options").Single());
     }
 

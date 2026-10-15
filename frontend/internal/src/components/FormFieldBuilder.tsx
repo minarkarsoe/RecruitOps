@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@recruitops/ui';
 import type { ApplicationFormField } from '@recruitops/types';
 import { parseFormFields } from '@recruitops/types';
@@ -53,27 +54,27 @@ export function FormFieldBuilder({
     write(next);
   };
 
-  const input = 'h-9 w-full rounded-sm border border-line-200 px-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary-600';
+  const input = 'h-9 w-full rounded-md border border-line px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-700';
 
   return (
     <div>
-      <p className="mb-1 text-[13px] font-semibold">
+      <p className="mb-1 text-sm font-semibold">
         Extra questions <span className="font-normal text-ink-400">(optional)</span>
       </p>
-      <p className="mb-3 text-[13px] text-ink-600">
+      <p className="mb-3 text-sm text-ink-600">
         Asked on the public application form, in this order. Answers appear on the candidate
         in the pipeline.
       </p>
 
       {fields.length === 0 && (
-        <p className="mb-3 text-[13px] text-ink-400">
+        <p className="mb-3 text-sm text-ink-400">
           No extra questions — applicants are asked for name and contact details only.
         </p>
       )}
 
       <ul className="space-y-3">
         {fields.map((f, i) => (
-          <li key={f.key} className="rounded-sm border border-line-200 p-3">
+          <li key={f.key} className="rounded-md border border-line p-3">
             <div className="flex gap-2">
               <input
                 className={input} placeholder="Question shown to the applicant"
@@ -90,23 +91,15 @@ export function FormFieldBuilder({
             </div>
 
             {f.type === 'select' && (
-              <input
+              <OptionsInput
                 className={`${input} mt-2`}
-                placeholder="Choices, separated by commas"
-                value={(f.options ?? []).join(', ')}
-                onChange={(e) =>
-                  update(i, {
-                    options: e.target.value
-                      .split(',')
-                      .map((o) => o.trim())
-                      .filter(Boolean),
-                  })
-                }
+                options={f.options ?? []}
+                onChange={(options) => update(i, { options })}
               />
             )}
 
             <div className="mt-2 flex items-center justify-between">
-              <label className="flex items-center gap-2 text-[13px]">
+              <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox" checked={f.required}
                   onChange={(e) => update(i, { required: e.target.checked })}
@@ -115,11 +108,11 @@ export function FormFieldBuilder({
               </label>
               <div className="flex gap-1">
                 <button type="button" onClick={() => move(i, -1)} disabled={i === 0}
-                  className="px-2 text-[13px] text-ink-600 disabled:opacity-30">↑</button>
+                  className="px-2 text-sm text-ink-600 disabled:opacity-30">↑</button>
                 <button type="button" onClick={() => move(i, 1)} disabled={i === fields.length - 1}
-                  className="px-2 text-[13px] text-ink-600 disabled:opacity-30">↓</button>
+                  className="px-2 text-sm text-ink-600 disabled:opacity-30">↓</button>
                 <button type="button" onClick={() => remove(i)}
-                  className="px-2 text-[13px] font-semibold text-danger-600">Remove</button>
+                  className="px-2 text-sm font-semibold text-critical-700">Remove</button>
               </div>
             </div>
           </li>
@@ -132,5 +125,45 @@ export function FormFieldBuilder({
         </Button>
       )}
     </div>
+  );
+}
+
+/**
+ * The comma-separated choices for a `select`.
+ *
+ * ⚠️ **The raw text has to live in local state.** This input previously took its value straight
+ * from `options.join(', ')`, which meant every keystroke was split, trimmed, filtered and
+ * re-joined before the next one — so the moment you typed a comma it was parsed into a
+ * separator, dropped as a blank entry, and **erased under the cursor**. Typing
+ * "Yangon, Mandalay" produced the single option `YangonMandalay`. A recruiter could not enter
+ * a second choice at all; pasting was the only way, and nobody had noticed because the
+ * component had no tests. Found 2026-08-28 by the first ones.
+ *
+ * Seeded once per field. The `<li>` above is keyed by `f.key`, so React keeps this component's
+ * identity across reorder and gives a genuinely different field a fresh one.
+ */
+function OptionsInput({
+  options,
+  onChange,
+  className,
+}: {
+  options: string[];
+  onChange: (options: string[]) => void;
+  className: string;
+}) {
+  const [raw, setRaw] = useState(options.join(', '));
+
+  return (
+    <input
+      className={className}
+      placeholder="Choices, separated by commas"
+      value={raw}
+      onChange={(e) => {
+        setRaw(e.target.value);
+        // The stored schema stays clean — blanks filtered, everything trimmed — even while
+        // the text being typed still has a dangling comma in it.
+        onChange(e.target.value.split(',').map((o) => o.trim()).filter(Boolean));
+      }}
+    />
   );
 }

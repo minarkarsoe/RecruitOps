@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RecruitOps — Candidate offer portal</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../internal/ds.js"></script>
+<link rel="stylesheet" href="../internal/ds.css" />
+</head>
+<body class="bg-canvas text-ink-900">
+
+<!--
+  MODULE 4.3 — CANDIDATE OFFER PORTAL (external surface, NOT the internal app).
+  Different audience, different rules:
+    · reached by a secure link from an email, used once or twice, then never again
+    · almost certainly on a phone, so 44px targets and a single column
+    · no navigation, because there is nowhere else to go
+    · no internal vocabulary: no requisition id, no pipeline stage, no recruiter names
+  Same tokens as the internal app (ds.js) so the company reads as one product.
+  Note: 44px targets and the single column apply from the smallest width up; this is the
+  one surface in the set that is designed phone-first rather than desk-first.
+-->
+
+<div class="min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-line">
+    <div class="max-w-[560px] mx-auto px-5 h-14 flex items-center gap-2.5">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="7" fill="#0F766E"/>
+        <circle cx="9" cy="7.5" r="2.1" fill="#fff"/><circle cx="9" cy="13" r="2.1" fill="#fff"/>
+        <circle cx="9" cy="18.5" r="2.1" fill="#F59E0B"/>
+        <path d="M13.4 7.5h4.2M13.4 13h4.2M13.4 18.5h2.6" stroke="#99F6E4" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <span class="text-base font-semibold tracking-tight">Yoma Commercial Bank</span>
+      <span class="ml-auto text-xs text-ink-600">Secure link</span>
+    </div>
+  </header>
+
+  <main class="flex-1">
+    <div class="max-w-[560px] mx-auto px-5 py-8">
+
+      <!-- ============ STEP 1: the offer ============ -->
+      <section id="step1">
+        <p class="text-sm text-ink-600">Offer of employment</p>
+        <h1 class="mt-1.5 text-3xl font-bold tracking-tight">Senior Credit Analyst</h1>
+        <p class="mt-2 text-lg text-ink-700">Credit Risk Department</p>
+
+        <!-- The three facts a candidate actually opens this to check, before any PDF. -->
+        <dl class="mt-6 rounded-lg border border-line bg-white divide-y divide-line">
+          <div class="flex items-baseline justify-between gap-4 px-5 py-3.5">
+            <dt class="text-base text-ink-600">Monthly salary</dt>
+            <dd class="text-lg font-semibold font-mono tnum">MMK 480,000</dd>
+          </div>
+          <div class="flex items-baseline justify-between gap-4 px-5 py-3.5">
+            <dt class="text-base text-ink-600">Allowances</dt>
+            <dd class="text-base font-medium font-mono tnum">MMK 45,000</dd>
+          </div>
+          <div class="flex items-baseline justify-between gap-4 px-5 py-3.5">
+            <dt class="text-base text-ink-600">Joining date</dt>
+            <dd class="text-base font-medium">1 October 2026</dd>
+          </div>
+          <div class="flex items-baseline justify-between gap-4 px-5 py-3.5">
+            <dt class="text-base text-ink-600">Probation</dt>
+            <dd class="text-base font-medium">6 months</dd>
+          </div>
+        </dl>
+
+        <a href="#" class="mt-4 flex items-center gap-3 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+          <svg class="w-5 h-5 text-critical-500 shrink-0" viewBox="0 0 20 20" fill="none"><path d="M5 2.5h6l4 4v11H5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M11 2.5v4h4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          <span class="min-w-0 flex-1">
+            <span class="block text-base font-medium">Read the full offer letter</span>
+            <span class="block text-sm text-ink-600">PDF · 2 pages</span>
+          </span>
+          <svg class="w-4 h-4 text-ink-600 shrink-0" viewBox="0 0 16 16" fill="none"><path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+
+        <!-- Expiry stated plainly, because the link really does stop working. -->
+        <p class="mt-4 flex items-start gap-2 text-sm text-warn-700">
+          <svg class="w-4 h-4 mt-0.5 shrink-0" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.8V8l2 1.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Please reply by <span class="font-medium">25 August 2026</span>. After that this link stops working
+          and you will need a new one from the recruiter.
+        </p>
+
+        <div class="mt-7 space-y-2.5">
+          <button id="acceptBtn" class="w-full h-12 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-semibold transition-colors">
+            Accept &amp; sign
+          </button>
+          <button class="w-full h-12 rounded-md bg-white border border-line hover:border-line-strong text-ink-900 text-base font-medium transition-colors">
+            Decline this offer
+          </button>
+        </div>
+
+        <p class="mt-4 text-sm text-ink-600">
+          Signing here is legally equivalent to signing on paper. A copy is emailed to you immediately.
+        </p>
+
+        <div class="mt-6 rounded-lg border border-line bg-white p-4">
+          <p class="text-sm text-ink-700">
+            Something wrong with these terms? Contact
+            <a href="#" class="font-medium text-brand-700">recruitment@ymb.com.mm</a>
+            before accepting — the offer cannot be edited after you sign.
+          </p>
+        </div>
+
+        <p class="mm mt-6 text-sm text-ink-600">
+          မြန်မာဘာသာဖြင့် ဖတ်ရှုလိုပါက အပေါ်ဘက်ရှိ ဘာသာစကား ခလုတ်ကို နှိပ်ပါ။
+        </p>
+      </section>
+
+      <!-- ============ STEP 2: documents (after accepting) ============ -->
+      <section id="step2" class="hidden">
+        <div class="rounded-lg border border-positive-500/30 bg-positive-50 px-5 py-4">
+          <p class="text-base font-semibold text-positive-700">Offer accepted — welcome</p>
+          <p class="mt-1 text-sm text-positive-700/90">
+            Signed on 18 August 2026. A copy has been emailed to you.
+          </p>
+        </div>
+
+        <h2 class="mt-7 text-2xl font-semibold tracking-tight">A few documents before day one</h2>
+        <p class="mt-2 text-base text-ink-600">
+          You can come back to this link any time before 1 October. Nothing is lost if you stop halfway.
+        </p>
+
+        <div class="mt-6 space-y-3">
+
+          <div class="rounded-lg border border-line bg-white p-4">
+            <div class="flex items-start gap-3">
+              <span class="w-9 h-9 rounded-full bg-positive-50 grid place-items-center shrink-0">
+                <svg class="w-4 h-4 text-positive-700" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5l3 3 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">NRC — front and back</p>
+                <p class="text-sm text-ink-600">2 files uploaded</p>
+              </div>
+              <button class="text-sm font-medium text-brand-700 shrink-0">Replace</button>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-line bg-white p-4">
+            <div class="flex items-start gap-3">
+              <span class="w-9 h-9 rounded-full bg-canvas border border-line grid place-items-center shrink-0">
+                <svg class="w-4 h-4 text-ink-600" viewBox="0 0 16 16" fill="none"><path d="M8 11V4M5 6.5L8 3.5l3 3M3.5 12.5h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Bank account details</p>
+                <p class="text-sm text-ink-600">Required · for salary payment</p>
+              </div>
+            </div>
+            <button class="mt-3 w-full h-11 rounded-md bg-white border border-line hover:border-line-strong text-base font-medium transition-colors">
+              Choose file or take a photo
+            </button>
+          </div>
+
+          <div class="rounded-lg border border-line bg-white p-4">
+            <div class="flex items-start gap-3">
+              <span class="w-9 h-9 rounded-full bg-canvas border border-line grid place-items-center shrink-0">
+                <svg class="w-4 h-4 text-ink-600" viewBox="0 0 16 16" fill="none"><path d="M8 11V4M5 6.5L8 3.5l3 3M3.5 12.5h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Education certificates</p>
+                <p class="text-sm text-ink-600">Required</p>
+              </div>
+            </div>
+            <button class="mt-3 w-full h-11 rounded-md bg-white border border-line hover:border-line-strong text-base font-medium transition-colors">
+              Choose file or take a photo
+            </button>
+          </div>
+
+          <div class="rounded-lg border border-line bg-white p-4">
+            <div class="flex items-start gap-3">
+              <span class="w-9 h-9 rounded-full bg-canvas border border-line grid place-items-center shrink-0">
+                <svg class="w-4 h-4 text-ink-600" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="6.2" r="2.4" stroke="currentColor" stroke-width="1.4"/><path d="M3.6 13c0-2.1 2-3.4 4.4-3.4s4.4 1.3 4.4 3.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Photo for your staff card</p>
+                <p class="text-sm text-ink-600">Optional — you can do this on day one instead</p>
+              </div>
+            </div>
+            <button class="mt-3 w-full h-11 rounded-md bg-white border border-line hover:border-line-strong text-base font-medium transition-colors">
+              Choose file or take a photo
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-6 rounded-lg border border-line bg-white p-4">
+          <p class="text-sm text-ink-700">
+            These documents are stored by Yoma Commercial Bank and used only for your employment file.
+            You can ask for them to be deleted if you do not join.
+          </p>
+        </div>
+
+        <button class="mt-6 w-full h-12 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-semibold transition-colors">
+          Submit documents
+        </button>
+        <p class="mt-2.5 text-center text-sm text-ink-600 tnum">1 of 3 required documents done</p>
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="border-t border-line bg-white">
+    <div class="max-w-[560px] mx-auto px-5 py-5">
+      <p class="text-sm text-ink-600">
+        This link is personal to you. Please do not forward it.
+      </p>
+    </div>
+  </footer>
+</div>
+
+<script>
+  // Accepting is irreversible in the product; this demo just advances the step.
+  document.getElementById('acceptBtn').addEventListener('click', function () {
+    document.getElementById('step1').classList.add('hidden');
+    document.getElementById('step2').classList.remove('hidden');
+    window.scrollTo(0, 0);
+  });
+</script>
+</body>
+</html>

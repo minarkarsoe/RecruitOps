@@ -28,6 +28,10 @@ infra/secrets/
 .DS_Store
 Thumbs.db
 
-# Working files from multi-agent tooling runs — transcripts, not source. Untracked 2026-10-15;
-# the history before then still has them.
-.agents/
+# Office lock/owner files — created while a .docx/.xlsx is open, and they carry
+# the editing user's name. Never useful in history.
+~$*
+
+# Impeccable review captures — regenerated screenshots, not source (11 MB of PNGs).
+# The design record itself (.impeccable/design.json, config.json, questions/) IS tracked.
+.impeccable/review/

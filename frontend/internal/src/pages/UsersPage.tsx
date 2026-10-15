@@ -6,12 +6,12 @@ import { auth, hasPermission } from '../lib/auth';
 
 /**
  * Roles the directory may hand out. Mirrors `UserService.AssignRoleToUserAsync`: SuperAdmin is
- * provisioned out of band, and a custom role is not assignable until it carries its own data
- * scope — the API refuses both (ADR-0021), so offering them would only produce an error.
+ * provisioned out of band and the API refuses it (ADR-0021), so offering it would only produce an
+ * error; an inactive role cannot be assigned either. Custom roles stay assignable (ADR-0022).
  * The role *filter* above the table still lists every role: filtering by one is harmless.
  */
 function isAssignableRole(role: RoleListItem): boolean {
-  return role.isSystemRole && !role.isSuperAdmin && role.isActive;
+  return !role.isSuperAdmin && role.code !== 'SuperAdmin' && role.isActive;
 }
 
 export function UsersPage() {
@@ -236,7 +236,7 @@ export function UsersPage() {
     <div className="space-y-6">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-4 right-4 z-50 bg-primary-700 text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2">
+        <div className="fixed bottom-4 right-4 z-50 bg-brand-700 text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2">
           <span>✓</span>
           <span>{toastMessage}</span>
         </div>
@@ -245,13 +245,13 @@ export function UsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-ink-900">User Directory</h1>
+          <h1 className="text-xl font-semibold tracking-tight">User Directory</h1>
           <p className="text-sm text-ink-600">Manage organization user accounts, roles, and platform access</p>
         </div>
         {hasPermission(currentSession, 'permission:users:users:create') && (
           <button
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 shadow-sm"
+            className="inline-flex items-center gap-2 rounded-md bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 shadow-sm"
           >
             + Create User
           </button>
@@ -259,7 +259,7 @@ export function UsersPage() {
       </div>
 
       {/* Toolbar Filters */}
-      <div className="bg-white border border-line-200 rounded-lg p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="bg-white border border-line rounded-lg p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto items-center">
           <div className="relative w-full md:w-64">
             <input
@@ -270,7 +270,7 @@ export function UsersPage() {
                 setPage(1);
               }}
               placeholder="Search email or name..."
-              className="w-full text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500"
+              className="w-full text-xs px-3 py-2 border border-line-strong rounded-md focus:ring-1 focus:ring-brand-50"
             />
           </div>
 
@@ -280,7 +280,7 @@ export function UsersPage() {
               setRoleFilter(e.target.value);
               setPage(1);
             }}
-            className="w-full md:w-44 text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500 bg-white"
+            className="w-full md:w-44 text-xs px-3 py-2 border border-line-strong rounded-md focus:ring-1 focus:ring-brand-50 bg-white"
           >
             <option value="">All Roles</option>
             {roles.map((r) => (
@@ -296,7 +296,7 @@ export function UsersPage() {
               setActiveFilter(e.target.value);
               setPage(1);
             }}
-            className="w-full md:w-36 text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500 bg-white"
+            className="w-full md:w-36 text-xs px-3 py-2 border border-line-strong rounded-md focus:ring-1 focus:ring-brand-50 bg-white"
           >
             <option value="">All Statuses</option>
             <option value="true">Active Only</option>
@@ -310,25 +310,25 @@ export function UsersPage() {
       </div>
 
       {error && (
-        <div className="rounded-md bg-danger-50 p-4 border border-danger-200 text-sm text-danger-700">
+        <div className="rounded-md bg-critical-50 p-4 border border-critical-50 text-sm text-critical-700">
           {error}
         </div>
       )}
 
       {/* User Directory Table */}
-      <div className="bg-white border border-line-200 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white border border-line rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full border-collapse text-left text-base">
             <thead>
-              <tr className="border-b border-line-200 bg-surface-50 text-ink-500 font-medium text-[11px] uppercase tracking-wider">
-                <th className="py-3 px-4">User</th>
-                <th className="py-3 px-4">Role</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Created Date</th>
+              <tr className="border-b border-line bg-canvas text-left text-sm">
+                <th className="px-4 py-2.5 font-medium text-ink-600">User</th>
+                <th className="px-4 py-2.5 font-medium text-ink-600">Role</th>
+                <th className="px-4 py-2.5 font-medium text-ink-600">Status</th>
+                <th className="px-4 py-2.5 font-medium text-ink-600">Created Date</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line-100">
+            <tbody className="divide-y divide-line">
               {loading ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-ink-500">
@@ -347,40 +347,40 @@ export function UsersPage() {
                   const isActive = user.isActive !== false;
 
                   return (
-                    <tr key={user.id} className="hover:bg-surface-50 transition-colors">
+                    <tr key={user.id} className="hover:bg-canvas transition-colors">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs">
+                          <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center font-bold text-xs">
                             {user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
                           </div>
                           <div>
                             <div className="font-semibold text-ink-900 flex items-center gap-1.5">
                               <span>{user.displayName}</span>
                               {isSelf && (
-                                <span className="text-[10px] bg-primary-50 text-primary-700 px-1.5 py-0.2 rounded border border-primary-200 font-medium">
+                                <span className="text-2xs bg-brand-50 text-brand-700 px-1.5 py-0.2 rounded border border-brand-50 font-medium">
                                   You
                                 </span>
                               )}
                             </div>
-                            <div className="text-ink-500 font-mono text-[11px]">{user.email}</div>
+                            <div className="text-ink-500 font-mono text-2xs">{user.email}</div>
                           </div>
                         </div>
                       </td>
 
                       <td className="py-3 px-4">
-                        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-surface-100 text-ink-800 border border-line-200">
+                        <span className="inline-block px-2 py-0.5 rounded text-2xs font-semibold bg-canvas text-ink-800 border border-line">
                           {user.roleName || user.role}
                         </span>
                       </td>
 
                       <td className="py-3 px-4">
                         {isActive ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                             Active
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
                             <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
                             Inactive
                           </span>
@@ -396,7 +396,7 @@ export function UsersPage() {
                           {hasPermission(currentSession, 'permission:users:users:update') && (
                             <button
                               onClick={() => openEditModal(user)}
-                              className="text-xs font-semibold text-primary-600 hover:text-primary-800 px-2 py-1 rounded hover:bg-primary-50"
+                              className="text-xs font-semibold text-brand-700 hover:text-brand-700 px-2 py-1 rounded hover:bg-brand-50"
                             >
                               Edit
                             </button>
@@ -411,7 +411,7 @@ export function UsersPage() {
                                 isSelf
                                   ? 'opacity-40 cursor-not-allowed text-ink-400'
                                   : isActive
-                                  ? 'text-danger-600 hover:text-danger-800 hover:bg-danger-50'
+                                  ? 'text-critical-700 hover:text-critical-700 hover:bg-critical-50'
                                   : 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50'
                               }`}
                             >
@@ -429,7 +429,7 @@ export function UsersPage() {
         </div>
 
         {/* Pagination Bar */}
-        <div className="px-4 py-3 border-t border-line-200 bg-surface-50 flex items-center justify-between text-xs text-ink-600">
+        <div className="px-4 py-3 border-t border-line bg-canvas flex items-center justify-between text-xs text-ink-600">
           <div className="flex items-center gap-2">
             <span>Rows per page:</span>
             <select
@@ -438,7 +438,7 @@ export function UsersPage() {
                 setPageSize(Number(e.target.value));
                 setPage(1);
               }}
-              className="px-2 py-1 border border-line-300 rounded bg-white"
+              className="px-2 py-1 border border-line-strong rounded bg-white"
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
@@ -454,14 +454,14 @@ export function UsersPage() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="px-2.5 py-1 border border-line-300 rounded bg-white disabled:opacity-40 font-medium"
+                className="px-2.5 py-1 border border-line-strong rounded bg-white disabled:opacity-40 font-medium"
               >
                 Previous
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(pagedData.totalPages || 1, p + 1))}
                 disabled={page >= (pagedData.totalPages || 1)}
-                className="px-2.5 py-1 border border-line-300 rounded bg-white disabled:opacity-40 font-medium"
+                className="px-2.5 py-1 border border-line-strong rounded bg-white disabled:opacity-40 font-medium"
               >
                 Next
               </button>
@@ -474,7 +474,7 @@ export function UsersPage() {
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-line-200 pb-3">
+            <div className="flex items-center justify-between border-b border-line pb-3">
               <h3 className="text-lg font-bold text-ink-900">Create New User</h3>
               <button
                 onClick={() => setIsCreateModalOpen(false)}
@@ -486,14 +486,14 @@ export function UsersPage() {
 
             <form onSubmit={handleCreateSubmit} className="space-y-4">
               {modalError && (
-                <div className="p-3 bg-danger-50 border border-danger-200 rounded text-xs text-danger-700">
+                <div className="p-3 bg-critical-50 border border-critical-50 rounded text-xs text-critical-700">
                   {modalError}
                 </div>
               )}
 
               <div>
                 <label className="block text-xs font-semibold text-ink-700 mb-1">
-                  Email Address <span className="text-danger-600">*</span>
+                  Email Address <span className="text-critical-700">*</span>
                 </label>
                 <input
                   type="email"
@@ -501,13 +501,13 @@ export function UsersPage() {
                   value={createEmail}
                   onChange={(e) => setCreateEmail(e.target.value)}
                   placeholder="colleague@company.com"
-                  className="w-full text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500"
+                  className="w-full text-xs px-3 py-2 border border-line-strong rounded-md focus:ring-1 focus:ring-brand-50"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-ink-700 mb-1">
-                  Display Name <span className="text-danger-600">*</span>
+                  Display Name <span className="text-critical-700">*</span>
                 </label>
                 <input
                   type="text"
@@ -515,13 +515,13 @@ export function UsersPage() {
                   value={createDisplayName}
                   onChange={(e) => setCreateDisplayName(e.target.value)}
                   placeholder="Jane Doe"
-                  className="w-full text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500"
+                  className="w-full text-xs px-3 py-2 border border-line-strong rounded-md focus:ring-1 focus:ring-brand-50"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-ink-700 mb-1">
-                  Password <span className="text-danger-600">*</span>
+                  Password <span className="text-critical-700">*</span>
                 </label>
                 <input
                   type="password"
@@ -530,13 +530,13 @@ export function UsersPage() {
                   value={createPassword}
                   onChange={(e) => setCreatePassword(e.target.value)}
                   placeholder="Minimum 8 characters"
-                  className="w-full text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500"
+                  className="w-full text-xs px-3 py-2 border border-line-strong rounded-md focus:ring-1 focus:ring-brand-50"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-ink-700 mb-1">
-                  Assigned Role <span className="text-danger-600">*</span>
+                  Assigned Role <span className="text-critical-700">*</span>
                 </label>
                 <select
                   value={createRoleId}
@@ -545,16 +545,18 @@ export function UsersPage() {
                     const selectedRoleObj = roles.find((r) => r.id === e.target.value);
                     if (selectedRoleObj) setCreateRoleName(selectedRoleObj.name);
                   }}
-                  className="w-full text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500 bg-white"
+                  className="w-full text-xs px-3 py-2 border border-line-strong rounded-md focus:ring-1 focus:ring-brand-50 bg-white"
                 >
                   <option value="" disabled>Choose a role…</option>
                   {assignableRoles.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
+                    <option key={r.id} value={r.id}>
+                      {r.name} {r.isSystemRole ? '(System)' : '(Custom)'}
+                    </option>
                   ))}
                 </select>
               </div>
 
-              <div className="flex justify-end gap-3 pt-2 border-t border-line-200">
+              <div className="flex justify-end gap-3 pt-2 border-t border-line">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
@@ -565,7 +567,7 @@ export function UsersPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-md shadow-sm disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-brand-700 hover:bg-brand-700 rounded-md shadow-sm disabled:opacity-50"
                 >
                   {submitting ? 'Creating...' : 'Create Account'}
                 </button>
@@ -579,7 +581,7 @@ export function UsersPage() {
       {isEditModalOpen && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-line-200 pb-3">
+            <div className="flex items-center justify-between border-b border-line pb-3">
               <h3 className="text-lg font-bold text-ink-900">Edit User Details</h3>
               <button
                 onClick={() => setIsEditModalOpen(false)}
@@ -591,7 +593,7 @@ export function UsersPage() {
 
             <form onSubmit={handleEditSubmit} className="space-y-4">
               {modalError && (
-                <div className="p-3 bg-danger-50 border border-danger-200 rounded text-xs text-danger-700">
+                <div className="p-3 bg-critical-50 border border-critical-50 rounded text-xs text-critical-700">
                   {modalError}
                 </div>
               )}
@@ -602,20 +604,20 @@ export function UsersPage() {
                   type="text"
                   disabled
                   value={selectedUser.email}
-                  className="w-full text-xs px-3 py-2 border border-line-300 rounded-md bg-surface-100 text-ink-500 font-mono"
+                  className="w-full text-xs px-3 py-2 border border-line-strong rounded-md bg-canvas text-ink-500 font-mono"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-ink-700 mb-1">
-                  Display Name <span className="text-danger-600">*</span>
+                  Display Name <span className="text-critical-700">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={editDisplayName}
                   onChange={(e) => setEditDisplayName(e.target.value)}
-                  className="w-full text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500"
+                  className="w-full text-xs px-3 py-2 border border-line-strong rounded-md focus:ring-1 focus:ring-brand-50"
                 />
               </div>
 
@@ -624,18 +626,20 @@ export function UsersPage() {
                 <select
                   value={editRoleId}
                   onChange={(e) => setEditRoleId(e.target.value)}
-                  className="w-full text-xs px-3 py-2 border border-line-300 rounded-md focus:ring-1 focus:ring-primary-500 bg-white"
+                  className="w-full text-xs px-3 py-2 border border-line-strong rounded-md focus:ring-1 focus:ring-brand-50 bg-white"
                 >
                   {selectedUser && !assignableRoles.some((r) => r.id === selectedUser.roleId) && (
                     <option value="">{selectedUser.roleName || selectedUser.role} (unchanged)</option>
                   )}
                   {assignableRoles.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
+                    <option key={r.id} value={r.id}>
+                      {r.name} {r.isSystemRole ? '(System)' : '(Custom)'}
+                    </option>
                   ))}
                 </select>
               </div>
 
-              <div className="flex justify-end gap-3 pt-2 border-t border-line-200">
+              <div className="flex justify-end gap-3 pt-2 border-t border-line">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
@@ -646,7 +650,7 @@ export function UsersPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-md shadow-sm disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-brand-700 hover:bg-brand-700 rounded-md shadow-sm disabled:opacity-50"
                 >
                   {submitting ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -690,7 +694,7 @@ export function UsersPage() {
                 disabled={submitting || !!deactivateWarning}
                 className={`px-4 py-2 text-xs font-semibold text-white rounded-md shadow-sm disabled:opacity-50 ${
                   deactivateUserTarget.isActive !== false
-                    ? 'bg-danger-600 hover:bg-danger-700'
+                    ? 'bg-critical-700 hover:bg-critical-700'
                     : 'bg-emerald-600 hover:bg-emerald-700'
                 }`}
               >

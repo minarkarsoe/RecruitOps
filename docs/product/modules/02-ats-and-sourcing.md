@@ -1,7 +1,15 @@
 # Module 2 — Applicant Tracking System (ATS) & Sourcing
 
-**Status:** 🚧 Partial — **2.1, 2.2 (basic), 2.5 (list), 2.7 built**; 2.3 OCR, 2.4 Smart
-Match and 2.6 search not started.
+**Status:** 🚧 Partial — re-measured 2026-08-29 against the shipped container, because this line
+had drifted in **both** directions at once.
+
+| | |
+|---|---|
+| 2.1 · 2.2 · 2.7 | ✅ built |
+| 2.6 search | ✅ built — `SearchService` + `pg_trgm`. This line used to say "not started" |
+| 2.3 upload | ⏸ **PDF/DOCX text only. There is no OCR** — paused by the product owner 2026-08-29. Images are rejected at upload; a scanned PDF is marked `Skipped` with a reason rather than imported as a blank candidate. The spec text below still describes the intended feature |
+| 2.4 Smart Match | 🚧 **API works; no UI reaches it.** `SmartMatchBreakdown` has zero production importers, so it is absent from the bundle |
+| 2.5 pipeline | 🚧 **list only.** The Kanban board and the 360° candidate view are both written and both orphaned |
 **Priority:** Core — this is the product's daily-use surface.
 
 ## Built so far
@@ -57,6 +65,13 @@ Upload externally-sourced CVs — **PDF, Word, JPG, PNG** — one at a time or i
 up to 50 files**. OCR reads the documents and **auto-builds candidate profiles**.
 After upload, a pop-up summarises each file as **Success / Skipped / Canceled**.
 
+> ⏸ **Built as: PDF and Word only** (paused 2026-08-29, product owner). JPG/PNG are rejected at
+> upload and a scanned PDF is reported `Skipped`, because there is no OCR engine in the build —
+> shipping it as "supported" imported photographed CVs as nameless, unsearchable candidates.
+> The paragraph above is the **target**, not the current state. Reaching it needs an OCR engine
+> with Burmese support or a vision-model call; both are new dependencies, decision open.
+> This matters more here than the spec implies: in this market a CV is often a phone photo.
+
 ### 2.4 AI-Powered Candidate Matching (Smart Match)
 When a new vacancy is created, the system reads the JD requirements, compares against
 the candidate database, and returns a **match percentage** (e.g. 80% Match, 50% Match),
@@ -105,6 +120,19 @@ is tiered: our key (paid add-on) for hosted, the customer's own key for on-prem.
 Constraints carried forward: bulk upload must be **asynchronous** (50 files = background
 job, and the Success/Skipped/Canceled pop-up is the job result); PDF/OCR library licences
 must be permissive (this is closed-source commercial software).
+
+> **"Asynchronous" was satisfied twice, and the first time did not count.** The original
+> implementation was `_ = Task.Run(...)` over a static in-memory dictionary — the *shape* of a
+> background job with none of the properties one is for. A restart erased the batch outright and
+> the recruiter's fifty files answered 404. Rewritten 2026-08-21 onto
+> [ADR-0026](../../decisions/ADR-0026-outbound-delivery-and-background-jobs.md): a
+> `BulkUploadBatch` row plus one `BulkUploadFile` per CV, bytes in object storage, drained by a
+> worker with retry, backoff and an attempt cap. The pop-up's Success / Skipped / Failed now comes
+> from those rows, so it survives whatever happens to the process.
+>
+> **`Skipped` still has no producer.** Nothing in the pipeline decides a CV is correctly not
+> processed, so that third state is reserved rather than reached. Worth deciding what should
+> produce it — a duplicate CV of an existing application is the obvious candidate.
 
 **Myanmar script — see [ADR-0009](../../decisions/ADR-0009-myanmar-script-handling.md).**
 Two separate issues: (a) **Zawgyi→Unicode normalization at ingest is mandatory and lands in

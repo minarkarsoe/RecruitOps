@@ -136,6 +136,106 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.ToTable("ApprovalChainSteps");
                 });
 
+            modelBuilder.Entity("RecruitOps.Domain.Entities.BulkUploadBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("JobPostingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UploadedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "JobPostingId", "CreatedAt");
+
+                    b.ToTable("BulkUploadBatches");
+                });
+
+            modelBuilder.Entity("RecruitOps.Domain.Entities.BulkUploadFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("BulkUploadBatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CandidateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid?>("JobApplicationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BulkUploadBatchId", "Ordinal");
+
+                    b.HasIndex("Status", "NextAttemptAt");
+
+                    b.ToTable("BulkUploadFiles");
+                });
+
             modelBuilder.Entity("RecruitOps.Domain.Entities.Candidate", b =>
                 {
                     b.Property<Guid>("Id")
@@ -206,6 +306,10 @@ namespace RecruitOps.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(63)
                         .HasColumnType("character varying(63)");
+
+                    b.Property<string>("TimeZoneId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -413,8 +517,23 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.Property<string>("CustomFieldsJson")
                         .HasColumnType("jsonb");
 
+                    b.Property<bool>("IsZawgyiNormalized")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("JobPostingId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ResumeExtractedText")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResumeFileKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResumeFileName")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ResumeUploadedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Source")
                         .IsRequired()
@@ -625,6 +744,69 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.ToTable("NoteMentions");
                 });
 
+            modelBuilder.Entity("RecruitOps.Domain.Entities.OutboundMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Recipient")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("SubjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SubjectType")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status", "NextAttemptAt");
+
+                    b.HasIndex("TenantId", "SubjectType", "SubjectId");
+
+                    b.ToTable("OutboundMessages");
+                });
+
             modelBuilder.Entity("RecruitOps.Domain.Entities.Permission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -720,6 +902,59 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.ToTable("PortalLinks");
                 });
 
+            modelBuilder.Entity("RecruitOps.Domain.Entities.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedByIp")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ReplacedByToken")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevokedByIp")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TenantId", "UserId");
+
+                    b.ToTable("RefreshTokens");
+                });
+
             modelBuilder.Entity("RecruitOps.Domain.Entities.Requisition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -796,6 +1031,9 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("DecidedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("DecidedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Decision")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -808,6 +1046,10 @@ namespace RecruitOps.Infrastructure.Migrations
 
                     b.Property<Guid>("RequisitionId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("Round")
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
 
                     b.Property<int>("Sequence")
                         .HasColumnType("integer");
@@ -822,7 +1064,7 @@ namespace RecruitOps.Infrastructure.Migrations
 
                     b.HasIndex("ApproverUserId", "Decision");
 
-                    b.HasIndex("RequisitionId", "Sequence")
+                    b.HasIndex("RequisitionId", "Round", "Sequence")
                         .IsUnique();
 
                     b.ToTable("RequisitionApprovals");
@@ -891,6 +1133,72 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.HasIndex("PermissionId");
 
                     b.ToTable("RolePermissions");
+                });
+
+            modelBuilder.Entity("RecruitOps.Domain.Entities.ScheduledJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DayOfMonth")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("DayOfWeek")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset?>("LastRunAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("NextRunAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Recurrence")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TimeOfDayMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive", "NextRunAt");
+
+                    b.ToTable("ScheduledJobs", t =>
+                        {
+                            t.HasCheckConstraint("ck_scheduled_job_day_of_month", "\"DayOfMonth\" IS NULL OR (\"DayOfMonth\" >= 1 AND \"DayOfMonth\" <= 28)");
+
+                            t.HasCheckConstraint("ck_scheduled_job_day_of_week", "\"DayOfWeek\" IS NULL OR (\"DayOfWeek\" >= 0 AND \"DayOfWeek\" <= 6)");
+
+                            t.HasCheckConstraint("ck_scheduled_job_time_of_day", "\"TimeOfDayMinutes\" >= 0 AND \"TimeOfDayMinutes\" <= 1439");
+                        });
                 });
 
             modelBuilder.Entity("RecruitOps.Domain.Entities.Scorecard", b =>
@@ -1299,6 +1607,17 @@ namespace RecruitOps.Infrastructure.Migrations
                         .HasForeignKey("JobPostingId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("RecruitOps.Domain.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("RecruitOps.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("RecruitOps.Domain.Entities.Requisition", b =>

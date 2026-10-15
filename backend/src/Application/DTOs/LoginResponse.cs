@@ -1,16 +1,28 @@
 namespace RecruitOps.Application.DTOs;
 
-/// <param name="Permissions">The effective permission set the API enforces for this user
-/// (<c>IPermissionEvaluator.GetEffectivePermissionsAsync</c>), sorted. The client uses it to
-/// decide what to <i>render</i>; the API re-checks every request regardless. It reflects the
-/// moment of login — role edits take effect server-side on the next request, and in the UI on
-/// the next sign-in.</param>
-/// <param name="IsSuperAdmin">Mirrors the handler's bypass, so the client can mirror it too.</param>
+/// <summary>
+/// The login payload the internal SPA builds its session from.
+///
+/// <para>
+/// <c>Permissions</c> is the user's resolved permission code set, and it is **not optional**.
+/// The SPA's <c>hasPermission()</c> helper gates every action button, sidebar link and route
+/// guard on it; when this field was absent the helper fell through to a "permissions unknown"
+/// branch that returned <c>true</c>, so every user saw the full admin UI. An empty array means
+/// "this user has no granted permissions" and must render as such — never as "unknown, allow".
+/// </para>
+///
+/// <para>
+/// This is render-gating only. The API re-answers every one of these checks server-side via
+/// <c>[HasPermission(...)]</c>; shipping the set to the client is a UX affordance, not the
+/// authorization boundary.
+/// </para>
+/// </summary>
 public record LoginResponse(
     string AccessToken,
     DateTimeOffset ExpiresAtUtc,
+    string RefreshToken,
+    DateTimeOffset RefreshTokenExpiresAtUtc,
     string Role,
     string DisplayName,
     Guid UserId,
-    IReadOnlyList<string> Permissions,
-    bool IsSuperAdmin);
+    IReadOnlyCollection<string> Permissions);

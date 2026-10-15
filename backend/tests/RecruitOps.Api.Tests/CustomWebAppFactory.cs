@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Identity;
 using RecruitOps.Domain.Entities;
 using RecruitOps.Domain.Enums;
 using RecruitOps.Infrastructure.Persistence;
+using RecruitOps.Infrastructure.Services.Delivery;
 
 namespace RecruitOps.Api.Tests;
 
@@ -48,9 +49,17 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
     // Approvers for the seeded 2-step chain (HR then Finance), so sequencing is provable.
     public readonly Guid AdminUserId = Guid.NewGuid();
     public readonly Guid FinanceApproverUserId = Guid.NewGuid();
+    public readonly Guid RecruiterUserId = Guid.NewGuid();
 
     public readonly Guid TenantA = Guid.NewGuid();
     public readonly Guid TenantB = Guid.NewGuid();
+
+    /// <summary>
+    /// Whether the AI endpoints may answer from development stubs when no key is configured.
+    /// True here so the AI integration tests have something to assert against; overridden to
+    /// false by <see cref="NoAiFallbackWebAppFactory"/>, which is the value that ships.
+    /// </summary>
+    protected virtual bool EnableAiFallback => true;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -71,6 +80,21 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 // One access-log line per request is right for an install and noise for a
                 // suite that makes thousands of them.
                 ["Logging:LogLevel:Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware"] = "Warning",
+                ["RateLimit:PublicApply:PermitLimit"] = "10000",
+                // No AI keys in tests, so the endpoints answer from the development stubs. That
+                // mirrors appsettings.Development.json, NOT the shipped default — which is
+                // EnableFallback: false, i.e. 402. NoAiFallbackWebAppFactory flips this back to
+                // the shipped value so the default is covered too.
+                ["AI:Claude:EnableFallback"] = EnableAiFallback ? "true" : "false",
+                ["AI:Gemini:EnableFallback"] = EnableAiFallback ? "true" : "false",
+
+                // No transport, deliberately. The test host runs as Development, so without
+                // these it would inherit appsettings.Development.json's pickup directory and
+                // start writing .eml files into the test output. Empty is also the state worth
+                // exercising: an install with no mail server must fail visibly, not silently.
+                ["Smtp:Host"] = "",
+                ["Smtp:PickupDirectory"] = "",
+                ["Smtp:FromAddress"] = "",
             }));
 
         builder.ConfigureTestServices(services =>
@@ -95,6 +119,26 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase(_databaseName, Root));
 
+            // Take both background workers off their timers (ADR-0026 §3).
+            //
+            // WebApplicationFactory starts hosted services, so these would be polling every few
+            // seconds throughout the suite — claiming rows out from under the test that just wrote
+            // them, and turning any assertion on a queued row into a race that fails occasionally
+            // on a slow machine. They stay registered as plain singletons so a test can drive a
+            // pass deliberately with RunOnceAsync(). See BulkResumeQueue for the helper.
+            var hostedWorkers = services
+                .Where(d => d.ImplementationType == typeof(OutboundMessageWorker)
+                            || d.ImplementationType == typeof(BulkResumeWorker))
+                .ToList();
+            foreach (var d in hostedWorkers) services.Remove(d);
+            services.AddSingleton<OutboundMessageWorker>();
+            services.AddSingleton<BulkResumeWorker>();
+
+            // Replace IFileStorage with InMemoryFileStorage so integration tests run completely offline without S3/MinIO
+            var storageDescriptors = services.Where(d => d.ServiceType == typeof(RecruitOps.Application.Interfaces.IFileStorage)).ToList();
+            foreach (var d in storageDescriptors) services.Remove(d);
+            services.AddSingleton<RecruitOps.Application.Interfaces.IFileStorage, InMemoryFileStorage>();
+
             // Force the Test auth scheme as the default.
             services.AddAuthentication(TestAuthHandler.SchemeName)
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
@@ -114,8 +158,17 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
             // The public job page shows the company name, and it resolves the company from
             // the posting's tenant id — so the tenant must be a real Company row, not just
             // a GUID that appears in claims.
-            db.Companies.Add(new Company { Id = TenantA, Name = "Alpha Company", Slug = "alpha" });
-            db.Companies.Add(new Company { Id = TenantB, Name = "Bravo Company", Slug = "bravo" });
+            // TimeZoneId is set because candidate-facing mail renders the interview slot in it
+            // (ADR-0026). A null here would let an invitation go out in UTC and the tests would
+            // still pass — which is the exact failure the field exists to prevent.
+            db.Companies.Add(new Company
+            {
+                Id = TenantA, Name = "Alpha Company", Slug = "alpha", TimeZoneId = "Asia/Yangon",
+            });
+            db.Companies.Add(new Company
+            {
+                Id = TenantB, Name = "Bravo Company", Slug = "bravo", TimeZoneId = "Asia/Yangon",
+            });
 
             db.Departments.Add(new Department { Id = SalesDepartmentId, TenantId = TenantA, Name = "Alpha Sales", Code = "ALPHA-SALES" });
             db.Departments.Add(new Department { Id = FinanceDepartmentId, TenantId = TenantA, Name = "Alpha Finance", Code = "ALPHA-FIN" });
@@ -193,6 +246,23 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 PasswordHash = "not-used-in-these-tests",
             };
             db.Users.Add(financeApprover);
+
+            // A recruiter who can raise requisitions in their own name (ADR-0022). Needed as a
+            // real user rather than a bare role header because the update and submit paths check
+            // that the caller is the requester — without a seeded identity those return 404 by
+            // ADR-0003's 404-not-403 rule, which reads as "the permission failed" and is not why.
+            // Deliberately not a department member: recruiters are cross-department staff.
+            var recruiter = new User
+            {
+                Id = RecruiterUserId,
+                TenantId = TenantA,
+                Email = "recruiter@alpha.test",
+                DisplayName = "Alpha Recruiter",
+                Role = UserRole.Recruiter,
+                IsActive = true,
+                PasswordHash = "not-used-in-these-tests",
+            };
+            db.Users.Add(recruiter);
 
             // Company-wide default chain (DepartmentId null): HR then Finance.
             var chain = new ApprovalChain

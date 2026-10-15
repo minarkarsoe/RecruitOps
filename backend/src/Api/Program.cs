@@ -5,15 +5,14 @@ using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RecruitOps.Api.Auth;
-using RecruitOps.Api.Health;
-using RecruitOps.Api.Security;
+using RecruitOps.Api.Middleware;
+using RecruitOps.Infrastructure.Services.Delivery;
 using RecruitOps.Application.Common;
 using RecruitOps.Application.Interfaces;
 using RecruitOps.Infrastructure;
@@ -24,7 +23,7 @@ var builder = WebApplication.CreateBuilder(args);
 // --- Logging ---
 // Outside Development, one JSON object per line: an on-prem install's logs end up in whatever
 // the customer runs (journald, a file, a log shipper), and every one of those can parse JSON.
-// Scopes carry the request's TraceId, which ProblemDetails also returns to the caller — so
+// Scopes carry the request's TraceId, which problem details also return to the caller — so
 // "it failed, here is the trace id" leads straight to the log lines.
 if (!builder.Environment.IsDevelopment())
 {
@@ -49,7 +48,10 @@ builder.Services.AddHttpLogging(o =>
 // Unhandled exceptions become RFC 9457 problem details with a traceId, never the exception text.
 builder.Services.AddProblemDetails();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<RecruitOps.Api.Filters.FeatureGateFilter>();
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
@@ -57,14 +59,16 @@ builder.Services.AddHttpContextAccessor();
 // Infrastructure (EF Core + Postgres).
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Liveness / readiness for whoever runs the install — a load balancer, Docker, or a support
-// engineer on the phone (ADR-0004). Readiness is the database; liveness checks nothing.
-builder.Services.AddHealthChecks()
-    .AddCheck<DatabaseHealthCheck>("database", tags: new[] { "ready" });
-
-// Tenant resolved from the JWT's tenant_id claim (Module 1).
+// Tenant resolved from the JWT's tenant_id claim (Module 1), falling back to an ambient tenant
+// when there is no request at all — the delivery worker. The claim wins whenever it is present;
+// see CurrentTenant for why that order is a security property (ADR-0026 §4).
 builder.Services.AddScoped<ICurrentTenant, CurrentTenant>();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+
+// Background queues (ADR-0026). In-process, because ADR-0004 ships one instance per company —
+// which removes the problem a distributed scheduler exists to solve.
+builder.Services.AddHostedService<OutboundMessageWorker>();
+builder.Services.AddHostedService<BulkResumeWorker>();
 
 // --- Authentication: self-issued JWT bearer ---
 var jwt = builder.Configuration.GetSection("Jwt");
@@ -254,8 +258,8 @@ static string ClientPartitionKey(HttpContext context)
 // Both frontends reach the API same-origin: nginx proxies /api for the SPA, Next.js rewrites it
 // for the public site, and its server components call in-network. So the default is no CORS
 // policy at all — until 2026-10-15 the localhost dev origins were allowed in every environment.
-// Development lists the dev servers (appsettings.Development.json) for anyone calling the API
-// directly; an install that serves a frontend from another origin lists it in Cors:AllowedOrigins.
+// Development lists the dev servers (appsettings.Development.json); an install that serves a
+// frontend from another origin lists it in Cors:AllowedOrigins.
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 if (corsOrigins.Length > 0)
 {
@@ -282,13 +286,6 @@ if (!app.Environment.IsDevelopment())
 // by the exception handler below.
 app.UseHttpLogging();
 
-// Before the exception handler, so error responses carry the headers too.
-app.UseSecurityHeaders();
-
-// Development keeps the developer exception page the host adds by default.
-if (!app.Environment.IsDevelopment())
-    app.UseExceptionHandler();
-
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -298,29 +295,31 @@ if (app.Environment.IsDevelopment())
 // Must run before anything reads the client address — the rate limiter does.
 if (behindProxy) app.UseForwardedHeaders();
 
+app.UseSecurityHeaders();
+
+// Development keeps the developer exception page the host adds by default.
+if (!app.Environment.IsDevelopment())
+    app.UseExceptionHandler();
+
 if (corsOrigins.Length > 0) app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
 
-// Anonymous on purpose — they answer before anyone can sign in — and they carry nothing but a
-// status word: no version, no check names, no exception text (see DatabaseHealthCheck).
-// Probes are polled every few seconds; logging each one would bury the requests that matter.
-app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false })
-    .AllowAnonymous()
-    .WithHttpLogging(HttpLoggingFields.None);
-app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") })
-    .AllowAnonymous()
-    .WithHttpLogging(HttpLoggingFields.None);
+// Order matters: this reads context.User, so it must sit after UseAuthentication(). It only
+// validates a super-admin's X-Tenant-Id override — who may impersonate is decided in
+// CurrentTenant, from the signed token, with no database call.
+app.UseSuperAdminTenantOverride();
+
+app.MapControllers();
 
 // Apply pending migrations before serving traffic (ADR-0004: unattended installs).
 // No-ops on the in-memory provider used by tests.
 await DatabaseStartup.MigrateAsync(app.Services);
+await DbInitializer.SeedPermissionsAndRolesAsync(app.Services);
 
-// Reference data in every environment; the first Admin from configuration (see SeedAdminAsync —
-// first run only, outside Development).
-await DbInitializer.SeedReferenceDataAsync(app.Services);
+// The first Admin from configuration: Development whenever that email is absent; elsewhere only
+// on an empty install (see SeedAdminAsync).
 await DbInitializer.SeedAdminAsync(app.Services, firstRunOnly: !app.Environment.IsDevelopment());
 
 app.Run();

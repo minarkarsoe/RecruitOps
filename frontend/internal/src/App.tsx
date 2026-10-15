@@ -8,6 +8,7 @@ import { RequisitionDetailPage } from './pages/RequisitionDetailPage';
 import { RequisitionFormPage } from './pages/RequisitionFormPage';
 import { JobPostingsPage } from './pages/JobPostingsPage';
 import { JobPostingDetailPage } from './pages/JobPostingDetailPage';
+import { InterviewsPage } from './pages/InterviewsPage';
 import { InterviewDetailPage } from './pages/InterviewDetailPage';
 import { InboxPage } from './pages/InboxPage';
 import { ApprovalChainsPage } from './pages/ApprovalChainsPage';
@@ -16,6 +17,8 @@ import { ScorecardTemplatesPage } from './pages/ScorecardTemplatesPage';
 import { DepartmentsPage } from './pages/DepartmentsPage';
 import { UsersPage } from './pages/UsersPage';
 import { RolesPage } from './pages/RolesPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { DeliveryLogPage } from './pages/DeliveryLogPage';
 
 export function App() {
   return (
@@ -34,6 +37,12 @@ export function App() {
           {/* Module 2 — postings and pipeline */}
           <Route path="/jobpostings" element={<JobPostingsPage />} />
           <Route path="/jobpostings/:id" element={<JobPostingDetailPage />} />
+
+          {/* Module 3 — the interviews list. Unguarded by a permission route for the same
+              reason the API's read endpoints are InternalUser rather than RecruitmentStaff:
+              a panel member is very often a Hiring Manager from another department, and the
+              access rule is the service's department-or-panel predicate, not a role gate. */}
+          <Route path="/interviews" element={<InterviewsPage />} />
 
           {/* Module 3 — one interview round. Not nested under a posting: a panel member
               from another department reaches this round and nothing else around it
@@ -70,6 +79,14 @@ export function App() {
               </RequirePermission>
             }
           />
+          {/* Module 5 — Reporting & Analytics */}
+          <Route path="/analytics" element={<AnalyticsPage />} />
+
+          {/* ADR-0026 — the delivery log. No <RequirePermission> wrapper: reach here is not a
+              permission but a role-and-department question, and it is answered server-side
+              (ADR-0003 / ADR-0018). An Approver gets an empty log rather than a 403, which is
+              correct — they are allowed to ask, and the answer is nothing. */}
+          <Route path="/delivery" element={<DeliveryLogPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/requisitions" replace />} />

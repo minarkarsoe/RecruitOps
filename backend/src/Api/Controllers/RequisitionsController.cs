@@ -1,18 +1,20 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using RecruitOps.Api.Auth;
+using RecruitOps.Api.Authorization;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Application.Interfaces;
 
 namespace RecruitOps.Api.Controllers;
 
 /// <summary>Module 1 — Job Requisition &amp; Approval.
-/// <para>Uses <see cref="Policies.InternalUser"/> (not RecruitmentStaff) because Hiring
-/// Managers and Approvers must reach these endpoints. Row-level visibility is enforced
-/// by the service via department scoping (ADR-0003).</para></summary>
+/// <para>Authority is permission-driven (ADR-0022): each action carries the
+/// <c>permission:requisitions:requisitions:*</c> code that gates it, so the Role Builder
+/// controls who can create, edit, or approve — not a hardcoded role literal. Row-level
+/// visibility remains enforced by the service via department scoping (ADR-0003); the
+/// permission is a coarse gate layered on top of that, not a replacement for it.</para></summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = Policies.InternalUser)]
+[Authorize]
 public class RequisitionsController : ControllerBase
 {
     private readonly IRequisitionService _requisitions;
@@ -20,17 +22,20 @@ public class RequisitionsController : ControllerBase
     public RequisitionsController(IRequisitionService requisitions) => _requisitions = requisitions;
 
     [HttpGet]
+    [HasPermission("permission:requisitions:requisitions:read")]
     public async Task<ActionResult<IReadOnlyList<RequisitionListItemDto>>> Get(CancellationToken ct)
         => Ok(await _requisitions.GetRequisitionsAsync(ct));
 
     /// <summary>Requisitions where the current user is the next-in-line approver.
     /// Named route "inbox" so it is resolved before the {id:guid} route.</summary>
     [HttpGet("inbox")]
+    [HasPermission("permission:requisitions:requisitions:approve")]
     public async Task<ActionResult<IReadOnlyList<RequisitionListItemDto>>> GetInbox(CancellationToken ct)
         => Ok(await _requisitions.GetInboxAsync(ct));
 
     /// <summary>404 covers both "does not exist" and "not yours" so existence isn't leaked.</summary>
     [HttpGet("{id:guid}")]
+    [HasPermission("permission:requisitions:requisitions:read")]
     public async Task<ActionResult<RequisitionDetailDto>> GetById(Guid id, CancellationToken ct)
     {
         var result = await _requisitions.GetByIdAsync(id, ct);
@@ -38,6 +43,7 @@ public class RequisitionsController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission("permission:requisitions:requisitions:create")]
     public async Task<ActionResult<RequisitionDetailDto>> Create(CreateRequisitionRequest request, CancellationToken ct)
     {
         var created = await _requisitions.CreateAsync(request, ct);
@@ -48,6 +54,7 @@ public class RequisitionsController : ControllerBase
 
     /// <summary>Edits a Draft. 409 once it has been submitted.</summary>
     [HttpPut("{id:guid}")]
+    [HasPermission("permission:requisitions:requisitions:update")]
     public async Task<ActionResult<RequisitionDetailDto>> Update(
         Guid id, UpdateRequisitionRequest request, CancellationToken ct)
     {
@@ -63,6 +70,7 @@ public class RequisitionsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/submit")]
+    [HasPermission("permission:requisitions:requisitions:update")]
     public async Task<ActionResult<RequisitionDetailDto>> Submit(Guid id, CancellationToken ct)
     {
         try
@@ -77,6 +85,7 @@ public class RequisitionsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/decision")]
+    [HasPermission("permission:requisitions:requisitions:approve")]
     public async Task<ActionResult<RequisitionDetailDto>> Decide(Guid id, ApprovalDecisionRequest request, CancellationToken ct)
     {
         try
@@ -90,9 +99,29 @@ public class RequisitionsController : ControllerBase
         }
     }
 
+    /// <summary>Returns a rejected requisition to Draft so the requester can correct and
+    /// resubmit it (ADR-0023). Gated on <c>update</c> rather than <c>approve</c>: revising is
+    /// the requester's authority, not the approver's — same reasoning as cancel (ADR-0022).
+    /// Anyone but the requester or a company-wide role gets 404 (ADR-0003).</summary>
+    [HttpPost("{id:guid}/revise")]
+    [HasPermission("permission:requisitions:requisitions:update")]
+    public async Task<ActionResult<RequisitionDetailDto>> Revise(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _requisitions.ReviseAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails { Title = "Cannot revise", Detail = ex.Message });
+        }
+    }
+
     /// <summary>Withdraws a requisition before it is decided. The requester or a
     /// company-wide role may do this; anyone else gets 404 (ADR-0003).</summary>
     [HttpPost("{id:guid}/cancel")]
+    [HasPermission("permission:requisitions:requisitions:update")]
     public async Task<ActionResult<RequisitionDetailDto>> Cancel(Guid id, CancellationToken ct)
     {
         try

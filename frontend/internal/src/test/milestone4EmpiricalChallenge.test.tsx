@@ -1,12 +1,14 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PermissionMatrixGrid } from '../components/PermissionMatrixGrid';
 import { RolesPage } from '../pages/RolesPage';
 import { UsersPage } from '../pages/UsersPage';
+import { TenantSwitcherBar } from '../components/TenantSwitcherBar';
 import { roleService } from '../services/roleService';
 import { userService } from '../services/userService';
 import { auth } from '../lib/auth';
-import { mockPermissionsGrouped, mockRoles, mockRoleDetail, mockPagedUsers, adminDirectoryPermissions } from './rbacFixtures';
+import { api } from '../lib/api';
+import { mockPermissionsGrouped, mockRoles, mockRoleDetail, mockPagedUsers } from './rbacFixtures';
 
 vi.mock('../services/roleService', () => ({
   roleService: {
@@ -34,16 +36,6 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
-    // An Admin with the directory and role-builder permissions; sections below override it.
-    auth.set({
-      accessToken: 'token-admin',
-      expiresAtUtc: '2099-01-01T00:00:00Z',
-      role: 'Admin',
-      displayName: 'Admin User',
-      userId: 'usr-1',
-      isSuperAdmin: false,
-      permissions: adminDirectoryPermissions,
-    });
     (roleService.getRoles as any).mockResolvedValue(mockRoles);
     (roleService.getPermissions as any).mockResolvedValue(mockPermissionsGrouped);
     (roleService.getRoleById as any).mockResolvedValue(mockRoleDetail);
@@ -54,6 +46,26 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
    * 1. PERMISSION MATRIX GRID & ROLE BUILDER UI
    * ---------------------------------------------------------------- */
   describe('Permission Matrix Grid Toggles & Custom Role Submissions', () => {
+    beforeEach(() => {
+      // The outer beforeEach clears sessionStorage, so these role-builder scenarios ran with
+      // no session. They passed only because hasPermission() granted a null session
+      // everything; the create/edit/delete controls they drive are permission-gated.
+      auth.set({
+        accessToken: 'token-role-admin',
+        expiresAtUtc: '2099-01-01T00:00:00Z',
+        role: 'Recruiter',
+        displayName: 'Role Manager',
+        userId: 'usr-role-admin',
+        isSuperAdmin: false,
+        permissions: [
+          'permission:roles:roles:read',
+          'permission:roles:roles:create',
+          'permission:roles:roles:update',
+          'permission:roles:roles:delete',
+        ],
+      });
+    });
+
     it('toggles an entire module permissions when module checkbox is clicked', () => {
       const handleChange = vi.fn();
       render(
@@ -195,7 +207,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         displayName: 'Admin User',
         userId: 'usr-1',
         isSuperAdmin: false,
-        permissions: adminDirectoryPermissions,
+        permissions: [],
       });
     });
 
@@ -347,18 +359,21 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
       };
       (userService.getUsers as any).mockResolvedValue(singleAdminOnlyPaged);
 
-      // Signed in as a *second* administrator, so usr-1's Deactivate button is not disabled by
-      // the self-deactivation safeguard. This used to sign in as a Recruiter — a session the
-      // real app never produces on this screen (GET /api/users is AdminOnly), and one that only
-      // rendered the button because hasPermission failed open on a session with no list.
+      // Set logged in user as usr-recruiter (so usr-1 Deactivate button is not disabled by self safeguard)
       auth.set({
-        accessToken: 'token-admin-2',
+        accessToken: 'token-recruiter',
         expiresAtUtc: '2099-01-01T00:00:00Z',
-        role: 'Admin',
-        displayName: 'Second Admin',
-        userId: 'usr-admin-2',
+        role: 'Recruiter',
+        displayName: 'Recruiter User',
+        userId: 'usr-recruiter',
         isSuperAdmin: false,
-        permissions: adminDirectoryPermissions,
+        // Needed explicitly now: this overrides the Admin session from the enclosing
+        // beforeEach, and a Recruiter no longer inherits the directory controls by default.
+        permissions: [
+          'permission:users:users:read',
+          'permission:users:users:update',
+          'permission:users:users:delete',
+        ],
       });
 
       render(<UsersPage />);
@@ -371,6 +386,124 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
       expect(screen.getByText(/Safeguard Warning/)).toBeInTheDocument();
       expect(screen.getByText(/Cannot deactivate the last active Administrator account/)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Confirm Deactivation' })).toBeDisabled();
+    });
+  });
+
+  /* ---------------------------------------------------------------- border
+   * 3. SUPER-ADMIN TENANT SWITCHER & X-TENANT-ID HEADER
+   * ---------------------------------------------------------------- */
+  describe('Super-Admin Tenant Switcher & X-Tenant-Id Request Headers', () => {
+    // Real GUIDs, because a tenant id IS a Company.Id. The four hard-coded strings this file used
+    // to assert on (`tenant-stark`, `tenant-acme-corp`, …) could never have been real companies.
+    const SUPER_TENANT_A = '11111111-1111-1111-1111-111111111111';
+    const SUPER_TENANT_B = '22222222-2222-2222-2222-222222222222';
+
+    /** The switcher fetches GET /api/tenants through the real `api`, so stub the transport
+     *  rather than the module — the header test below needs the genuine article. */
+    function stubTenantFetch(rows: unknown[]) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(rows)),
+        })
+      );
+    }
+
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('updates session active tenant when switching to a company the server lists', async () => {
+      // ⚠️ Rewritten 2026-08-26. This used to click "Stark Industries" and assert the session
+      // held `tenant-stark` — one of four hard-coded names in the component. A tenant id is a
+      // `Company.Id`, i.e. a GUID, so none of those four could ever be a real company, and the
+      // switcher could not switch to any of them once the server started reading X-Tenant-Id.
+      // The list now comes from GET /api/tenants.
+      stubTenantFetch([
+        { id: SUPER_TENANT_A, name: 'Alpha Company', code: 'alpha', isActive: true },
+        { id: SUPER_TENANT_B, name: 'Bravo Company', code: 'bravo', isActive: true },
+      ]);
+
+      auth.set({
+        accessToken: 'token-super',
+        expiresAtUtc: '2099-01-01T00:00:00Z',
+        role: 'SuperAdmin',
+        displayName: 'Global Super Admin',
+        userId: 'usr-super',
+        isSuperAdmin: true,
+        tenantId: SUPER_TENANT_A,
+        permissions: [],
+      });
+
+      const handleTenantChange = vi.fn();
+      render(<TenantSwitcherBar onTenantChange={handleTenantChange} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Switch company' }));
+      fireEvent.click(await screen.findByText('Bravo Company'));
+
+      expect(handleTenantChange).toHaveBeenCalledWith(SUPER_TENANT_B, 'Bravo Company');
+      expect(auth.get()?.activeTenantId).toBe(SUPER_TENANT_B);
+      expect(auth.get()?.activeTenantName).toBe('Bravo Company');
+    });
+
+    it('offers no free-text tenant box, because the list is now complete', async () => {
+      // The "Custom Tenant ID" input existed to work around a fake list — with four invented
+      // companies on offer, typing an id was the only way to reach a real one. GET /api/tenants
+      // returns every active company, so a hand-typed GUID can only ever name something already
+      // on the list. What it could still do is send an id the server rejects with a 400.
+      stubTenantFetch([{ id: SUPER_TENANT_A, name: 'Alpha Company', code: 'alpha', isActive: true }]);
+
+      auth.set({
+        accessToken: 'token-super',
+        expiresAtUtc: '2099-01-01T00:00:00Z',
+        role: 'SuperAdmin',
+        displayName: 'Global Super Admin',
+        userId: 'usr-super',
+        isSuperAdmin: true,
+        tenantId: SUPER_TENANT_A,
+        permissions: [],
+      });
+
+      render(<TenantSwitcherBar />);
+      fireEvent.click(screen.getByRole('button', { name: 'Switch company' }));
+      await screen.findByRole('group', { name: 'Companies in this database' });
+
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Set' })).not.toBeInTheDocument();
+    });
+
+    it('sends X-Tenant-Id header in fetch calls when activeTenantId is set in session', async () => {
+      const globalFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify({ success: true })),
+      });
+      vi.stubGlobal('fetch', globalFetch);
+
+      auth.set({
+        accessToken: 'token-super-xyz',
+        expiresAtUtc: '2099-01-01T00:00:00Z',
+        role: 'SuperAdmin',
+        displayName: 'Super Admin',
+        userId: 'usr-super',
+        isSuperAdmin: true,
+        tenantId: SUPER_TENANT_B,
+        permissions: [],
+      });
+
+      await api('/roles');
+
+      expect(globalFetch).toHaveBeenCalledWith(
+        '/api/roles',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer token-super-xyz',
+            'X-Tenant-Id': SUPER_TENANT_B,
+          }),
+        })
+      );
+
+      vi.unstubAllGlobals();
     });
   });
 });

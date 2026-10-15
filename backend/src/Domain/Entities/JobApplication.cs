@@ -25,4 +25,19 @@ public class JobApplication : BaseEntity, ITenantScoped
     public string? CustomFieldsJson { get; set; }
 
     public string? CoverNote { get; set; }
+
+    /// <summary>CV / Resume file key in object storage (R2/MinIO).</summary>
+    public string? ResumeFileKey { get; set; }
+
+    /// <summary>Original file name of the uploaded CV / Resume.</summary>
+    public string? ResumeFileName { get; set; }
+
+    /// <summary>Extracted text from candidate's CV / Resume.</summary>
+    public string? ResumeExtractedText { get; set; }
+
+    /// <summary>Timestamp when the resume was uploaded.</summary>
+    public DateTimeOffset? ResumeUploadedAt { get; set; }
+
+    /// <summary>Indicates whether extracted resume text was normalized from Zawgyi to Unicode NFC.</summary>
+    public bool IsZawgyiNormalized { get; set; }
 }

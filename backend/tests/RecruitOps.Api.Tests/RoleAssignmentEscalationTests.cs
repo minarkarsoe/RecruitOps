@@ -105,26 +105,28 @@ public class RoleAssignmentEscalationTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
     }
 
-    /// <summary>The reported case: a role with no permissions at all must not hand its holder the
-    /// pipeline. Refused at assignment until a custom role carries an explicit data scope —
-    /// ADR-0021 records the decision still to be made.</summary>
+    /// <summary>Custom roles are assignable on develop (ADR-0022: a custom role holding
+    /// <c>requisitions:approve</c> is how a tenant configures its approvers). What is pinned here is
+    /// the escalation: whatever a custom role is called or coded, its holder is never a SuperAdmin.
+    /// The enum a custom-role holder gets (Recruiter) is the open ADR-0021 question — asserted so a
+    /// change to it is deliberate.</summary>
     [Fact]
-    public async Task A_Custom_Role_Cannot_Be_Assigned_Until_It_Carries_A_Data_Scope()
+    public async Task A_Custom_Role_Is_Assignable_And_Never_Yields_SuperAdmin()
     {
         var customRes = await Admin().PostAsJsonAsync("/api/roles",
-            new CreateRoleRequest($"Empty {Guid.NewGuid():N}", null, "No permissions at all", Array.Empty<string>()));
+            new CreateRoleRequest($"Approver Lite {Guid.NewGuid():N}", null, "Approves only",
+                new[] { "permission:requisitions:requisitions:approve" }));
         customRes.EnsureSuccessStatusCode();
         var custom = (await customRes.Content.ReadFromJsonAsync<RoleDetailDto>())!;
 
-        Assert.Equal(HttpStatusCode.Conflict, (await CreateUser(roleId: custom.Id)).StatusCode);
+        var created = await CreateUser(roleId: custom.Id);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var user = (await created.Content.ReadFromJsonAsync<UserDetailDto>())!;
 
-        var existing = await (await CreateUser(role: "Approver")).Content.ReadFromJsonAsync<UserDetailDto>();
-        var reassign = await Admin().PutAsJsonAsync($"/api/users/{existing!.Id}",
-            new UpdateUserRequest("Directory Person", custom.Id, null));
-        Assert.Equal(HttpStatusCode.Conflict, reassign.StatusCode);
-
-        var after = await Admin().GetFromJsonAsync<UserDetailDto>($"/api/users/{existing.Id}");
-        Assert.Equal("Approver", after!.Role);
+        Assert.Equal(custom.Id, user.RoleId);
+        Assert.False(user.IsSuperAdmin);
+        Assert.NotEqual("SuperAdmin", user.Role);
+        Assert.Equal("Recruiter", user.Role); // ADR-0021 (open): the enum a custom role holder gets
     }
 
     // ------------------------------------------------- what the feature is for

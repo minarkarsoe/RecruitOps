@@ -20,9 +20,9 @@ export function RequisitionsPage() {
     <>
       <header className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold">Requisitions</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Requisitions</h1>
           {session && isDepartmentScoped(session.role) && (
-            <p className="mt-1 text-[13px] text-ink-400">
+            <p className="mt-1 text-sm text-ink-400">
               Showing your department&rsquo;s requisitions only.
             </p>
           )}
@@ -32,7 +32,7 @@ export function RequisitionsPage() {
         )}
       </header>
 
-      {error && <p role="alert" className="mb-4 text-[15px] text-danger-600">{error}</p>}
+      {error && <p role="alert" className="mb-4 text-md text-critical-700">{error}</p>}
 
       {items === null && !error && <p className="text-ink-600">Loading…</p>}
 
@@ -40,7 +40,7 @@ export function RequisitionsPage() {
         <Card>
           <div className="py-6 text-center">
             <h3 className="text-base font-semibold">No requisitions yet</h3>
-            <p className="mt-1 text-[13px] text-ink-600">
+            <p className="mt-1 text-sm text-ink-600">
               Raise one to start the approval process.
             </p>
           </div>
@@ -48,29 +48,29 @@ export function RequisitionsPage() {
       )}
 
       {items && items.length > 0 && (
-        <div className="overflow-hidden rounded-md border border-line-200 bg-surface-0 shadow-card">
-          <table className="w-full text-left">
+        <div className="overflow-hidden rounded-md border border-line bg-white shadow-card">
+          <table className="w-full text-left text-base">
             <thead>
-              <tr className="bg-surface-50 text-[11px] uppercase tracking-wide text-ink-600">
-                <th className="px-4 py-3 font-semibold">Position</th>
-                <th className="px-4 py-3 font-semibold">Department</th>
-                <th className="px-4 py-3 font-semibold">Heads</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold">Awaiting</th>
+              <tr className="border-b border-line bg-canvas text-left text-sm">
+                <th className="px-4 py-2.5 font-medium text-ink-600">Position</th>
+                <th className="px-4 py-2.5 font-medium text-ink-600">Department</th>
+                <th className="px-4 py-2.5 font-medium text-ink-600">Heads</th>
+                <th className="px-4 py-2.5 font-medium text-ink-600">Status</th>
+                <th className="px-4 py-2.5 font-medium text-ink-600">Awaiting</th>
               </tr>
             </thead>
             <tbody>
               {items.map((r) => (
-                <tr key={r.id} className="border-t border-line-200 hover:bg-surface-50">
+                <tr key={r.id} className="border-t border-line hover:bg-canvas">
                   <td className="px-4 py-3">
-                    <Link to={`/requisitions/${r.id}`} className="font-semibold text-primary-700 hover:underline">
+                    <Link to={`/requisitions/${r.id}`} className="font-semibold text-brand-700 hover:underline">
                       {r.title}
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-ink-600">{r.departmentName}</td>
-                  <td className="px-4 py-3 font-mono text-[13px]">{r.headcount}</td>
+                  <td className="px-4 py-3 font-mono text-sm">{r.headcount}</td>
                   <td className="px-4 py-3"><StatusPill status={r.status} /></td>
-                  <td className="px-4 py-3 text-[13px] text-ink-600">
+                  <td className="px-4 py-3 text-sm text-ink-600">
                     {r.awaitingApprovalFrom ?? '—'}
                   </td>
                 </tr>

@@ -109,8 +109,11 @@ public class LastAdminGuardTests : IClassFixture<CustomWebAppFactory>
     [Fact]
     public async Task The_Last_Active_Admin_Cannot_Be_Demoted_Until_There_Is_Another()
     {
-        // A caller that is not the target, so the self-change guard is not what answers.
+        // A caller that is not the target, so the self-change guard is not what answers — and not
+        // a database Admin either, or there would be two. A SuperAdmin claim passes the permission
+        // check (the handler's bypass) without being a row the floor counts.
         var caller = _scenario.Client(Roles.Admin, Guid.NewGuid());
+        caller.DefaultRequestHeaders.Add("X-Test-IsSuperAdmin", "true");
         var demote = new UpdateUserRequest("Alpha Admin", null, "Recruiter");
 
         var refused = await caller.PutAsJsonAsync($"/api/users/{_factory.AdminUserId}", demote);

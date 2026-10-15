@@ -1,0 +1,38 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "internal",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:internal"],
+      "port": 5173
+    },
+    {
+      "name": "public",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:public"],
+      "port": 3000
+    },
+    {
+      "// marketing": "Static server for marketing/landing.html, which is a single self-contained file with no build step. Vite is already a workspace dependency and is used here only as a static file server — no new package, no config file.",
+      "name": "marketing",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--no-install", "vite", "marketing", "--port", "4180", "--strictPort"],
+      "port": 4180
+    },
+    {
+      "// internal-dist": "Serves the PRODUCTION build of the internal SPA. Useful for checking a rendered control against the real built stylesheet and font, without a dev server rebuilding under you. Run `npm run build --workspace @recruitops/internal` first.",
+      "name": "internal-dist",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--no-install", "vite", "frontend/internal/dist", "--port", "4181", "--strictPort"],
+      "port": 4181
+    },
+    {
+      "// design-kit": "Serves design/internal — the 25 (now 26) reference screens. CLAUDE.md says UI work starts from the kit, and the kit is easier to build against when you can open it rather than only read it. Static files with a Tailwind CDN tag and no build step; vite is used purely as a file server. Start at /index.html.",
+      "name": "design-kit",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--no-install", "vite", "design/internal", "--port", "4182", "--strictPort"],
+      "port": 4182
+    }
+  ]
+}
