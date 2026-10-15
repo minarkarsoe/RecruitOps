@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { CommandPalette, type CommandItem } from '@recruitops/ui';
 import { auth, hasPermission } from '../lib/auth';
+import { revokeSession } from '../lib/api';
 import { TenantSwitcherBar } from './TenantSwitcherBar';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
@@ -27,6 +28,7 @@ export function AppLayout() {
   }));
 
   function signOut() {
+    revokeSession(); // ends the session on the server too (ADR-0028), before the token is cleared
     auth.clear();
     navigate('/login', { replace: true });
   }

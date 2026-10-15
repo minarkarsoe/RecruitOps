@@ -46,27 +46,92 @@ function retryAfterSeconds(res: Response): number | undefined {
   return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
 }
 
-let refreshPromise: Promise<LoginResponse | null> | null = null;
+/**
+ * What a 401 led to (ADR-0028).
+ *
+ * - `ok` — retry with this access token.
+ * - `expired` — the server refused the refresh token: the session is over.
+ * - `unavailable` — rate-limited (429) or unreachable. The session is NOT over, so it is kept:
+ *   treating a busy server as a sign-out logged a whole office out at 09:00 (security review of
+ *   ADR-0028, L7).
+ */
+type RenewOutcome =
+  | { kind: 'ok'; accessToken: string; tenantSource: { activeTenantId?: string } | null }
+  | { kind: 'expired' }
+  | { kind: 'unavailable'; status: number; retryAfter?: number };
 
-async function performSilentRefresh(refreshToken: string): Promise<LoginResponse | null> {
+let refreshPromise: Promise<RenewOutcome> | null = null;
+
+function performSilentRefresh(refreshToken: string): Promise<RenewOutcome> {
   if (!refreshPromise) {
     refreshPromise = fetch(`${BASE}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
     })
-      .then(async (res) => {
-        if (!res.ok) return null;
-        const data = (await res.json()) as LoginResponse;
-        auth.set(data);
-        return data;
+      .then(async (res): Promise<RenewOutcome> => {
+        if (res.ok) {
+          const data = (await res.json()) as LoginResponse;
+          const session = auth.set(data);
+          return { kind: 'ok', accessToken: data.accessToken, tenantSource: session };
+        }
+        if (res.status === 401) return { kind: 'expired' };
+        return { kind: 'unavailable', status: res.status, retryAfter: retryAfterSeconds(res) };
       })
-      .catch(() => null)
+      .catch((): RenewOutcome => ({ kind: 'unavailable', status: 0 }))
       .finally(() => {
         refreshPromise = null;
       });
   }
   return refreshPromise;
+}
+
+/**
+ * Recovers from a 401 for a request that was sent with `captured`.
+ *
+ * ⚠️ The refresh token is read from storage NOW, not taken from `captured`. Requests queued
+ * behind one that already refreshed still hold the old pair; sending that rotated token back is
+ * exactly what the server reads as a stolen copy — it ends every session and raises the alarm
+ * (security review of ADR-0028, M2). If storage already holds a newer pair, retry with it.
+ */
+async function renewSession(captured: { refreshToken?: string }): Promise<RenewOutcome> {
+  const current = auth.get();
+  if (current?.refreshToken && current.refreshToken !== captured.refreshToken) {
+    return { kind: 'ok', accessToken: current.accessToken, tenantSource: current };
+  }
+  if (!current?.refreshToken) return { kind: 'expired' };
+  return performSilentRefresh(current.refreshToken);
+}
+
+/** Throws for a failed renewal; returns the outcome when the request can be retried. */
+function failedRenewal(outcome: Exclude<RenewOutcome, { kind: 'ok' }>): never {
+  if (outcome.kind === 'unavailable') {
+    throw new ApiError(
+      outcome.status || 503,
+      outcome.status === 429
+        ? 'Too many requests just now. Try again in a moment.'
+        : 'Could not reach the server to renew your session. Try again.',
+      outcome.retryAfter,
+    );
+  }
+  auth.clear();
+  throw new ApiError(401, 'Your session has expired. Please sign in again.');
+}
+
+/**
+ * Ends the session on the server, not just in this tab (ADR-0028). Best effort and
+ * fire-and-forget: sign-out must not wait on, or fail because of, the network. Before this the
+ * SPA only cleared `sessionStorage`, and the refresh token stayed valid for up to 30 days.
+ */
+export function revokeSession(): void {
+  const session = auth.get();
+  if (!session?.refreshToken) return;
+  fetch(`${BASE}/auth/revoke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken: session.refreshToken }),
+    keepalive: true,
+  }).catch(() => undefined);
 }
 
 /**
@@ -103,22 +168,18 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   });
 
   if (res.status === 401 && session?.refreshToken && path !== '/auth/refresh' && path !== '/auth/login') {
-    const refreshed = await performSilentRefresh(session.refreshToken);
-    if (refreshed) {
-      // Retry original request with new access token
-      res = await fetch(`${BASE}${path}`, {
-        ...init,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${refreshed.accessToken}`,
-          ...tenantHeader(refreshed.activeTenantId ? refreshed : session),
-          ...(init?.headers ?? {}),
-        },
-      });
-    } else {
-      auth.clear();
-      throw new ApiError(401, 'Your session has expired. Please sign in again.');
-    }
+    const renewed = await renewSession(session);
+    if (renewed.kind !== 'ok') failedRenewal(renewed);
+    // Retry the original request with the renewed access token.
+    res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${renewed.accessToken}`,
+        ...tenantHeader(renewed.tenantSource?.activeTenantId ? renewed.tenantSource : session),
+        ...(init?.headers ?? {}),
+      },
+    });
   }
 
   if (res.status === 401) {
@@ -159,22 +220,19 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
   });
 
   if (res.status === 401 && session?.refreshToken && path !== '/auth/refresh' && path !== '/auth/login') {
-    const refreshed = await performSilentRefresh(session.refreshToken);
-    if (refreshed) {
-      res = await fetch(`${BASE}${path}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${refreshed.accessToken}`,
-          ...tenantHeader(refreshed.activeTenantId ? refreshed : session),
-        },
-        body: formData,
-      });
-      if (!res.ok) throw new ApiError(res.status, await readError(res));
-      const retryText = await res.text();
-      return (retryText ? JSON.parse(retryText) : undefined) as T;
-    }
-    auth.clear();
-    throw new ApiError(401, 'Your session has expired. Please sign in again.');
+    const renewed = await renewSession(session);
+    if (renewed.kind !== 'ok') failedRenewal(renewed);
+    res = await fetch(`${BASE}${path}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${renewed.accessToken}`,
+        ...tenantHeader(renewed.tenantSource?.activeTenantId ? renewed.tenantSource : session),
+      },
+      body: formData,
+    });
+    if (!res.ok) throw new ApiError(res.status, await readError(res));
+    const retryText = await res.text();
+    return (retryText ? JSON.parse(retryText) : undefined) as T;
   }
 
   if (res.status === 401) {
