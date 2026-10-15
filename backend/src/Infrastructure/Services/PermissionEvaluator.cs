@@ -132,6 +132,24 @@ public sealed class PermissionEvaluator : IPermissionEvaluator
         _cache.Remove(GetCacheKey(userId, tenantId));
     }
 
+    public async Task<IReadOnlySet<string>> GetEffectivePermissionsAsync(
+        Guid userId, Guid tenantId, IEnumerable<string> roleCodes, CancellationToken ct = default)
+    {
+        var effective = new HashSet<string>(
+            await GetUserPermissionsAsync(userId, tenantId, ct), StringComparer.OrdinalIgnoreCase);
+
+        // Mirrors step 3 of PermissionAuthorizationHandler: a system role claim also grants that
+        // role's seed permissions, whatever the database says.
+        var seedRoles = RbacSeedData.GetSystemRoles();
+        foreach (var roleCode in roleCodes)
+        {
+            var seed = seedRoles.FirstOrDefault(r => r.Code.Equals(roleCode, StringComparison.OrdinalIgnoreCase));
+            if (seed is not null) effective.UnionWith(seed.PermissionCodes);
+        }
+
+        return effective;
+    }
+
     /// <summary>Until 2026-10-15 this only logged, so a role edit never reached anyone whose
     /// permissions were already cached — see <c>PermissionRevocationTests</c>.</summary>
     public void InvalidateRolePermissionsCache(Guid roleId)

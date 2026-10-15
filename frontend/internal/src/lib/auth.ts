@@ -34,7 +34,12 @@ export const auth = {
     try {
       const session = JSON.parse(raw) as Session;
       // Expired tokens are useless; drop them rather than letting the API 401 later.
-      if (new Date(session.expiresAtUtc).getTime() <= Date.now()) {
+      // A session with no permission list predates the API sending one, and would now render
+      // with no navigation at all — sign in again instead.
+      if (
+        new Date(session.expiresAtUtc).getTime() <= Date.now() ||
+        !Array.isArray(session.permissions)
+      ) {
         sessionStorage.removeItem(STORAGE_KEY);
         return null;
       }
@@ -55,7 +60,8 @@ export const auth = {
       isSuperAdmin: response.isSuperAdmin || response.role === 'SuperAdmin',
       activeTenantId: response.activeTenantId ?? response.tenantId,
       activeTenantName: response.activeTenantName,
-      permissions: response.permissions,
+      // An API that sends no list grants nothing in the UI, rather than everything.
+      permissions: Array.isArray(response.permissions) ? response.permissions : [],
     };
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     return session;
@@ -136,12 +142,19 @@ export function isSuperAdmin(session: Session | null): boolean {
   return !!session.isSuperAdmin || session.role === 'SuperAdmin';
 }
 
+/**
+ * Whether to *render* something gated on a permission. Mirrors `PermissionAuthorizationHandler`:
+ * SuperAdmin bypasses, everyone else is checked against the set the API sent at login
+ * (`LoginResponse.permissions`, which `EffectivePermissionsTests` pins to the handler).
+ *
+ * **Fails closed.** Until 2026-10-15 this returned `true` with no session, for any Admin, and
+ * whenever the list was missing — and the API never sent one, so every user saw every link and
+ * button. There is deliberately no Admin bypass: the API has none either.
+ */
 export function hasPermission(session: Session | null, permissionCode: string): boolean {
-  if (!session) return true;
+  if (!session) return false;
   if (isSuperAdmin(session)) return true;
-  if (session.role === 'Admin') return true;
-  if (!session.permissions) return true; // Default fallback if permissions array is unpopulated (legacy)
-  return session.permissions.includes(permissionCode);
+  return Array.isArray(session.permissions) && session.permissions.includes(permissionCode);
 }
 
 

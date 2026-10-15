@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { InterviewScorecards, MyScorecard, SaveScorecardRequest } from '@recruitops/types';
 import { ApiError } from '../lib/api';
+import { auth } from '../lib/auth';
 import { InterviewDetailPage } from './InterviewDetailPage';
 import { interview, myScorecard, panel, scorecard } from '../test/fixtures';
 
@@ -38,6 +39,21 @@ function serve(
     throw new Error(`unexpected call: ${path}`);
   });
 }
+
+// A panel member: a Hiring Manager, whose seed matrix includes scorecards:submit. The page gates
+// its Submit button on that permission, and with no session it now (correctly) renders none.
+beforeEach(() => {
+  sessionStorage.clear();
+  auth.set({
+    accessToken: 'token-panel',
+    expiresAtUtc: '2099-01-01T00:00:00Z',
+    role: 'HiringManager',
+    displayName: 'Panel Member',
+    userId: 'usr-panel',
+    isSuperAdmin: false,
+    permissions: ['permission:scorecards:scorecards:submit'],
+  });
+});
 
 function renderPage() {
   return render(

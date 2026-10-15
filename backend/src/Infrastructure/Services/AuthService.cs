@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Application.Interfaces;
 using RecruitOps.Domain.Entities;
+using RecruitOps.Domain.Enums;
 using RecruitOps.Infrastructure.Persistence;
 
 namespace RecruitOps.Infrastructure.Services;
@@ -12,12 +13,15 @@ public class AuthService : IAuthService
     private readonly AppDbContext _db;
     private readonly IPasswordHasher<User> _hasher;
     private readonly ITokenService _tokens;
+    private readonly IPermissionEvaluator _permissions;
 
-    public AuthService(AppDbContext db, IPasswordHasher<User> hasher, ITokenService tokens)
+    public AuthService(
+        AppDbContext db, IPasswordHasher<User> hasher, ITokenService tokens, IPermissionEvaluator permissions)
     {
         _db = db;
         _hasher = hasher;
         _tokens = tokens;
+        _permissions = permissions;
     }
 
     /// <summary>A real hash of a password nobody has, verified against when the account does
@@ -55,6 +59,14 @@ public class AuthService : IAuthService
             return null;
 
         var token = _tokens.CreateToken(user);
-        return new LoginResponse(token.AccessToken, token.ExpiresAtUtc, user.Role.ToString(), user.DisplayName, user.Id);
+
+        // Only after the password has verified, so the lookup cannot become a timing oracle.
+        var permissions = await _permissions.GetEffectivePermissionsAsync(
+            user.Id, user.TenantId, new[] { user.Role.ToString() }, ct);
+
+        return new LoginResponse(
+            token.AccessToken, token.ExpiresAtUtc, user.Role.ToString(), user.DisplayName, user.Id,
+            permissions.Order(StringComparer.Ordinal).ToList(),
+            user.IsSuperAdmin || user.Role == UserRole.SuperAdmin);
     }
 }

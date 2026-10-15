@@ -150,6 +150,10 @@ public class DynamicAuthorizationEngineTests
         public Task<IReadOnlySet<string>> GetUserPermissionsAsync(Guid userId, Guid tenantId, CancellationToken ct = default)
             => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
 
+        public Task<IReadOnlySet<string>> GetEffectivePermissionsAsync(
+            Guid userId, Guid tenantId, IEnumerable<string> roleCodes, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
+
         public void InvalidateUserPermissionsCache(Guid userId, Guid tenantId) { }
         public void InvalidateRolePermissionsCache(Guid roleId) { }
     }

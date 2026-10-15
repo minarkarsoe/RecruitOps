@@ -8,7 +8,7 @@ import { roleService } from '../services/roleService';
 import { userService } from '../services/userService';
 import { auth } from '../lib/auth';
 import { api } from '../lib/api';
-import { mockPermissionsGrouped, mockRoles, mockRoleDetail, mockPagedUsers } from './rbacFixtures';
+import { mockPermissionsGrouped, mockRoles, mockRoleDetail, mockPagedUsers, adminDirectoryPermissions } from './rbacFixtures';
 
 vi.mock('../services/roleService', () => ({
   roleService: {
@@ -36,6 +36,16 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
+    // An Admin with the directory and role-builder permissions; sections below override it.
+    auth.set({
+      accessToken: 'token-admin',
+      expiresAtUtc: '2099-01-01T00:00:00Z',
+      role: 'Admin',
+      displayName: 'Admin User',
+      userId: 'usr-1',
+      isSuperAdmin: false,
+      permissions: adminDirectoryPermissions,
+    });
     (roleService.getRoles as any).mockResolvedValue(mockRoles);
     (roleService.getPermissions as any).mockResolvedValue(mockPermissionsGrouped);
     (roleService.getRoleById as any).mockResolvedValue(mockRoleDetail);
@@ -187,6 +197,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         displayName: 'Admin User',
         userId: 'usr-1',
         isSuperAdmin: false,
+        permissions: adminDirectoryPermissions,
       });
     });
 
@@ -338,14 +349,18 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
       };
       (userService.getUsers as any).mockResolvedValue(singleAdminOnlyPaged);
 
-      // Set logged in user as usr-recruiter (so usr-1 Deactivate button is not disabled by self safeguard)
+      // Signed in as a *second* administrator, so usr-1's Deactivate button is not disabled by
+      // the self-deactivation safeguard. This used to sign in as a Recruiter — a session the
+      // real app never produces on this screen (GET /api/users is AdminOnly), and one that only
+      // rendered the button because hasPermission failed open on a session with no list.
       auth.set({
-        accessToken: 'token-recruiter',
+        accessToken: 'token-admin-2',
         expiresAtUtc: '2099-01-01T00:00:00Z',
-        role: 'Recruiter',
-        displayName: 'Recruiter User',
-        userId: 'usr-recruiter',
+        role: 'Admin',
+        displayName: 'Second Admin',
+        userId: 'usr-admin-2',
         isSuperAdmin: false,
+        permissions: adminDirectoryPermissions,
       });
 
       render(<UsersPage />);
@@ -373,6 +388,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         displayName: 'Global Super Admin',
         userId: 'usr-super',
         isSuperAdmin: true,
+        permissions: [],
         activeTenantId: 'tenant-default',
         activeTenantName: 'Default Tenant',
       });
@@ -396,6 +412,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         displayName: 'Global Super Admin',
         userId: 'usr-super',
         isSuperAdmin: true,
+        permissions: [],
       });
 
       const handleTenantChange = vi.fn();
@@ -428,6 +445,7 @@ describe('Milestone 4 Empirical Challenge Test Suite', () => {
         displayName: 'Super Admin',
         userId: 'usr-super',
         isSuperAdmin: true,
+        permissions: [],
         activeTenantId: 'tenant-acme-corp',
         activeTenantName: 'Acme Corp',
       });

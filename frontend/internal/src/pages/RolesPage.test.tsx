@@ -2,7 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { RolesPage } from './RolesPage';
 import { roleService } from '../services/roleService';
-import { mockRoles, mockPermissionsGrouped, mockRoleDetail } from '../test/rbacFixtures';
+import { mockRoles, mockPermissionsGrouped, mockRoleDetail, adminDirectoryPermissions } from '../test/rbacFixtures';
+import { auth } from '../lib/auth';
 
 vi.mock('../services/roleService', () => ({
   roleService: {
@@ -18,6 +19,16 @@ vi.mock('../services/roleService', () => ({
 describe('RolesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
+    auth.set({
+      accessToken: 'token-admin',
+      expiresAtUtc: '2099-01-01T00:00:00Z',
+      role: 'Admin',
+      displayName: 'Admin User',
+      userId: 'usr-1',
+      isSuperAdmin: false,
+      permissions: adminDirectoryPermissions,
+    });
     (roleService.getRoles as any).mockResolvedValue(mockRoles);
     (roleService.getPermissions as any).mockResolvedValue(mockPermissionsGrouped);
     (roleService.getRoleById as any).mockResolvedValue(mockRoleDetail);

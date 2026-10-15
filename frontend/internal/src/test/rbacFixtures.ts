@@ -113,3 +113,20 @@ export const mockPagedUsers: PagedResult<UserListItem> = {
   totalCount: 2,
   totalPages: 1,
 };
+
+/**
+ * The user-directory and role-builder permissions the seed matrix grants an Admin. Test sessions
+ * must carry a list now that `hasPermission` fails closed — before 2026-10-15 a session with no
+ * list rendered every gated control, which is how these screens' tests passed against an API that
+ * never sent one.
+ */
+export const adminDirectoryPermissions: string[] = [
+  'permission:users:users:read',
+  'permission:users:users:create',
+  'permission:users:users:update',
+  'permission:users:users:delete',
+  'permission:roles:roles:read',
+  'permission:roles:roles:create',
+  'permission:roles:roles:update',
+  'permission:roles:roles:delete',
+];

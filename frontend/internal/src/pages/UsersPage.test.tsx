@@ -4,7 +4,7 @@ import { UsersPage } from './UsersPage';
 import { userService } from '../services/userService';
 import { roleService } from '../services/roleService';
 import { auth } from '../lib/auth';
-import { mockRoles, mockPagedUsers } from '../test/rbacFixtures';
+import { mockRoles, mockPagedUsers, adminDirectoryPermissions } from '../test/rbacFixtures';
 
 vi.mock('../services/userService', () => ({
   userService: {
@@ -34,6 +34,7 @@ describe('UsersPage', () => {
       displayName: 'Admin User',
       userId: 'usr-1',
       isSuperAdmin: false,
+      permissions: adminDirectoryPermissions,
     });
 
     (userService.getUsers as any).mockResolvedValue(mockPagedUsers);

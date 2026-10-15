@@ -32,11 +32,13 @@ export interface LoginResponse {
   role: UserRole;
   displayName: string;
   userId: string;
-  isSuperAdmin?: boolean;
+  /** Mirrors the API's SuperAdmin bypass. */
+  isSuperAdmin: boolean;
   tenantId?: string;
   activeTenantId?: string;
   activeTenantName?: string;
-  permissions?: string[];
+  /** The effective permission set the API enforces for this user, as of login. */
+  permissions: string[];
 }
 
 // ---------- RBAC & User Management (Milestone 4) ----------
