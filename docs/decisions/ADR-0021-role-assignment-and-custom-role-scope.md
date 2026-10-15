@@ -82,24 +82,36 @@ Interviewer base *is* the no-access enum.
    `Interviewer`.
 4. **The grantor ceiling** (precondition 1, below). Creating, editing or reactivating a role, and
    assigning a role to or reactivating a user, require the actor to hold
-   - every permission being *added* (on assignment and reactivation: every permission the role
-     carries), and
+   - every permission being *added* (on assignment, reactivation, and widening a role's base
+     role — a new base the old one does not cover — every permission the role carries), and
    - reach over the enum being given: `Admin ⊇ HrDirector ⊇ Recruiter ⊇ {HiringManager, Approver}
      ⊇ Interviewer` (`RoleScope.Covers`). The order follows the role policies — `AdminOnly`,
      `RecruitmentStaff`, `InternalUser` — plus the two scopes: HrDirector's company-wide
      requisition authority over Recruiter, HiringManager's department scope, Approver's
      candidate-data exclusion. `RoleScopeCoversTests` pins it against the live policies.
 
-   Managing — editing or deleting a role, changing a user's role, deactivating or reactivating a
-   user — also requires covering the *current* reach of that role or user: demoting is not a grant,
-   but a delegate should not be able to demote or lock out the people above them.
+   Managing — editing or deleting a role, editing a user (a rename too: it changes their
+   `@mention` handle), deactivating or reactivating a user — also requires covering the *current*
+   reach of that role or user: demoting is not a grant, but a delegate should not be able to
+   demote or lock out the people above them.
 
    SuperAdmin is exempt. A refusal is a 403. The actor's role and SuperAdmin flag are read from the
    token like every other authorization decision (safe because decision 5 of "in force" re-checks
    both against the database on every request); what the actor holds comes from the evaluator.
-5. **Interviewer** (precondition 3) is the role with **no standing reach**: no role policy admits
-   it, and it reaches an application only by sitting on its panel (ADR-0017 §4). That is what it
-   was in code already; it is now the documented meaning.
+5. **Interviewer** (precondition 3) is the role with **no standing reach**, and the narrowest on
+   every axis: no role policy admits it, `RoleScope` treats it as department-scoped *and* excluded
+   from candidate data, and it reaches an application only by sitting on its panel (ADR-0017 §4).
+   The first build left it company-wide in `RoleScope` — harmless while only role policies guarded
+   anything, but requisitions are permission-guarded, so an Interviewer-based role with
+   `requisitions:read` saw every department, and a department-scoped delegate could hand that out
+   (security review of option A, finding 1). Approve-only custom roles belong on an Approver base.
+
+**Accepted residuals** (security review of option A): the ceiling bounds each grant by the
+grantor's own matrix, so two delegates with different matrices can between them build a role
+neither could alone; a delegate can deactivate a *peer* (equal reach) whose matrix is richer, and
+cannot undo it; a role deactivated in the milliseconds between another admin's assignment read and
+save leaves that one holder on the base enum (no permissions — the evaluator still refuses).
+Option B, or a separation-of-duties rule, is where those close.
 
 Precondition 2 (over-broad seed grants) applies to option B — moving endpoints onto permissions —
 and stays open with it.

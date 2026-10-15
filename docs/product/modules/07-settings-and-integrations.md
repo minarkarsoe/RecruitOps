@@ -26,8 +26,10 @@ A custom role has two parts, both chosen by whoever builds it in the Role Builde
    (a Hiring Manager base sees only its own departments; an Approver base sees no candidate data).
    One of **HR Director, Recruiter, Hiring Manager, Approver, Interviewer**. Required; never
    Admin or SuperAdmin — admin reach is given by assigning the Admin system role, openly.
-   **Interviewer** reaches no role-policy screen at all, so an Interviewer-based role is "the
-   permissions I tick, and nothing else" — the right base for, say, an approve-only role.
+   **Interviewer** is the narrowest: no role-policy screen at all, only its own departments on
+   permission-guarded screens (requisitions), and candidates only on interview panels it sits on.
+   An approve-only role should use an **Approver** base — approvers must see requisitions from any
+   department, and an Interviewer base would hide them.
 2. **Permissions** — the matrix, which is the whole answer for permission-guarded endpoints
    (the RBAC screens, requisitions, approval chains — ADR-0022). Nothing is topped up from the
    base role's own matrix.
@@ -43,6 +45,10 @@ only:
   only SuperAdmin holds; and
 - give reach within their own: Admin ⊇ HR Director ⊇ Recruiter ⊇ {Hiring Manager, Approver}
   ⊇ Interviewer. A non-Admin can therefore never create or assign an Admin.
+
+Widening a role's base role counts as granting everything the role already carries, so it needs
+those permissions too; narrowing it does not. Editing anyone — even renaming them — needs reach
+over them.
 
 SuperAdmin is exempt. By default only Admins manage users and roles, so for everyone else this
 matters once an Admin delegates — e.g. a custom "HR Lead" role holding `users:create`.
