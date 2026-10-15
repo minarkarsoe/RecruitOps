@@ -101,6 +101,10 @@ const icons = {
     <path d="M2.5 4.5h11a1 1 0 011 1v5a1 1 0 01-1 1h-11a1 1 0 01-1-1v-5a1 1 0 011-1zM2.8 5l5.2 3.6L13.2 5"
       stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
   ),
+  audit: (
+    <path d="M4 2.5h6l2.5 2.5v8.5a.5.5 0 01-.5.5H4a.5.5 0 01-.5-.5v-10.5a.5.5 0 01.5-.5zM6 7.5h4.5M6 10h4.5M6 5h2"
+      stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  ),
   menu: (
     <path d="M2.5 4h11M2.5 8h11M2.5 12h11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
   ),
@@ -264,6 +268,8 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
       items: [
         { to: '/approvalchains', label: 'Approval chains', permission: 'permission:settings:settings:read', icon: icons.chains },
         { to: '/roles', label: 'Role Builder', permission: 'permission:roles:roles:read', icon: icons.roles },
+        // ADR-0027. Admin and HR Director hold system:audit by default.
+        { to: '/audit-log', label: 'Audit log', permission: 'permission:system:system:audit', icon: icons.audit },
       ],
     },
   ];

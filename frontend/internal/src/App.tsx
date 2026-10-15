@@ -19,6 +19,7 @@ import { UsersPage } from './pages/UsersPage';
 import { RolesPage } from './pages/RolesPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { DeliveryLogPage } from './pages/DeliveryLogPage';
+import { AuditLogPage } from './pages/AuditLogPage';
 
 export function App() {
   return (
@@ -80,6 +81,15 @@ export function App() {
             }
           />
           {/* Module 5 — Reporting & Analytics */}
+          {/* ADR-0027 — read by holders of system:audit; the API enforces the same permission. */}
+          <Route
+            path="/audit-log"
+            element={
+              <RequirePermission permission="permission:system:system:audit">
+                <AuditLogPage />
+              </RequirePermission>
+            }
+          />
           <Route path="/analytics" element={<AnalyticsPage />} />
 
           {/* ADR-0026 — the delivery log. No <RequirePermission> wrapper: reach here is not a

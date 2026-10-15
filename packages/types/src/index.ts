@@ -1121,3 +1121,45 @@ export interface DeliveryLogQuery {
 export * from './version';
 
 
+
+// ---------------------------------------------------------------------------
+// Audit log (ADR-0027) — mirrors `AuditLogEntryDto` and `AuditLogQuery`. Read-only: there is no
+// request type that edits or deletes an entry, because the API has no such endpoint.
+// ---------------------------------------------------------------------------
+
+export type AuditAction =
+  | 'SignInSucceeded'
+  | 'SignInFailed'
+  | 'UserCreated'
+  | 'UserUpdated'
+  | 'UserRoleChanged'
+  | 'UserDeactivated'
+  | 'UserReactivated'
+  | 'RoleCreated'
+  | 'RoleUpdated'
+  | 'RoleDeleted'
+  | 'AccessChangeRefused';
+
+/** The viewer's filter group, resolved server-side. `Refused` = failed sign-ins + blocked access changes. */
+export type AuditCategory = 'SignIns' | 'Users' | 'Roles' | 'Refused';
+
+export interface AuditLogEntry {
+  id: string;
+  occurredAt: string;
+  action: AuditAction | string;
+  /** Resolved server-side so the log and its filter cannot disagree about an action's name. */
+  actionLabel: string;
+  /** Someone was turned away. The only rows the viewer colours red. */
+  isRefusal: boolean;
+  actorUserId: string | null;
+  /** The actor's name at the time — or, for a failed sign-in, the email that was tried. */
+  actorName: string | null;
+  targetType: string | null;
+  targetId: string | null;
+  targetName: string | null;
+  summary: string;
+  /** Before/after, as stored. Never secrets. */
+  details: Record<string, unknown> | null;
+  ipAddress: string | null;
+  traceId: string | null;
+}
