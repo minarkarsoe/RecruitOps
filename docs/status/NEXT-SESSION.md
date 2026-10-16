@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-08-26 · **Backend 644/644 · Frontend 375/375 · typecheck clean · builds clean**
+**Last updated:** 2026-10-16 · **Backend 878/878 (102 Domain + 776 Api) · Frontend 463/463 · public 24/24 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
@@ -86,8 +86,9 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 >   ones; it does not remove old ones, and the directory now refuses to demote them.
 > - ~~Grantor ceiling~~ — **built** (ADR-0021 option A). Still open: the last-Admin floor is
 >   read-then-write, so two concurrent demotions can both pass.
-> - **Refresh tokens** are stored in plaintext, survive deactivation (and revive on reactivation
->   within 14 days), and `/api/auth/refresh` has no rate limit.
+> - ~~Refresh tokens~~ — **built** (ADR-0028): hashed at rest, ended on deactivation and
+>   reactivation, rate-limited. Still open: the HttpOnly-cookie move, purging old rows, and
+>   compare-and-set rotation (see the refresh-token note above).
 > - **`/api/version` is anonymous** and now reports the exact build commit and environment.
 > - **Login lowercases `Email` in SQL**, so it cannot use the unique index; fine at in-house scale.
 > - **`docker-compose.yml` runs Development** (pinned by `ChallengerM12ConfigPrecedenceTests`), so
