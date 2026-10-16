@@ -36,16 +36,16 @@ item, not a fixed platform.
 
 | # | Item | Why |
 |---|---|---|
-| 1 | ~~Docker / Compose packaging~~ ✅ **done** (unverified — never built) | [ADR-0015](../decisions/ADR-0015-containerisation.md) |
-| 2 | Automated EF migrations on startup | Unattended upgrades on customer hardware |
-| 3 | `/api/version` endpoint | Answer "which version is this customer on?" |
+| 1 | ~~Docker / Compose packaging~~ ✅ **done** — `docker-compose.prod.yml` run end to end 2026-10-16, with TLS and a private CV bucket | [ADR-0015](../decisions/ADR-0015-containerisation.md), [ADR-0029](../decisions/ADR-0029-production-edge-and-storage.md) |
+| 2 | ~~Automated EF migrations on startup~~ ✅ (a fresh prod install migrated and seeded itself, 2026-10-16; `Database:AutoMigrateOnStartup`) | Unattended upgrades on customer hardware |
+| 3 | ~~`/api/version` endpoint~~ ✅ | Answer "which version is this customer on?" |
 | 4 | Customer & version registry | Support triage |
 | 5 | Documented support policy (latest, latest-1) | Caps support cost |
 | 6 | Server sizing guide by company size | Prevents under-specced installs |
 | 7 | Backup & restore runbook | Especially for self-hosted customers |
 | 8 | Upgrade runbook, safe to run unattended | Upgrades happen on their server |
 
-Item 1 is now written (though never built). Items 2–8 do not exist yet.
+Items 1–3 are done (re-checked 2026-10-16 — this line said "never built" and "2–8 do not exist yet"). For 5–8, [deployment-runbook.md](deployment-runbook.md) and [server-sizing-guide.md](server-sizing-guide.md) have first drafts; the backup section covers Postgres only, not the CV storage volume. Item 4 does not exist.
 
 ## Subdomain routing
 

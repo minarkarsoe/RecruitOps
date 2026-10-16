@@ -44,6 +44,10 @@ graph TD
 1. **Add Domain to Cloudflare**: Change your domain nameservers to Cloudflare (e.g. `ns1.cloudflare.com`).
 2. **DNS Record**: Point `A` record for `company.recruitops.com` to your VPS IP address and ensure **Proxy status = Orange Cloud (Proxied)**.
 3. **SSL/TLS Setting**: Set SSL/TLS Encryption Mode to **Full (Strict)**.
+   - Strict needs a certificate on the server that Cloudflare trusts: create a **Cloudflare
+     Origin Certificate** (SSL/TLS → Origin Server), save it and its key as `fullchain.pem` and
+     `privkey.pem` in `TLS_CERT_DIR` (see `deployment-runbook.md`, section 0b). Never use
+     "Flexible" — it sends sign-ins from Cloudflare to the server unencrypted.
 4. **Enable Web Application Firewall (WAF)**: Enable Bot Fight Mode & Automatic HTTPS Rewrites.
 
 ---
@@ -68,7 +72,12 @@ Cloudflare Tunnel lets you close Port 80 and Port 443 on your VPS UFW Firewall c
    ```
 
 3. **Public Hostname Route**:
-   - Route `company.recruitops.com` → `http://nginx:80` inside Docker container network.
+   - Route `company.recruitops.com` → `https://proxy:443` inside the Docker network, with
+     **Origin Server Name** set to `company.recruitops.com` and a Cloudflare Origin Certificate in
+     `TLS_CERT_DIR` (the compose stack requires one either way).
+   - ⚠️ Not `http://proxy:80`: port 80 answers only certificate challenges and redirects
+     everything else to HTTPS (ADR-0029), so a tunnel pointed there loops. (This guide said
+     `http://nginx:80`; the service has always been called `proxy`.)
 
 ---
 

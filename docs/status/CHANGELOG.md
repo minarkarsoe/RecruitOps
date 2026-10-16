@@ -3,7 +3,47 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-15 (latest) — refresh-token review fixes (ADR-0028 §5–7)
+## 2026-10-16 (latest) — the production stack runs: TLS, a private CV bucket, a MinIO that exists (ADR-0029)
+
+`docker-compose.prod.yml` had never been started. Starting it found:
+
+- **It could not start.** `minio/minio` and `minio/mc` are gone from Docker Hub (404; upstream
+  retired the community edition). Both compose files now use **`chainguard/minio`** (the product
+  owner's choice), **pinned by digest** — one image for the server, its healthcheck and the
+  bucket job, since it carries `mc` and a shell. It runs as uid 65532, and on a volume written by
+  the old root-run image it exits "Unable to write to the backend" — so a one-shot
+  **`storage-init`** re-owns the volume first. Measured both ways.
+- **Every CV was public.** `mc anonymous set download` let an anonymous request list the bucket
+  (200) and download any CV (200). Nothing used it — CVs reach browsers only through the API. The
+  bucket job now sets it **private and reads the policy back on every start**; the API depends on
+  that job, so it does not start if the bucket cannot be closed. An old install's bucket is closed
+  by its next `up` (verified: 403 on old and new objects, old CV intact).
+- **There was no TLS.** 443 was published to nothing. nginx now serves the product on **443**
+  (TLS 1.2/1.3, HTTP/2, HSTS one year); 80 answers Let's Encrypt challenges and redirects the rest.
+  The certificate (`fullchain.pem` + `privkey.pem` in `TLS_CERT_DIR`) is **required** — compose
+  refuses to start without it. Runbook §0b covers Let's Encrypt (standalone first, webroot
+  renewals), Cloudflare Origin certificates and a customer CA.
+- **The public job page could not work.** Its `/_next/` scripts and stylesheets were routed to the
+  SPA, which answered each with `index.html` — unstyled page, form never hydrated. Routed to the
+  public app.
+- **A fresh install had no way to sign in** — the first-Administrator variables were not passed
+  through. They are now (the API's first-run-only rules unchanged).
+
+Verified with real containers (images built on the host — see NEXT-SESSION for why): upgrade and
+fresh install, full hiring flow over HTTPS, a CV uploaded and downloaded byte-identical through the
+API (401 without a token), browser apply + sign-in, spoofed `X-Forwarded-For` ignored, TLS 1.1 and
+weak ciphers refused, a forced bucket-job failure leaving the API unstarted.
+
+Docs: ADR-0029; runbook §0b and upgrade note; the VPS guide no longer says `certbot --nginx`
+(it would have fought the container for port 80); the Cloudflare guide's Tunnel pointed at
+`http://nginx:80` — a service that does not exist, on a port that now only redirects — and now
+says `https://proxy:443`; `deployment.md`'s checklist re-derived (it called compose "never built").
+
+Found, not fixed (separate changes, in Known gaps): the public form's blank phone is rejected
+(400 — applicants who skip it cannot apply); `System.Security.Cryptography.Xml` 10.0.10 carries
+three high advisories.
+
+## 2026-10-15 — refresh-token review fixes (ADR-0028 §5–7)
 
 Security review of the hardening (no Critical/High):
 - **M1 — the reuse alarm was ungated.** Replaying a rotated token wrote a permanent row every time,

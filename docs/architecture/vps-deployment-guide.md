@@ -54,6 +54,19 @@ POSTGRES_DB=recruitops_prod
 # Generated secret key >= 32 characters (e.g. openssl rand -base64 32)
 JWT_KEY=SuperSecretProductionJwtSigningKey2026_AtLeast32CharsLong!
 
+# Object storage (MinIO) credentials — the API uses these too
+MINIO_USER=recruitops-storage
+MINIO_PASSWORD=Use_Another_Strong_Random_Password_2026!
+
+# First Administrator — used only while the database has no users; 12+ character password.
+# Remove both once you have signed in.
+SEED_ADMIN_EMAIL=hr.admin@company.com
+SEED_ADMIN_PASSWORD=Use_A_Long_One_Time_Password_2026!
+
+# TLS certificate (Step 3) — required; the stack will not start without it
+TLS_CERT_DIR=/etc/recruitops/tls
+ACME_WEBROOT=/var/www/recruitops-acme
+
 # Feature Flag Add-on Toggles
 FeatureFlags__EnableAiProfiling=true
 FeatureFlags__EnableAnalytics=true
@@ -67,11 +80,18 @@ FeatureFlags__EnableFullTextSearch=true
 
 1. **DNS A Record**: Point your customer subdomain A Record to your VPS Public IP Address:
    - `company.recruitops.com` → `YOUR_VPS_IP`
-2. **Install Certbot**:
+2. **Issue the certificate before the stack starts** (port 80 must be free), and copy it to
+   `TLS_CERT_DIR` as `fullchain.pem` + `privkey.pem`:
    ```bash
-   sudo apt install -y certbot python3-certbot-nginx
-   sudo certbot --nginx -d company.recruitops.com
+   sudo apt install -y certbot
+   sudo certbot certonly --standalone -d company.recruitops.com
+   sudo install -d -m 700 /etc/recruitops/tls
+   sudo cp -L /etc/letsencrypt/live/company.recruitops.com/{fullchain,privkey}.pem /etc/recruitops/tls/
    ```
+   ⚠️ Not `certbot --nginx` and not `python3-certbot-nginx`: that installs a second nginx on the
+   host, which fights the container for port 80. The container *is* the web server (ADR-0029).
+3. **Renewals** run through the container once it is up — the exact `certbot renew --webroot`
+   command with its deploy hook is in [deployment-runbook.md](deployment-runbook.md), section 0b.
 
 ---
 

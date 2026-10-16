@@ -38,6 +38,59 @@ the server's own reason in `LastError`.
 
 ---
 
+## 0b. Install prerequisite — a TLS certificate (ADR-0029)
+
+**`docker compose -f docker-compose.prod.yml up` refuses to start without one** — the proxy
+serves the product only on 443, and port 80 only redirects. Put the certificate in a directory as
+exactly two files, and name that directory in `.env`:
+
+```env
+TLS_CERT_DIR=/etc/recruitops/tls        # holds fullchain.pem (leaf + intermediates) and privkey.pem
+ACME_WEBROOT=/var/www/recruitops-acme   # only for Let's Encrypt renewals (default ./infra/acme)
+```
+
+Which certificate:
+
+- **Let's Encrypt (most VPS installs).** Issue the first one *before* the stack is up, while
+  port 80 is free, then renew through the running proxy:
+  ```bash
+  sudo certbot certonly --standalone -d company.recruitops.com
+  sudo install -d -m 700 /etc/recruitops/tls
+  sudo cp -L /etc/letsencrypt/live/company.recruitops.com/{fullchain,privkey}.pem /etc/recruitops/tls/
+  ```
+  Renewal, once the stack is running (certbot's timer runs this; the hook copies the renewed files
+  and reloads nginx):
+  ```bash
+  sudo certbot renew --webroot -w /var/www/recruitops-acme \
+    --deploy-hook 'cp -L "$RENEWED_LINEAGE"/{fullchain,privkey}.pem /etc/recruitops/tls/ &&
+      docker compose -f /opt/recruitops/docker-compose.prod.yml exec -T proxy nginx -s reload'
+  ```
+  `cp -L` matters: `live/` holds symlinks into `archive/`, which do not resolve inside the
+  container. Do **not** use `certbot --nginx` — it installs and edits a host nginx, which
+  competes with the container for port 80.
+- **Behind Cloudflare** ("Full (strict)", or a Tunnel): a Cloudflare **Origin certificate**,
+  saved as the same two files. See `cloudflare-integration-guide.md`.
+- **The customer's own CA** (on premise): their certificate and key, as the same two files.
+
+Keep the key root-only (`700` directory, `600` key): nginx's master process reads it as root at
+startup, so it never needs to be world-readable (checked 2026-10-16). A missing file stops nginx
+at startup with the path in the message — `docker compose -f docker-compose.prod.yml logs proxy`.
+
+**HSTS is on** (one year): once a browser has visited, it will refuse plain HTTP *and* refuse to
+let a user click past a certificate warning for that host. Do not deploy with a self-signed or
+expired certificate.
+
+> **Upgrading an install from before 2026-10-16:** add the certificate first. The first `up`
+> also re-owns the storage volume for the new MinIO image (`storage-init`) and makes the CV
+> bucket private (`create-buckets`) — `docker compose logs storage-init create-buckets` should
+> end with `recruitops-cvs is private`. If that job fails, the API does not start, by design.
+
+> **Editing `infra/nginx/nginx.conf`:** apply it with `docker compose restart proxy`, not
+> `nginx -s reload`. It is bind-mounted as a single file, and once an editor has replaced the
+> file the container keeps reading the old one (measured 2026-10-16).
+
+---
+
 ## 1. Automated Database Migrations
 
 Automated, idempotent EF Core database migrations execute on backend application startup via `AppDbContext.Database.Migrate()`.
@@ -82,7 +135,8 @@ docker compose exec db pg_restore -U postgres -d recruitops --clean --if-exists 
 
 ### Upgrade Procedure
 1. Inspect deployment version: `curl https://<customer>.recruitops.com/api/version`.
-2. Take a database dump using Section 2.1.
+2. Take a database dump using Section 2.1. Upgrading from before 2026-10-16? Section 0b first —
+   the new compose file needs a certificate.
 3. Pull new release images: `docker compose -f docker-compose.prod.yml pull`.
 4. Restart services with zero-downtime container replacement:
    ```bash

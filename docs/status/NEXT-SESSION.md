@@ -8,6 +8,28 @@ pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
 
+> 🚢 **2026-10-16 — the production compose stack runs** ([ADR-0029](../decisions/ADR-0029-production-edge-and-storage.md)).
+> It had never been started. Now: MinIO from `chainguard/minio` (pinned by digest — `minio/minio`
+> is gone from Docker Hub), the CV bucket **private** and checked on every start (it allowed
+> anonymous list + download), **TLS on 443** at the bundled nginx with a required certificate
+> (`TLS_CERT_DIR`, runbook §0b), `/_next/` routed to the public app, and the first-Administrator
+> variables passed through. **Before deploying to an existing install:** put a certificate in
+> place first — `up` refuses without one.
+> Lessons, for anyone running the stack:
+> - **Run it, do not read it.** Every one of those five defects was invisible in review and
+>   obvious within minutes of `up`. The prod file had sat "done" since ADR-0015.
+> - **`nginx.conf` is a single-file bind mount** — after editing it, `docker compose restart
+>   proxy`. `nginx -s reload` silently kept the old file (the editor replaced the inode).
+> - **In this sandbox, `docker build` cannot restore packages** (the outbound proxy's CA is not
+>   trusted inside build containers, and BuildKit ignores locally re-tagged base images). Build on
+>   the host (`dotnet publish`, `npm run build`) and wrap the output in images that mirror the
+>   Dockerfiles' final stages — `dockerd` starts fine (`dockerd &`). Docker Hub's anonymous limit
+>   (100/hour) does bite; the window resets.
+> - **Found and left for their own change:** the public form's blank phone → 400 (applicants who
+>   skip it cannot apply), and `System.Security.Cryptography.Xml` 10.0.10's high advisories.
+>   Next on this line: a least-privilege MinIO account for the API, and storage in the backup
+>   runbook.
+>
 > 🔐 **2026-10-15 — security fixes merged into develop** (CHANGELOG has the list), then **ADR-0021
 > option A built** the same day: a custom role has a **base role** chosen in the Role Builder, its
 > holders carry that enum (Interviewer while the role is inactive), and a **grantor ceiling** stops

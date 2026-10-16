@@ -107,6 +107,7 @@ packages/
 | Backend format | `dotnet format` |
 | Backend build + test in Docker | `docker build --target test -t recruitops-test ./backend` |
 | Whole stack | `docker compose up --build` |
+| Production stack | `docker compose -f docker-compose.prod.yml up -d --build` — needs a certificate in `TLS_CERT_DIR` (`docs/architecture/deployment-runbook.md` §0b, ADR-0029) |
 | Internal SPA dev | `npm run dev:internal` (repo root) |
 | Public app dev | `npm run dev:public` (repo root) |
 | Frontend build | `npm run build` (repo root, all workspaces) |

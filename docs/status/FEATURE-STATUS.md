@@ -1,5 +1,12 @@
 # Feature Status
 
+> 🚢 **2026-10-16 — the production compose stack was run end to end for the first time**, and four
+> of its defects fixed ([ADR-0029](../decisions/ADR-0029-production-edge-and-storage.md)): MinIO's
+> images no longer exist (→ `chainguard/minio`, pinned), **the CV bucket allowed anonymous list and
+> download** (→ private, enforced on every start), **there was no TLS** (→ 443 at the bundled
+> nginx, certificate required), and the public job page's scripts were routed to the SPA. A fresh
+> prod install can now also create its first Administrator.
+
 > 🔐 **2026-10-15 — security fixes merged** (see CHANGELOG). Suites on the merged code: **backend
 > 878/878** (102 domain + 776 api), **frontend 463/463** (52 files) + **public 24/24**, typecheck clean,
 > both apps build. The SPA ran under its new CSP behind real nginx with zero violations.
@@ -64,7 +71,10 @@ Per-company install, subdomain routing. **Most prerequisites now exist — one r
 
 | Item | Status |
 |---|---|
-| Docker/Compose packaging | ✅ **verified running** — `docker-compose.yml` + `docker-compose.prod.yml` |
+| Docker/Compose packaging | ✅ **verified running** — `docker-compose.yml`; **`docker-compose.prod.yml` first run end to end 2026-10-16** (fresh install and an upgrade from a simulated old one; ADR-0029). Until then the prod file had never started — its MinIO image no longer exists |
+| TLS | ✅ **2026-10-16** — terminated at the bundled nginx on 443 (TLS 1.2/1.3, HTTP/2, HSTS 1 year); 80 only redirects and answers ACME. `TLS_CERT_DIR` is required — `up` refuses without it. Runbook §0b. It published 443 to nothing before |
+| CV storage private | ✅ **2026-10-16** — bucket set private and read back on every start; the API does not start if it cannot be. It was `anonymous download` in both compose files: list + fetch every CV with no credentials |
+| First Administrator on a prod install | ✅ **2026-10-16** — `SEED_ADMIN_EMAIL`/`PASSWORD` passed through (the API's first-run-only rules apply). Before, a fresh prod install had nobody who could sign in |
 | Feature-flag mechanism (add-on gating) | ✅ **done** — `FeatureFlagService`, `[FeatureGate]` |
 | Background job runner (bulk CV processing) | ✅ **done 2026-08-21** — `BulkResumeWorker` on ADR-0026's durable queue; see the block below for what it replaced |
 | Automated EF migrations on startup | ✅ **done** — `InitialCreate` generated |
@@ -530,11 +540,16 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | Role set is too coarse | 🟡 Medium | ADR-0018 needed a second axis because `Approver` fits neither "scoped" nor "sees everything". A third role reading candidate data will force the same question again |
 | Module 3 has no frontend | ✅ **fixed** | Five screens built 2026-07-28, first run 2026-07-29 |
 | No feature gating by tier (Mid vs Enterprise) | 🟡 Medium | Needed before first Enterprise deal (ADR-0011) |
-| No object-storage abstraction (R2 vs on-prem MinIO) | 🟡 Medium | ADR-0013 |
+| ~~No object-storage abstraction (R2 vs on-prem MinIO)~~ | ✅ **exists** | `IFileStorage` → `S3FileStorage` (AWSSDK.S3), used for CVs since 2026-08-21. Row re-checked 2026-10-16 |
 | No EF migration exists; DB schema never created | ✅ **fixed** | `InitialCreate` applies on startup |
 | No rate limiting / lockout on login | ✅ **fixed** | ADR-0016 — per-IP limiter + per-account throttle |
 | `LoginThrottle` counters are in-process | 🟡 Medium | Fine for one instance per company (ADR-0004). **Must move to Redis/DB before running two replicas for one customer**, or the effective limit becomes N × the configured value |
-| Compose publishes the API port, so `TrustForwardedHeaders` is off | 🟡 Medium | The per-IP limiter sees nginx, not the client. Production installs must drop the port mapping and enable the flag (ADR-0016) |
+| Compose publishes the API port, so `TrustForwardedHeaders` is off | 🟡 Medium (dev only) | The per-IP limiter sees nginx, not the client. **`docker-compose.prod.yml` already does both** — verified 2026-10-16: a spoofed `X-Forwarded-For` was ignored and the audit log recorded the real peer. Dev still publishes 5080 |
+| MinIO runs with its root credentials, which the API also uses | 🟡 Medium | ADR-0029 follow-up: a service account limited to the CV bucket. A leaked API config is today a storage admin key |
+| Storage volume not in the backup runbook | 🟡 Medium | Runbook §2 backs up Postgres only. CVs live in the `miniodata` volume (or R2); a restore from the runbook alone has rows pointing at missing files |
+| Dev compose publishes MinIO 9000/9001 on all interfaces with the `minioadmin` default | 🟢 Low | Bucket is private since 2026-10-16, but the default admin credentials are well known — anyone on the developer's LAN can log in. Bind to 127.0.0.1 |
+| Public apply fails when the optional phone is left blank | 🟠 High | Found 2026-10-16 running the prod stack in a browser: the form sends `"phone": ""`, `[Phone]` rejects it → 400, application not created. Same in dev. Not fixed here (separate change) |
+| `System.Security.Cryptography.Xml` 10.0.10 has three high-severity advisories | 🟠 High | `dotnet publish` warns NU1903 (direct reference in Infrastructure). Bump to the patched version |
 | No refresh token | ✅ **built, then hardened 2026-10-15** (ADR-0028) | Rotating refresh tokens, stored only as SHA-256 hashes, ended on deactivation, 30-day absolute sessions, rate-limited, rotated-token reuse audited (once per sweep, not for expired tokens or the client's own duplicate within 30 s); the SPA renews with the stored token, survives a 429 and revokes on sign-out. Open: kept in `sessionStorage` rather than an HttpOnly cookie; rotation not compare-and-set |
 | No edit/update on a Draft requisition | ✅ **fixed** | `PUT /api/requisitions/{id}`, Draft-only |
 | Frontend has **no tests at all** | ✅ **fixed** | Vitest wired into `frontend/internal`; 27 tests over Module 3's blind rule, scorecard payload rules and note rendering. Modules 1–2 screens are still untested |

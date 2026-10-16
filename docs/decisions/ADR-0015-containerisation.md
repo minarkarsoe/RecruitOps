@@ -61,6 +61,9 @@ first successful build** for anyone with Docker — and later it is what CI will
   first `docker compose up --build` — both container issues and the never-compiled C#.
 - No production compose/orchestration yet (reverse proxy, TLS, subdomain routing per
   ADR-0004), and no `/api/version` endpoint.
+  > **2026-10-16:** `docker-compose.prod.yml` now exists and has been run end to end, with TLS at
+  > its proxy — [ADR-0029](ADR-0029-production-edge-and-storage.md). The MinIO image this ADR
+  > assumed (`minio/minio`) no longer exists; ADR-0029 replaces it.
 - When [ADR-0012](ADR-0012-frontend-split.md) splits the frontend, `web` becomes **two**
   services (internal SPA + public SSR) behind the proxy.
 
