@@ -2,6 +2,15 @@
 # Quick start: cp .env.example .env && docker compose up --build
 name: recruitops
 
+# MinIO server, with `mc` and a shell in the same image — so it also runs the bucket job below.
+# ADR-0029: `minio/minio` and `minio/mc` no longer exist on Docker Hub (upstream retired the
+# community edition), so every `up` failed to pull. Chainguard rebuilds this from MinIO's source.
+# Pinned by digest because the free tier publishes only `latest`; bump it on purpose:
+#   docker pull chainguard/minio:latest
+#   docker image inspect chainguard/minio:latest --format '{{index .RepoDigests 0}}'
+# The same line is in docker-compose.prod.yml — change both.
+x-minio-image: &minio-image chainguard/minio:latest@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8
+
 services:
   db:
     # Do NOT lower this major version. A Postgres data directory cannot be downgraded in place:
@@ -25,10 +34,23 @@ services:
       timeout: 5s
       retries: 10
 
+  # One-shot, before MinIO starts: hand the data volume to the image's non-root user (65532).
+  # Volumes written before ADR-0029 belong to root (minio/minio ran as root), and on them the new
+  # image stops at once with "Unable to write to the backend". Measured 2026-10-16.
+  storage-init:
+    image: *minio-image
+    user: "0:0"
+    entrypoint: ["chown", "-R", "65532:65532", "/data"]
+    volumes:
+      - miniodata:/data
+
   # S3-compatible storage. Mirrors the on-premise path from ADR-0013
   # (hosted installs use Cloudflare R2 through the same abstraction).
   storage:
-    image: minio/minio:latest
+    image: *minio-image
+    depends_on:
+      storage-init:
+        condition: service_completed_successfully
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
@@ -44,19 +66,32 @@ services:
       timeout: 5s
       retries: 5
 
-  # Auto-creates the recruitops-cvs bucket in MinIO on startup
+  # Creates the CV bucket and makes it PRIVATE, on every start — so a bucket left public by an
+  # older version of this file is closed by the next `up`. Until ADR-0029 this set `anonymous
+  # download`, which let anyone who could reach port 9000 list every CV and fetch it with no
+  # credentials. Nothing needs that: CVs reach a browser only through the API
+  # (`GET /api/applications/{id}/resume`), which checks who is asking. If the bucket cannot be
+  # confirmed private this exits 1, and the API — which depends on it — does not start.
   create-buckets:
-    image: minio/mc:latest
+    image: *minio-image
     depends_on:
       storage:
         condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set myminio http://storage:9000 ${MINIO_USER:-minioadmin} ${MINIO_PASSWORD:-minioadmin};
-      /usr/bin/mc mb --ignore-existing myminio/recruitops-cvs;
-      /usr/bin/mc anonymous set download myminio/recruitops-cvs;
-      exit 0;
-      "
+    environment:
+      MINIO_USER: ${MINIO_USER:-minioadmin}
+      MINIO_PASSWORD: ${MINIO_PASSWORD:-minioadmin}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        mc alias set myminio http://storage:9000 "$$MINIO_USER" "$$MINIO_PASSWORD" > /dev/null
+        mc mb --ignore-existing myminio/recruitops-cvs
+        mc anonymous set none myminio/recruitops-cvs
+        case "$$(mc anonymous get myminio/recruitops-cvs)" in
+          *'`private`'*) echo "recruitops-cvs is private" ;;
+          *) echo "recruitops-cvs is NOT private - stopping" >&2; exit 1 ;;
+        esac
 
   backend:
     build:
@@ -72,6 +107,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      create-buckets:
+        condition: service_completed_successfully
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-recruitops};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"

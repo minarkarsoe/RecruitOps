@@ -2,6 +2,12 @@
 # Usage: docker compose -f docker-compose.prod.yml up -d --build
 name: recruitops-prod
 
+# MinIO server, with `mc` and a shell in the same image (ADR-0029 — `minio/minio` and `minio/mc`
+# no longer exist on Docker Hub). Pinned by digest; bump it on purpose, in BOTH compose files:
+#   docker pull chainguard/minio:latest
+#   docker image inspect chainguard/minio:latest --format '{{index .RepoDigests 0}}'
+x-minio-image: &minio-image chainguard/minio:latest@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8
+
 services:
   db:
     image: postgres:17-alpine
@@ -19,9 +25,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # One-shot, before MinIO starts: hand the data volume to the image's non-root user (65532).
+  # Installs from before ADR-0029 ran minio/minio as root, and on root-owned data the new image
+  # stops at once with "Unable to write to the backend" — so an upgrade without this loses storage.
+  storage-init:
+    image: *minio-image
+    user: "0:0"
+    entrypoint: ["chown", "-R", "65532:65532", "/data"]
+    volumes:
+      - miniodata:/data
+
   storage:
-    image: minio/minio:latest
+    image: *minio-image
     restart: always
+    depends_on:
+      storage-init:
+        condition: service_completed_successfully
     command: server /data
     environment:
       MINIO_ROOT_USER: ${MINIO_USER:?Set MINIO_USER in .env}
@@ -34,18 +53,32 @@ services:
       timeout: 5s
       retries: 5
 
+  # Creates the CV bucket and makes it PRIVATE, on every start — an install whose bucket was made
+  # public by an older version of this file is closed by its next `up`. That older version set
+  # `anonymous download`: anything that could reach the storage service could list every CV and
+  # fetch it with no credentials. Nothing needs it — CVs reach a browser only through the API,
+  # which checks who is asking. If the bucket cannot be confirmed private this exits 1, and the
+  # API does not start.
   create-buckets:
-    image: minio/mc:latest
+    image: *minio-image
     depends_on:
       storage:
         condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set myminio http://storage:9000 ${MINIO_USER} ${MINIO_PASSWORD};
-      /usr/bin/mc mb --ignore-existing myminio/recruitops-cvs;
-      /usr/bin/mc anonymous set download myminio/recruitops-cvs;
-      exit 0;
-      "
+    environment:
+      MINIO_USER: ${MINIO_USER}
+      MINIO_PASSWORD: ${MINIO_PASSWORD}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        mc alias set myminio http://storage:9000 "$$MINIO_USER" "$$MINIO_PASSWORD" > /dev/null
+        mc mb --ignore-existing myminio/recruitops-cvs
+        mc anonymous set none myminio/recruitops-cvs
+        case "$$(mc anonymous get myminio/recruitops-cvs)" in
+          *'`private`'*) echo "recruitops-cvs is private" ;;
+          *) echo "recruitops-cvs is NOT private - stopping" >&2; exit 1 ;;
+        esac
 
   backend:
     build:
@@ -59,6 +92,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      create-buckets:
+        condition: service_completed_successfully
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-recruitops};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
