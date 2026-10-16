@@ -138,10 +138,16 @@ docker compose exec db pg_restore -U postgres -d recruitops --clean --if-exists 
 2. Take a database dump using Section 2.1. Upgrading from before 2026-10-16? Section 0b first —
    the new compose file needs a certificate.
 3. Pull new release images: `docker compose -f docker-compose.prod.yml pull`.
-4. Restart services with zero-downtime container replacement:
+4. Rebuild **with `--pull`**, then restart:
    ```bash
-   docker compose -f docker-compose.prod.yml up -d --build
+   docker compose -f docker-compose.prod.yml build --pull
+   docker compose -f docker-compose.prod.yml up -d
    ```
+   `--pull` is what refreshes the .NET and Node base images. `up -d --build` alone reuses the
+   cached `aspnet:10.0` from the install's first build — and with it that day's runtime, whose
+   shared-framework copies of libraries such as `System.Security.Cryptography.Xml` are what the
+   API actually loads. Raising a package version in the repo does not patch those; a newer base
+   image does (2026-10-16: the advisories fixed in 10.0.13 needed both).
 5. Verify health: `curl https://<customer>.recruitops.com/health`.
 
 ---

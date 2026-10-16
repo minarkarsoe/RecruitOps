@@ -3,7 +3,30 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-16 (latest) — the production stack runs: TLS, a private CV bucket, a MinIO that exists (ADR-0029)
+## 2026-10-16 (latest) — `System.Security.Cryptography.Xml` and `.Pkcs` past their advisories
+
+`dotnet publish` warned NU1903: the pinned `System.Security.Cryptography.Xml` 10.0.10 sat inside
+three high advisories (GHSA-7hqp-7c5m-4vq6, GHSA-c399-9853-6jmj, GHSA-r955-8q5j-3h83, all
+`[10.0.0, 10.0.12]` per NuGet's vulnerability index). The full audit found a fourth and fifth:
+`System.Security.Cryptography.Pkcs` (GHSA-846f-f764-76mx high, GHSA-2fmv-rv2c-59x7 moderate) at
+10.0.10 transitively, and at **9.0.0 in Api**, where EF Design's tooling chain
+(`Microsoft.Build.Tasks.Core`) asks for it.
+
+- `Xml` → **10.0.13** in Infrastructure and Api.Tests (the existing pins; their comments now
+  record the history instead of naming 10.0.6 as the patched build). That lifts `Pkcs` to 10.0.13
+  everywhere except Api.
+- **Api pins `Pkcs` 10.0.13** — the `Xml` pin cannot reach it, because the .NET 10 SDK prunes
+  `Xml` from web projects (the ASP.NET Core shared framework provides it). A version override of a
+  package already in the graph, following the `Xml` precedent; no new dependency.
+- Result: `dotnet list package --vulnerable --include-transitive` reports none in all six
+  projects; build 0 warnings; 878/878 tests.
+- **What ships changed:** the published API now carries `Pkcs.dll` 10.0.13, which wins over the
+  shared framework's copy. `Xml` still loads from the framework, so a running install is patched
+  for it only when rebuilt on an `aspnet:10.0` image with runtime ≥ 10.0.13 (today's is). The
+  runbook's upgrade said `up -d --build`, which keeps the cached base image forever; it now says
+  `build --pull`.
+
+## 2026-10-16 — the production stack runs: TLS, a private CV bucket, a MinIO that exists (ADR-0029)
 
 `docker-compose.prod.yml` had never been started. Starting it found:
 
