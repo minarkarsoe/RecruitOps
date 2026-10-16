@@ -78,6 +78,34 @@ Cloudflare Tunnel lets you close Port 80 and Port 443 on your VPS UFW Firewall c
    - ⚠️ Not `http://proxy:80`: port 80 answers only certificate challenges and redirects
      everything else to HTTPS (ADR-0029), so a tunnel pointed there loops. (This guide said
      `http://nginx:80`; the service has always been called `proxy`.)
+   - cloudflared verifies the origin's certificate. A Cloudflare Origin certificate is accepted
+     as is (its `caPool` setting exists for certificates Cloudflare did not sign); keep **Origin
+     Server Name** equal to the hostname the certificate covers. Do not reach for `noTLSVerify`.
+
+---
+
+### ⚠️ Required for both methods: the visitor's real IP (not yet built — do before go-live)
+
+Behind Cloudflare, the TCP peer nginx sees is a Cloudflare edge server (Method A) or the
+`cloudflared` container (Method B), never the visitor. nginx passes that address on, so the API
+puts **every visitor in one login rate-limit bucket** — one attacker can lock everybody out of
+sign-in (ADR-0016) — and the audit log records Cloudflare's address for every sign-in (ADR-0027).
+`infra/nginx/nginx.conf` does not handle this yet (security review of ADR-0029, finding L6).
+
+The fix is nginx's `realip` module, in the 443 server block, above the `proxy_set_header` lines:
+```nginx
+real_ip_header CF-Connecting-IP;
+# Method A: every range at https://www.cloudflare.com/ips/ (they change — re-check yearly)
+set_real_ip_from 173.245.48.0/20;   # …and the rest of the list, IPv4 and IPv6
+# Method B: the Docker network cloudflared reaches the proxy from, e.g.
+# set_real_ip_from 172.16.0.0/12;
+```
+It is safe **only** if nothing but Cloudflare can reach the origin — otherwise anyone can send a
+forged `CF-Connecting-IP` straight to the server and choose their own address. Method A must
+restrict 443 to Cloudflare's ranges, and Method B must stop publishing 80/443 at all (remove the
+`ports:` from the proxy service). **Docker-published ports bypass UFW**: restrict them in the cloud
+provider's firewall or Docker's `DOCKER-USER` chain, not with `ufw deny`. None of this has been
+tested against Cloudflare yet; verify with a sign-in and check the IP the audit log records.
 
 ---
 

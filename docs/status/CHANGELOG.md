@@ -3,7 +3,35 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-16 (latest) — `System.Security.Cryptography.Xml` and `.Pkcs` past their advisories
+## 2026-10-16 (latest) — ADR-0029's security review: renewals that work, a bucket closed for real
+
+Review of the production-stack change: **no Critical or High**. Fixed:
+- **M1 — the documented certificate renewal would have failed**, and with HSTS an expired
+  certificate is an outage nobody can click past. The inline hook's `{a,b}` braces are literal to
+  certbot's `/bin/sh` (dash), and `--standalone` issuance makes every renewal want port 80, which
+  the proxy holds. Now `infra/certbot/deploy-hook.sh` (bash; atomic copy; key `600`; `nginx -t`
+  before reload; finds the install from its own path) and `--webroot` issuance through the running
+  proxy after a throwaway placeholder. **Rehearsed against Pebble**, Let's Encrypt's test CA:
+  issuance, a renewal from the saved config alone (served serial changed), `--dry-run` (the dry run pointed at Pebble with `--server`: `--dry-run` always switches to Let's Encrypt's staging CA, which the sandbox could not reach — in production that is what it should use). It also
+  showed nginx's reload notice on stderr made certbot log every renewal as a WARNING — moved to
+  stdout.
+- **M2 — published secrets that passed validation.** The API now refuses every JWT signing key the
+  repository has printed: the VPS guide's and `backend/src/Api/.env.example`'s were both accepted
+  (2 new test cases; a mutation removing one fails its test). The VPS guide leaves every secret
+  blank.
+- **L1 — closing the bucket was not complete** (measured): `set none` on the bucket leaves a
+  prefix-scoped rule readable, and a custom JSON policy lists as `=> none` while anonymous reads
+  work. The job removes every listed rule and requires policy `private`, no rules, and an
+  anonymous listing refused. Five policy shapes tested; with the closing steps disabled, it
+  refuses. An upgrade from a volume public through a prefix rule came up closed (403).
+- **L3** prod refuses `minioadmin`; **L8** `storage-init`: `chown -hR`, no network,
+  `no-new-privileges`, `CHOWN` + `DAC_READ_SEARCH` only (without the latter, every `up` after the
+  first failed — measured); **L9** only `/_next/static/` reaches Next; **L10/L11** runbook; **L12**
+  dev MinIO on loopback.
+- Left open on purpose (ADR-0029 lists them): L2, L4, L5, L6 (behind Cloudflare the API sees
+  Cloudflare's IP — documented as a required, untested step), L7.
+
+## 2026-10-16 — `System.Security.Cryptography.Xml` and `.Pkcs` past their advisories
 
 `dotnet publish` warned NU1903: the pinned `System.Security.Cryptography.Xml` 10.0.10 sat inside
 three high advisories (GHSA-7hqp-7c5m-4vq6, GHSA-c399-9853-6jmj, GHSA-r955-8q5j-3h83, all

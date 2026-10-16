@@ -14,7 +14,10 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 > anonymous list + download), **TLS on 443** at the bundled nginx with a required certificate
 > (`TLS_CERT_DIR`, runbook §0b), `/_next/` routed to the public app, and the first-Administrator
 > variables passed through. **Before deploying to an existing install:** put a certificate in
-> place first — `up` refuses without one.
+> place first — `up` refuses without one. Its security review (no Critical/High) then fixed a
+> renewal procedure that would have failed silently, published secrets the API accepted, and a
+> bucket job that missed prefix-scoped rules — all re-measured. **Open, and a blocker for any
+> Cloudflare install:** the API sees Cloudflare's IP (review L6; the Cloudflare guide says how).
 > Lessons, for anyone running the stack:
 > - **Run it, do not read it.** Every one of those five defects was invisible in review and
 >   obvious within minutes of `up`. The prod file had sat "done" since ADR-0015.

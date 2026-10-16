@@ -98,5 +98,34 @@ backend one on every push.
   change, building from source is the fallback, and the compose files change in one line each.
 - Not changed, still open: MinIO runs with its root credentials, which the API also uses (a
   least-privilege service account is the next step); storage backups are not in the runbook,
-  only Postgres; the dev compose file still publishes 9000/9001 on all interfaces with the
-  well-known `minioadmin` default.
+  only Postgres.
+
+## Security review (2026-10-16) — no Critical or High; what changed
+
+- **M1 — the documented renewal would have failed.** The inline deploy hook used `{a,b}` brace
+  expansion, which certbot's `/bin/sh` (dash) leaves literal, and the first issuance used
+  `--standalone`, which renewals repeat — needing port 80 the proxy holds. With HSTS, an expired
+  certificate is an outage nobody can click past. Now: `infra/certbot/deploy-hook.sh` (bash,
+  atomic copy, key `600`, `nginx -t` before reload), and issuance through the running proxy with
+  `--webroot` after a throwaway placeholder. **Rehearsed against Pebble** (Let's Encrypt's test
+  CA): issue, then a renewal from the saved config alone (served serial changed), then `--dry-run` (the dry run pointed at Pebble with `--server`: `--dry-run` always switches to Let's Encrypt's staging CA, which the sandbox could not reach — in production that is what it should use).
+- **M2 — published secrets that passed validation.** The VPS guide's example passwords and JWT
+  key were long enough to be accepted. The guide now leaves every secret blank (a blank secret
+  stops `up`), and the API refuses **every signing key the repository has printed** — the VPS
+  guide's and `backend/src/Api/.env.example`'s were both accepted until now.
+- **L1 — closing the bucket was not complete.** Measured: `mc anonymous set none` on the bucket
+  leaves a rule scoped to a prefix in place (the policy reads `custom`, files stay readable), and
+  a custom JSON policy granting `GetObject` *lists* as `=> none`. The job now removes every listed
+  rule too, then requires all three: policy `private`, no rules listed, and an anonymous listing
+  refused. Tested against five policy shapes, and with the closing steps disabled (it refuses).
+- **L3** prod refuses `minioadmin`; **L8** `storage-init` runs `chown -hR` with no network,
+  `no-new-privileges`, and only `CHOWN` + `DAC_READ_SEARCH` (measured: without the second, every
+  `up` after the first fails); **L9** only `/_next/static/` reaches Next; **L10/L11** runbook:
+  remove the seed and recreate, `install -m 600` for keys; **L12** dev MinIO on loopback.
+- **Left open, deliberately:** **L4** — the proxy headers stay at server level (which protects
+  every *new* location) with a warning against per-location headers, rather than an `include` in
+  each location (which would protect against the other mistake); **L5** — redirects and the
+  catch-all follow the `Host` header (needs a configured hostname; low risk in a one-company
+  install); **L6** — behind Cloudflare the API sees Cloudflare's address: documented as a
+  required, untested step in the Cloudflare guide; **L2** — the policy is enforced on `up`, not on
+  `restart`; **L7** — no signature check or scanning of the pinned image yet.

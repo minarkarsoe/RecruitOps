@@ -51,26 +51,49 @@ ACME_WEBROOT=/var/www/recruitops-acme   # only for Let's Encrypt renewals (defau
 
 Which certificate:
 
-- **Let's Encrypt (most VPS installs).** Issue the first one *before* the stack is up, while
-  port 80 is free, then renew through the running proxy:
+- **Let's Encrypt (most VPS installs)** — issued and renewed *through the running proxy*, so
+  nothing ever needs port 80 but the container. Rehearsed end to end on 2026-10-16 against
+  Pebble (Let's Encrypt's test CA): issue, renewal from the saved config alone, dry run (the dry run pointed at Pebble with `--server`: `--dry-run` always switches to Let's Encrypt's staging CA, which the sandbox could not reach — in production that is what it should use).
+  1. A throwaway placeholder, so the proxy can start before the real certificate exists:
+     ```bash
+     sudo install -d -m 700 /etc/recruitops/tls
+     sudo install -d -m 755 /var/www/recruitops-acme
+     sudo openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=placeholder" \
+       -keyout /etc/recruitops/tls/privkey.pem -out /etc/recruitops/tls/fullchain.pem
+     sudo chmod 600 /etc/recruitops/tls/privkey.pem
+     ```
+     Browsers warn on it, and ignore the HSTS header sent over it (RFC 6797 §8.1) — it pins
+     nothing. Do not hand the URL out until step 3 is done.
+  2. `docker compose -f docker-compose.prod.yml up -d`
+  3. Issue, registering the repo's deploy hook with this certificate:
+     ```bash
+     sudo certbot certonly --webroot -w /var/www/recruitops-acme -d company.recruitops.com \
+       --deploy-hook /opt/recruitops/infra/certbot/deploy-hook.sh
+     ```
+     The hook (bash, so certbot's `/bin/sh` cannot mangle it) copies the certificate into
+     `TLS_CERT_DIR` — key `600`, atomically — then runs `nginx -t` and reloads. It finds the
+     install from its own path, so it works wherever the repo is cloned. Certbot saves
+     `authenticator = webroot` and the hook in `/etc/letsencrypt/renewal/<name>.conf`, so the
+     packaged timer's plain `certbot renew` uses both, and the hook fires for this certificate
+     only.
+  4. **Prove renewal works — mandatory:** `sudo certbot renew --dry-run`. Then check what is
+     served: `echo | openssl s_client -connect localhost:443 -servername company.recruitops.com
+     2>/dev/null | openssl x509 -noout -issuer -enddate`.
+
+  ⚠️ Do **not** use `certbot --nginx` (it installs a host nginx that fights the container for
+  port 80) or `--standalone` (it needs port 80 free, so every renewal would fail while the stack
+  runs). An earlier version of this section did both, with an inline hook whose `{a,b}` braces
+  `/bin/sh` (dash) leaves literal — renewals would have failed silently (security review,
+  2026-10-16).
+- **Behind Cloudflare** ("Full (strict)", or a Tunnel): a Cloudflare **Origin certificate**. See
+  `cloudflare-integration-guide.md`. Install it as below.
+- **The customer's own CA** (on premise): their certificate (with intermediates) and key:
   ```bash
-  sudo certbot certonly --standalone -d company.recruitops.com
-  sudo install -d -m 700 /etc/recruitops/tls
-  sudo cp -L /etc/letsencrypt/live/company.recruitops.com/{fullchain,privkey}.pem /etc/recruitops/tls/
+  sudo install -m 644 -o root -g root chain.pem /etc/recruitops/tls/fullchain.pem
+  sudo install -m 600 -o root -g root key.pem   /etc/recruitops/tls/privkey.pem
+  docker compose -f docker-compose.prod.yml exec -T proxy sh -c 'nginx -t && nginx -s reload'
   ```
-  Renewal, once the stack is running (certbot's timer runs this; the hook copies the renewed files
-  and reloads nginx):
-  ```bash
-  sudo certbot renew --webroot -w /var/www/recruitops-acme \
-    --deploy-hook 'cp -L "$RENEWED_LINEAGE"/{fullchain,privkey}.pem /etc/recruitops/tls/ &&
-      docker compose -f /opt/recruitops/docker-compose.prod.yml exec -T proxy nginx -s reload'
-  ```
-  `cp -L` matters: `live/` holds symlinks into `archive/`, which do not resolve inside the
-  container. Do **not** use `certbot --nginx` — it installs and edits a host nginx, which
-  competes with the container for port 80.
-- **Behind Cloudflare** ("Full (strict)", or a Tunnel): a Cloudflare **Origin certificate**,
-  saved as the same two files. See `cloudflare-integration-guide.md`.
-- **The customer's own CA** (on premise): their certificate and key, as the same two files.
+  Renewal is then the customer's process; diary the expiry date.
 
 Keep the key root-only (`700` directory, `600` key): nginx's master process reads it as root at
 startup, so it never needs to be world-readable (checked 2026-10-16). A missing file stops nginx
@@ -84,6 +107,15 @@ expired certificate.
 > also re-owns the storage volume for the new MinIO image (`storage-init`) and makes the CV
 > bucket private (`create-buckets`) — `docker compose logs storage-init create-buckets` should
 > end with `recruitops-cvs is private`. If that job fails, the API does not start, by design.
+> The job removes every anonymous rule, including ones scoped to a folder, which overrides any
+> public access someone set on purpose — there is none the product needs. It also refuses the
+> published `minioadmin` credentials. It runs on `up`, not on `restart`: after changing storage
+> policy by hand, run `up -d` again.
+
+> **After the first sign-in,** remove `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from `.env` and
+> run `docker compose -f docker-compose.prod.yml up -d` — the container keeps the values in its
+> environment until it is recreated, and if the database were ever emptied while they were still
+> set, a new Administrator with that password would be created on the next start.
 
 > **Editing `infra/nginx/nginx.conf`:** apply it with `docker compose restart proxy`, not
 > `nginx -s reload`. It is bind-mounted as a single file, and once an editor has replaced the

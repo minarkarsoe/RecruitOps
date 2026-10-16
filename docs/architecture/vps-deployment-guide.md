@@ -45,23 +45,27 @@ cp .env.example .env
 nano .env
 ```
 
-**Required `.env` Production Settings**:
+**Required `.env` Production Settings** — every secret is left **blank on purpose**: generate
+each one on the server (`openssl rand -base64 36`) and paste it in. Copying a value from a document
+means everyone who has read the document shares your password; until 2026-10-16 this guide
+printed example values that the API accepted, and the API now refuses the signing key it printed.
+A blank secret stops `up` with a clear message, which is the point.
 ```env
 POSTGRES_USER=recruitops_admin
-POSTGRES_PASSWORD=Use_A_Very_Strong_Random_DB_Password_2026!
+POSTGRES_PASSWORD=
 POSTGRES_DB=recruitops_prod
 
-# Generated secret key >= 32 characters (e.g. openssl rand -base64 32)
-JWT_KEY=SuperSecretProductionJwtSigningKey2026_AtLeast32CharsLong!
+# Signing key, 32+ bytes:  openssl rand -base64 48
+JWT_KEY=
 
-# Object storage (MinIO) credentials — the API uses these too
+# Object storage (MinIO) credentials — the API uses these too. `minioadmin` is refused.
 MINIO_USER=recruitops-storage
-MINIO_PASSWORD=Use_Another_Strong_Random_Password_2026!
+MINIO_PASSWORD=
 
-# First Administrator — used only while the database has no users; 12+ character password.
-# Remove both once you have signed in.
-SEED_ADMIN_EMAIL=hr.admin@company.com
-SEED_ADMIN_PASSWORD=Use_A_Long_One_Time_Password_2026!
+# First Administrator — used only while the database has no users; 12+ characters.
+# Remove both and run `up -d` again once you have signed in (runbook, section 0b).
+SEED_ADMIN_EMAIL=
+SEED_ADMIN_PASSWORD=
 
 # TLS certificate (Step 3) — required; the stack will not start without it
 TLS_CERT_DIR=/etc/recruitops/tls
@@ -80,18 +84,13 @@ FeatureFlags__EnableFullTextSearch=true
 
 1. **DNS A Record**: Point your customer subdomain A Record to your VPS Public IP Address:
    - `company.recruitops.com` → `YOUR_VPS_IP`
-2. **Issue the certificate before the stack starts** (port 80 must be free), and copy it to
-   `TLS_CERT_DIR` as `fullchain.pem` + `privkey.pem`:
-   ```bash
-   sudo apt install -y certbot
-   sudo certbot certonly --standalone -d company.recruitops.com
-   sudo install -d -m 700 /etc/recruitops/tls
-   sudo cp -L /etc/letsencrypt/live/company.recruitops.com/{fullchain,privkey}.pem /etc/recruitops/tls/
-   ```
-   ⚠️ Not `certbot --nginx` and not `python3-certbot-nginx`: that installs a second nginx on the
-   host, which fights the container for port 80. The container *is* the web server (ADR-0029).
-3. **Renewals** run through the container once it is up — the exact `certbot renew --webroot`
-   command with its deploy hook is in [deployment-runbook.md](deployment-runbook.md), section 0b.
+2. **Certificate: follow [deployment-runbook.md](deployment-runbook.md), section 0b**, in order —
+   a throwaway placeholder, `up -d`, then `certbot certonly --webroot` with the repo's deploy
+   hook (`sudo apt install -y certbot` first), then `certbot renew --dry-run`. The certificate is
+   issued and renewed through the running container, so nothing else may listen on port 80.
+   ⚠️ Not `certbot --nginx` / `python3-certbot-nginx` (a second nginx on the host, fighting the
+   container for port 80) and not `--standalone` (needs port 80 free, so renewals fail while the
+   stack runs). This step said both until 2026-10-16.
 
 ---
 
