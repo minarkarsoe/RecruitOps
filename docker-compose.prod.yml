@@ -7,6 +7,7 @@ name: recruitops-prod
 # no longer exist on Docker Hub). Pinned by digest; bump it on purpose, in BOTH compose files:
 #   docker pull chainguard/minio:latest
 #   docker image inspect chainguard/minio:latest --format '{{index .RepoDigests 0}}'
+# Pinned 2026-10-16: `minio --version` = RELEASE.2026-09-22T19-25-18Z, image built 2026-10-13.
 x-minio-image: &minio-image chainguard/minio:latest@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8
 
 services:
@@ -32,7 +33,14 @@ services:
   storage-init:
     image: *minio-image
     user: "0:0"
-    entrypoint: ["chown", "-R", "65532:65532", "/data"]
+    # -h: re-own a symlink itself, never what it points at. Root, but with no network and only the
+    # two capabilities this needs: CHOWN, and DAC_READ_SEARCH to enter MinIO's 700 directories,
+    # which belong to 65532 from the second run on (without it every later `up` fails — measured).
+    entrypoint: ["chown", "-hR", "65532:65532", "/data"]
+    network_mode: none
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_READ_SEARCH]
+    security_opt: ["no-new-privileges:true"]
     volumes:
       - miniodata:/data
 
@@ -73,13 +81,28 @@ services:
       - -c
       - |
         set -eu
-        mc alias set myminio http://storage:9000 "$$MINIO_USER" "$$MINIO_PASSWORD" > /dev/null
-        mc mb --ignore-existing myminio/recruitops-cvs
-        mc anonymous set none myminio/recruitops-cvs
-        case "$$(mc anonymous get myminio/recruitops-cvs)" in
-          *'`private`'*) echo "recruitops-cvs is private" ;;
-          *) echo "recruitops-cvs is NOT private - stopping" >&2; exit 1 ;;
+        # The API uses these same credentials. The published default would make every CV readable
+        # by anything that can reach storage:9000, private bucket or not.
+        case "$$MINIO_USER:$$MINIO_PASSWORD" in
+          minioadmin:* | *:minioadmin) echo "MINIO_USER / MINIO_PASSWORD are the published default - set your own in .env" >&2; exit 1 ;;
         esac
+        mc alias set myminio http://storage:9000 "$$MINIO_USER" "$$MINIO_PASSWORD" > /dev/null
+        mc alias set anonymous http://storage:9000 "" "" > /dev/null
+        mc mb --ignore-existing myminio/recruitops-cvs
+        # `set none` on the bucket does NOT remove a rule scoped to a prefix (measured: it reports
+        # `custom` and the files stay readable), so each listed rule is removed as well.
+        mc anonymous set none myminio/recruitops-cvs
+        mc anonymous list myminio/recruitops-cvs | while IFS= read -r rule; do
+          prefix=$${rule%% => *}
+          mc anonymous set none "myminio/$${prefix%\*}"
+        done
+        # Three independent checks. The listing alone is not enough: a custom JSON policy granting
+        # GetObject lists as "=> none" while anonymous reads succeed (measured 2026-10-16).
+        fail() { echo "recruitops-cvs is NOT private ($$1) - stopping" >&2; exit 1; }
+        case "$$(mc anonymous get myminio/recruitops-cvs)" in *'`private`'*) ;; *) fail "policy is not private" ;; esac
+        [ -z "$$(mc anonymous list myminio/recruitops-cvs)" ] || fail "anonymous rules remain"
+        if mc ls anonymous/recruitops-cvs > /dev/null 2>&1; then fail "listable without credentials"; fi
+        echo "recruitops-cvs is private"
 
   backend:
     build:
