@@ -34,12 +34,14 @@ services:
     image: *minio-image
     user: "0:0"
     # -h: re-own a symlink itself, never what it points at. Root, but with no network and only the
-    # two capabilities this needs: CHOWN, and DAC_READ_SEARCH to enter MinIO's 700 directories,
-    # which belong to 65532 from the second run on (without it every later `up` fails — measured).
+    # two capabilities this needs: CHOWN, and DAC_OVERRIDE to enter MinIO's 700 directories, which
+    # belong to 65532 from the second run on (without it every later `up` fails — measured). Not
+    # DAC_READ_SEARCH, which also does it but re-enables open_by_handle_at, the syscall behind the
+    # "Shocker" container breakout; DAC_OVERRIDE is in Docker's default set anyway.
     entrypoint: ["chown", "-hR", "65532:65532", "/data"]
     network_mode: none
     cap_drop: [ALL]
-    cap_add: [CHOWN, DAC_READ_SEARCH]
+    cap_add: [CHOWN, DAC_OVERRIDE]
     security_opt: ["no-new-privileges:true"]
     volumes:
       - miniodata:/data
@@ -96,6 +98,13 @@ services:
           prefix=$${rule%% => *}
           mc anonymous set none "myminio/$${prefix%\*}"
         done
+        # A hand-written policy (wildcards mid-path, conditions, s3:Get*) survives both, and some
+        # shapes are not listed at all. Replace the whole document with an empty one, then reset.
+        case "$$(mc anonymous get myminio/recruitops-cvs)" in *'`private`'*) ;; *)
+          printf '%s' '{"Version":"2012-10-17","Statement":[]}' > /tmp/no-anonymous.json
+          mc anonymous set-json /tmp/no-anonymous.json myminio/recruitops-cvs
+          mc anonymous set none myminio/recruitops-cvs ;;
+        esac
         # Three independent checks. The listing alone is not enough: a custom JSON policy granting
         # GetObject lists as "=> none" while anonymous reads succeed (measured 2026-10-16).
         fail() { echo "recruitops-cvs is NOT private ($$1) - stopping" >&2; exit 1; }
