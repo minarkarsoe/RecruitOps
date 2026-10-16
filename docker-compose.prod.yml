@@ -101,6 +101,12 @@ services:
       Jwt__Issuer: recruitops
       Jwt__Audience: recruitops-api
       Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env - must be at least 32 characters}
+      # First Administrator. Outside Development the API uses these ONLY while the database has
+      # no users at all, needs a 12+ character password, and ignores them afterwards — remove
+      # both from .env once the install is up. Until ADR-0029 this file did not pass them, so a
+      # fresh production install had no way to create anyone who could sign in.
+      Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-}
+      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
       # ADR-0016: Crucial for production security. Rate limiter trusts X-Forwarded-For because
       # backend port is not published to the host.
       ReverseProxy__TrustForwardedHeaders: "true"
