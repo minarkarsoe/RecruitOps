@@ -17,26 +17,45 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RECRUITOPS_DIR="${RECRUITOPS_DIR:-$(cd "$script_dir/../.." && pwd)}"
 : "${RENEWED_LINEAGE:?certbot sets this; run me as a --deploy-hook}"
 
-env_file="$RECRUITOPS_DIR/.env"
-tls_dir="$(sed -n 's/^TLS_CERT_DIR=//p' "$env_file" | tail -n 1)"
-tls_dir="${tls_dir%\"}"; tls_dir="${tls_dir#\"}"
+compose=(docker compose -f "$RECRUITOPS_DIR/docker-compose.prod.yml")
+
+# Where the certificate goes: whatever directory is mounted into the running proxy at
+# /etc/nginx/certs — the only path that matters, asked of Docker rather than parsed out of .env
+# (comments, quotes, `export` and CRLF all broke a .env parser; ADR-0029 re-review, N2).
+proxy_id="$("${compose[@]}" ps -q proxy)"
+if [[ -z "$proxy_id" ]]; then
+  echo "deploy-hook: the proxy container is not running" >&2
+  exit 1
+fi
+tls_dir="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/etc/nginx/certs"}}{{.Source}}{{end}}{{end}}' "$proxy_id")"
 if [[ -z "$tls_dir" || ! -d "$tls_dir" ]]; then
-  echo "deploy-hook: TLS_CERT_DIR in $env_file is unset or not a directory" >&2
+  echo "deploy-hook: no certificate directory is mounted at /etc/nginx/certs in the proxy" >&2
   exit 1
 fi
 
-# Copy under temporary names, then rename into place: nginx is never offered half a file, and the
-# key is never readable by anyone but root, even for a moment. `install` reads through the
-# symlinks certbot keeps in live/ (they point into archive/, which the container cannot see).
+# Copy under temporary names, keep the current pair, then rename into place: nginx is never
+# offered half a file, and the key is never readable by anyone but root, even for a moment.
+# `install` reads through the symlinks certbot keeps in live/ (they point into archive/, which
+# the container cannot see).
 install -m 644 -o root -g root "$RENEWED_LINEAGE/fullchain.pem" "$tls_dir/.fullchain.pem.new"
 install -m 600 -o root -g root "$RENEWED_LINEAGE/privkey.pem" "$tls_dir/.privkey.pem.new"
+for f in fullchain.pem privkey.pem; do
+  if [[ -e "$tls_dir/$f" ]]; then cp -p "$tls_dir/$f" "$tls_dir/.$f.prev"; fi
+done
 mv -f "$tls_dir/.fullchain.pem.new" "$tls_dir/fullchain.pem"
 mv -f "$tls_dir/.privkey.pem.new" "$tls_dir/privkey.pem"
 
-# Test before reloading: a reload with a broken file would leave nginx on the old certificate
-# without saying so; `nginx -t` fails loudly, and certbot reports the hook's failure. The reload's
-# own "[notice] signal process started" goes to stdout — on stderr, certbot logs every successful
-# renewal as a WARNING.
-docker compose -f "$RECRUITOPS_DIR/docker-compose.prod.yml" exec -T proxy \
-  sh -c 'nginx -t -q && nginx -s reload 2>&1'
+# Test before reloading. If the new pair does not load, put the old one back: otherwise nginx keeps
+# running on the old certificate in memory, but the next container restart would not start at all.
+if ! "${compose[@]}" exec -T proxy nginx -t -q; then
+  for f in fullchain.pem privkey.pem; do
+    if [[ -e "$tls_dir/.$f.prev" ]]; then mv -f "$tls_dir/.$f.prev" "$tls_dir/$f"; fi
+  done
+  echo "deploy-hook: nginx rejected the new certificate; the previous one is back in place" >&2
+  exit 1
+fi
+rm -f "$tls_dir/.fullchain.pem.prev" "$tls_dir/.privkey.pem.prev"
+# The reload's own "[notice] signal process started" goes to stdout — on stderr, certbot logs every
+# successful renewal as a WARNING.
+"${compose[@]}" exec -T proxy nginx -s reload 2>&1
 echo "deploy-hook: installed $(basename "$RENEWED_LINEAGE") into $tls_dir and reloaded the proxy"
