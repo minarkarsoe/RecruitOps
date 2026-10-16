@@ -101,6 +101,8 @@ public class InstallBootstrapTests
     /// stopped an install using it — anyone who has read the repository could then mint tokens.</summary>
     [Theory]
     [InlineData("dev-only-signing-key-change-me-at-least-32-chars")] // the published example
+    [InlineData("CHANGE_ME_use_a_long_random_secret_at_least_32_bytes")] // backend/src/Api/.env.example
+    [InlineData("SuperSecretProductionJwtSigningKey2026_AtLeast32CharsLong!")] // the VPS guide, until 2026-10-16
     [InlineData("too-short-key")]
     public void Production_Refuses_A_Known_Or_Short_Signing_Key(string key)
     {

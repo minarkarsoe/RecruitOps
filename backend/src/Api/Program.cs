@@ -295,9 +295,18 @@ var app = builder.Build();
 // configuration source — environment, files, a test host's settings — has been applied.
 if (!app.Environment.IsDevelopment())
 {
-    const string PublishedExampleKey = "dev-only-signing-key-change-me-at-least-32-chars";
+    // Every key this repository has ever printed. The second and third were placeholders in
+    // backend/src/Api/.env.example and docs/architecture/vps-deployment-guide.md — long enough to
+    // pass the length check, so an install that copied one started happily (security review of
+    // ADR-0029, 2026-10-16). Add to this list, never remove from it.
+    string[] publishedKeys =
+    [
+        "dev-only-signing-key-change-me-at-least-32-chars",
+        "CHANGE_ME_use_a_long_random_secret_at_least_32_bytes",
+        "SuperSecretProductionJwtSigningKey2026_AtLeast32CharsLong!",
+    ];
     var signingKey = app.Configuration["Jwt:Key"] ?? string.Empty;
-    if (Encoding.UTF8.GetByteCount(signingKey) < 32 || signingKey == PublishedExampleKey)
+    if (Encoding.UTF8.GetByteCount(signingKey) < 32 || publishedKeys.Contains(signingKey))
         throw new InvalidOperationException(
             "Jwt:Key must be a secret of at least 32 bytes, not the example value. Generate one per install.");
 }
