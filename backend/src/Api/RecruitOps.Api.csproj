@@ -7,6 +7,15 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
+    <!-- Security: pin the transitive System.Security.Cryptography.Pkcs (added 2026-10-16). EF Design's
+         tooling chain (Microsoft.Build.Tasks.Core 17.14) asks for 9.0.0, inside GHSA-846f-f764-76mx
+         (high) and GHSA-2fmv-rv2c-59x7, which cover [9.0.0,9.0.20] and [10.0.0,10.0.12].
+         Infrastructure's System.Security.Cryptography.Xml pin does not reach this project: the
+         .NET 10 SDK prunes that package from web projects (the ASP.NET Core shared framework
+         provides it), so nothing here lifts Pkcs. At runtime the shared framework's copy wins
+         either way — this keeps the restore graph clean, and NuGet audit quiet for a real reason.
+         Keep it in step with the Xml pin in RecruitOps.Infrastructure.csproj. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
   </ItemGroup>
