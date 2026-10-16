@@ -30,6 +30,12 @@ Review of the production-stack change: **no Critical or High**. Fixed:
   dev MinIO on loopback.
 - Left open on purpose (ADR-0029 lists them): L2, L4, L5, L6 (behind Cloudflare the API sees
   Cloudflare's IP — documented as a required, untested step), L7.
+- **Re-review: no new Critical/High; four Lows fixed.** `storage-init` uses `DAC_OVERRIDE` rather
+  than `DAC_READ_SEARCH` (which re-enables the "Shocker" syscall); the hook reads the certificate
+  directory from the proxy's mount instead of parsing `.env` (an inline comment broke it) and
+  restores the previous pair if nginx rejects the new one; the runbook runs the hook by hand,
+  since a dry run skips it; hand-written bucket policies are replaced with an empty document —
+  twelve policy shapes tested, all closed.
 
 ## 2026-10-16 — `System.Security.Cryptography.Xml` and `.Pkcs` past their advisories
 

@@ -49,7 +49,8 @@ nano .env
 each one on the server (`openssl rand -base64 36`) and paste it in. Copying a value from a document
 means everyone who has read the document shares your password; until 2026-10-16 this guide
 printed example values that the API accepted, and the API now refuses the signing key it printed.
-A blank secret stops `up` with a clear message, which is the point.
+A blank database, storage or signing secret stops `up` with a clear message, which is the point;
+blank `SEED_ADMIN_*` simply creates no Administrator, so you would find out at the sign-in page.
 ```env
 POSTGRES_USER=recruitops_admin
 POSTGRES_PASSWORD=

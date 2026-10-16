@@ -122,6 +122,16 @@ backend one on every push.
   `no-new-privileges`, and only `CHOWN` + `DAC_READ_SEARCH` (measured: without the second, every
   `up` after the first fails); **L9** only `/_next/static/` reaches Next; **L10/L11** runbook:
   remove the seed and recreate, `install -m 600` for keys; **L12** dev MinIO on loopback.
+- **Re-review (same day): no new Critical/High; four Lows, all fixed.** N1 — `DAC_READ_SEARCH`
+  re-enables `open_by_handle_at` (the "Shocker" breakout syscall); `storage-init` now uses
+  `DAC_OVERRIDE`, measured to work on repeated runs. N2 — the hook's `.env` parsing broke on the
+  runbook's own example (inline comment); it now asks Docker which directory is mounted into the
+  proxy. N3 — a dry run skips deploy hooks; the runbook adds a manual hook run, the hook restores
+  the previous pair if `nginx -t` rejects the new one (tested with a mismatched key), and the
+  clone must be root-owned. N4 — seven hand-written policy shapes (mid-path wildcards,
+  conditions, `s3:Get*`, a conditioned `ListBucket`, …) made the job stop but left the bucket
+  readable; it now replaces the document with an empty one and resets — all twelve shapes tested
+  end closed.
 - **Left open, deliberately:** **L4** — the proxy headers stay at server level (which protects
   every *new* location) with a warning against per-location headers, rather than an `include` in
   each location (which would protect against the other mistake); **L5** — redirects and the

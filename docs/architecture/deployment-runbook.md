@@ -45,8 +45,10 @@ serves the product only on 443, and port 80 only redirects. Put the certificate 
 exactly two files, and name that directory in `.env`:
 
 ```env
-TLS_CERT_DIR=/etc/recruitops/tls        # holds fullchain.pem (leaf + intermediates) and privkey.pem
-ACME_WEBROOT=/var/www/recruitops-acme   # only for Let's Encrypt renewals (default ./infra/acme)
+# Holds fullchain.pem (leaf + intermediates) and privkey.pem
+TLS_CERT_DIR=/etc/recruitops/tls
+# Only for Let's Encrypt (default ./infra/acme)
+ACME_WEBROOT=/var/www/recruitops-acme
 ```
 
 Which certificate:
@@ -70,15 +72,28 @@ Which certificate:
      sudo certbot certonly --webroot -w /var/www/recruitops-acme -d company.recruitops.com \
        --deploy-hook /opt/recruitops/infra/certbot/deploy-hook.sh
      ```
-     The hook (bash, so certbot's `/bin/sh` cannot mangle it) copies the certificate into
-     `TLS_CERT_DIR` — key `600`, atomically — then runs `nginx -t` and reloads. It finds the
-     install from its own path, so it works wherever the repo is cloned. Certbot saves
+     The hook (bash, so certbot's `/bin/sh` cannot mangle it) copies the certificate into the
+     directory actually mounted into the proxy — key `600`, atomically — then runs `nginx -t`
+     and reloads. It finds the install from its own path, so it works wherever the repo is
+     cloned, and asks Docker for the mount rather than parsing `.env`. Certbot saves
      `authenticator = webroot` and the hook in `/etc/letsencrypt/renewal/<name>.conf`, so the
      packaged timer's plain `certbot renew` uses both, and the hook fires for this certificate
      only.
-  4. **Prove renewal works — mandatory:** `sudo certbot renew --dry-run`. Then check what is
-     served: `echo | openssl s_client -connect localhost:443 -servername company.recruitops.com
-     2>/dev/null | openssl x509 -noout -issuer -enddate`.
+  4. **Prove renewal works — mandatory, both halves.** `sudo certbot renew --dry-run` proves the
+     challenge path, but a dry run **skips deploy hooks**, so also run the hook once by hand (it
+     is idempotent):
+     ```bash
+     sudo RENEWED_LINEAGE=/etc/letsencrypt/live/company.recruitops.com \
+       /opt/recruitops/infra/certbot/deploy-hook.sh
+     echo | openssl s_client -connect localhost:443 -servername company.recruitops.com \
+       2>/dev/null | openssl x509 -noout -issuer -enddate
+     ```
+     The issuer must be Let's Encrypt, not `placeholder`. If nginx rejects a certificate the hook
+     puts the previous pair back and exits 1 — certbot reports it, and nothing goes dark.
+
+  certbot runs the hook **as root, from the clone**: keep `/opt/recruitops` owned by root and not
+  writable by group or others (`sudo chown -R root:root /opt/recruitops && sudo chmod -R go-w
+  /opt/recruitops`), or whoever can edit that file can run commands as root.
 
   ⚠️ Do **not** use `certbot --nginx` (it installs a host nginx that fights the container for
   port 80) or `--standalone` (it needs port 80 free, so every renewal would fail while the stack
@@ -107,8 +122,9 @@ expired certificate.
 > also re-owns the storage volume for the new MinIO image (`storage-init`) and makes the CV
 > bucket private (`create-buckets`) — `docker compose logs storage-init create-buckets` should
 > end with `recruitops-cvs is private`. If that job fails, the API does not start, by design.
-> The job removes every anonymous rule, including ones scoped to a folder, which overrides any
-> public access someone set on purpose — there is none the product needs. It also refuses the
+> The job removes every anonymous rule — whole-bucket, scoped to a folder, or a hand-written JSON
+> policy (replaced with an empty one) — which overrides any public access someone set on purpose;
+> there is none the product needs. Tested against twelve policy shapes, 2026-10-16. It also refuses the
 > published `minioadmin` credentials. It runs on `up`, not on `restart`: after changing storage
 > policy by hand, run `up -d` again.
 
