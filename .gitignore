@@ -21,6 +21,8 @@ next-env.d.ts
 !.env.example
 *.local.json
 infra/secrets/
+# Default ACME_WEBROOT (docker-compose.prod.yml): Let's Encrypt challenge files, never committed
+infra/acme/
 
 # IDE / OS
 .vs/

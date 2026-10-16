@@ -1,5 +1,6 @@
 # Production Docker Compose topology for RecruitOps per-company install (ADR-0004 & ADR-0015 & ADR-0016).
 # Usage: docker compose -f docker-compose.prod.yml up -d --build
+# Needs a TLS certificate first — docs/architecture/deployment-runbook.md, section 0b (ADR-0029).
 name: recruitops-prod
 
 # MinIO server, with `mc` and a shell in the same image (ADR-0029 — `minio/minio` and `minio/mc`
@@ -141,11 +142,18 @@ services:
   proxy:
     image: nginx:alpine
     restart: always
+    # 443 serves the product; 80 only answers certificate renewals and redirects to 443
+    # (infra/nginx/nginx.conf, ADR-0029).
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # The certificate, as `fullchain.pem` + `privkey.pem`. Required: without it this file would
+      # serve sign-in, passwords and CVs over plain HTTP, which is what it did before ADR-0029.
+      - ${TLS_CERT_DIR:?Set TLS_CERT_DIR in .env - a directory holding fullchain.pem and privkey.pem}:/etc/nginx/certs:ro
+      # Let's Encrypt renewals: `certbot renew --webroot -w $ACME_WEBROOT` writes challenges here.
+      - ${ACME_WEBROOT:-./infra/acme}:/var/www/acme:ro
     depends_on:
       - backend
       - frontend-internal
