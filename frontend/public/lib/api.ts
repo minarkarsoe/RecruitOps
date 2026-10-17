@@ -11,6 +11,36 @@ function baseUrl(): string {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api';
 }
 
+/**
+ * A non-2xx answer. `message` never carries server text — `app/error.tsx` renders it to strangers
+ * — so the ProblemDetails `detail` travels separately, and each caller decides whether that
+ * status's wording is fit to show. Only the apply endpoint's 409s are written for the public
+ * (`PublicJobsController`); everything else stays behind a message the caller writes itself.
+ */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    statusText: string,
+    readonly detail: string | null,
+  ) {
+    super(`API ${status}: ${statusText}`);
+    this.name = 'ApiError';
+  }
+}
+
+async function problemDetail(res: Response): Promise<string | null> {
+  try {
+    const body: unknown = await res.json();
+    if (typeof body === 'object' && body !== null && 'detail' in body) {
+      const { detail } = body as { detail: unknown };
+      return typeof detail === 'string' && detail.trim() ? detail : null;
+    }
+  } catch {
+    // Not JSON (a proxy's HTML error page, an empty body): there is no detail to carry.
+  }
+  return null;
+}
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${baseUrl()}${path}`, {
     cache: 'no-store',
@@ -23,6 +53,6 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     // ever written for this app.
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });
-  if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
+  if (!res.ok) throw new ApiError(res.status, res.statusText, await problemDetail(res));
   return res.json() as Promise<T>;
 }

@@ -5,7 +5,7 @@ import type {
   ApplicationFormField, SubmitApplicationRequest, SubmitApplicationResponse,
 } from '@recruitops/types';
 import { parseFormFields } from '@recruitops/types';
-import { api } from '../../../lib/api';
+import { api, ApiError } from '../../../lib/api';
 
 /**
  * The application form (Module 2.2).
@@ -60,10 +60,8 @@ export function ApplicationForm({
         { method: 'POST', body: JSON.stringify(payload) },
       );
       setDone(res.message);
-    } catch {
-      // No server detail is echoed: this page is public, and the API's messages are not
-      // written for strangers.
-      setError('Something went wrong sending your application. Please try again.');
+    } catch (e) {
+      setError(failureMessage(e));
     } finally {
       setBusy(false);
     }
@@ -170,6 +168,27 @@ export function ApplicationForm({
       </form>
     </>
   );
+}
+
+/**
+ * What the applicant is told when sending fails. A generic "try again" is right only when trying
+ * again could help: until 2026-10-16 it was the answer to everything, so an applicant to a closed
+ * vacancy, or one who had skipped a required question, was invited to retry forever.
+ *
+ * Server wording is shown for a 409 only — the apply endpoint's 409s are written for the
+ * applicant and say what to do (`PublicJobsController`; e.g. "Please answer: Years of
+ * experience"). Nothing else from the server reaches this public page: a 400 is a malformed
+ * contact detail, said here in our own words, and a 500's text is internal.
+ */
+function failureMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    if (e.status === 409 && e.detail) return e.detail;
+    if (e.status === 400)
+      return 'Please check your email address and phone number — one of them does not look right.';
+    if (e.status === 429)
+      return 'Too many applications have been sent from your connection. Please wait a few minutes and try again.';
+  }
+  return 'Something went wrong sending your application. Please try again.';
 }
 
 // Built against `design/public/apply.html`.

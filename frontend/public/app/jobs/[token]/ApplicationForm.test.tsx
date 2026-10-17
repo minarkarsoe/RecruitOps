@@ -3,11 +3,16 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ApplicationFormField } from '@recruitops/types';
 import { ApplicationForm } from './ApplicationForm';
+import { ApiError } from '../../../lib/api';
 
 // The form talks to the API through `lib/api`, which is covered by its own tests. Mocking it
 // here keeps these tests about the form's behaviour rather than about fetch.
+// `ApiError` stays the real class: the form tells statuses apart with `instanceof`.
 const apiMock = vi.hoisted(() => vi.fn());
-vi.mock('../../../lib/api', () => ({ api: apiMock }));
+vi.mock('../../../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../lib/api')>()),
+  api: apiMock,
+}));
 
 const TOKEN = 'tok_abc123';
 
@@ -167,6 +172,49 @@ describe('failure is not a leak', () => {
     await screen.findByRole('alert');
     expect(screen.getByLabelText(/full name/i)).toHaveValue('Daw Moe Moe Aung');
     expect(screen.getByRole('button', { name: /submit application/i })).toBeEnabled();
+  });
+});
+
+describe('failure says what to do, when the applicant can do something', () => {
+  // Until 2026-10-16 every failure was "something went wrong, try again" — so an applicant who
+  // had skipped a required question, or applied to a vacancy that had just closed, was invited to
+  // retry forever.
+  async function submitWith(error: unknown) {
+    const user = userEvent.setup();
+    apiMock.mockRejectedValue(error);
+    renderForm();
+    await user.type(screen.getByLabelText(/full name/i), 'A');
+    await user.type(screen.getByLabelText(/^email$/i), 'a@example.com');
+    await user.click(screen.getByRole('button', { name: /submit application/i }));
+    return screen.findByRole('alert');
+  }
+
+  it('shows a 409’s message, which the apply endpoint writes for the applicant', async () => {
+    const alert = await submitWith(new ApiError(409, 'Conflict', 'Please answer: Years of experience'));
+    expect(alert).toHaveTextContent('Please answer: Years of experience');
+  });
+
+  it('answers a 400 in its own words, never the validator’s', async () => {
+    const alert = await submitWith(
+      new ApiError(400, 'Bad Request', 'The Phone field is not a valid phone number.'),
+    );
+    expect(alert).toHaveTextContent(/check your email address and phone number/i);
+    expect(document.body.textContent).not.toMatch(/The Phone field/);
+  });
+
+  it('asks the applicant to wait when they have been rate-limited', async () => {
+    const alert = await submitWith(new ApiError(429, 'Too Many Requests', null));
+    expect(alert).toHaveTextContent(/wait a few minutes/i);
+  });
+
+  it('falls back to the generic message for a 409 with nothing to say', async () => {
+    const alert = await submitWith(new ApiError(409, 'Conflict', null));
+    expect(alert).toHaveTextContent(/something went wrong sending your application/i);
+  });
+
+  it('keeps a 500’s detail off the page even when the server sent one', async () => {
+    await submitWith(new ApiError(500, 'Internal Server Error', 'NullReferenceException at CandidateService:88'));
+    expect(document.body.textContent).not.toMatch(/CandidateService|NullReference/);
   });
 });
 

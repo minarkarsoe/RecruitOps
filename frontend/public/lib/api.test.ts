@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { api } from './api';
+import { api, ApiError } from './api';
 
 /**
  * `api()` picks a different base URL depending on whether it is running in Node (a Server
@@ -150,5 +150,30 @@ describe('api() request shape', () => {
     await expect(api<{ title: string }>('/public/jobs/abc')).resolves.toEqual({
       title: 'Sales Executive',
     });
+  });
+});
+
+describe('api() failures', () => {
+  // `message` is rendered to strangers by app/error.tsx, so it must never carry server text; the
+  // ProblemDetails detail travels separately for the callers that may show it (the apply form,
+  // for a 409 only).
+  it('throws an ApiError carrying the status and the ProblemDetails detail separately', async () => {
+    mockFetch({ title: 'Cannot apply', detail: 'Please answer: Years of experience' },
+      { ok: false, status: 409, statusText: 'Conflict' });
+    const err = await api('/public/jobs/t/apply').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(409);
+    expect((err as ApiError).detail).toBe('Please answer: Years of experience');
+    expect((err as ApiError).message).toBe('API 409: Conflict');
+  });
+
+  it('has no detail when the error body is not JSON', async () => {
+    globalThis.fetch = vi.fn(async () => ({
+      ok: false, status: 502, statusText: 'Bad Gateway',
+      json: async () => { throw new SyntaxError('Unexpected token <'); },
+    })) as unknown as typeof fetch;
+    const err = await api('/public/jobs/t').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).detail).toBeNull();
   });
 });
