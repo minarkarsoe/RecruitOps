@@ -26,18 +26,26 @@ public record SubmitApplicationRequest
     [Required, StringLength(200, MinimumLength = 1)]
     public string FullName { get; init; } = string.Empty;
 
+    // A field the applicant skipped arrives from the browser as "", never absent — the form posts
+    // its whole state. "" means "not given", so it becomes null here, as the JSON is read and
+    // before validation runs: [EmailAddress] and [Phone] accept null but reject "". Until
+    // 2026-10-16 that turned away everyone who gave only one way to reach them — which the form
+    // explicitly invites — with a 400 about a field they had left empty. What was typed is still
+    // validated; the service normalises it further (ContactNormalizer).
     [EmailAddress, StringLength(256)]
-    public string? Email { get; init; }
+    public string? Email { get; init => field = NullIfBlank(value); }
 
     [Phone, StringLength(30)]
-    public string? Phone { get; init; }
+    public string? Phone { get; init => field = NullIfBlank(value); }
 
     [StringLength(4000)]
-    public string? CoverNote { get; init; }
+    public string? CoverNote { get; init => field = NullIfBlank(value); }
 
     /// <summary>Answers to the posting's custom fields, as a JSON object.</summary>
     [StringLength(8000)]
     public string? CustomFieldsJson { get; init; }
+
+    private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }
 
 /// <summary>Confirmation shown to the applicant.

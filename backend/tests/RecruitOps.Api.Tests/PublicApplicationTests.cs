@@ -175,6 +175,67 @@ public class PublicApplicationTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal(a!.Single().CandidateId, b!.Single().CandidateId);
     }
 
+    /// <summary>What the browser actually sends: the form's state as JSON, so a field the applicant
+    /// skipped arrives as <c>""</c>, never absent. The typed requests above serialise a skipped field
+    /// as <c>null</c>, which is why none of them caught that <c>[Phone]</c> and
+    /// <c>[EmailAddress]</c> rejected <c>""</c> — and with it every applicant who gave only one way
+    /// to reach them, which the form explicitly invites (found 2026-10-16, in a real browser).</summary>
+    private Task<HttpResponseMessage> ApplyAsBrowserAsync(
+        string token, string fullName, string email, string phone, string coverNote = "") =>
+        Anonymous().PostAsync($"/api/public/jobs/{token}/apply", new StringContent(
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                fullName,
+                email,
+                phone,
+                coverNote,
+                customFieldsJson = (string?)null,
+            }),
+            System.Text.Encoding.UTF8, "application/json"));
+
+    [Theory]
+    [InlineData("only.email@example.com", "", "only.email@example.com", null)]
+    [InlineData("", "09 444 555 666", null, "09444555666")]
+    [InlineData("spaces.phone@example.com", "   ", "spaces.phone@example.com", null)]
+    [InlineData("  ", "+95 9 777 888 999", null, "09777888999")]
+    public async Task A_Blank_Contact_Field_From_The_Form_Means_Not_Given(
+        string email, string phone, string? storedEmail, string? storedPhone)
+    {
+        var posting = await LivePostingAsync($"Sales Role blank {Guid.NewGuid():N}");
+
+        var res = await ApplyAsBrowserAsync(posting.PublicToken!, "Blank Field", email, phone);
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+
+        var item = Assert.Single((await Internal(Roles.Recruiter)
+            .GetFromJsonAsync<List<PipelineItemDto>>($"/api/jobpostings/{posting.Id}/pipeline"))!);
+        // Stored as absent, not as "" — an empty string would be a value duplicate detection
+        // could match every other blank against.
+        Assert.Equal(storedEmail, item.Email);
+        Assert.Equal(storedPhone, item.Phone);
+    }
+
+    [Fact]
+    public async Task Both_Contact_Fields_Blank_Is_Refused_For_Having_None_Not_As_Malformed()
+    {
+        var posting = await LivePostingAsync("Sales Role both blank");
+
+        var res = await ApplyAsBrowserAsync(posting.PublicToken!, "No Contact", "", "");
+
+        // The service's own rule (409, a message for the applicant), not a validation 400 about a
+        // "phone number" they never typed.
+        Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_Malformed_Phone_Is_Still_Refused()
+    {
+        var posting = await LivePostingAsync("Sales Role bad phone");
+
+        var res = await ApplyAsBrowserAsync(posting.PublicToken!, "Bad Phone", "", "call me maybe");
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
     [Fact]
     public async Task An_Application_With_No_Contact_Details_Is_Refused()
     {
