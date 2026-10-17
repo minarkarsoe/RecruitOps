@@ -28,6 +28,13 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 >   the host (`dotnet publish`, `npm run build`) and wrap the output in images that mirror the
 >   Dockerfiles' final stages — `dockerd` starts fine (`dockerd &`). Docker Hub's anonymous limit
 >   (100/hour) does bite; the window resets.
+> - **Walk every menu as every role before calling a role "done"** (2026-10-17). Doing it found a
+>   Recruiter reading every user's email, two HR Director dead ends, and an Interviewer role with
+>   no working screen — none visible to the test suite, whose permission tests often send a role
+>   header on the *Admin's* id: `[HasPermission]` reads the user's role from the database, so
+>   those callers were Admins. Use a real user of the role (`GovernanceReachTests` shows how).
+>   The crawl scripts are simple Playwright: sign in, read `nav[aria-label=Main] a`, open each,
+>   record 4xx/5xx, page errors and `[role=alert]`.
 > - **Phones typed in Burmese digits now match** (2026-10-17, migration
 >   `NormalizeBurmeseDigitPhones`). People it had already split into two candidates stay split
 >   until a person merges them (the merge UI is still unbuilt). Before deploying to a large install,

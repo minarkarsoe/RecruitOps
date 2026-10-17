@@ -76,7 +76,7 @@ screen you need is not there, say so rather than improvising a twenty-sixth styl
 - **Frontend**: **two apps** — Vite + React SPA (`frontend/internal`, authenticated dashboards) and Next.js SSR (`frontend/public`, job pages + Open Graph previews). Shared design system via `packages/ui`, shared API types via `packages/types`. npm workspaces at the repo root.
 - **Database**: PostgreSQL on AWS RDS, EF Core migrations, JSONB for customer-defined fields
 - **Object storage**: Cloudflare R2 behind an S3-compatible abstraction (MinIO for on-prem)
-- **Auth & Dynamic RBAC**: Self-issued JWT bearer (8h) + rotating refresh tokens — **stored only as SHA-256 hashes**, ended on deactivation, capped at `Jwt:SessionMaxDays` (30) per sign-in, rate-limited (ADR-0028). The access token carries `sub`, `tenant_id`, the role claim (`Admin` / `HrDirector` / `Recruiter` / `HiringManager` / `Approver` / `Interviewer`; a custom-role holder carries its role's **base role**, or `Interviewer` while the role is inactive — ADR-0021 option A) and `is_super_admin`. **Every request re-checks the token's account** (exists, active, same role and SuperAdmin flag) in `OnTokenValidated`. Permissions are **not** in the token: login and refresh return the evaluator's set (`permission:module:feature:action`) for the UI, whose `hasPermission` fails closed. `[HasPermission(...)]` guards the RBAC endpoints and, since ADR-0022, requisitions and approval chains — and the evaluator's answer is final (no role-claim fallback). The rest of the hiring surface is still guarded by **role policies** (`RecruitmentStaff` / `InternalUser` / `AdminOnly` + `RoleScope`). SuperAdmin bypasses `[HasPermission]` and is never assignable through the API. **Nobody grants what they do not hold**: creating, editing or assigning a role, or reactivating a user, passes the grantor ceiling (`IGrantorCeiling` — the actor must hold every permission granted and cover the reach given, `RoleScope.Covers`). **Every access change, sign-in and ceiling refusal is written to the append-only audit log** (`IAuditTrail`, ADR-0027): `RecordAsync` in the same `SaveChanges` as the change, `RecordStandaloneAsync` (its own `DbContext`) for events whose request saves nothing — never the request's context for a refusal, which may hold the refused change.
+- **Auth & Dynamic RBAC**: Self-issued JWT bearer (8h) + rotating refresh tokens — **stored only as SHA-256 hashes**, ended on deactivation, capped at `Jwt:SessionMaxDays` (30) per sign-in, rate-limited (ADR-0028). The access token carries `sub`, `tenant_id`, the role claim (`Admin` / `HrDirector` / `Recruiter` / `HiringManager` / `Approver` / `Interviewer`; a custom-role holder carries its role's **base role**, or `Interviewer` while the role is inactive — ADR-0021 option A) and `is_super_admin`. **Every request re-checks the token's account** (exists, active, same role and SuperAdmin flag) in `OnTokenValidated`. Permissions are **not** in the token: login and refresh return the evaluator's set (`permission:module:feature:action`) for the UI, whose `hasPermission` fails closed. `[HasPermission(...)]` guards the RBAC endpoints (the user directory list included) and, since ADR-0022, requisitions, approval chains and departments — and the evaluator's answer is final (no role-claim fallback). The rest of the hiring surface is still guarded by **role policies** (`RecruitmentStaff` / `InternalUser` / `AdminOnly` + `RoleScope`). SuperAdmin bypasses `[HasPermission]` and is never assignable through the API. **Nobody grants what they do not hold**: creating, editing or assigning a role, or reactivating a user, passes the grantor ceiling (`IGrantorCeiling` — the actor must hold every permission granted and cover the reach given, `RoleScope.Covers`). **Every access change, sign-in and ceiling refusal is written to the append-only audit log** (`IAuditTrail`, ADR-0027): `RecordAsync` in the same `SaveChanges` as the change, `RecordStandaloneAsync` (its own `DbContext`) for events whose request saves nothing — never the request's context for a refusal, which may hold the refused change.
 
 ## Repository Layout
 
@@ -103,7 +103,7 @@ packages/
 | Task | Command |
 |---|---|
 | Backend build | `dotnet build backend/src/Api` |
-| Backend test | `dotnet test backend/RecruitOps.sln` (912 tests passing: 121 Domain + 791 Api) |
+| Backend test | `dotnet test backend/RecruitOps.sln` (921 tests passing: 121 Domain + 800 Api) |
 | Backend format | `dotnet format` |
 | Backend build + test in Docker | `docker build --target test -t recruitops-test ./backend` |
 | Whole stack | `docker compose up --build` |
@@ -112,7 +112,7 @@ packages/
 | Public app dev | `npm run dev:public` (repo root) |
 | Frontend build | `npm run build` (repo root, all workspaces) |
 | Frontend typecheck | `npm run typecheck` (repo root) |
-| Frontend test | `npm run test` in `frontend/internal` (463 tests passing across 52 test files; `frontend/public` 31 across 2) |
+| Frontend test | `npm run test` in `frontend/internal` (466 tests passing across 53 test files; `frontend/public` 31 across 2) |
 
 > No local .NET SDK? `docker build --target test ./backend` compiles and runs the whole
 > suite inside the SDK image. New EF migrations: see `docs/architecture/local-development.md`.

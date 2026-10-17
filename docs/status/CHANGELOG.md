@@ -3,7 +3,35 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-17 (latest) — a phone typed in Burmese digits is the same phone
+## 2026-10-17 (latest) — a Recruiter can no longer read every user's email; HR Director's screens open
+
+Found by signing in as every role on a running install and opening every menu item:
+- **A Recruiter could read the email of every user in the company** — and each one's permissions
+  and SuperAdmin flag. The seed gave Recruiter `users:read`; `GET /api/users/{id}` is guarded by
+  exactly that; the email-free picker (ADR-0019) hands out every id. Measured 3 of 3, then 6 of 6.
+  The same permission put "Users" in their menu, whose list answered 403. **Recruiter no longer
+  holds `users:read`** (after: 0 of 6, and no "Users" item). The picker still names a panel.
+- **Startup seeding now removes** permissions a system role no longer has in its seed (system
+  roles are immutable through the API, so the seed is their definition) and audits it — an
+  existing install's Recruiter loses `users:read` on its next start, recorded as
+  "Updated system role “Recruiter” at startup: 1 permission removed" (seen on a real upgrade).
+- **HR Director's "Users" and "Departments" answered 403** although their seed grants the
+  matching read. Product owner's decision: the HR Director reads both, read-only. `GET /api/users`
+  is now `[HasPermission(users:read)]`; departments follow the approval-chain split — reads on
+  `settings:read`, every change (incl. membership, the ADR-0003 axis) on `settings:update`, which
+  only Admin holds by default. Departments and Approval chains hide editing controls without
+  `settings:update`. Browser check: HR Director sees the data with no editing control; Admin
+  keeps every control.
+- Docs: ADR-0019 and ADR-0022 amendments; Module 7 §7.1 table of who sees the governance screens.
+- Tests: `GovernanceReachTests` (9, every client a real user of its role — `[HasPermission]` reads
+  the user's role from the database, so the old "role header on the Admin's id" pattern was an
+  Admin every time, and three existing tests had to be given real identities), 3 frontend tests
+  (ungating either page fails them).
+- **Found, not fixed here:** the Interviewer system role cannot see its interviews — its only menu
+  item answers 403, because ADR-0021 made the `Interviewer` enum the no-access holder for
+  inactive custom roles. Next.
+
+## 2026-10-17 — a phone typed in Burmese digits is the same phone
 
 **Bug (Module 2.7):** `ContactNormalizer.Phone` stripped non-digits with `\D` — which in .NET keeps
 *every* Unicode digit. A number typed on a Myanmar keyboard (`၀၉ ၇၆၅ ၄၃၂ ၁၀၀`) was stored in Burmese
