@@ -30,7 +30,10 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 >   (100/hour) does bite; the window resets.
 > - **Phones typed in Burmese digits now match** (2026-10-17, migration
 >   `NormalizeBurmeseDigitPhones`). People it had already split into two candidates stay split
->   until a person merges them (the merge UI is still unbuilt). After deploying, list them:
+>   until a person merges them (the merge UI is still unbuilt). Before deploying to a large install,
+>   count what it will rewrite — `SELECT count(*) FROM "Candidates" WHERE "Phone" ~ '[^0-9]'` — and if
+>   that is past ~100k rows, set `Database__AutoMigrateOnStartup=false` and apply it by hand with no
+>   statement timeout; afterwards the same count is 0. Then list the pairs it had already split:
 >   ```sql
 >   SELECT "TenantId", "Phone", count(*), string_agg("FullName", ' / ')
 >   FROM "Candidates" WHERE "Phone" IS NOT NULL AND "MergedIntoCandidateId" IS NULL

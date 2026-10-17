@@ -19,6 +19,20 @@ import) go through this method.
   it on startup and the Burmese row became `09765432100`.
 - People already split into two candidates stay two — merging needs a person; NEXT-SESSION has the
   query that lists them.
+- **Search found phones only typed exactly as stored.** `SearchService` compared the raw query, so
+  `09 765 432 100`, `+95 9 765 432 100` and the Burmese form all missed `09765432100` — not only
+  since this fix. A query made only of digits (any script) and phone punctuation is now also
+  compared through `ContactNormalizer`; "Engineer 2" is not (6 tests).
+- **The migration review (db-schema-reviewer) — nothing blocking; three should-fixes, all done:**
+  the SQL translated only Myanmar/Shan digits, so full-width, Arabic-Indic, Thai… (possible via CV
+  import) stayed unmatchable — it now translates **every** Unicode decimal digit, generated from the
+  same `CharUnicodeInfo` data as the normaliser and emitted as `U&` escapes; re-applying the
+  country-code reduction could **delete digits** (`0၀၉၅…` → `01234567`) — not for values the old code
+  had already reduced; and startup migrations ran under Npgsql's 30 s default, which on a large table
+  would crash-loop the upgrade — `DatabaseStartup` gives migrations 10 minutes. Plus a UTF-8 guard
+  (on `SQL_ASCII` it refuses and records nothing, rather than garbling rows) and a prefilter.
+  Re-tested: 19 typed inputs in ten digit systems, stored the way the old code stored them, all
+  migrate to exactly what the fixed normaliser produces.
 - Tests: 19 `ContactNormalizerTests` (Domain; first unit tests for this method), and an API test that
   the Burmese and ASCII forms reach one candidate (fails without the fix).
 
