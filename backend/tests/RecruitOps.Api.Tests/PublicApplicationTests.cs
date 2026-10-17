@@ -175,6 +175,29 @@ public class PublicApplicationTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal(a!.Single().CandidateId, b!.Single().CandidateId);
     }
 
+    [Fact]
+    public async Task The_Same_Number_In_Burmese_Digits_Is_The_Same_Candidate()
+    {
+        var first = await LivePostingAsync("Sales Role Burmese digits A");
+        var second = await LivePostingAsync("Sales Role Burmese digits B");
+
+        // As a Myanmar keyboard types it, then as an ASCII one does. Until 2026-10-17 these were
+        // two candidates: the Burmese form was stored in Burmese digits and never matched. (Its own
+        // number: the class shares one database, and matching is exactly what is under test.)
+        await Anonymous().PostAsJsonAsync($"/api/public/jobs/{first.PublicToken}/apply",
+            new SubmitApplicationRequest { FullName = "Ko Zaw", Phone = "၀၉ ၈၈၈ ၇၇၇ ၆၆၆" });
+        await Anonymous().PostAsJsonAsync($"/api/public/jobs/{second.PublicToken}/apply",
+            new SubmitApplicationRequest { FullName = "Ko Zaw", Phone = "+95 9 888 777 666" });
+
+        var a = (await Internal(Roles.Recruiter)
+            .GetFromJsonAsync<List<PipelineItemDto>>($"/api/jobpostings/{first.Id}/pipeline"))!.Single();
+        var b = (await Internal(Roles.Recruiter)
+            .GetFromJsonAsync<List<PipelineItemDto>>($"/api/jobpostings/{second.Id}/pipeline"))!.Single();
+
+        Assert.Equal(a.CandidateId, b.CandidateId);
+        Assert.Equal("09888777666", a.Phone);
+    }
+
     /// <summary>What the browser actually sends: the form's state as JSON, so a field the applicant
     /// skipped arrives as <c>""</c>, never absent. The typed requests above serialise a skipped field
     /// as <c>null</c>, which is why none of them caught that <c>[Phone]</c> and

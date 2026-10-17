@@ -1,4 +1,5 @@
-using System.Text.RegularExpressions;
+using System.Globalization;
+using System.Text;
 
 namespace RecruitOps.Domain;
 
@@ -11,15 +12,13 @@ namespace RecruitOps.Domain;
 /// </summary>
 public static class ContactNormalizer
 {
-    private static readonly Regex NonDigits = new(@"\D", RegexOptions.Compiled);
-
     /// <summary>Lower-cased and trimmed. Not case-folded per-locale: email addresses are
     /// ASCII-cased by convention and invariant lowering is what the database index expects.</summary>
     public static string? Email(string? email) =>
         string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant();
 
-    /// <summary>Digits only, with a leading Myanmar country code reduced to the national
-    /// form. "+95 9 765 432 100", "0095 9765432100" and "09765432100" are the same phone,
+    /// <summary>ASCII digits only, with a leading Myanmar country code reduced to the national
+    /// form. "+95 9 765 432 100", "0095 9765432100", "09765432100" and "၀၉၇၆၅၄၃၂၁၀၀" are the same phone,
     /// and applicants type all three — comparing the raw strings would miss every duplicate
     /// that formatted their number differently.
     ///
@@ -30,8 +29,19 @@ public static class ContactNormalizer
     {
         if (string.IsNullOrWhiteSpace(phone)) return null;
 
-        var digits = NonDigits.Replace(phone, string.Empty);
-        if (digits.Length == 0) return null;
+        // Digits only, and in ASCII. Any decimal digit counts by its value, whatever its script: a
+        // Myanmar keyboard types ၀–၉, and "၀၉ ၇၆၅ ၄၃၂ ၁၀၀" is the same number as "09 765 432 100".
+        // This used to keep each digit as typed (`\D` matches Unicode digits too), so the Burmese
+        // form was stored in Burmese — never matching the ASCII form, never found by an ASCII
+        // search, and one person became two candidates (measured 2026-10-17).
+        var ascii = new StringBuilder(phone.Length);
+        foreach (var c in phone)
+        {
+            var value = CharUnicodeInfo.GetDecimalDigitValue(c);
+            if (value >= 0) ascii.Append((char)('0' + value));
+        }
+        if (ascii.Length == 0) return null;
+        var digits = ascii.ToString();
 
         // 0095XXXXXXXXX / 95XXXXXXXXX → 0XXXXXXXXX
         if (digits.StartsWith("0095", StringComparison.Ordinal)) digits = "0" + digits[4..];
