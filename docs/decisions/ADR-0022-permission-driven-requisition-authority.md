@@ -208,3 +208,14 @@ have been corrected to use callers that genuinely hold the authority.
 `UserService.cs:324` is still misleading — it is now inert for authorization, but a permission-less
 sentinel would be honest. Tracked separately; it is a data-modelling fix, not a security one, now
 that the claim is no longer load-bearing.
+
+## Amendment, 2026-10-17 — departments join approval chains on `settings:*`
+
+The department endpoints were the last settings screen still on `AdminOnly`: the HR Director holds
+`settings:read`, so the menu showed "Departments", and the page answered 403. They now follow the
+approval-chain table above — reads (`GET /admin`, `GET /{id}/members`) on `settings:read`, every
+change (create, rename, (de)activate, set members) on `settings:update`. Defaults are unchanged in
+effect: only Admin holds `settings:update`. Membership is the department-scoping axis (ADR-0003),
+so whoever is granted `settings:update` can move people between departments — the grantor ceiling
+(ADR-0021) means only a holder can grant it, and every membership change is audited (ADR-0027).
+The Departments and Approval-chains pages hide their editing controls without `settings:update`.

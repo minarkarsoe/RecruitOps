@@ -54,6 +54,19 @@ over them.
 SuperAdmin is exempt. By default only Admins manage users and roles, so for everyone else this
 matters once an Admin delegates — e.g. a custom "HR Lead" role holding `users:create`.
 
+#### Who sees the governance screens (defaults)
+
+| Screen | Admin | HR Director | Everyone else |
+|---|---|---|---|
+| User directory (names, emails, roles) | read + manage | **read only** | no — a Recruiter names a panel through the picker, which carries no email (ADR-0019) |
+| Departments, approval chains | read + manage | **read only** | no |
+| Role Builder, audit log | read + manage | read only | no |
+
+"Read only" means the screen opens and its editing controls are not shown; the API refuses the
+change either way. Each is a permission (`users:read`, `settings:read`, `roles:read`,
+`system:audit` to see; `users:create`/`update`, `settings:update`, `roles:*` to change), so an Admin
+can give a custom role the same view.
+
 ### 7.2 HRMS & Payroll Integrations — ⬜
 Connect data to the company's core **HRMS (e.g. QHRM)** and payroll systems.
 

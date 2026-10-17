@@ -91,3 +91,31 @@ the follow-up below.
 
   **This ADR is now fully realised.** The remaining 🟡 above (`enum.ToString()`) is a separate
   EF translation question, not an authorization one.
+
+## Amendment, 2026-10-17 — the full directory follows `users:read`, and Recruiters do not hold it
+
+Found by walking every menu as every role against a running install. Two things contradicted the
+decision above:
+
+1. **Recruiters could read every email anyway.** The seed gave Recruiter
+   `permission:users:users:read`, and `GET /api/users/{id}` is guarded by exactly that. A Recruiter
+   took ids from the email-free picker and asked for each one: **every user's email, permissions
+   and SuperAdmin flag, 3 of 3** (measured). The picker's whole reason to exist was undone one call
+   later. The same permission also put a "Users" item in their menu whose list then returned 403.
+2. **HR Directors hold `users:read` too, but the list was `AdminOnly`** — and the test above pinned
+   them to the Recruiter's side of the split. The seed (and their menu) said one thing, the
+   endpoint another.
+
+**Decision (product owner, 2026-10-17):** the HR Director reads the directory, read-only. So:
+
+- **Recruiter no longer holds `users:read`.** The picker is their way to name a panel, and nothing
+  else in the product needs more. Startup seeding now also *removes* permissions a system role no
+  longer has in its seed — system roles are immutable through the API, so the seed is their
+  definition — and records the removal in the audit log as `System (startup)`.
+- **`GET /api/users` is guarded by `users:read`**, like `GET /api/users/{id}`. Admin and HR Director
+  hold it by default; a custom role gets it only from someone who holds it (grantor ceiling,
+  ADR-0021). Creating, editing and deactivating stay on their own permissions, which the HR
+  Director does not hold — the page hides those controls.
+
+The reasoning above still stands, unchanged in kind: a wider audience gets the narrower payload.
+What changed is *who* counts as the wider audience — RecruitmentStaff minus HR, not including it.
