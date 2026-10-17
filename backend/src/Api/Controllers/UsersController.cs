@@ -25,7 +25,9 @@ public class UsersController : ControllerBase
 
     /// <summary>Paged directory of users with search, role, and active status filters.</summary>
     [HttpGet]
-    [Authorize(Policy = Policies.AdminOnly)]
+    // users:read — Admin and HR Director by default (ADR-0019 amendment, 2026-10-17). Was AdminOnly
+    // while the HR Director held users:read, so their "Users" menu item answered 403.
+    [HasPermission("permission:users:users:read")]
     public async Task<ActionResult<PagedResult<UserListItemDto>>> Get(
         [FromQuery] UserQueryParameters query, CancellationToken ct)
     {

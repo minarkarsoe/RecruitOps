@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RecruitOps.Api.Auth;
+using RecruitOps.Api.Authorization;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Application.Interfaces;
 
@@ -11,9 +12,12 @@ namespace RecruitOps.Api.Controllers;
 ///
 /// <para>The class policy is <see cref="Policies.InternalUser"/> so a Hiring Manager can
 /// load the department picker on the new-requisition form; the service returns only their
-/// own. Everything that <em>changes</em> a department is <see cref="Policies.AdminOnly"/>,
-/// because creating a department or editing its membership is granting access to
-/// requisitions — the same authority as editing an approval chain.</para></summary>
+/// own. Everything that <em>changes</em> a department needs <c>settings:update</c>, because
+/// creating a department or editing its membership is granting access to requisitions — the same
+/// authority as editing an approval chain, and now the same permission (ADR-0022 amendment,
+/// 2026-10-17). The administration view needs <c>settings:read</c>, which the HR Director holds.
+/// Both sit <em>on top of</em> the class's <c>InternalUser</c> — authorization attributes are
+/// additive (ADR-0019 amendment, 2026-07-28).</para></summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = Policies.InternalUser)]
@@ -29,13 +33,15 @@ public class DepartmentsController : ControllerBase
         => Ok(await _departments.GetDepartmentsAsync(ct));
 
     /// <summary>All departments, including inactive, with member and open-requisition counts.</summary>
+    // Reads on settings:read, every change on settings:update — the approval-chain split (ADR-0022
+    // amendment, 2026-10-17). The HR Director reads departments; only Admin changes them by default.
     [HttpGet("admin")]
-    [Authorize(Policy = Policies.AdminOnly)]
+    [HasPermission("permission:settings:settings:read")]
     public async Task<ActionResult<IReadOnlyList<DepartmentDetailDto>>> GetForAdmin(CancellationToken ct)
         => Ok(await _departments.GetForAdminAsync(ct));
 
     [HttpPost]
-    [Authorize(Policy = Policies.AdminOnly)]
+    [HasPermission("permission:settings:settings:update")]
     public async Task<ActionResult<DepartmentDetailDto>> Create(
         CreateDepartmentRequest request, CancellationToken ct)
     {
@@ -51,7 +57,7 @@ public class DepartmentsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Policy = Policies.AdminOnly)]
+    [HasPermission("permission:settings:settings:update")]
     public async Task<ActionResult<DepartmentDetailDto>> Update(
         Guid id, UpdateDepartmentRequest request, CancellationToken ct)
     {
@@ -69,12 +75,12 @@ public class DepartmentsController : ControllerBase
     /// <summary>Stops new work being raised here. There is no delete — requisitions,
     /// postings and the audit trail point at departments.</summary>
     [HttpPost("{id:guid}/deactivate")]
-    [Authorize(Policy = Policies.AdminOnly)]
+    [HasPermission("permission:settings:settings:update")]
     public Task<ActionResult<DepartmentDetailDto>> Deactivate(Guid id, CancellationToken ct)
         => SetActive(id, false, "Cannot deactivate", ct);
 
     [HttpPost("{id:guid}/activate")]
-    [Authorize(Policy = Policies.AdminOnly)]
+    [HasPermission("permission:settings:settings:update")]
     public Task<ActionResult<DepartmentDetailDto>> Activate(Guid id, CancellationToken ct)
         => SetActive(id, true, "Cannot activate", ct);
 
@@ -94,7 +100,7 @@ public class DepartmentsController : ControllerBase
 
     /// <summary>The whole user roster, flagged with who belongs to this department.</summary>
     [HttpGet("{id:guid}/members")]
-    [Authorize(Policy = Policies.AdminOnly)]
+    [HasPermission("permission:settings:settings:read")]
     public async Task<ActionResult<IReadOnlyList<DepartmentMemberDto>>> GetMembers(Guid id, CancellationToken ct)
     {
         var result = await _departments.GetMembersAsync(id, ct);
@@ -105,7 +111,7 @@ public class DepartmentsController : ControllerBase
     /// requisitions, and an admin should be committing to a complete list rather than
     /// issuing deltas against a state they cannot see.</summary>
     [HttpPut("{id:guid}/members")]
-    [Authorize(Policy = Policies.AdminOnly)]
+    [HasPermission("permission:settings:settings:update")]
     public async Task<ActionResult<IReadOnlyList<DepartmentMemberDto>>> SetMembers(
         Guid id, SetDepartmentMembersRequest request, CancellationToken ct)
     {

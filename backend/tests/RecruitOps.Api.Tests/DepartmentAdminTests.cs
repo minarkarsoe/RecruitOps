@@ -45,10 +45,19 @@ public class DepartmentAdminTests : IClassFixture<CustomWebAppFactory>
         var request = new CreateDepartmentRequest { Name = "Engineering" };
 
         // Creating a department creates a scope that requisitions live in, and whoever can
-        // create one can put themselves in it. Same authority as editing an approval chain.
-        foreach (var role in new[] { Roles.Recruiter, Roles.HrDirector, Roles.HiringManager })
+        // create one can put themselves in it. Same authority as editing an approval chain — and,
+        // since 2026-10-17, the same permission (settings:update), which only Admin holds by default.
+        // Each caller is a real user of its role: [HasPermission] reads the user's role from the
+        // database, so the old "any role header on the Admin's id" was an Admin every time.
+        var hrDirector = await ClientFor(Roles.Admin, _factory.AdminUserId).PostAsJsonAsync("/api/users",
+            new CreateUserRequest($"hrd.{Guid.NewGuid():N}@alpha.test", "Dept HR Director", "Correct-Horse-9", Role: "HrDirector"));
+        var hrDirectorId = (await hrDirector.Content.ReadFromJsonAsync<UserDetailDto>())!.Id;
+        foreach (var (role, userId) in new[] {
+            (Roles.Recruiter, _factory.RecruiterUserId),
+            (Roles.HrDirector, hrDirectorId),
+            (Roles.HiringManager, _factory.HiringManagerUserId) })
         {
-            var denied = await ClientFor(role, _factory.AdminUserId).PostAsJsonAsync("/api/departments", request);
+            var denied = await ClientFor(role, userId).PostAsJsonAsync("/api/departments", request);
             Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
         }
 

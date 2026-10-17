@@ -222,6 +222,26 @@ public static class DbInitializer
                 }
             }
 
+            // ...and revoke what the definition no longer grants. System roles are immutable through
+            // the API, so the seed *is* their definition; until 2026-10-17 this only ever added, and an
+            // install kept every permission a later version took away — Recruiter's users:read, which
+            // exposed every user's email, was the one that mattered (ADR-0019 amendment).
+            var removed = new List<string>();
+            if (!created)
+            {
+                var defined = roleDef.PermissionCodes
+                    .Select(code => existingPermissions.TryGetValue(code, out var p) ? p.Id : (Guid?)null)
+                    .OfType<Guid>()
+                    .ToHashSet();
+                var codeById = existingPermissions.Values.ToDictionary(p => p.Id, p => p.Code);
+                foreach (var stale in role.RolePermissions.Where(rp => !defined.Contains(rp.PermissionId)).ToList())
+                {
+                    removed.Add(codeById.TryGetValue(stale.PermissionId, out var code) ? code : stale.PermissionId.ToString());
+                    role.RolePermissions.Remove(stale);
+                    db.RolePermissions.Remove(stale);
+                }
+            }
+
             // ADR-0027: the seeder changes access too — on an upgrade it grants system roles their
             // new permissions — so it records what it did, as the system (security review of
             // ADR-0027, M3). System roles are install-wide, so the entries carry no tenant.
@@ -229,10 +249,13 @@ public static class DbInitializer
                 RecordSeedChange(db, AuditAction.RoleCreated, role,
                     $"Created system role “{role.Name}” with {granted.Count} permission{(granted.Count == 1 ? "" : "s")}.",
                     new { role.Code, permissions = granted });
-            else if (changed.Count > 0 || granted.Count > 0)
+            else if (changed.Count > 0 || granted.Count > 0 || removed.Count > 0)
                 RecordSeedChange(db, AuditAction.RoleUpdated, role,
-                    $"Updated system role “{role.Name}” at startup: {string.Join("; ", changed.Append(granted.Count > 0 ? $"{granted.Count} permission{(granted.Count == 1 ? "" : "s")} added" : null).OfType<string>())}.",
-                    new { changes = changed, permissionsAdded = granted });
+                    $"Updated system role “{role.Name}” at startup: {string.Join("; ", changed
+                        .Append(granted.Count > 0 ? $"{granted.Count} permission{(granted.Count == 1 ? "" : "s")} added" : null)
+                        .Append(removed.Count > 0 ? $"{removed.Count} permission{(removed.Count == 1 ? "" : "s")} removed" : null)
+                        .OfType<string>())}.",
+                    new { changes = changed, permissionsAdded = granted, permissionsRemoved = removed });
         }
 
         await db.SaveChangesAsync(ct);

@@ -308,7 +308,9 @@ public class RbacDomainTests
         // (Policies.InternalUser) recruiters could already raise requisitions, but the seed
         // did not say so; making permissions authoritative forced that gap to be closed
         // deliberately rather than silently removing the capability.
-        Assert.Equal(25, roleMap["Recruiter"].RolePermissions.Count);
+        // 24 since 2026-10-17: users:read removed — it exposed every user's email (ADR-0019 amendment).
+        Assert.Equal(24, roleMap["Recruiter"].RolePermissions.Count);
+        Assert.DoesNotContain(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:users:users:read");
         Assert.Contains(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:requisitions:requisitions:create");
         Assert.Contains(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:requisitions:requisitions:update");
         // Approving is a different authority from raising — the chain decides it.

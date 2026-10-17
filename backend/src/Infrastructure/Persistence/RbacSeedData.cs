@@ -130,7 +130,9 @@ public static class RbacSeedData
                 "permission:applications:applications:read", "permission:applications:applications:create", "permission:applications:applications:update", "permission:applications:applications:delete", "permission:applications:applications:move_stage",
                 "permission:interviews:interviews:read", "permission:interviews:interviews:create", "permission:interviews:interviews:update", "permission:interviews:interviews:cancel",
                 "permission:scorecards:scorecards:read", "permission:scorecards:scorecards:submit",
-                "permission:users:users:read",
+                // No users:read (removed 2026-10-17): it let a Recruiter read any user's full record —
+                // every email in the company, via the ids the picker hands out. A Recruiter names a
+                // panel through GET /api/users/selectable, which carries no email (ADR-0019).
                 "permission:ai:resume:parse", "permission:ai:matching:analyze", "permission:ai:summary:generate", "permission:ai:document:prepare", "permission:ai:localization:translate"
             }
         },

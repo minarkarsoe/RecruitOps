@@ -37,7 +37,9 @@ public class UserDirectoryTests : IClassFixture<CustomWebAppFactory>
     [Fact]
     public async Task A_Recruiter_Reads_Selectable_But_Is_Still_Refused_The_Full_Directory()
     {
-        var recruiter = _scenario.Client(Roles.Recruiter, _factory.AdminUserId);
+        // A real Recruiter: GET /api/users is guarded by users:read since 2026-10-17, which is read
+        // from the user's own role — a Recruiter header on the Admin's id would be an Admin.
+        var recruiter = _scenario.Client(Roles.Recruiter, _factory.RecruiterUserId);
 
         var selectable = await recruiter.GetAsync("/api/users/selectable");
         var full = await recruiter.GetAsync("/api/users");
@@ -50,17 +52,21 @@ public class UserDirectoryTests : IClassFixture<CustomWebAppFactory>
     }
 
     [Fact]
-    public async Task An_HrDirector_Gets_The_Same_Split_As_A_Recruiter()
+    public async Task An_HrDirector_Reads_The_Picker_And_The_Directory()
     {
         // RecruitmentStaff is three roles, and the picker has to work for all of them —
-        // "adding a rule to two of three siblings" is this repo's recurring bug.
-        var hrDirector = _scenario.Client(Roles.HrDirector, _factory.AdminUserId);
+        // "adding a rule to two of three siblings" is this repo's recurring bug. Unlike a Recruiter,
+        // the HR Director also reads the full directory, read-only: the product owner's decision of
+        // 2026-10-17 (ADR-0019 amendment). This test pinned the opposite until then.
+        var created = await _scenario.Client(Roles.Admin, _factory.AdminUserId).PostAsJsonAsync("/api/users",
+            new CreateUserRequest($"hrd.{Guid.NewGuid():N}@alpha.test", "Directory HR Director", "Correct-Horse-9", Role: "HrDirector"));
+        var hrDirector = _scenario.Client(Roles.HrDirector, (await created.Content.ReadFromJsonAsync<UserDetailDto>())!.Id);
 
         var selectable = await hrDirector.GetAsync("/api/users/selectable");
         var full = await hrDirector.GetAsync("/api/users");
 
         Assert.Equal(HttpStatusCode.OK, selectable.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, full.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, full.StatusCode);
     }
 
     [Fact]
