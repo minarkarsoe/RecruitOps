@@ -47,6 +47,12 @@ public static class DatabaseStartup
         logger.LogInformation("Applying {Count} pending migration(s): {Migrations}",
             pending.Count, string.Join(", ", pending));
 
+        // Data migrations rewrite whole tables (HashRefreshTokens, NormalizeBurmeseDigitPhones), and
+        // Npgsql's default 30 s command timeout would roll one back on a large install — then the
+        // container restarts, tries again and crash-loops, and the upgrade never finishes (review of
+        // NormalizeBurmeseDigitPhones, 2026-10-17). This scope's context exists only to migrate.
+        db.Database.SetCommandTimeout(TimeSpan.FromMinutes(10));
+
         // Deliberately not wrapped in try/catch: a half-migrated database must not
         // start serving traffic. Fail fast and loudly.
         await db.Database.MigrateAsync(ct);
