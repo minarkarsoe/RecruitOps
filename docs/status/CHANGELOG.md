@@ -3,7 +3,26 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-17 (latest) — applicants who skip phone *or* email can apply again
+## 2026-10-17 (latest) — a phone typed in Burmese digits is the same phone
+
+**Bug (Module 2.7):** `ContactNormalizer.Phone` stripped non-digits with `\D` — which in .NET keeps
+*every* Unicode digit. A number typed on a Myanmar keyboard (`၀၉ ၇၆၅ ၄၃၂ ၁၀၀`) was stored in Burmese
+digits, so it never matched the same number in ASCII: **one person became two candidates**, an
+ASCII phone search could not find them, and `+၉၅…` escaped the country-code reduction. Measured on
+a running install by applying twice with the same number. Both write paths (public apply, bulk CV
+import) go through this method.
+
+- **Fix:** every Unicode decimal digit is read by its value (`CharUnicodeInfo`) and stored as ASCII.
+- **Migration `NormalizeBurmeseDigitPhones`:** rewrites stored Myanmar/Shan-digit phones into the
+  same form (with the `+95`/`0095` reduction), touching only rows that change; `Down` is a no-op.
+  Tested on Postgres 16 (Up, Down, re-Up; nine stored shapes) and as a real upgrade: the API applied
+  it on startup and the Burmese row became `09765432100`.
+- People already split into two candidates stay two — merging needs a person; NEXT-SESSION has the
+  query that lists them.
+- Tests: 19 `ContactNormalizerTests` (Domain; first unit tests for this method), and an API test that
+  the Burmese and ASCII forms reach one candidate (fails without the fix).
+
+## 2026-10-17 — applicants who skip phone *or* email can apply again
 
 **Bug:** the public form posts its whole state, so a skipped field arrives as `""`. The API's
 `[Phone]` and `[EmailAddress]` accept `null` but reject `""` — so **anyone who gave only one way to

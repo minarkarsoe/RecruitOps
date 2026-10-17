@@ -103,7 +103,7 @@ packages/
 | Task | Command |
 |---|---|
 | Backend build | `dotnet build backend/src/Api` |
-| Backend test | `dotnet test backend/RecruitOps.sln` (886 tests passing: 102 Domain + 784 Api) |
+| Backend test | `dotnet test backend/RecruitOps.sln` (906 tests passing: 121 Domain + 785 Api) |
 | Backend format | `dotnet format` |
 | Backend build + test in Docker | `docker build --target test -t recruitops-test ./backend` |
 | Whole stack | `docker compose up --build` |

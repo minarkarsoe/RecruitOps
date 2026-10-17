@@ -28,6 +28,14 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 >   the host (`dotnet publish`, `npm run build`) and wrap the output in images that mirror the
 >   Dockerfiles' final stages — `dockerd` starts fine (`dockerd &`). Docker Hub's anonymous limit
 >   (100/hour) does bite; the window resets.
+> - **Phones typed in Burmese digits now match** (2026-10-17, migration
+>   `NormalizeBurmeseDigitPhones`). People it had already split into two candidates stay split
+>   until a person merges them (the merge UI is still unbuilt). After deploying, list them:
+>   ```sql
+>   SELECT "TenantId", "Phone", count(*), string_agg("FullName", ' / ')
+>   FROM "Candidates" WHERE "Phone" IS NOT NULL AND "MergedIntoCandidateId" IS NULL
+>   GROUP BY "TenantId", "Phone" HAVING count(*) > 1;
+>   ```
 > - ~~The public form's blank phone → 400~~ — **fixed 2026-10-17** (CHANGELOG). Lesson: the API
 >   tests posted typed requests (`null` for a skipped field), never what a browser sends (`""`);
 >   `PublicApplicationTests.ApplyAsBrowserAsync` now does. (`System.Security.Cryptography.Xml`'s advisories were fixed the same
