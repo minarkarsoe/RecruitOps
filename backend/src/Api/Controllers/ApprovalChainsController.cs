@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RecruitOps.Api.Auth;
 using RecruitOps.Api.Authorization;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Application.Interfaces;
@@ -12,10 +13,13 @@ namespace RecruitOps.Api.Controllers;
 /// <c>permission:settings:settings:update</c> — a chain decides who can approve headcount
 /// and spend, so being able to edit one is equivalent to being able to approve. This is
 /// company configuration (Module 7.1), not day-to-day recruiting, and both codes are
-/// grantable per role through the Role Builder rather than welded to a role literal.</para></summary>
+/// grantable per role through the Role Builder rather than welded to a role literal.</para>
+/// <para>Both also need <see cref="Policies.CompanyWide"/>: whoever is named on a chain can open
+/// the requisitions it governs, so a department-scoped role editing chains could name itself and
+/// reach every department (security review, 2026-10-17, M2).</para></summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = Policies.CompanyWide)]
 public class ApprovalChainsController : ControllerBase
 {
     private readonly IApprovalChainService _chains;

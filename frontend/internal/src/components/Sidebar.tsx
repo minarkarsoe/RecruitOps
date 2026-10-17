@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { auth, hasPermission, isSuperAdmin, Session } from '../lib/auth';
+import { auth, hasPermission, isDepartmentScoped, isSuperAdmin, Session } from '../lib/auth';
 import { useFeatureFlags } from '../lib/useFeatureFlags';
 
 // Built against the nav rail in `design/internal/board.html` (ADR-0025), which every internal
@@ -30,6 +30,12 @@ interface NavItem {
    * is the honest answer rather than a hidden link.
    */
   permission?: string;
+  /**
+   * The server also needs company-wide reach (`Policies.CompanyWide`): a department-scoped role
+   * administers no department and no approval chain, whatever it holds, because both move its
+   * own scope. Without this, a Hiring Manager base given `settings:read` saw the link and a 403.
+   */
+  companyWide?: boolean;
   featureFlag?: string;
   icon: JSX.Element;
 }
@@ -260,13 +266,13 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
       title: 'Team',
       items: [
         { to: '/users', label: 'Users', permission: 'permission:users:users:read', icon: icons.users },
-        { to: '/departments', label: 'Departments', permission: 'permission:settings:settings:read', icon: icons.departments },
+        { to: '/departments', label: 'Departments', permission: 'permission:settings:settings:read', companyWide: true, icon: icons.departments },
       ],
     },
     {
       title: 'Governance',
       items: [
-        { to: '/approvalchains', label: 'Approval chains', permission: 'permission:settings:settings:read', icon: icons.chains },
+        { to: '/approvalchains', label: 'Approval chains', permission: 'permission:settings:settings:read', companyWide: true, icon: icons.chains },
         { to: '/roles', label: 'Role Builder', permission: 'permission:roles:roles:read', icon: icons.roles },
         // ADR-0027. Admin and HR Director hold system:audit by default.
         { to: '/audit-log', label: 'Audit log', permission: 'permission:system:system:audit', icon: icons.audit },
@@ -283,6 +289,7 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
       items: group.items.filter(
         (item) =>
           (item.permission === undefined || hasPermission(session, item.permission)) &&
+          (!item.companyWide || (session !== null && !isDepartmentScoped(session.role))) &&
           (!item.featureFlag || isFeatureEnabled(item.featureFlag))
       ),
     }))

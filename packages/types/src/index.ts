@@ -212,7 +212,8 @@ export interface DepartmentDetail extends DepartmentListItem {
 export interface DepartmentMember {
   userId: string;
   displayName: string;
-  email: string;
+  /** Null unless the caller holds `users:read` — the roster is every active user. */
+  email: string | null;
   role: UserRole;
   isMember: boolean;
 }
@@ -503,10 +504,10 @@ export type ScorecardStatus = 'Draft' | 'Submitted';
  * is finished reveals nothing about what they said, and it is what lets a lead chase the
  * outstanding evaluation. Do not gate it behind the blind rule.
  */
+/** A panel member. No email address — the picker's rule (ADR-0019). */
 export interface InterviewParticipant {
   userId: string;
   displayName: string;
-  email: string | null;
   isLead: boolean;
   hasSubmittedScorecard: boolean;
 }
@@ -1137,6 +1138,10 @@ export type AuditAction =
   | 'UserDeactivated'
   | 'UserReactivated'
   | 'DepartmentMembersChanged'
+  | 'DepartmentCreated'
+  | 'DepartmentUpdated'
+  | 'DepartmentDeactivated'
+  | 'DepartmentReactivated'
   | 'RoleCreated'
   | 'RoleUpdated'
   | 'RoleDeleted'

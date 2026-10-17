@@ -15,15 +15,20 @@ public class DepartmentService : IDepartmentService
     private readonly IDepartmentAccess _access;
     private readonly TimeProvider _clock;
     private readonly IAuditTrail _audit;
+    private readonly IPermissionEvaluator _permissions;
+    private readonly ICurrentTenant _tenant;
 
     public DepartmentService(
-        AppDbContext db, ICurrentUser user, IDepartmentAccess access, TimeProvider clock, IAuditTrail audit)
+        AppDbContext db, ICurrentUser user, IDepartmentAccess access, TimeProvider clock, IAuditTrail audit,
+        IPermissionEvaluator permissions, ICurrentTenant tenant)
     {
         _audit = audit;
         _db = db;
         _user = user;
         _access = access;
         _clock = clock;
+        _permissions = permissions;
+        _tenant = tenant;
     }
 
     /// <summary>Department membership is the ADR-0003 axis — who reaches which requisitions — so a
@@ -120,6 +125,8 @@ public class DepartmentService : IDepartmentService
         };
 
         _db.Departments.Add(department);
+        await _audit.RecordAsync(AuditAction.DepartmentCreated, AuditTarget.Department(department.Id, department.Name),
+            $"Created the department {department.Name}.", new { department.Code }, ct: ct);
         await _db.SaveChangesAsync(ct);
 
         return new DepartmentDetailDto(department.Id, department.Name, department.Code, true, 0, 0);
@@ -135,9 +142,21 @@ public class DepartmentService : IDepartmentService
         if (await _db.Departments.AnyAsync(d => d.Name == name && d.Id != id, ct))
             throw new InvalidOperationException($"A department called '{name}' already exists.");
 
+        var (nameBefore, codeBefore) = (department.Name, department.Code);
         department.Name = name;
         department.Code = string.IsNullOrWhiteSpace(request.Code) ? null : request.Code.Trim();
         department.UpdatedAt = _clock.GetUtcNow();
+
+        if (nameBefore != department.Name || codeBefore != department.Code)
+            await _audit.RecordAsync(AuditAction.DepartmentUpdated, AuditTarget.Department(department.Id, department.Name),
+                nameBefore != department.Name
+                    ? $"Renamed the department {nameBefore} to {department.Name}."
+                    : $"Changed the code of {department.Name}.",
+                new
+                {
+                    name = new { from = nameBefore, to = department.Name },
+                    code = new { from = codeBefore, to = department.Code },
+                }, ct: ct);
 
         await _db.SaveChangesAsync(ct);
         return await DetailAsync(department, ct);
@@ -167,6 +186,12 @@ public class DepartmentService : IDepartmentService
 
         department.IsActive = isActive;
         department.UpdatedAt = _clock.GetUtcNow();
+
+        await _audit.RecordAsync(
+            isActive ? AuditAction.DepartmentReactivated : AuditAction.DepartmentDeactivated,
+            AuditTarget.Department(department.Id, department.Name),
+            isActive ? $"Reactivated the department {department.Name}." : $"Deactivated the department {department.Name}.",
+            null, ct: ct);
 
         // Membership is deliberately left alone. Reactivating a department later should not
         // silently come back with nobody in it, and the member list is also a record of who
@@ -242,11 +267,21 @@ public class DepartmentService : IDepartmentService
             .OrderBy(u => u.DisplayName)
             .ToListAsync(ct);
 
+        var showEmail = await CanReadEmailsAsync(ct);
+
         // Projected in memory: Role.ToString() does not translate to SQL in EF Core 10.
         return users.Select(u => new DepartmentMemberDto(
-            u.Id, u.DisplayName, u.Email, u.Role.ToString(), memberIds.Contains(u.Id)
+            u.Id, u.DisplayName, showEmail ? u.Email : null, u.Role.ToString(), memberIds.Contains(u.Id)
         )).ToList();
     }
+
+    /// <summary>The roster is every active user, so with addresses it is the directory — and the
+    /// directory is <c>users:read</c> (security review, 2026-10-17, L1). The same answer
+    /// <c>[HasPermission]</c> would give, SuperAdmin bypass included.</summary>
+    private async Task<bool> CanReadEmailsAsync(CancellationToken ct) =>
+        _user.IsSuperAdmin
+        || (_user.UserId is { } id
+            && await _permissions.HasPermissionAsync(id, _tenant.TenantId, "permission:users:users:read", ct));
 
     private async Task<DepartmentDetailDto> DetailAsync(Department d, CancellationToken ct)
     {

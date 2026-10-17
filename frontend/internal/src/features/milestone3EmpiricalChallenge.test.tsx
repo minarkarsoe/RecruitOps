@@ -77,14 +77,12 @@ const mockInterviews: Interview[] = [
       {
         userId: 'user-me',
         displayName: 'Jane Staff Eng',
-        email: 'jane.staff@example.com',
         isLead: true,
         hasSubmittedScorecard: false,
       },
       {
         userId: 'user-other',
         displayName: 'Dave Tech Lead',
-        email: 'dave@example.com',
         isLead: false,
         hasSubmittedScorecard: true,
       },

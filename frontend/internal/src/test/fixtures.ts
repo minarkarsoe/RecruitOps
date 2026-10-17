@@ -30,8 +30,8 @@ export function interview(overrides: Partial<Interview> = {}): Interview {
     scorecardTemplateId: 'tpl-1',
     scorecardTemplateName: 'Engineering',
     participants: [
-      { userId: 'u-me', displayName: 'Aye Aye', email: null, isLead: true, hasSubmittedScorecard: false },
-      { userId: 'u-other', displayName: 'Bo Bo', email: null, isLead: false, hasSubmittedScorecard: true },
+      { userId: 'u-me', displayName: 'Aye Aye', isLead: true, hasSubmittedScorecard: false },
+      { userId: 'u-other', displayName: 'Bo Bo', isLead: false, hasSubmittedScorecard: true },
     ],
     ...overrides,
   };

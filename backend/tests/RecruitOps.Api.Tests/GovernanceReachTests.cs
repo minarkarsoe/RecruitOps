@@ -50,11 +50,41 @@ public class GovernanceReachTests : IClassFixture<CustomWebAppFactory>
         return As(Roles.HrDirector, user.Id);
     }
 
+    private const string RequisitionsRead = "permission:requisitions:requisitions:read";
+    private const string SettingsRead = "permission:settings:settings:read";
+    private const string SettingsUpdate = "permission:settings:settings:update";
+    private const string UsersRead = "permission:users:users:read";
+
+    /// <summary>A real holder of a fresh custom role, signed in as its base role — what the token
+    /// carries (ADR-0021 option A).</summary>
+    private async Task<(HttpClient Client, Guid UserId, Guid RoleId)> CustomRoleHolderAsync(
+        string baseRole, params string[] permissions)
+    {
+        var role = await Admin().PostAsJsonAsync("/api/roles", new CreateRoleRequest(
+            $"Probe {Guid.NewGuid():N}", null, "governance reach probe", permissions, baseRole));
+        role.EnsureSuccessStatusCode();
+        var roleId = (await role.Content.ReadFromJsonAsync<RoleDetailDto>())!.Id;
+
+        var user = await Admin().PostAsJsonAsync("/api/users", new CreateUserRequest(
+            $"probe.{Guid.NewGuid():N}@alpha.test", "Probe Holder", "Correct-Horse-9", RoleId: roleId));
+        user.EnsureSuccessStatusCode();
+        var userId = (await user.Content.ReadFromJsonAsync<UserDetailDto>())!.Id;
+        return (As(baseRole, userId), userId, roleId);
+    }
+
+    /// <summary>A 403 also comes back for an id the evaluator cannot resolve, so every denial below
+    /// is paired with an allow for the same identity — a mis-wired client fails here instead of
+    /// passing (security review, 2026-10-17).</summary>
+    private static async Task AssertIdentityResolvesAsync(HttpClient client) =>
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/requisitions")).StatusCode);
+
     // ---- the user directory -----------------------------------------------------------
 
     [Fact]
     public async Task A_Recruiter_Cannot_Read_A_Users_Full_Record_By_Id()
     {
+        await AssertIdentityResolvesAsync(Recruiter());
+
         // The leak, exactly as measured: ids from the picker, chained into the full record.
         var picker = await Recruiter().GetFromJsonAsync<List<SelectableUserDto>>("/api/users/selectable");
         Assert.NotEmpty(picker!);
@@ -69,6 +99,47 @@ public class GovernanceReachTests : IClassFixture<CustomWebAppFactory>
     {
         Assert.Equal(HttpStatusCode.OK, (await Recruiter().GetAsync("/api/users/selectable")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await Recruiter().GetAsync("/api/users")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_Recruiter_Setting_A_Panel_Gets_Names_Back_Not_Emails()
+    {
+        // The second route to the same leak (security review, 2026-10-17, M1): name everyone the
+        // picker offers to a panel, and read what the panel response says about them.
+        var (_, applicationId) = await new Module3Scenario(_factory).ApplicationAsync("Panel Email Probe");
+        var picker = await Recruiter().GetFromJsonAsync<List<SelectableUserDto>>("/api/users/selectable");
+        var everyone = picker!.Select(u => u.Id).Take(PanelLimits.MaxParticipants).ToArray();
+
+        var res = await Recruiter().PostAsJsonAsync($"/api/applications/{applicationId}/interviews",
+            new ScheduleInterviewRequest
+            {
+                ScheduledStart = DateTimeOffset.UtcNow.AddDays(3),
+                Mode = "Video",
+                ParticipantUserIds = everyone,
+            });
+
+        res.EnsureSuccessStatusCode();
+        var json = await res.Content.ReadAsStringAsync();
+        Assert.Contains("displayName", json);
+        Assert.DoesNotContain("email", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("@alpha.test", json);
+    }
+
+    [Fact]
+    public async Task A_Panel_Cannot_Name_The_Whole_Company()
+    {
+        var (_, applicationId) = await new Module3Scenario(_factory).ApplicationAsync("Panel Size Probe");
+
+        var res = await Recruiter().PostAsJsonAsync($"/api/applications/{applicationId}/interviews",
+            new ScheduleInterviewRequest
+            {
+                ScheduledStart = DateTimeOffset.UtcNow.AddDays(3),
+                Mode = "Video",
+                ParticipantUserIds = Enumerable.Range(0, PanelLimits.MaxParticipants + 1)
+                    .Select(_ => Guid.NewGuid()).ToArray(),
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
     }
 
     [Fact]
@@ -88,6 +159,7 @@ public class GovernanceReachTests : IClassFixture<CustomWebAppFactory>
     public async Task Other_Roles_Get_No_Directory(string role)
     {
         var userId = role == Roles.HiringManager ? _factory.HiringManagerUserId : _factory.FinanceApproverUserId;
+        await AssertIdentityResolvesAsync(As(role, userId));
         Assert.Equal(HttpStatusCode.Forbidden, (await As(role, userId).GetAsync("/api/users")).StatusCode);
     }
 
@@ -106,12 +178,14 @@ public class GovernanceReachTests : IClassFixture<CustomWebAppFactory>
         var hrd = await HrDirectorAsync();
 
         Assert.Equal(HttpStatusCode.OK, (await hrd.GetAsync("/api/departments/admin")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK,
-            (await hrd.GetAsync($"/api/departments/{_factory.SalesDepartmentId}/members")).StatusCode);
+        var roster = await hrd.GetFromJsonAsync<List<DepartmentMemberDto>>(
+            $"/api/departments/{_factory.SalesDepartmentId}/members");
 
         var create = await hrd.PostAsJsonAsync("/api/departments", new { name = "Not Created", code = "NOPE" });
+        // The probe sends the membership as it already is: if the guard ever regressed, this test
+        // must fail without first wiping the fixture's Sales department.
         var members = await hrd.PutAsJsonAsync($"/api/departments/{_factory.SalesDepartmentId}/members",
-            new { userIds = Array.Empty<Guid>() });
+            new { userIds = roster!.Where(m => m.IsMember).Select(m => m.UserId).ToArray() });
         Assert.Equal(HttpStatusCode.Forbidden, create.StatusCode);
         // Membership is the department-scoping axis (ADR-0003): reading it must not mean moving it.
         Assert.Equal(HttpStatusCode.Forbidden, members.StatusCode);
@@ -120,7 +194,79 @@ public class GovernanceReachTests : IClassFixture<CustomWebAppFactory>
     [Fact]
     public async Task A_Recruiter_Gets_No_Department_Administration()
     {
+        await AssertIdentityResolvesAsync(Recruiter());
         Assert.Equal(HttpStatusCode.Forbidden, (await Recruiter().GetAsync("/api/departments/admin")).StatusCode);
+    }
+
+    [Theory]
+    [InlineData(Roles.HiringManager)]
+    [InlineData("Interviewer")]
+    public async Task A_Department_Scoped_Role_Administers_No_Department_Whatever_It_Holds(string baseRole)
+    {
+        // An Admin can build this role: Admin holds every permission here and covers both bases.
+        // What it must not become is a way out of the base: membership IS a scoped role's reach
+        // (security review, 2026-10-17, M2).
+        var (holder, holderId, _) = await CustomRoleHolderAsync(baseRole, RequisitionsRead, SettingsRead, SettingsUpdate);
+        await AssertIdentityResolvesAsync(holder);
+
+        var addSelf = await holder.PutAsJsonAsync($"/api/departments/{_factory.SalesDepartmentId}/members",
+            new SetDepartmentMembersRequest { UserIds = [holderId] });
+        var create = await holder.PostAsJsonAsync("/api/departments", new CreateDepartmentRequest { Name = $"Mine {Guid.NewGuid():N}" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, addSelf.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, create.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await holder.GetAsync("/api/departments/admin")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await holder.GetAsync($"/api/departments/{_factory.SalesDepartmentId}/members")).StatusCode);
+        // Naming yourself on a chain opens every requisition it governs — the same way out.
+        Assert.Equal(HttpStatusCode.Forbidden, (await holder.GetAsync("/api/approvalchains")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_Company_Wide_Custom_Role_With_Settings_Read_Sees_The_Roster_Without_Addresses()
+    {
+        // settings:read is not users:read. The roster is every active user, so with emails it would
+        // be the directory under another permission (security review, 2026-10-17, L1).
+        var (holder, _, _) = await CustomRoleHolderAsync(Roles.Recruiter, RequisitionsRead, SettingsRead);
+
+        var roster = await holder.GetFromJsonAsync<List<DepartmentMemberDto>>(
+            $"/api/departments/{_factory.SalesDepartmentId}/members");
+        Assert.NotEmpty(roster!);
+        Assert.All(roster!, m => Assert.Null(m.Email));
+
+        // Admin and HR Director hold users:read, so their screen keeps the addresses.
+        var asAdmin = await Admin().GetFromJsonAsync<List<DepartmentMemberDto>>(
+            $"/api/departments/{_factory.SalesDepartmentId}/members");
+        Assert.All(asAdmin!, m => Assert.NotNull(m.Email));
+    }
+
+    [Fact]
+    public async Task Department_Changes_Are_In_The_Audit_Log()
+    {
+        // Delegable since 2026-10-17, so who did it has to be answerable (security review, L4).
+        var created = await Admin().PostAsJsonAsync("/api/departments",
+            new CreateDepartmentRequest { Name = $"Audited {Guid.NewGuid():N}" });
+        created.EnsureSuccessStatusCode();
+        var department = (await created.Content.ReadFromJsonAsync<DepartmentDetailDto>())!;
+
+        (await Admin().PutAsJsonAsync($"/api/departments/{department.Id}",
+            new UpdateDepartmentRequest { Name = department.Name + " Renamed" })).EnsureSuccessStatusCode();
+        (await Admin().PostAsync($"/api/departments/{department.Id}/deactivate", null)).EnsureSuccessStatusCode();
+        (await Admin().PostAsync($"/api/departments/{department.Id}/activate", null)).EnsureSuccessStatusCode();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var actions = await db.AuditLogEntries.IgnoreQueryFilters()
+            .Where(e => e.TargetId == department.Id)
+            .OrderBy(e => e.OccurredAt)
+            .Select(e => new { e.Action, e.ActorUserId })
+            .ToListAsync();
+
+        Assert.Equal(
+            new[] { AuditAction.DepartmentCreated, AuditAction.DepartmentUpdated,
+                    AuditAction.DepartmentDeactivated, AuditAction.DepartmentReactivated },
+            actions.Select(a => a.Action));
+        Assert.All(actions, a => Assert.Equal(_factory.AdminUserId, a.ActorUserId));
     }
 
     // ---- the seed is the definition of a system role ---------------------------------
@@ -160,5 +306,29 @@ public class GovernanceReachTests : IClassFixture<CustomWebAppFactory>
             .OrderByDescending(e => e.OccurredAt).FirstOrDefaultAsync();
         Assert.NotNull(entry);
         Assert.Contains("permission:users:users:read", entry!.DetailsJson);
+    }
+
+    [Fact]
+    public async Task Startup_Seeding_Leaves_Custom_Roles_And_Admin_As_They_Are()
+    {
+        // The removal sync is for system roles only: a custom role is the customer's own decision,
+        // and the Admin's set must come through an upgrade whole.
+        var (_, _, customRoleId) = await CustomRoleHolderAsync(Roles.Recruiter, RequisitionsRead, UsersRead);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var adminRole = await db.Roles.IgnoreQueryFilters().SingleAsync(r => r.IsSystemRole && r.Code == "Admin");
+        var adminBefore = await db.RolePermissions.IgnoreQueryFilters().CountAsync(rp => rp.RoleId == adminRole.Id);
+
+        await DbInitializer.SeedPermissionsAndRolesAsync(db);
+
+        var customCodes = await db.RolePermissions.IgnoreQueryFilters()
+            .Where(rp => rp.RoleId == customRoleId)
+            .Join(db.Permissions.IgnoreQueryFilters(), rp => rp.PermissionId, p => p.Id, (_, p) => p.Code)
+            .ToListAsync();
+        Assert.Contains(UsersRead, customCodes);
+        Assert.Contains(RequisitionsRead, customCodes);
+        Assert.Equal(adminBefore,
+            await db.RolePermissions.IgnoreQueryFilters().CountAsync(rp => rp.RoleId == adminRole.Id));
     }
 }

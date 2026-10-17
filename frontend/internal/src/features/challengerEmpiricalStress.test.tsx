@@ -82,8 +82,8 @@ describe('Challenger Empirical Stress Suite — Milestone 3 Modules', () => {
         scorecardTemplateId: null,
         scorecardTemplateName: null,
         participants: [
-          { userId: 'usr-1', displayName: 'Interviewer One', email: 'usr1@example.com', isLead: true, hasSubmittedScorecard: true },
-          { userId: 'usr-2', displayName: 'Interviewer Two', email: 'usr2@example.com', isLead: false, hasSubmittedScorecard: false },
+          { userId: 'usr-1', displayName: 'Interviewer One', isLead: true, hasSubmittedScorecard: true },
+          { userId: 'usr-2', displayName: 'Interviewer Two', isLead: false, hasSubmittedScorecard: false },
         ],
       },
     ];

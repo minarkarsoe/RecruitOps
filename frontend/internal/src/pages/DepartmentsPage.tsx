@@ -234,7 +234,10 @@ export function DepartmentsPage() {
                                 }
                               />
                               {m.displayName}
-                              <span className="text-sm text-ink-400">{m.role} · {m.email}</span>
+                              <span className="text-sm text-ink-400">
+                                {m.role}
+                                {m.email && ` · ${m.email}`}
+                              </span>
                             </label>
                           </li>
                         ))}

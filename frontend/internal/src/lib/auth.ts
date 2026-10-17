@@ -122,9 +122,12 @@ export const auth = {
  * ---------------------------------------------------------------------------
  */
 
-/** Roles that see only their own departments (ADR-0003). Mirrors `RoleScope.IsDepartmentScoped`. */
+/**
+ * Roles that see only their own departments (ADR-0003). Mirrors `RoleScope.IsDepartmentScoped`,
+ * which added Interviewer on 2026-10-15 — this copy did not follow until 2026-10-17.
+ */
 export function isDepartmentScoped(role: UserRole): boolean {
-  return role === 'HiringManager';
+  return role === 'HiringManager' || role === 'Interviewer';
 }
 
 /**
@@ -138,7 +141,7 @@ export function isDepartmentScoped(role: UserRole): boolean {
  * points that would otherwise 404 for them.
  */
 export function isExcludedFromCandidateData(role: UserRole): boolean {
-  return role === 'Approver';
+  return role === 'Approver' || role === 'Interviewer';
 }
 
 /**

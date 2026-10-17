@@ -2,14 +2,18 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RecruitOps.Application.DTOs;
 
-/// <summary>A panel member on an interview.</summary>
+/// <summary>A panel member on an interview.
+///
+/// <para><b>No email address</b>, the picker's rule (ADR-0019): whoever sets a panel names people
+/// from <c>GET /api/users/selectable</c>, and until 2026-10-17 this record handed back the email of
+/// everyone named — so a Recruiter could set a panel from every selectable id and read the whole
+/// company's addresses, one call after the directory had been closed to them.</para></summary>
 /// <param name="HasSubmittedScorecard">Whether this person has finished their evaluation.
 /// Deliberately visible to the whole panel: knowing a colleague is done reveals nothing
 /// about what they said, and it is what lets a lead chase the outstanding scorecard.</param>
 public record InterviewParticipantDto(
     Guid UserId,
     string DisplayName,
-    string? Email,
     bool IsLead,
     bool HasSubmittedScorecard);
 
@@ -79,8 +83,9 @@ public record ScheduleInterviewRequest
     public string? Agenda { get; init; }
 
     /// <summary>The panel. Must not be empty — an interview with nobody assigned cannot be
-    /// scored, and would sit in the pipeline looking scheduled.</summary>
-    [Required, MinLength(1)]
+    /// scored, and would sit in the pipeline looking scheduled. At most
+    /// <see cref="PanelLimits.MaxParticipants"/>.</summary>
+    [Required, MinLength(1), MaxLength(PanelLimits.MaxParticipants)]
     public IReadOnlyList<Guid> ParticipantUserIds { get; init; } = Array.Empty<Guid>();
 
     /// <summary>Optional lead; must appear in <see cref="ParticipantUserIds"/>.</summary>
@@ -110,7 +115,7 @@ public record RescheduleInterviewRequest
 
 public record SetPanelRequest
 {
-    [Required, MinLength(1)]
+    [Required, MinLength(1), MaxLength(PanelLimits.MaxParticipants)]
     public IReadOnlyList<Guid> ParticipantUserIds { get; init; } = Array.Empty<Guid>();
 
     public Guid? LeadUserId { get; init; }
@@ -127,4 +132,11 @@ public record CompleteInterviewRequest
     /// <summary>True when the candidate did not attend — recorded as <c>NoShow</c> rather
     /// than <c>Completed</c>, because Module 5 will want to tell those apart.</summary>
     public bool NoShow { get; init; }
+}
+
+public static class PanelLimits
+{
+    /// <summary>Far above any real panel; there only so a panel cannot be a way to address the
+    /// whole company in one request.</summary>
+    public const int MaxParticipants = 20;
 }

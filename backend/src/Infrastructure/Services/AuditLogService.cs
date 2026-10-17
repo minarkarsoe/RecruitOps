@@ -21,6 +21,8 @@ public sealed class AuditLogService : IAuditLogService
     {
         AuditAction.UserCreated, AuditAction.UserUpdated, AuditAction.UserRoleChanged,
         AuditAction.UserDeactivated, AuditAction.UserReactivated, AuditAction.DepartmentMembersChanged,
+        AuditAction.DepartmentCreated, AuditAction.DepartmentUpdated, AuditAction.DepartmentDeactivated,
+        AuditAction.DepartmentReactivated,
     };
 
     private static readonly AuditAction[] RoleActions =
@@ -120,6 +122,10 @@ public sealed class AuditLogService : IAuditLogService
         AuditAction.UserDeactivated => "User deactivated",
         AuditAction.UserReactivated => "User reactivated",
         AuditAction.DepartmentMembersChanged => "Department access changed",
+        AuditAction.DepartmentCreated => "Department created",
+        AuditAction.DepartmentUpdated => "Department renamed",
+        AuditAction.DepartmentDeactivated => "Department deactivated",
+        AuditAction.DepartmentReactivated => "Department reactivated",
         AuditAction.RoleCreated => "Role created",
         AuditAction.RoleUpdated => "Role changed",
         AuditAction.RoleDeleted => "Role deleted",

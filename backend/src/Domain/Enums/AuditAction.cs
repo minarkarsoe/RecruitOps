@@ -19,6 +19,13 @@ public enum AuditAction
     /// <summary>Who belongs to a department changed — the ADR-0003 axis: it decides which
     /// requisitions a department-scoped user reaches.</summary>
     DepartmentMembersChanged,
+    /// <summary>A department was created, renamed, deactivated or reactivated. Not access by
+    /// itself, but the unit access is granted in — and since 2026-10-17 delegable through
+    /// <c>settings:update</c>, so who did it has to be answerable.</summary>
+    DepartmentCreated,
+    DepartmentUpdated,
+    DepartmentDeactivated,
+    DepartmentReactivated,
 
     RoleCreated,
     RoleUpdated,

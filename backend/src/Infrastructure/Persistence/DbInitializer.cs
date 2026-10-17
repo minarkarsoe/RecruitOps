@@ -140,6 +140,21 @@ public static class DbInitializer
             .ToDictionaryAsync(p => p.Code, ct);
 
         var canonicalPermissions = RbacSeedData.GetCanonicalPermissions();
+
+        // A system role naming a code the catalogue does not have would be skipped when granting —
+        // and, since step 2 also removes what a definition no longer names, an install's existing
+        // grant of the code it meant would be revoked at the next start without a word. A typo there
+        // must stop startup before anything is written, not quietly narrow a role (security review,
+        // 2026-10-17, L3).
+        var catalogue = canonicalPermissions.Select(p => p.Code).ToHashSet(StringComparer.Ordinal);
+        var uncatalogued = RbacSeedData.GetSystemRoles()
+            .SelectMany(r => r.PermissionCodes.Where(code => !catalogue.Contains(code)).Select(code => $"{r.Code}: {code}"))
+            .ToList();
+        if (uncatalogued.Count > 0)
+            throw new InvalidOperationException(
+                "A system role grants a permission that is not in the catalogue, so seeding would revoke " +
+                $"instead of grant. Fix RbacSeedData before starting: {string.Join(", ", uncatalogued)}.");
+
         var newPermissions = new List<Permission>();
 
         foreach (var perm in canonicalPermissions)

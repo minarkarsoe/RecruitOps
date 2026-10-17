@@ -608,7 +608,7 @@ public class InterviewService : IInterviewService
             from p in _db.InterviewParticipants.AsNoTracking()
             join u in _db.Users.AsNoTracking() on p.UserId equals u.Id
             where p.InterviewId == interviewId
-            select new { p.UserId, u.DisplayName, u.Email, p.IsLead }
+            select new { p.UserId, u.DisplayName, p.IsLead }
         ).ToListAsync(ct);
 
         var submitted = await _db.Scorecards.AsNoTracking()
@@ -645,7 +645,6 @@ public class InterviewService : IInterviewService
                 .Select(p => new InterviewParticipantDto(
                     p.UserId,
                     p.DisplayName,
-                    p.Email,
                     p.IsLead,
                     submitted.Contains(p.UserId)))
                 .ToList());

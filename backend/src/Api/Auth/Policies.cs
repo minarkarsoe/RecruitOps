@@ -24,4 +24,16 @@ public static class Policies
 
     /// <summary>Administrators only.</summary>
     public const string AdminOnly = "AdminOnly";
+
+    /// <summary>A role whose reach is not limited to its own departments — anyone
+    /// <c>RoleScope.IsDepartmentScoped</c> says no to, which is the one definition.
+    ///
+    /// <para>Department and approval-chain administration need it <em>on top of</em> their
+    /// permission. Both move the ADR-0003 axis itself: department membership decides which
+    /// requisitions a scoped role reaches, and whoever is named on a chain can open the requisitions
+    /// it governs. A Hiring Manager base holding <c>settings:update</c> could otherwise put themselves
+    /// in every department, or on every chain, and leave the reach the grantor ceiling approved
+    /// (security review, 2026-10-17, M2). Not a permission check: a permission says what someone
+    /// may do; this says the role can only do it company-wide.</para></summary>
+    public const string CompanyWide = "CompanyWide";
 }

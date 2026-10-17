@@ -17,10 +17,13 @@ public record DepartmentDetailDto(
     int OpenRequisitionCount);
 
 /// <summary>A user who can be assigned to a department, and whether they currently are.</summary>
+/// <param name="Email">Only for a caller who holds <c>users:read</c>, which is what reading
+/// addresses means everywhere else (ADR-0019). Admin and HR Director hold both by default; a custom
+/// role given <c>settings:read</c> alone sees names and roles, enough to tell people apart.</param>
 public record DepartmentMemberDto(
     Guid UserId,
     string DisplayName,
-    string Email,
+    string? Email,
     string Role,
     bool IsMember);
 

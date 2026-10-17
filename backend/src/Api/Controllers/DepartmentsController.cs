@@ -17,7 +17,9 @@ namespace RecruitOps.Api.Controllers;
 /// authority as editing an approval chain, and now the same permission (ADR-0022 amendment,
 /// 2026-10-17). The administration view needs <c>settings:read</c>, which the HR Director holds.
 /// Both sit <em>on top of</em> the class's <c>InternalUser</c> — authorization attributes are
-/// additive (ADR-0019 amendment, 2026-07-28).</para></summary>
+/// additive (ADR-0019 amendment, 2026-07-28) — and so does <see cref="Policies.CompanyWide"/>:
+/// a department-scoped role administers no department, whatever it holds, because membership is
+/// its own scope.</para></summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = Policies.InternalUser)]
@@ -37,11 +39,13 @@ public class DepartmentsController : ControllerBase
     // amendment, 2026-10-17). The HR Director reads departments; only Admin changes them by default.
     [HttpGet("admin")]
     [HasPermission("permission:settings:settings:read")]
+    [Authorize(Policy = Policies.CompanyWide)]
     public async Task<ActionResult<IReadOnlyList<DepartmentDetailDto>>> GetForAdmin(CancellationToken ct)
         => Ok(await _departments.GetForAdminAsync(ct));
 
     [HttpPost]
     [HasPermission("permission:settings:settings:update")]
+    [Authorize(Policy = Policies.CompanyWide)]
     public async Task<ActionResult<DepartmentDetailDto>> Create(
         CreateDepartmentRequest request, CancellationToken ct)
     {
@@ -58,6 +62,7 @@ public class DepartmentsController : ControllerBase
 
     [HttpPut("{id:guid}")]
     [HasPermission("permission:settings:settings:update")]
+    [Authorize(Policy = Policies.CompanyWide)]
     public async Task<ActionResult<DepartmentDetailDto>> Update(
         Guid id, UpdateDepartmentRequest request, CancellationToken ct)
     {
@@ -76,11 +81,13 @@ public class DepartmentsController : ControllerBase
     /// postings and the audit trail point at departments.</summary>
     [HttpPost("{id:guid}/deactivate")]
     [HasPermission("permission:settings:settings:update")]
+    [Authorize(Policy = Policies.CompanyWide)]
     public Task<ActionResult<DepartmentDetailDto>> Deactivate(Guid id, CancellationToken ct)
         => SetActive(id, false, "Cannot deactivate", ct);
 
     [HttpPost("{id:guid}/activate")]
     [HasPermission("permission:settings:settings:update")]
+    [Authorize(Policy = Policies.CompanyWide)]
     public Task<ActionResult<DepartmentDetailDto>> Activate(Guid id, CancellationToken ct)
         => SetActive(id, true, "Cannot activate", ct);
 
@@ -101,6 +108,7 @@ public class DepartmentsController : ControllerBase
     /// <summary>The whole user roster, flagged with who belongs to this department.</summary>
     [HttpGet("{id:guid}/members")]
     [HasPermission("permission:settings:settings:read")]
+    [Authorize(Policy = Policies.CompanyWide)]
     public async Task<ActionResult<IReadOnlyList<DepartmentMemberDto>>> GetMembers(Guid id, CancellationToken ct)
     {
         var result = await _departments.GetMembersAsync(id, ct);
@@ -112,6 +120,7 @@ public class DepartmentsController : ControllerBase
     /// issuing deltas against a state they cannot see.</summary>
     [HttpPut("{id:guid}/members")]
     [HasPermission("permission:settings:settings:update")]
+    [Authorize(Policy = Policies.CompanyWide)]
     public async Task<ActionResult<IReadOnlyList<DepartmentMemberDto>>> SetMembers(
         Guid id, SetDepartmentMembersRequest request, CancellationToken ct)
     {
