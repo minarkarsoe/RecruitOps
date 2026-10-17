@@ -198,6 +198,42 @@ public class PublicApplicationTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal("09888777666", a.Phone);
     }
 
+    /// <summary>Search compares a query that looks like a phone the way phones are stored — ASCII
+    /// digits, +95 read as 0 (Module 2.6/2.7). It compared the raw text, so "09 765 432 100", "+95 9
+    /// 765 432 100" and the Burmese-digit form all missed a candidate stored as "09765432100".</summary>
+    [Theory]
+    [InlineData("09333444555")]
+    [InlineData("09 333 444 555")]
+    [InlineData("+95 9 333 444 555")]
+    [InlineData("၀၉ ၃၃၃ ၄၄၄ ၅၅၅")]
+    [InlineData("333 444")]
+    public async Task Search_Finds_A_Candidate_By_Phone_However_It_Is_Typed(string query)
+    {
+        var posting = await LivePostingAsync($"Sales Role search {Guid.NewGuid():N}");
+        await Anonymous().PostAsJsonAsync($"/api/public/jobs/{posting.PublicToken}/apply",
+            new SubmitApplicationRequest { FullName = "Daw Phone Search", Phone = "09-333-444-555" });
+
+        var res = await Internal(Roles.Recruiter, _factory.RecruiterUserId).GetFromJsonAsync<RecruitOps.Application.DTOs.Search.SearchResponseDto>(
+            $"/api/search?q={Uri.EscapeDataString(query)}&category=Candidates");
+
+        Assert.Contains(res!.Items, i => i.Title == "Daw Phone Search");
+    }
+
+    [Fact]
+    public async Task A_Query_With_A_Number_In_It_Is_Not_Treated_As_A_Phone()
+    {
+        var posting = await LivePostingAsync("Sales Role search words");
+        await Anonymous().PostAsJsonAsync($"/api/public/jobs/{posting.PublicToken}/apply",
+            new SubmitApplicationRequest { FullName = "Daw Digit Two", Phone = "09 222 222 222" });
+
+        // "Engineer 2" is words with a digit, not a phone: matching its "2" against every phone
+        // would return half the database.
+        var res = await Internal(Roles.Recruiter, _factory.RecruiterUserId).GetFromJsonAsync<RecruitOps.Application.DTOs.Search.SearchResponseDto>(
+            "/api/search?q=Engineer%202&category=Candidates");
+
+        Assert.DoesNotContain(res!.Items, i => i.Title == "Daw Digit Two");
+    }
+
     /// <summary>What the browser actually sends: the form's state as JSON, so a field the applicant
     /// skipped arrives as <c>""</c>, never absent. The typed requests above serialise a skipped field
     /// as <c>null</c>, which is why none of them caught that <c>[Phone]</c> and

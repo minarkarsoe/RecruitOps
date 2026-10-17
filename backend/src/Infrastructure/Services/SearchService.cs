@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using RecruitOps.Application.Common;
 using RecruitOps.Application.DTOs.Search;
 using RecruitOps.Application.Interfaces;
+using RecruitOps.Domain;
 using RecruitOps.Domain.Entities;
 using RecruitOps.Infrastructure.Persistence;
 
@@ -250,6 +251,7 @@ public class SearchService : ISearchService
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var result = new List<SearchResultItemDto>();
+        var phoneTerm = PhoneSearchTerm(searchTerm);
 
         foreach (var cand in candidates)
         {
@@ -269,7 +271,8 @@ public class SearchService : ISearchService
                 isMatch = true;
                 matchContent = cand.Email;
             }
-            else if (cand.Phone != null && cand.Phone.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            else if (cand.Phone != null && (cand.Phone.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                     || (phoneTerm != null && cand.Phone.Contains(phoneTerm, StringComparison.Ordinal))))
             {
                 isMatch = true;
                 matchContent = cand.Phone;
@@ -470,6 +473,20 @@ public class SearchService : ISearchService
         return highlighted;
     }
 
+    /// <summary>A query that looks like a phone number, in the form phones are stored (Module 2.7):
+    /// ASCII digits, +95/0095 read as 0, Burmese digits read as 0–9 — via the same
+    /// <see cref="ContactNormalizer"/> that stores them. The raw query used to be compared as typed, so
+    /// "09 765 432 100", "+95 9 765 432 100" and "၀၉ ၇၆၅ ၄၃၂ ၁၀၀" all missed a candidate stored as
+    /// "09765432100". Only digits (any script) and phone punctuation count as phone-like, so
+    /// "Engineer 2" is not matched against every phone with a 2 in it; three digits minimum.</summary>
+    private static string? PhoneSearchTerm(string searchTerm)
+    {
+        foreach (var c in searchTerm)
+            if (!char.IsDigit(c) && c is not (' ' or '+' or '-' or '(' or ')' or '.'))
+                return null;
+        return ContactNormalizer.Phone(searchTerm) is { Length: >= 3 } digits ? digits : null;
+    }
+
     private static double CalculateCandidateScore(Candidate cand, List<AppTextData> apps, string searchTerm)
     {
         double baseScore;
@@ -478,12 +495,14 @@ public class SearchService : ISearchService
         else if (cand.FullName.StartsWith(searchTerm, StringComparison.OrdinalIgnoreCase))
             baseScore = 95.0;
         else if ((cand.Email != null && cand.Email.Equals(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
-                 (cand.Phone != null && cand.Phone.Equals(searchTerm, StringComparison.OrdinalIgnoreCase)))
+                 (cand.Phone != null && (cand.Phone.Equals(searchTerm, StringComparison.OrdinalIgnoreCase)
+                     || cand.Phone == PhoneSearchTerm(searchTerm))))
             baseScore = 90.0;
         else if (cand.FullName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             baseScore = 85.0;
         else if ((cand.Email != null && cand.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
-                 (cand.Phone != null && cand.Phone.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
+                 (cand.Phone != null && (cand.Phone.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                     || (PhoneSearchTerm(searchTerm) is { } digits && cand.Phone.Contains(digits, StringComparison.Ordinal)))))
             baseScore = 80.0;
         else if (apps.Any(a => a.CoverNote != null && a.CoverNote.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
             baseScore = 70.0;
