@@ -5,6 +5,7 @@ import type {
   DepartmentListItem, SelectableUser,
 } from '@recruitops/types';
 import { api } from '../lib/api';
+import { auth, hasPermission } from '../lib/auth';
 
 type StepDraft = { label: string; approverUserId: string };
 
@@ -115,7 +116,9 @@ export function ApprovalChainsPage() {
             Define who must approve a requisition and in what order.
           </p>
         </div>
-        {!showForm && (
+        {/* Creating a chain needs settings:update; the HR Director reads chains without it
+            (ADR-0022 amendment, 2026-10-17), and a button that can only answer 403 is a dead end. */}
+        {!showForm && hasPermission(auth.get(), 'permission:settings:settings:update') && (
           <Button onClick={() => setShowForm(true)}>New chain</Button>
         )}
       </header>

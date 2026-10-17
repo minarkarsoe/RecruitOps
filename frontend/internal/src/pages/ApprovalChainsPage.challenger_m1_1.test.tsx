@@ -108,7 +108,8 @@ beforeEach(() => {
     displayName: 'Admin User',
     userId: 'usr-admin',
     isSuperAdmin: false,
-    permissions: ['permission:settings:settings:read', 'permission:settings:settings:manage'],
+    // settings:update is what creating a chain needs; `settings:manage` here never existed.
+    permissions: ['permission:settings:settings:read', 'permission:settings:settings:update'],
   });
 });
 

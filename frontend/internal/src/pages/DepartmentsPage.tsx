@@ -4,9 +4,13 @@ import type {
   CreateDepartmentRequest, DepartmentDetail, DepartmentMember,
 } from '@recruitops/types';
 import { api } from '../lib/api';
+import { auth, hasPermission } from '../lib/auth';
 
 /**
- * Department admin (Admin only).
+ * Department administration. Reading needs `settings:read` (Admin and HR Director by default);
+ * every change — create, rename, (de)activate, membership — needs `settings:update`, which only
+ * Admin holds by default (ADR-0022 amendment, 2026-10-17). Without it the screen is read-only: the
+ * list and who belongs where, and no control that would only answer 403.
  *
  * Two things happen here and they are not equally obvious: naming departments, and deciding
  * who can see the requisitions inside them. The second is the access-control axis of the
@@ -14,6 +18,7 @@ import { api } from '../lib/api';
  * behind a settings page nobody opens.
  */
 export function DepartmentsPage() {
+  const canEdit = hasPermission(auth.get(), 'permission:settings:settings:update');
   const [items, setItems] = useState<DepartmentDetail[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -73,7 +78,7 @@ export function DepartmentsPage() {
     <>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight">Departments</h1>
-        {!creating && <Button onClick={() => setCreating(true)}>New department</Button>}
+        {canEdit && !creating && <Button onClick={() => setCreating(true)}>New department</Button>}
       </div>
 
       {error && <p role="alert" className="mb-4 text-md text-critical-700">{error}</p>}
@@ -178,16 +183,18 @@ export function DepartmentsPage() {
                         <Button variant="ghost" onClick={() => openMembers(d.id)}>
                           {membersFor === d.id ? 'Hide members' : 'Members'}
                         </Button>
-                        <Button
-                          variant="secondary"
-                          onClick={() => {
-                            setEditingId(d.id);
-                            setEditForm({ name: d.name, code: d.code ?? '' });
-                          }}
-                        >
-                          Rename
-                        </Button>
-                        {d.isActive ? (
+                        {canEdit && (
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              setEditingId(d.id);
+                              setEditForm({ name: d.name, code: d.code ?? '' });
+                            }}
+                          >
+                            Rename
+                          </Button>
+                        )}
+                        {!canEdit ? null : d.isActive ? (
                           <Button
                             variant="danger"
                             disabled={busy}
@@ -220,7 +227,7 @@ export function DepartmentsPage() {
                           <li key={m.userId}>
                             <label className="flex items-center gap-2 text-md">
                               <input
-                                type="checkbox" checked={m.isMember}
+                                type="checkbox" checked={m.isMember} disabled={!canEdit}
                                 onChange={(e) =>
                                   setMembers(members.map((x) =>
                                     x.userId === m.userId ? { ...x, isMember: e.target.checked } : x))
@@ -232,9 +239,11 @@ export function DepartmentsPage() {
                           </li>
                         ))}
                       </ul>
-                      <Button onClick={() => saveMembers(d.id)} disabled={busy}>
-                        {busy ? 'Saving…' : 'Save members'}
-                      </Button>
+                      {canEdit && (
+                        <Button onClick={() => saveMembers(d.id)} disabled={busy}>
+                          {busy ? 'Saving…' : 'Save members'}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </li>

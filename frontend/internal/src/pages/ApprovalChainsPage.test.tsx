@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { auth } from '../lib/auth';
 import { ApprovalChainsPage } from './ApprovalChainsPage';
 
 const apiMock = vi.hoisted(() => vi.fn());
@@ -39,5 +40,28 @@ describe('ApprovalChainsPage', () => {
 
     expect(await screen.findByText('Engineering approval')).toBeInTheDocument();
     expect(screen.getAllByText(/Aung Approver/).length).toBeGreaterThan(0);
+  });
+
+  function signIn(permissions: string[]) {
+    sessionStorage.clear();
+    auth.set({
+      accessToken: 'token', expiresAtUtc: '2099-01-01T00:00:00Z', role: 'HrDirector',
+      displayName: 'Viewer', userId: 'usr-1', isSuperAdmin: false, permissions,
+    });
+  }
+
+  // ADR-0022 amendment (2026-10-17): the HR Director reads chains (settings:read) but may not
+  // create one (settings:update) — so the button that could only answer 403 is not offered.
+  it('offers "New chain" only with settings:update', async () => {
+    serveRealShapes();
+    signIn(['permission:settings:settings:read']);
+    const { unmount } = render(<ApprovalChainsPage />);
+    expect(await screen.findByText('Engineering approval')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New chain' })).not.toBeInTheDocument();
+    unmount();
+
+    signIn(['permission:settings:settings:read', 'permission:settings:settings:update']);
+    render(<ApprovalChainsPage />);
+    expect(await screen.findByRole('button', { name: 'New chain' })).toBeInTheDocument();
   });
 });

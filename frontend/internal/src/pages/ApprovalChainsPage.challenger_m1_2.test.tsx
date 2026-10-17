@@ -1,9 +1,25 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ApprovalChain, DepartmentListItem, SelectableUser } from '@recruitops/types';
 import { ApiError } from '../lib/api';
+import { auth } from '../lib/auth';
 import { ApprovalChainsPage } from './ApprovalChainsPage';
+
+// These cases drive the create form, so they run as someone who may create a chain — "New chain"
+// is offered only with settings:update since 2026-10-17.
+beforeEach(() => {
+  sessionStorage.clear();
+  auth.set({
+    accessToken: 'token-admin',
+    expiresAtUtc: '2099-01-01T00:00:00Z',
+    role: 'Admin',
+    displayName: 'Admin User',
+    userId: 'usr-admin',
+    isSuperAdmin: false,
+    permissions: ['permission:settings:settings:read', 'permission:settings:settings:update'],
+  });
+});
 
 /*
  * challenger_m1_2 — FAILURE MODES, INPUTS AND DEFAULTS on the M1 fix.
