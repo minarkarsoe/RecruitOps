@@ -94,6 +94,11 @@ segmentation-based search, over **normalized Unicode** text
 ### 2.7 Duplicate Detection
 Incoming CVs are auto-checked against existing records by **phone number and email**.
 
+A phone number is compared as its digits alone, however it was written: spaces, dashes and
+brackets are ignored, a leading `+95` / `0095` is read as the national `0`, and **Burmese digits
+(၀–၉) are read as 0–9** — a Myanmar keyboard types `၀၉ ၇၆၅ ၄၃၂ ၁၀၀`, and that is the same
+number as `09 765 432 100`. It is stored in that normalised ASCII form, so search finds it too.
+
 ## Entities
 
 - `Candidate`, `CandidateDocument` (raw file + OCR text + parse status)
