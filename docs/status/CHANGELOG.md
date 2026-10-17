@@ -3,7 +3,31 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-16 (latest) — ADR-0029's security review: renewals that work, a bucket closed for real
+## 2026-10-17 (latest) — applicants who skip phone *or* email can apply again
+
+**Bug:** the public form posts its whole state, so a skipped field arrives as `""`. The API's
+`[Phone]` and `[EmailAddress]` accept `null` but reject `""` — so **anyone who gave only one way to
+reach them got a 400** and no application was created: phone-only (`"email": ""`) as much as
+email-only (`"phone": ""`). The form invites exactly that ("Give at least one of email or phone").
+The service already read blank as not given (`ContactNormalizer`); the contract contradicted it.
+Found running the production stack in a browser; the API tests never saw it because they post
+typed requests, where a skipped field is `null`.
+
+- **Fix (API):** `SubmitApplicationRequest` turns a blank `Email`, `Phone` or `CoverNote` into
+  `null` as the JSON is read, before validation. A malformed phone is still a 400; blank in both is
+  still the service's 409 "provide an email address or a phone number".
+- **Fix (form):** every failure used to say "something went wrong, try again" — including a closed
+  vacancy and a skipped required question, which no retry fixes. It now shows the apply
+  endpoint's **409** messages (written for applicants — `PublicJobsController`), its own wording
+  for **400** (check email/phone) and **429** (wait), and the generic message otherwise. `lib/api`
+  throws an `ApiError` carrying status and detail; `message` still never carries server text
+  (`app/error.tsx` shows it to strangers).
+- Tests: 6 backend (`ApplyAsBrowserAsync` posts what a browser posts; a mutation reverting `Phone`
+  fails 3), 7 frontend (the old form fails the 3 behaviour tests). Verified in a browser against
+  the prod stack: phone-only 200, email-only 200, malformed phone 400 with guidance, vacancy closed
+  mid-form 409 with the server's sentence.
+
+## 2026-10-16 — ADR-0029's security review: renewals that work, a bucket closed for real
 
 Review of the production-stack change: **no Critical or High**. Fixed:
 - **M1 — the documented certificate renewal would have failed**, and with HSTS an expired

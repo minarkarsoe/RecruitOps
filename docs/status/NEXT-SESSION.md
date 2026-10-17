@@ -28,8 +28,9 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 >   the host (`dotnet publish`, `npm run build`) and wrap the output in images that mirror the
 >   Dockerfiles' final stages — `dockerd` starts fine (`dockerd &`). Docker Hub's anonymous limit
 >   (100/hour) does bite; the window resets.
-> - **Found and left for their own change:** the public form's blank phone → 400 (applicants who
->   skip it cannot apply). (`System.Security.Cryptography.Xml`'s advisories were fixed the same
+> - ~~The public form's blank phone → 400~~ — **fixed 2026-10-17** (CHANGELOG). Lesson: the API
+>   tests posted typed requests (`null` for a skipped field), never what a browser sends (`""`);
+>   `PublicApplicationTests.ApplyAsBrowserAsync` now does. (`System.Security.Cryptography.Xml`'s advisories were fixed the same
 >   day — 10.0.13, plus a `Pkcs` pin in Api; see CHANGELOG. **NuGet audit warnings do not fail
 >   the build**, which is how three highs sat unnoticed; `dotnet list backend/RecruitOps.sln
 >   package --vulnerable --include-transitive` is the check.)
