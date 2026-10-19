@@ -63,7 +63,9 @@ side conversations in chat/email.
 
 - `Interview` — job application, scheduled slot, mode, location/link, status ✅
 - `InterviewParticipant` — interviewer/panel member; **grants narrow read access** to that one
-  application, which is what makes cross-department panels possible (ADR-0017 §4) ✅. Shown by
+  application, which is what makes cross-department panels possible (ADR-0017 §4) ✅. It is the
+  **whole** of the Interviewer role's reach: its rounds, its scorecard, the application's notes
+  (ADR-0021 amendment, 2026-10-19). Shown by
   name, never by email address (ADR-0019); at most 20 per round
 - `ScorecardTemplate`, `ScorecardCriterion` — the configurable criteria set ✅
 - `Scorecard`, `ScorecardResponse` — per-interviewer evaluation ✅

@@ -1,9 +1,10 @@
 # Feature Status
 
-> 🔐 **2026-10-19 — governance reach, reviewed and fixed.** No user email reaches anyone without
-> `users:read` (directory, panel, department roster), and a department-scoped role administers no
-> department or approval chain. Suites: **backend 929** (122 domain + 807 api), **internal 478**
-> (53 files), **public 31**. Open: the Interviewer role still has no working screen — next.
+> 🔐 **2026-10-19 — governance reach reviewed twice and fixed; the Interviewer role works.** No
+> colleague's email reaches anyone without `users:read` (the audit log is the stated exception);
+> only Admin, HR Director and Recruiter reach administer departments and approval chains; an
+> Interviewer sees and scores its own panels. Suites: **backend 946** (122 domain + 824 api),
+> **internal 487** (53 files), **public 31**.
 
 > 🚢 **2026-10-16 — the production compose stack was run end to end for the first time**, and four
 > of its defects fixed ([ADR-0029](../decisions/ADR-0029-production-edge-and-storage.md)): MinIO's
@@ -559,7 +560,9 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | ~~A Recruiter could still read every email through the interview panel~~ | ✅ **fixed 2026-10-19** | Review M1 of the fix above: the panel record carried each member's email and the picker offers every id. No email on a panel now; at most 20 members. The department roster shows emails only with `users:read` (L1). ADR-0019 follow-up |
 | ~~A department-scoped custom role with `settings:update` could widen its own reach~~ | ✅ **fixed 2026-10-19** | Review M2: add itself to every department, or name itself on every approval chain. Both now also need the `CompanyWide` policy; links hidden in the SPA. Department lifecycle changes audited (L4). ADR-0022 amendment |
 | ~~The SPA's role-scope mirrors were stale~~ | ✅ **fixed 2026-10-19** | `isDepartmentScoped` / `isExcludedFromCandidateData` missed Interviewer, which the server added 2026-10-15. Now pinned role by role in `auth.test.ts` |
-| **The Interviewer system role cannot see its interviews** | 🔴 High | Its only menu item (`/interviews`) answers 403: no role policy admits the `Interviewer` enum (ADR-0021 decision 5 made it the no-access holder for inactive custom roles). A user given the Interviewer role cannot see or score a panel |
+| ~~The Interviewer system role cannot see its interviews~~ | ✅ **fixed 2026-10-19** | `PanelAccess` policy on the interview and notes endpoints only; the ADR-0017 §4 panel rule decides. Holders of a deactivated custom role get the same — deactivate the *user* to lock someone out. Lands on Interviews; no search requests. Browser-verified. ADR-0021 amendment |
+| ~~An Approver base with `settings:update` could move Hiring Managers into every department~~ | ✅ **fixed 2026-10-19** | Second review F1: `CompanyWide` also excludes roles with no candidate reach. Also: user edits need `users:read` (F2b); chains ≤ 20 steps, member lists ≤ 5000 (F3) |
+| A note author can test a guessed email local-part through `@mention` | 🔵 Low | Yes/no on a guess, no address returned (`NoteService.ResolveMentionsAsync`). Predates 2026-10-19; Interviewers can now post notes on their panels too |
 | Behind Cloudflare the API sees Cloudflare's IP, not the visitor's | 🟠 High (Cloudflare installs only) | One shared login rate-limit bucket (anyone can lock everyone out) and wrong audit IPs. `realip` config + origin firewalling documented in the Cloudflare guide as a required step; **not built or tested**. ADR-0029 review L6 |
 | ~~Public apply fails when the optional phone is left blank~~ | ✅ **fixed 2026-10-17** | Both ways: phone-only applicants failed on `"email": ""` too. The DTO now reads a blank optional field as not given, before `[Phone]`/`[EmailAddress]` run; the form shows the API's 409 messages (written for applicants) and its own words for 400/429 instead of "try again" for everything. 6 backend + 7 frontend tests; verified in a browser against the prod stack |
 | ~~`System.Security.Cryptography.Xml` 10.0.10 has three high-severity advisories~~ | ✅ **fixed 2026-10-16** | Bumped to 10.0.13 (Infrastructure + Api.Tests), and the transitive `System.Security.Cryptography.Pkcs` pinned to 10.0.13 in Api, where EF Design's tooling chain held it at 9.0.0. `dotnet list package --vulnerable --include-transitive`: none in all six projects; build 0 warnings. The API now ships the patched Pkcs itself; `Xml` comes from the shared framework, so an install is patched only once rebuilt on a 10.0.13+ `aspnet:10.0` — runbook §3 now says `build --pull` |

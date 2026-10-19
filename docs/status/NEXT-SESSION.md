@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-19 · **Backend 929/929 (122 Domain + 807 Api) · Frontend 478/478 · public 31/31 · typecheck clean · builds clean**
+**Last updated:** 2026-10-19 · **Backend 946/946 (122 Domain + 824 Api) · Frontend 487/487 · public 31/31 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
@@ -8,14 +8,14 @@ pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
 
-> 🔐 **2026-10-19 — governance reach is reviewed and fixed** (CHANGELOG). Before upgrading an
-> install past 2026-10-17, run the custom-role query in runbook §3: three permissions now open
-> more than they did. **Next: task — the Interviewer role sees and scores only its own panels**
-> (product owner's decision, 2026-10-17: "Panel ပဲ မြင်ရမယ်"). Its holders, and holders of a
-> deactivated custom role, see only the interviews they sit on; to lock someone out entirely,
-> deactivate the user. The plan: admit the `Interviewer` enum only to the interview, scorecard and
-> note endpoints whose services already apply the ADR-0017 §4 panel rule — never `InternalUser`
-> wholesale — and prove it with a real Interviewer user on and off a panel.
+> 🔐 **2026-10-19 — governance reach reviewed twice and fixed; the Interviewer role works**
+> (CHANGELOG, ADR-0021 amendment). Every role now has a working first screen. Before upgrading an
+> install past 2026-10-17, run the custom-role query in runbook §3; past 2026-10-19, note that
+> holders of a *deactivated* role now see the panels they sit on — deactivate the user to lock
+> someone out. **Open threads:** the Cloudflare real-IP blocker (ADR-0029 L6), a least-privilege
+> MinIO account, storage in the backup runbook, the candidate merge UI, and the `@mention`
+> local-part oracle (Low). Policies to know: `PanelAccess` (InternalUser + Interviewer) is for the
+> panel's own endpoints only; `CompanyWide` gates department and approval-chain administration.
 > Lessons from this round:
 > - **A review that closes a leak should go looking for the same data elsewhere.** The directory
 >   was closed, and the identical emails were one endpoint away, in a panel response no screen
@@ -23,6 +23,9 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 > - **A permission says what; reach says where.** The grantor ceiling governs who can *grant*
 >   `settings:update`; nothing governed what a department-scoped holder did with it. When a
 >   permission edits the scoping axis itself, it needs a reach check too (`Policies.CompanyWide`).
+> - **A policy that admits a role is an audit of every endpoint it touches.** Interviewer got its
+>   own policy on two controllers rather than a wider `InternalUser`, because a dozen endpoints are
+>   guarded by nothing but `InternalUser` excluding it. Check each service applies the panel rule.
 > - **Make a denial probe harmless if it succeeds.** Two tests sent a member list that would have
 >   emptied the fixture's Sales department had the guard regressed — and when the guard was
 >   removed to check the tests bite, unrelated tests failed downstream. Send the current state.

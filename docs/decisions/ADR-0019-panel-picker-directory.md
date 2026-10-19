@@ -133,5 +133,9 @@ The security review of the change above found the same disclosure by two more ro
   `settings:read`. It now includes addresses only for a caller who also holds `users:read` — the
   directory's permission. Admin and HR Director hold both, so their screen is unchanged.
 
-The rule this ADR now stands for, stated once: **an email address of a colleague is `users:read`,
-wherever in the API it appears.**
+The rule this ADR now stands for: **a colleague's email address is `users:read`.** The panel, the
+roster, the directory and — since the second review (F2b) — the user edit endpoints, which answer
+with the full record, all need it. **One stated exception: the audit log** (`system:audit`), whose
+sign-in and user-created entries name the address involved; it is evidence, and redacting it would
+make a failed sign-in unattributable. Admin and HR Director hold both permissions by default, so
+the exception matters only for a custom role given `system:audit` without `users:read`.

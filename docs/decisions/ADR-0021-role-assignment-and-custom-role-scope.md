@@ -73,7 +73,8 @@ Interviewer base *is* the no-access enum.
    admin reach is given by assigning the Admin system role, where the user directory shows it.
    System roles have none — their code is their enum.
 2. **A holder's enum is the role's base role while the role is active, and `Interviewer` while
-   it is not.** `Interviewer` is the enum no role policy admits, so a deactivated role grants
+   it is not.** `Interviewer` is the enum no role policy admits *(amended 2026-10-19: one does now,
+   for its own panels only — see the amendment at the end)*, so a deactivated role grants
    nothing on either axis ("in force" item 6 covers the matrix). Holders are re-synced whenever the
    base role or the active flag changes; the session check ("in force" item 5) then retires their
    tokens.
@@ -99,7 +100,8 @@ Interviewer base *is* the no-access enum.
    token like every other authorization decision (safe because decision 5 of "in force" re-checks
    both against the database on every request); what the actor holds comes from the evaluator.
 5. **Interviewer** (precondition 3) is the role with **no standing reach**, and the narrowest on
-   every axis: no role policy admits it — so no interview, candidate or note endpoint either,
+   every axis *(amended 2026-10-19: it now reaches the panels it sits on — see the end)*: no role
+   policy admits it — so no interview, candidate or note endpoint either,
    panel or not — and `RoleScope` treats it as department-scoped *and* excluded from candidate
    data. (If `InternalUser` ever admits Interviewer, the panel rule of ADR-0017 §4 is what those
    two flags would then enforce; re-audit every policy-only endpoint first.) Any approver named on
@@ -129,3 +131,32 @@ and stays open with it.
    of the actor's; `roles:create`/`roles:update` must not grant what the actor lacks.
 2. **Fix over-broad seed grants** before any endpoint moves onto permissions.
 3. **Decide what `Interviewer` is** — it is assignable, but no role policy admits it.
+
+## Amendment, 2026-10-19 — Interviewer reaches its own panels
+
+**Found** by signing in as every role on a running install (2026-10-17): the Interviewer system
+role's only menu item, Interviews, answered 403. Decision 5 had made `Interviewer` the enum no role
+policy admits, which was right for a deactivated role's holders and wrong for the role itself — a
+user given it could not see or score the panel they had been put on.
+
+**Decision (product owner, 2026-10-17):** Interviewer holders — and holders of a deactivated custom
+role, who carry the same enum — **see and score the interviews they sit on, and nothing else**. To
+lock someone out entirely, deactivate the user.
+
+- A new role policy, **`PanelAccess`** — `InternalUser`'s roles plus `Interviewer` — guards the
+  interview endpoints and an application's notes, and nothing else. Those services reach an
+  application only through `IApplicationAccess`, whose panel exception (ADR-0017 §4) is exactly
+  what the role's two `RoleScope` flags were waiting to enforce: no department reach, no candidate
+  reach, so only the applications whose panel the user is on. As decision 5 asked, every endpoint
+  was re-audited first; `InternalUser` itself is **not** widened — dozens of endpoints rely on it
+  excluding Interviewer, several guarded only by that and a permission.
+- What a panel member reaches is unchanged from ADR-0017 §4 and the same for every role: **that
+  application and its rounds, read-only**, plus a scorecard **only for a round they sit on** (a
+  later round of the same candidate opens, but cannot be scored), and the application's notes.
+  Writes (schedule, reschedule, panel, cancel, complete) stay `RecruitmentStaff`.
+- The SPA lands a user who cannot read requisitions on Interviews; the search palette does not
+  query for them (search stays `InternalUser`).
+
+**Known residual:** a note author can `@mention` by guessing an email local-part and learn whether
+it resolved — a yes/no on a guess, no address returned (`NoteService.ResolveMentionsAsync`). It
+predates this change; Interviewers can now post notes on their panels and so can ask it too.

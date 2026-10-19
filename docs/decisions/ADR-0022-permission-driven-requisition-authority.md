@@ -226,8 +226,11 @@ with it. An Admin can build a role on a **Hiring Manager** base holding `setting
 holder could then add themselves to every department, or name themselves on every approval chain
 (an approver can open the requisitions they decide), and so leave the base the ceiling approved.
 So department administration (`GET /admin`, members, create, rename, (de)activate) and every
-approval-chain endpoint now also need the **`CompanyWide`** policy: a role claim that
-`RoleScope.IsDepartmentScoped` says no to. A role on a Hiring Manager or Interviewer base
-administers neither, whatever it holds; the SPA hides both links from it. The permission still
+approval-chain endpoint now also need the **`CompanyWide`** policy: a role claim `RoleScope` calls
+neither department-scoped nor excluded from candidate data. The second half came from the second
+review (F1): an **Approver** base is not scoped, but reaches no candidate — moving a Hiring Manager
+into every department would hand out reach it does not hold. So a role on a Hiring Manager,
+Interviewer or Approver base administers neither, whatever it holds; the SPA hides both links (rail
+and palette) from it. Chains are capped at 20 steps and a member list at 5000 ids. The permission still
 says *whether*; the policy says *only company-wide*. Department create, rename, deactivate and
 reactivate are now audited too — they were delegable and unrecorded.

@@ -3,7 +3,35 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-19 (latest) — the governance-reach review: two more email routes, and scoped roles kept in their scope
+## 2026-10-19 (latest) — the Interviewer role works: it sees and scores its own panels
+
+**Bug (found 2026-10-17 walking every menu as every role):** the Interviewer system role's only
+menu item, Interviews, answered 403 — no role policy admitted the `Interviewer` enum, which is also
+what a deactivated custom role's holders carry (ADR-0021). Someone given the role could not see or
+score the panel they had been put on, and every sign-in landed them on Requisitions, an error.
+
+- **Product owner's decision:** they see and score the interviews they sit on, nothing else; to
+  lock someone out, deactivate the user. ADR-0021 amendment.
+- **Fix:** a new `PanelAccess` policy (InternalUser's roles plus Interviewer) on the interview and
+  notes endpoints only, whose services reach an application through `IApplicationAccess` — so the
+  ADR-0017 §4 panel rule decides, as for every panel member. `InternalUser` is not widened. Writes
+  stay `RecruitmentStaff`.
+- **SPA:** a user who cannot read requisitions lands on Interviews; the search palette no longer
+  queries for an Interviewer (it collected a 403 and "Failed to search backend") and now offers
+  Interviews to everyone.
+- **Verified in a browser** against the API on a real Postgres: signed in as an Interviewer →
+  landed on Interviews, one menu item, only their round listed; opened it, scored it, submitted;
+  another round's URL → "Not Found". No other API error.
+- **Second security review** (of the governance fixes below; no Critical/High/Medium), its lows
+  fixed: an **Approver** base with `settings:update` could still move a Hiring Manager into every
+  department (`CompanyWide` now also excludes roles with no candidate reach); `users:update`
+  without `users:read` could read anyone's record through the edit response (edits now need both);
+  approval chains capped at 20 steps, member lists at 5000; the palette offered Departments to
+  scoped roles. The email rule is restated honestly: the audit log is the one exception.
+- Tests: `InterviewerRoleTests` (14, real Interviewer users; mutation-checked), 3 more governance
+  tests, 9 frontend. Suites: backend **946** (122 + 824), internal **487**.
+
+## 2026-10-19 — the governance-reach review: two more email routes, and scoped roles kept in their scope
 
 The security review of the 2026-10-17 change below (no Critical, no High) found the leak it closed
 still open by another door, and a way for a department-scoped role to widen itself:

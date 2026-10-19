@@ -26,9 +26,10 @@ A custom role has two parts, both chosen by whoever builds it in the Role Builde
    (a Hiring Manager base sees only its own departments; an Approver base sees no candidate data).
    One of **HR Director, Recruiter, Hiring Manager, Approver, Interviewer**. Required; never
    Admin or SuperAdmin — admin reach is given by assigning the Admin system role, openly.
-   **Interviewer** is the narrowest: no role-policy screen at all (pipeline, candidates,
-   interviews, notes, search, analytics), and only its own departments on permission-guarded
-   screens (requisitions). A requisition it is named to approve it can always open and decide.
+   **Interviewer** is the narrowest: it reaches the interviews it sits on — those rounds,
+   its own scorecard and the application's notes — and no other role-policy screen (pipeline,
+   candidates, search, analytics); only its own departments on permission-guarded screens
+   (requisitions). A requisition it is named to approve it can always open and decide.
    An approve-only role is still better on an **Approver** base, which also lists requisitions
    from every department.
 2. **Permissions** — the matrix, which is the whole answer for permission-guarded endpoints
@@ -37,7 +38,8 @@ A custom role has two parts, both chosen by whoever builds it in the Role Builde
 
 Changing a role's base role, or deactivating it, takes effect for its holders immediately:
 their sessions are re-checked on the next request. A **deactivated** role grants nothing on
-either axis — its holders keep their accounts but reach only what an Interviewer does.
+either axis — its holders keep their accounts but reach only what an Interviewer does: the
+panels they sit on. To lock someone out entirely, deactivate the user.
 
 **Nobody grants what they do not hold** (the grantor ceiling). Whoever builds a role, edits
 one, reactivates one, assigns a role to a user (system or custom), or reactivates a user can
@@ -68,12 +70,14 @@ change either way. Each is a permission (`users:read`, `settings:read`, `roles:r
 can give a custom role the same view.
 
 Two rules on top of the permissions:
-- **Departments and approval chains need company-wide reach.** A role on a Hiring Manager or
-  Interviewer base never opens either, whatever it holds — membership and approval chains are
-  what decide its own reach, so it could otherwise widen itself (ADR-0022 amendment).
-- **A colleague's email address is `users:read`, wherever it appears.** The department roster
-  shows names and roles to anyone with `settings:read`, addresses only with `users:read` too; an
-  interview panel never shows them (ADR-0019 follow-up).
+- **Departments and approval chains need company-wide reach.** A role on a Hiring Manager,
+  Interviewer or Approver base never opens either, whatever it holds — membership and approval
+  chains decide a scoped role's reach, so it could otherwise widen itself or hand out reach it
+  does not hold (ADR-0022 amendment).
+- **A colleague's email address is `users:read`.** The department roster shows names and roles to
+  anyone with `settings:read`, addresses only with `users:read` too; an interview panel never shows
+  them; editing a user needs `users:read` as well as the edit permission. The one exception is the
+  audit log (`system:audit`), which names the address on sign-in entries (ADR-0019 follow-up).
 
 ### 7.2 HRMS & Payroll Integrations — ⬜
 Connect data to the company's core **HRMS (e.g. QHRM)** and payroll systems.

@@ -211,7 +211,8 @@ directory list (it was Admin-only), `settings:read` opens Departments, and `sett
 renames and deactivates departments and sets their members. List the custom roles holding any of
 them and confirm each was meant to:
 ```sql
-SELECT r."Name", r."BaseRole", p."Code"
+SELECT r."Name", r."BaseRole", r."IsActive", p."Code",
+       (SELECT count(*) FROM "Users" u WHERE u."RoleId" = r."Id" AND u."IsActive") AS active_holders
 FROM "Roles" r
 JOIN "RolePermissions" rp ON rp."RoleId" = r."Id"
 JOIN "Permissions" p ON p."Id" = rp."PermissionId"
@@ -220,8 +221,12 @@ WHERE NOT r."IsSystemRole"
                    'permission:settings:settings:update')
 ORDER BY r."Name", p."Code";
 ```
-A role on a Hiring Manager or Interviewer base gets nothing from the two `settings` permissions —
-those screens need company-wide reach (ADR-0022 amendment).
+A role on a Hiring Manager, Interviewer or Approver base gets nothing from the two `settings`
+permissions — those screens need company-wide reach (ADR-0022 amendment).
+
+**Upgrading past 2026-10-19:** holders of the Interviewer role, and of a *deactivated* custom role,
+now see the interviews they sit on (ADR-0021 amendment). Anyone meant to have no access at all
+should be a deactivated **user**, not a holder of a deactivated role.
 
 ---
 
