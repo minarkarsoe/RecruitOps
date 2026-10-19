@@ -365,4 +365,26 @@ public class InterviewerRoleTests : IClassFixture<CustomWebAppFactory>
 
         Assert.Equal(new[] { "ResolveRoundAsync" }, byInterview);
     }
+
+    [Fact]
+    public async Task A_Seat_Outlives_The_Round_And_The_Hiring_Decision()
+    {
+        // Product owner, 2026-10-19: panel access is kept — a seat does not expire when the round
+        // concludes or the application is decided, for any role. Pinned so a change is deliberate.
+        // (Only a cancelled round grants nothing; un-seating or deactivating is the revocation.)
+        var (ivw, ivwId) = await InterviewerAsync();
+        var (_, applicationId) = await _scenario.ApplicationAsync("Interviewer Seat Outlives Decision");
+        var round = await _scenario.ScheduleWithAsync(applicationId, _factory.FinanceManagerUserId, ivwId);
+
+        (await _scenario.Recruiter().PostAsJsonAsync($"/api/interviews/{round.Id}/complete",
+            new CompleteInterviewRequest())).EnsureSuccessStatusCode();
+        (await _scenario.Recruiter().PostAsJsonAsync($"/api/applications/{applicationId}/stage",
+            new MoveStageRequest { ToStatus = "Rejected" })).EnsureSuccessStatusCode();
+
+        Assert.Equal(HttpStatusCode.OK, (await ivw.GetAsync($"/api/interviews/{round.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await ivw.GetAsync($"/api/interviews/{round.Id}/scorecards")).StatusCode);
+        // The cross-department Hiring Manager on the same panel keeps the application-wide seat.
+        Assert.Equal(HttpStatusCode.OK,
+            (await _scenario.FinanceManager().GetAsync($"/api/applications/{applicationId}/interviews")).StatusCode);
+    }
 }
