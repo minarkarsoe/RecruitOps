@@ -3,7 +3,26 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-19 (latest) — the Interviewer role works: it sees and scores its own panels
+## 2026-10-19 (latest) — third security review: panel seats are read-only, and a cancelled round grants nothing
+
+Review of the Interviewer change (no Critical or High). Two pre-existing Mediums the new role made
+sharper, both fixed:
+- **A panel seat could replace the candidate's CV.** The upload asked only "can you reach this
+  application"; a cross-department Hiring Manager or Approver on the panel — read-only by ADR-0017
+  §4 — could overwrite what every reviewer reads and search indexes.
+- **A seat on a cancelled round kept the candidate's file open for good** — the panel of a
+  concluded round cannot be edited, so someone seated by mistake read it until deactivated. A
+  cancelled round now grants nothing (detail, list, notes, "only mine").
+- Also: `PanelAccess` built from `InternalUser`'s list, and the Covers test that had gone vacuous
+  now pins "only PanelAccess admits Interviewer"; recommendations and modes that name no member are
+  refused (a submitted scorecard is permanent); at most 10 mentions per note and 100 answers per
+  scorecard.
+- **Raised, not changed (product decisions):** a panel member reads the application's other rounds
+  and their submitted evaluations; a seat on a concluded round never expires; the Role Builder
+  cannot withhold panel access. ADR-0017 and ADR-0021 amendments.
+- Backend **950** (122 + 828). Each guard mutation-checked.
+
+## 2026-10-19 — the Interviewer role works: it sees and scores its own panels
 
 **Bug (found 2026-10-17 walking every menu as every role):** the Interviewer system role's only
 menu item, Interviews, answered 403 — no role policy admitted the `Interviewer` enum, which is also

@@ -146,3 +146,22 @@ those statuses are terminal by ADR precedent, and re-opening them corrupts Modul
   exists. Add it with Module 7.
 - Interviewer availability / free-busy, once a calendar integration lands (3.1).
 - Weighted overall scoring across criteria, once real templates exist to weight.
+
+## Amendment, 2026-10-19 — what "expires naturally" actually does
+
+§4 calls a panel seat an "expiring grant" that "expires naturally with the panel". Measured
+against the code (security review of the Interviewer change, M1), it did not expire at all: any
+`InterviewParticipant` row opened the application, a concluded round's panel cannot be edited, and
+a participant who has started a scorecard cannot be removed — so a seat lasted until the user was
+deactivated, including on a **cancelled** round.
+
+- **Now:** a **cancelled** round grants nothing (`ApplicationAccess.IsOnPanelForAsync` and the
+  interview list). Someone seated by mistake loses the file when the round is called off.
+- **Still true, and a product decision (raised 2026-10-19):** a seat on a scheduled or concluded
+  round keeps read access to the application — its rounds, notes and the other rounds' submitted
+  evaluations — after the round ends and after the application is hired or rejected. Options: end
+  panel reach N days after the application is terminal; or limit a panel member to the rounds they
+  sit on (which also settles the cross-round evaluation question in ADR-0021's 2026-10-19
+  amendment).
+- A panel seat is **read-only** everywhere: the CV upload ignored that and is fixed (same review,
+  M2).

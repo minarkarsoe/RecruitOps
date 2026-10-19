@@ -157,6 +157,23 @@ lock someone out entirely, deactivate the user.
 - The SPA lands a user who cannot read requisitions on Interviews; the search palette does not
   query for them (search stays `InternalUser`).
 
-**Known residual:** a note author can `@mention` by guessing an email local-part and learn whether
-it resolved — a yes/no on a guess, no address returned (`NoteService.ResolveMentionsAsync`). It
+**Third security review (2026-10-19), on this amendment — no Critical or High.** Fixed: a cancelled
+round grants nothing (ADR-0017 amendment); a panel seat can no longer replace the CV; `PanelAccess`
+is built from `InternalUser`'s list and pinned as the only policy admitting Interviewer; undefined
+recommendations refused; mentions and answers bounded.
+
+**Open for the product owner:**
+- **Cross-round reading.** A panel member — of any role — reads the application's other rounds
+  and their *submitted* evaluations (the blind rule is per round). For the narrowest role that may
+  be more than "the interviews they sit on" meant. `InterviewerRoleTests` pins today's rule so a
+  change is deliberate.
+- **Expiry.** A seat on a concluded round keeps that read access indefinitely (ADR-0017 amendment).
+- **The Role Builder cannot withhold panel access.** `PanelAccess` is a role policy, not a
+  permission, so a holder reads and scores their panels whatever their matrix says. Being seated is
+  the grant; un-seating or deactivating the user is the revocation.
+
+**Known residual:** a note author can `@mention` by guessing an email local-part, or a name. A hit
+returns that colleague's id and display name in the note — only for people who already reach the
+application, and no address (`NoteService.ResolveMentionsAsync`, at most 10 handles per note). It
 predates this change; Interviewers can now post notes on their panels and so can ask it too.
+Nothing sends mention notifications yet — re-review this when something does.

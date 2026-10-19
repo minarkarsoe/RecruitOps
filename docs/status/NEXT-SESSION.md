@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-19 · **Backend 946/946 (122 Domain + 824 Api) · Frontend 487/487 · public 31/31 · typecheck clean · builds clean**
+**Last updated:** 2026-10-19 · **Backend 950/950 (122 Domain + 828 Api) · Frontend 487/487 · public 31/31 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
@@ -12,7 +12,11 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 > (CHANGELOG, ADR-0021 amendment). Every role now has a working first screen. Before upgrading an
 > install past 2026-10-17, run the custom-role query in runbook §3; past 2026-10-19, note that
 > holders of a *deactivated* role now see the panels they sit on — deactivate the user to lock
-> someone out. **Open threads:** the Cloudflare real-IP blocker (ADR-0029 L6), a least-privilege
+> someone out. **Waiting on the product owner:** should a panel seat expire once the application
+> is hired/rejected, and should a panel member read only the rounds they sit on (today: the whole
+> application, including other rounds' submitted evaluations)? ADR-0017 amendment has the options;
+> `InterviewerRoleTests.A_Panel_Member_Of_An_Earlier_Round_Reads…` flips if the answer is "own
+> rounds". **Open threads:** the Cloudflare real-IP blocker (ADR-0029 L6), a least-privilege
 > MinIO account, storage in the backup runbook, the candidate merge UI, and the `@mention`
 > local-part oracle (Low). Policies to know: `PanelAccess` (InternalUser + Interviewer) is for the
 > panel's own endpoints only; `CompanyWide` gates department and approval-chain administration.
