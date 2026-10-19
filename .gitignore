@@ -37,3 +37,7 @@ Thumbs.db
 # Impeccable review captures — regenerated screenshots, not source (11 MB of PNGs).
 # The design record itself (.impeccable/design.json, config.json, questions/) IS tracked.
 .impeccable/review/
+
+# Development mail pickup (appsettings.Development.json Email:PickupDirectory) — rendered
+# messages from local runs, never source.
+backend/src/Api/tmp/
