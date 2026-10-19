@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-19 · **Backend 954/954 (122 Domain + 832 Api) · Frontend 489/489 · public 31/31 · typecheck clean · builds clean**
+**Last updated:** 2026-10-19 · **Backend 955/955 (122 Domain + 833 Api) · Frontend 489/489 · public 31/31 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
@@ -15,9 +15,9 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 > someone out. **Interviewers see only the rounds they sit on** (product owner, 2026-10-19) — any
 > new read of a round, its evaluations or its notes must go through
 > `IApplicationAccess.ResolveRoundAsync` (the only round resolver on the interface — the
-> application-level one is private) or check `ApplicationReach.OwnRoundsOnly`. **Waiting on the product owner:** should a panel seat expire
-> once the application is hired/rejected; and should Hiring Manager / Approver seats narrow to
-> their rounds too? **Open threads:** the Cloudflare real-IP blocker (ADR-0029 L6), a least-privilege
+> application-level one is private) or check `ApplicationReach.OwnRoundsOnly`. **Settled by the product owner (2026-10-19):** panel
+> access is kept (no expiry), and Hiring Manager / Approver seats see every round of the application.
+> **Open threads:** the Cloudflare real-IP blocker (ADR-0029 L6), a least-privilege
 > MinIO account, storage in the backup runbook, the candidate merge UI, and the `@mention`
 > local-part oracle (Low). Policies to know: `PanelAccess` (InternalUser + Interviewer) is for the
 > panel's own endpoints only; `CompanyWide` gates department and approval-chain administration.

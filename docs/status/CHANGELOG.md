@@ -3,7 +3,15 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-19 (latest) — an Interviewer sees only the rounds it sits on
+## 2026-10-19 (latest) — panel decisions settled: access is kept; Hiring Manager / Approver see all rounds
+
+Product owner: **"Keep panel access; HM and Approver see all rounds."** No code change — today's
+behaviour is the decision. A seat outlives its round and the hire/reject decision; revocation is a
+cancelled round, removal from the panel, or deactivating the user. Hiring Manager and Approver
+panel members keep ADR-0017 §4's application-wide seat; Interviewers keep their own rounds only.
+ADR-0017 and ADR-0021 amendments record it; a new test pins the no-expiry rule. Backend **955**.
+
+## 2026-10-19 — an Interviewer sees only the rounds it sits on
 
 **Product owner's decision:** "Interviewers should only see their own rounds." Until now an
 Interviewer's seat followed ADR-0017 §4 like every panel member's: the whole application — every

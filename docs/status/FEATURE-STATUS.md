@@ -4,8 +4,9 @@
 > colleague's email reaches anyone without `users:read` (the audit log is the stated exception);
 > only Admin, HR Director and Recruiter reach administer departments and approval chains; an
 > Interviewer sees and scores only the rounds it sits on; a panel seat is read-only and a cancelled
-> round grants nothing. Suites: **backend 954** (122 domain + 832 api), **internal 489** (53 files),
-> **public 31**. One product decision open: panel-seat expiry (ADR-0017 amendment).
+> round grants nothing. Suites: **backend 955** (122 domain + 833 api), **internal 489** (53 files),
+> **public 31**. Panel decisions settled: seats are kept; Hiring Manager / Approver seats see all
+> rounds (ADR-0017 amendment).
 
 > 🚢 **2026-10-16 — the production compose stack was run end to end for the first time**, and four
 > of its defects fixed ([ADR-0029](../decisions/ADR-0029-production-edge-and-storage.md)): MinIO's
@@ -567,7 +568,7 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | ~~A panel seat could replace the candidate's CV~~ | ✅ **fixed 2026-10-19** | Third review M2: the upload ignored that a seat is read-only (ADR-0017 §4) |
 | ~~A seat on a cancelled round kept the candidate's file open for good~~ | ✅ **fixed 2026-10-19** | Third review M1: a cancelled round now grants nothing. ADR-0017 amendment |
 | ~~An Interviewer read the candidate's other rounds and their evaluations~~ | ✅ **fixed 2026-10-19** | Product owner: own rounds only. List, round, scorecards, notes and mentions (API-side) now stop at the rounds it sits on; `ResolveRoundAsync` is the only round resolver; Hiring Manager / Approver seats unchanged. Reviewed (no Critical/High/Medium). ADR-0021 amendment |
-| A panel seat never expires | 🟡 Medium — **product decision** | After a round concludes — and after hire/reject — a panel member keeps what their seat opens (an Interviewer: its rounds; other roles: the application). Option in the ADR-0017 amendment |
+| ~~A panel seat never expires~~ | ✅ **by decision 2026-10-19** | Product owner: keep panel access — a seat outlives the round and the hire/reject decision (an Interviewer: its rounds; Hiring Manager / Approver: every round of the application). Revocation is a cancelled round, removal from the panel, or deactivating the user. Pinned by a test. ADR-0017 amendment |
 | Behind Cloudflare the API sees Cloudflare's IP, not the visitor's | 🟠 High (Cloudflare installs only) | One shared login rate-limit bucket (anyone can lock everyone out) and wrong audit IPs. `realip` config + origin firewalling documented in the Cloudflare guide as a required step; **not built or tested**. ADR-0029 review L6 |
 | ~~Public apply fails when the optional phone is left blank~~ | ✅ **fixed 2026-10-17** | Both ways: phone-only applicants failed on `"email": ""` too. The DTO now reads a blank optional field as not given, before `[Phone]`/`[EmailAddress]` run; the form shows the API's 409 messages (written for applicants) and its own words for 400/429 instead of "try again" for everything. 6 backend + 7 frontend tests; verified in a browser against the prod stack |
 | ~~`System.Security.Cryptography.Xml` 10.0.10 has three high-severity advisories~~ | ✅ **fixed 2026-10-16** | Bumped to 10.0.13 (Infrastructure + Api.Tests), and the transitive `System.Security.Cryptography.Pkcs` pinned to 10.0.13 in Api, where EF Design's tooling chain held it at 9.0.0. `dotnet list package --vulnerable --include-transitive`: none in all six projects; build 0 warnings. The API now ships the patched Pkcs itself; `Xml` comes from the shared framework, so an install is patched only once rebuilt on a 10.0.13+ `aspnet:10.0` — runbook §3 now says `build --pull` |

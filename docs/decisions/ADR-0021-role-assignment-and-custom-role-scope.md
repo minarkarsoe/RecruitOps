@@ -166,11 +166,13 @@ round grants nothing (ADR-0017 amendment); a panel seat can no longer replace th
 is built from `InternalUser`'s list and pinned as the only policy admitting Interviewer; undefined
 recommendations refused; mentions and answers bounded.
 
-**Open for the product owner:**
-- ~~**Cross-round reading.**~~ Decided 2026-10-19 for Interviewers: own rounds only (above). Hiring
-  Manager and Approver panel members still read the application's other rounds and their
-  submitted evaluations — say if that should change too.
-- **Expiry.** A seat on a concluded round keeps that read access indefinitely (ADR-0017 amendment).
+**Decided by the product owner (2026-10-19):**
+- **Cross-round reading.** Interviewers: own rounds only (above). Hiring Manager and Approver panel
+  members: **all rounds** of the application and their submitted evaluations, as ADR-0017 §4 has it.
+- **Expiry.** **Panel access is kept** — a seat on a concluded round, or on a hired or rejected
+  application, keeps its read access (ADR-0017 amendment).
+
+**Still true by design:**
 - **The Role Builder cannot withhold panel access.** `PanelAccess` is a role policy, not a
   permission, so a holder reads and scores their panels whatever their matrix says. Being seated is
   the grant; un-seating or deactivating the user is the revocation.

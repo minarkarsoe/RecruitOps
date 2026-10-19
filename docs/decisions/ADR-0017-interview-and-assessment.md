@@ -163,8 +163,11 @@ deactivated, including on a **cancelled** round.
   evaluations, or the application-wide thread (`RoleScope.IsLimitedToOwnRounds`,
   `IApplicationAccess.ResolveRoundAsync`). Hiring Manager and Approver panel members keep the
   application-wide seat this section describes.
-- **Still true, and a product decision:** a seat on a scheduled or concluded round never expires —
-  after the round ends and after the application is hired or rejected, the panel member keeps what
-  their seat opens. Option: end panel reach N days after the application is terminal.
+- **Decided (product owner, 2026-10-19): panel access is kept.** A seat on a scheduled or concluded
+  round does not expire — after the round ends and after the application is hired or rejected, the
+  panel member keeps what their seat opens. "Expires naturally with the panel" in §4 therefore
+  means: when the round is cancelled, or the person is taken off the panel or deactivated. Hiring
+  Manager and Approver panel members keep the application-wide seat — every round and its submitted
+  evaluations. Pinned by `InterviewerRoleTests.A_Seat_Outlives_The_Round_And_The_Hiring_Decision`.
 - A panel seat is **read-only** everywhere: the CV upload ignored that and is fixed (same review,
   M2).
