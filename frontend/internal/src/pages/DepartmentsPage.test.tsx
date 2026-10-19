@@ -69,4 +69,29 @@ describe('DepartmentsPage', () => {
     expect(await screen.findByRole('checkbox', { name: /Mya Hiring Manager/ })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Save members' })).toBeInTheDocument();
   });
+
+  it('shows the role alone when the server withholds the address', async () => {
+    // The roster carries emails only for a users:read holder (security review, 2026-10-17, L1).
+    apiMock.mockImplementation(async (path: string) =>
+      path.endsWith('/members') ? [{ ...members[0], email: null }] : [sales]);
+    signIn(['permission:settings:settings:read']);
+    const user = userEvent.setup();
+    render(<DepartmentsPage />);
+
+    await user.click(await screen.findByRole('button', { name: 'Members' }));
+    const box = await screen.findByRole('checkbox', { name: /Mya Hiring Manager/ });
+    const label = box.closest('label')!;
+    expect(label).toHaveTextContent(/HiringManager$/);
+    expect(label).not.toHaveTextContent(/null|·/);
+  });
+
+  it('keeps the address beside the role for a directory reader', async () => {
+    signIn(['permission:settings:settings:read', 'permission:users:users:read']);
+    const user = userEvent.setup();
+    render(<DepartmentsPage />);
+
+    await user.click(await screen.findByRole('button', { name: 'Members' }));
+    const box = await screen.findByRole('checkbox', { name: /Mya Hiring Manager/ });
+    expect(box.closest('label')!).toHaveTextContent('HiringManager · mya@alpha.test');
+  });
 });

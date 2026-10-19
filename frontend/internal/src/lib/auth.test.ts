@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasPermission, type Session } from './auth';
+import { hasPermission, isDepartmentScoped, isExcludedFromCandidateData, type Session } from './auth';
 
 /**
  * Regression cover for the fail-open `hasPermission()`.
@@ -73,5 +73,25 @@ describe('hasPermission — admin bypass mirrors PermissionAuthorizationHandler'
     expect(
       hasPermission(session({ role: 'HrDirector', isSuperAdmin: false, permissions: [] }), READ)
     ).toBe(false);
+  });
+});
+
+/**
+ * Mirrors of `RoleScope` on the server. The server added Interviewer to both on 2026-10-15; these
+ * copies did not follow until 2026-10-17, which is exactly the two-copies bug `RoleScope` exists to
+ * prevent on the server side. Pinned role by role so the next divergence is a failing test.
+ */
+describe('role scope mirrors RoleScope', () => {
+  it.each([
+    ['SuperAdmin', false, false],
+    ['Admin', false, false],
+    ['HrDirector', false, false],
+    ['Recruiter', false, false],
+    ['HiringManager', true, false],
+    ['Approver', false, true],
+    ['Interviewer', true, true],
+  ] as const)('%s: department-scoped %s, excluded from candidate data %s', (role, scoped, excluded) => {
+    expect(isDepartmentScoped(role)).toBe(scoped);
+    expect(isExcludedFromCandidateData(role)).toBe(excluded);
   });
 });

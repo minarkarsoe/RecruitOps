@@ -333,3 +333,43 @@ describe('Sidebar nav groups', () => {
     expect(within(panel as HTMLElement).getByRole('link', { name: 'Role Builder' })).toBeVisible();
   });
 });
+
+/**
+ * Departments and approval chains need company-wide reach on the server (`Policies.CompanyWide`,
+ * 2026-10-17): a department-scoped role administers neither, whatever it holds, because both move
+ * its own scope. A Hiring Manager-based custom role given `settings:read` used to see both links
+ * and get a 403 from each.
+ */
+describe('Sidebar governance links need company-wide reach', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  const withSettings = (role: Session['role']): Session => ({
+    ...session,
+    role,
+    permissions: ['permission:requisitions:requisitions:read', 'permission:settings:settings:read'],
+  });
+
+  const renderAs = (s: Session) =>
+    render(
+      <MemoryRouter>
+        <Sidebar session={s} onSignOut={vi.fn()} />
+      </MemoryRouter>
+    );
+
+  it.each(['HiringManager', 'Interviewer'] as const)('hides them from a %s base', (role) => {
+    renderAs(withSettings(role));
+
+    expect(screen.getByRole('link', { name: /requisitions/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /departments/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /approval chains/i })).not.toBeInTheDocument();
+  });
+
+  it('shows them to a company-wide role holding the same permission', () => {
+    renderAs(withSettings('Recruiter'));
+
+    expect(screen.getByRole('link', { name: /departments/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /approval chains/i })).toBeInTheDocument();
+  });
+});
