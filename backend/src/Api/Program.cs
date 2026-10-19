@@ -151,9 +151,12 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(Policies.AdminOnly, p => p.RequireRole(Roles.Admin));
 
     // Fails closed: no role claim, or one that is not exactly a role, is not company-wide.
-    options.AddPolicy(Policies.CompanyWide, p => p.RequireAssertion(ctx =>
-        RecruitOps.Domain.RoleScope.Parse(ctx.User.FindFirstValue(ClaimTypes.Role)) is { } role
-        && !RecruitOps.Domain.RoleScope.IsDepartmentScoped(role)));
+    options.AddPolicy(Policies.CompanyWide, p => p
+        .RequireAuthenticatedUser()
+        .RequireAssertion(ctx =>
+            RecruitOps.Domain.RoleScope.Parse(ctx.User.FindFirstValue(ClaimTypes.Role)) is { } role
+            && !RecruitOps.Domain.RoleScope.IsDepartmentScoped(role)
+            && !RecruitOps.Domain.RoleScope.IsExcludedFromCandidateData(role)));
 
     // Secure-by-default: every endpoint requires an authenticated user unless it
     // opts out with [AllowAnonymous] (e.g. login, the public job page).

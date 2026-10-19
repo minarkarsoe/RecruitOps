@@ -55,6 +55,8 @@ public record UpdateDepartmentRequest
 /// </summary>
 public record SetDepartmentMembersRequest
 {
-    [Required]
+    /// <summary>The whole membership. Bounded only so one request cannot be an arbitrarily
+    /// large IN list; far above any real department.</summary>
+    [Required, MaxLength(5000)]
     public Guid[] UserIds { get; init; } = [];
 }

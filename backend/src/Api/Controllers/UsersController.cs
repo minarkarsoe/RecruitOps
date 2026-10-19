@@ -92,6 +92,9 @@ public class UsersController : ControllerBase
     /// <summary>Update user metadata and role assignment.</summary>
     [HttpPut("{id:guid}")]
     [HasPermission("permission:users:users:update")]
+    // The response is the full record — email and permissions — so changing a user also needs
+    // reading one (second review of ADR-0019's follow-up, 2026-10-19, F2b).
+    [HasPermission("permission:users:users:read")]
     public async Task<ActionResult<UserDetailDto>> Update(Guid id, [FromBody] UpdateUserRequest request, CancellationToken ct)
     {
         try
@@ -118,6 +121,9 @@ public class UsersController : ControllerBase
     /// <summary>Deactivate user account.</summary>
     [HttpPut("{id:guid}/deactivate")]
     [HasPermission("permission:users:users:delete")]
+    // The response is the full record — email and permissions — so changing a user also needs
+    // reading one (second review of ADR-0019's follow-up, 2026-10-19, F2b).
+    [HasPermission("permission:users:users:read")]
     public async Task<ActionResult<UserDetailDto>> Deactivate(Guid id, CancellationToken ct)
     {
         try
@@ -140,6 +146,9 @@ public class UsersController : ControllerBase
     /// <summary>Reactivate user account.</summary>
     [HttpPut("{id:guid}/reactivate")]
     [HasPermission("permission:users:users:update")]
+    // The response is the full record — email and permissions — so changing a user also needs
+    // reading one (second review of ADR-0019's follow-up, 2026-10-19, F2b).
+    [HasPermission("permission:users:users:read")]
     public async Task<ActionResult<UserDetailDto>> Reactivate(Guid id, CancellationToken ct)
     {
         try

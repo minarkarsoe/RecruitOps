@@ -20,8 +20,9 @@ public record CreateApprovalChainRequest
     public Guid? DepartmentId { get; init; }
 
     /// <summary>Ordered. Sequence numbers are assigned from this order (1-based),
-    /// so callers cannot create gaps or duplicates.</summary>
-    [Required, MinLength(1)]
+    /// so callers cannot create gaps or duplicates. At most 20: every submission against the
+    /// chain writes one approval row per step.</summary>
+    [Required, MinLength(1), MaxLength(20)]
     public IReadOnlyList<CreateApprovalChainStepRequest> Steps { get; init; } =
         Array.Empty<CreateApprovalChainStepRequest>();
 }

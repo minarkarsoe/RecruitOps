@@ -1,0 +1,19 @@
+X-Sender: "Demo Company Recruitment" <recruitment@demo.local>
+X-Receiver: thiri@example.test
+MIME-Version: 1.0
+From: "Demo Company Recruitment" <recruitment@demo.local>
+To: thiri@example.test
+Date: 19 Oct 2026 16:04:39 +0000
+Subject: =?utf-8?B?SW50ZXJ2aWV3IGludml0YXRpb24g4oCUIFBsYXRmb3JtIEVu?=
+ =?utf-8?B?Z2luZWVy?=
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+
+RGVhciBUaGlyaSBBcHBsaWNhbnQsCgpUaGFuayB5b3UgZm9yIHlvdXIgaW50ZXJlc3Qg
+aW4gdGhlIFBsYXRmb3JtIEVuZ2luZWVyIHJvbGUuIFdlIHdvdWxkIGxpa2UgdG8gaW52
+aXRlIHlvdSB0byBhbiBpbnRlcnZpZXcuCgogIERhdGU6ICAgIFRodXJzZGF5LCAyMiBP
+Y3RvYmVyIDIwMjYKICBUaW1lOiAgICAxMDozNCBQTSB0byAxMTozNCBQTSAoVVRDKzA2
+OjMwKQogIFJvdW5kOiAgIDEKICBKb2luOiAgICBodHRwczovL21lZXQuZXhhbXBsZS50
+ZXN0L2EKCklmIHRoaXMgdGltZSBkb2VzIG5vdCBzdWl0IHlvdSwgcmVwbHkgdG8gdGhp
+cyBlbWFpbCBhbmQgd2Ugd2lsbCBhcnJhbmdlIGFub3RoZXIuCgpLaW5kIHJlZ2FyZHMs
+CkRlZmF1bHQgQ29tcGFueSBSZWNydWl0bWVudAo=

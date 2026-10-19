@@ -200,12 +200,15 @@ public class GovernanceReachTests : IClassFixture<CustomWebAppFactory>
 
     [Theory]
     [InlineData(Roles.HiringManager)]
-    [InlineData("Interviewer")]
-    public async Task A_Department_Scoped_Role_Administers_No_Department_Whatever_It_Holds(string baseRole)
+    [InlineData(Roles.Interviewer)]
+    [InlineData(Roles.Approver)]
+    public async Task A_Role_Without_Company_Wide_Reach_Administers_No_Department_Whatever_It_Holds(string baseRole)
     {
-        // An Admin can build this role: Admin holds every permission here and covers both bases.
+        // An Admin can build this role: Admin holds every permission here and covers every base.
         // What it must not become is a way out of the base: membership IS a scoped role's reach
-        // (security review, 2026-10-17, M2).
+        // (security review, 2026-10-17, M2) — and an Approver, who reaches no candidate, moving a
+        // Hiring Manager into every department would hand out candidate reach it does not hold
+        // (second review, 2026-10-19, F1).
         var (holder, holderId, _) = await CustomRoleHolderAsync(baseRole, RequisitionsRead, SettingsRead, SettingsUpdate);
         await AssertIdentityResolvesAsync(holder);
 
@@ -225,8 +228,56 @@ public class GovernanceReachTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal(HttpStatusCode.Forbidden, (await holder.GetAsync("/api/departments/admin")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await holder.GetAsync($"/api/departments/{_factory.SalesDepartmentId}/members")).StatusCode);
-        // Naming yourself on a chain opens every requisition it governs — the same way out.
+        // Naming yourself on a chain opens every requisition it governs — the same way out. The
+        // chain is for a department of its own, so a regression cannot reroute Sales' approvals.
+        var scratch = await Admin().PostAsJsonAsync("/api/departments",
+            new CreateDepartmentRequest { Name = $"Chain Probe {Guid.NewGuid():N}" });
+        var scratchId = (await scratch.Content.ReadFromJsonAsync<DepartmentDetailDto>())!.Id;
+        var chain = await holder.PostAsJsonAsync("/api/approvalchains", new CreateApprovalChainRequest
+        {
+            Name = "Mine",
+            DepartmentId = scratchId,
+            Steps = [new CreateApprovalChainStepRequest { ApproverUserId = holderId, Label = "Me" }],
+        });
         Assert.Equal(HttpStatusCode.Forbidden, (await holder.GetAsync("/api/approvalchains")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, chain.StatusCode);
+    }
+
+    [Fact]
+    public async Task Changing_A_User_Needs_Reading_Them_Because_The_Answer_Is_Their_Record()
+    {
+        // PUT /api/users/{id} answers with the full record — email, permissions. A custom role given
+        // users:update without users:read could rename anyone its base covers to read them
+        // (second review, 2026-10-19, F2b).
+        var (holder, _, _) = await CustomRoleHolderAsync(Roles.Recruiter, RequisitionsRead, "permission:users:users:update");
+        await AssertIdentityResolvesAsync(holder);
+        var target = await Admin().PostAsJsonAsync("/api/users", new CreateUserRequest(
+            $"hm.{Guid.NewGuid():N}@alpha.test", "Target Manager", "Correct-Horse-9", Role: "HiringManager"));
+        var targetId = (await target.Content.ReadFromJsonAsync<UserDetailDto>())!.Id;
+
+        var rename = await holder.PutAsJsonAsync($"/api/users/{targetId}", new UpdateUserRequest("Target Manager"));
+        var reactivate = await holder.PutAsync($"/api/users/{targetId}/reactivate", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, rename.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, reactivate.StatusCode);
+        Assert.DoesNotContain("@alpha.test", await rename.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Settings_Writes_Are_Bounded()
+    {
+        // Every submission writes one approval row per chain step, and a member list is one IN
+        // list: neither should be arbitrarily large (second review, 2026-10-19, F3).
+        var steps = Enumerable.Range(0, 21)
+            .Select(i => new CreateApprovalChainStepRequest { ApproverUserId = _factory.FinanceApproverUserId, Label = $"Step {i}" })
+            .ToList();
+        var chain = await Admin().PostAsJsonAsync("/api/approvalchains",
+            new CreateApprovalChainRequest { Name = "Too long", Steps = steps });
+        var members = await Admin().PutAsJsonAsync($"/api/departments/{_factory.SalesDepartmentId}/members",
+            new SetDepartmentMembersRequest { UserIds = Enumerable.Range(0, 5001).Select(_ => Guid.NewGuid()).ToArray() });
+
+        Assert.Equal(HttpStatusCode.BadRequest, chain.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, members.StatusCode);
     }
 
     [Fact]
