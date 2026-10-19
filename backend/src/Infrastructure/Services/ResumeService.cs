@@ -46,6 +46,11 @@ public class ResumeService : IResumeService
             return null;
         }
 
+        // A panel seat is read-only (ADR-0017 §4). Replacing the CV is a write — it overwrites what
+        // every reviewer reads and what search indexes — so a cross-department panel member must not
+        // reach it (third security review, 2026-10-19, M2). Same answer as no reach at all.
+        if (!reach.CanWrite) return null;
+
         var application = await _db.JobApplications.FirstOrDefaultAsync(a => a.Id == applicationId, ct);
         if (application is null)
         {

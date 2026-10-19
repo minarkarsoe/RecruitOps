@@ -101,10 +101,12 @@ public class InterviewService : IInterviewService
             .Select(p => p.InterviewId)
             .ToListAsync(ct)).ToHashSet();
 
+        //   A cancelled round grants nothing — the same cut as ApplicationAccess.IsOnPanelForAsync,
+        //   which the detail screen asks.
         var myApplicationIds = (await (
             from p in _db.InterviewParticipants.AsNoTracking()
             join i in _db.Interviews.AsNoTracking() on p.InterviewId equals i.Id
-            where p.UserId == userId.Value
+            where p.UserId == userId.Value && i.Status != InterviewStatus.Cancelled
             select i.JobApplicationId).Distinct().ToListAsync(ct)).ToHashSet();
 
         // An unrecognised status name is dropped rather than rejected: it genuinely matches no
@@ -165,13 +167,14 @@ public class InterviewService : IInterviewService
         var visible = rows
             .Where(r =>
             {
-                // "Only mine" means the rounds you are sitting on, not every round of an
-                // application you touched once — the label would be lying otherwise.
-                if (onlyMine) return myInterviewIds.Contains(r.Id);
-
                 var byDepartment = hasStandingReach
                     && (allowedDepartmentIds is null || allowedDepartmentIds.Contains(r.DepartmentId));
-                return byDepartment || myApplicationIds.Contains(r.JobApplicationId);
+                var reachable = byDepartment || myApplicationIds.Contains(r.JobApplicationId);
+
+                // "Only mine" means the rounds you are sitting on, not every round of an
+                // application you touched once — the label would be lying otherwise. Still within
+                // reach: a seat on a cancelled round alone opens nothing, filtered or not.
+                return onlyMine ? reachable && myInterviewIds.Contains(r.Id) : reachable;
             })
             .ToList();
 
@@ -500,7 +503,8 @@ public class InterviewService : IInterviewService
 
     private static InterviewMode ParseMode(string value)
     {
-        if (!Enum.TryParse<InterviewMode>(value, ignoreCase: false, out var mode))
+        // IsDefined too: TryParse accepts "7", which names no mode (third security review, L4).
+        if (!Enum.TryParse<InterviewMode>(value, ignoreCase: false, out var mode) || !Enum.IsDefined(mode))
             throw new InvalidOperationException($"'{value}' is not an interview mode.");
         return mode;
     }

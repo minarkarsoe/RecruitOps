@@ -1,5 +1,7 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using RecruitOps.Api.Auth;
 using RecruitOps.Application.DTOs;
 using Xunit;
@@ -245,6 +247,28 @@ public class InterviewFlowTests : IClassFixture<CustomWebAppFactory>
         // Removing them would delete their assessment along with the access that produced
         // it. An audit trail you can quietly discard is not one.
         Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_Panel_Seat_Cannot_Replace_The_Candidates_CV()
+    {
+        // ADR-0017 §4: a seat is read-only. The CV upload asked only "can you reach it", so a Hiring
+        // Manager from another department, seated on the panel, could overwrite the CV every
+        // reviewer reads and search indexes (third security review, 2026-10-19, M2).
+        var (_, applicationId) = await _scenario.ApplicationAsync("Sales Engineer CV Seat");
+        await _scenario.ScheduleAsync(applicationId); // Finance's manager sits on it
+
+        var content = new MultipartFormDataContent();
+        var file = new ByteArrayContent(Encoding.UTF8.GetBytes("%PDF-1.4 a replacement CV"));
+        file.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        content.Add(file, "file", "Replacement.pdf");
+
+        var upload = await _scenario.FinanceManager().PostAsync($"/api/applications/{applicationId}/resume", content);
+
+        Assert.Equal(HttpStatusCode.NotFound, upload.StatusCode);
+        // Still a reader: the seat opens the application's rounds.
+        Assert.Equal(HttpStatusCode.OK,
+            (await _scenario.FinanceManager().GetAsync($"/api/applications/{applicationId}/interviews")).StatusCode);
     }
 
     [Fact]

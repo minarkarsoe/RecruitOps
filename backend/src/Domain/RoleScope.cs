@@ -23,8 +23,9 @@ public static class RoleScope
     /// to see the requisition they have been asked to approve, and an approval chain
     /// routinely crosses departments (Finance signs off on a Sales headcount).</para>
     ///
-    /// <para><c>Interviewer</c> is scoped (2026-10-15): it is the role with no standing reach, and
-    /// the grantor ceiling relies on it being the narrowest on every axis. It used to be
+    /// <para><c>Interviewer</c> is scoped (2026-10-15): it is the role with no standing reach — only
+    /// the panels it sits on (2026-10-19) — and the grantor ceiling relies on it being the narrowest
+    /// on every axis. It used to be
     /// company-wide here, which no role policy exposed — until a custom role on an Interviewer
     /// base was given <c>requisitions:read</c>, a permission-gated endpoint, and saw every
     /// department (security review of ADR-0021 option A).</para>
@@ -80,8 +81,9 @@ public static class RoleScope
     /// <c>AdminOnly</c>; HrDirector and Recruiter share <c>RecruitmentStaff</c>, and HrDirector adds
     /// company-wide authority over others' requisitions (<c>RequisitionService</c>); HiringManager
     /// (department-scoped) and Approver (no candidate data) are each narrower than Recruiter and
-    /// neither covers the other; Interviewer passes no role policy and is both department-scoped and
-    /// excluded from candidate data. <c>RoleScopeCoversTests</c> checks this order against the
+    /// neither covers the other; Interviewer passes only <c>PanelAccess</c> — which every other role
+    /// passes too, and which reaches nothing but the caller's own panels (ADR-0021 amendment,
+    /// 2026-10-19) — and is both department-scoped and excluded from candidate data. <c>RoleScopeCoversTests</c> checks this order against the
     /// policies the API registers and both scopes.</para></summary>
     public static bool Covers(UserRole actor, UserRole target) =>
         actor == target

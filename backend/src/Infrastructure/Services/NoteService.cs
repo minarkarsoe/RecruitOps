@@ -104,10 +104,15 @@ public class NoteService : INoteService
     /// think of this candidate" would put a name and a judgement in front of someone with
     /// no business seeing either, and (again, with notifications) mail it to them.</para>
     /// </summary>
+    private const int MaxMentions = 10;
+
     private async Task<List<MentionParser.MentionTarget>> ResolveMentionsAsync(
         string body, Guid jobApplicationId, CancellationToken ct)
     {
-        var handles = MentionParser.DistinctHandles(body);
+        // At most MaxMentions handles are resolved: each match costs a reach check, and since panel
+        // members (Interviewers included) post here too, a note is not a way to test the whole
+        // staff list against guessed handles in one go (third security review, 2026-10-19, L2).
+        var handles = MentionParser.DistinctHandles(body).Take(MaxMentions).ToList();
         if (handles.Count == 0) return new List<MentionParser.MentionTarget>();
 
         // Candidates for matching: the email local-part, or the display name with spaces

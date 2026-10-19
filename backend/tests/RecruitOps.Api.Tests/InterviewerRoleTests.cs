@@ -144,7 +144,9 @@ public class InterviewerRoleTests : IClassFixture<CustomWebAppFactory>
         var cancel = await ivw.PostAsJsonAsync($"/api/interviews/{round.Id}/cancel", new CancelInterviewRequest());
         var reschedule = await ivw.PutAsJsonAsync($"/api/interviews/{round.Id}",
             new RescheduleInterviewRequest { ScheduledStart = DateTimeOffset.UtcNow.AddDays(5), Mode = "Phone" });
+        var complete = await ivw.PostAsJsonAsync($"/api/interviews/{round.Id}/complete", new CompleteInterviewRequest());
 
+        Assert.Equal(HttpStatusCode.Forbidden, complete.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, schedule.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, panel.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, cancel.StatusCode);
@@ -177,8 +179,70 @@ public class InterviewerRoleTests : IClassFixture<CustomWebAppFactory>
         await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId, ivwId);
 
         // On the panel, but the pipeline is InternalUser and stays closed: the interview screen is
-        // the whole of what this role reaches.
+        // the whole of what this role reaches — the CV included.
         Assert.Equal(HttpStatusCode.Forbidden,
             (await ivw.GetAsync($"/api/applications/{applicationId}/history")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await ivw.GetAsync($"/api/applications/{applicationId}/resume")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_Cancelled_Round_Grants_Nothing()
+    {
+        // A cancelled round's panel can no longer be edited, so a seat on one used to keep the
+        // candidate's whole file open for good — someone seated by mistake, then the round called
+        // off, read it forever (third security review, 2026-10-19, M1).
+        var (ivw, ivwId) = await InterviewerAsync();
+        var (_, applicationId) = await _scenario.ApplicationAsync("Interviewer Cancelled");
+        var round = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId, ivwId);
+        Assert.Equal(HttpStatusCode.OK, (await ivw.GetAsync($"/api/interviews/{round.Id}")).StatusCode);
+
+        (await _scenario.Recruiter().PostAsJsonAsync($"/api/interviews/{round.Id}/cancel",
+            new CancelInterviewRequest { Reason = "Wrong interviewer seated." })).EnsureSuccessStatusCode();
+
+        Assert.Equal(HttpStatusCode.NotFound, (await ivw.GetAsync($"/api/interviews/{round.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await ivw.GetAsync($"/api/applications/{applicationId}/notes")).StatusCode);
+        foreach (var query in new[] { "?status=Cancelled", "?status=Cancelled&onlyMine=true" })
+        {
+            var list = await ivw.GetFromJsonAsync<List<InterviewListItemDto>>($"/api/interviews{query}");
+            Assert.DoesNotContain(list!, i => i.Id == round.Id);
+        }
+    }
+
+    [Fact]
+    public async Task A_Recommendation_That_Names_Nothing_Is_Refused()
+    {
+        // Enum.TryParse accepts "99"; a submitted scorecard can never change, so it would carry a
+        // recommendation that is no recommendation for good (third security review, L4).
+        var template = await _scenario.EnsureCompanyTemplateAsync();
+        var (ivw, ivwId) = await InterviewerAsync();
+        var (_, applicationId) = await _scenario.ApplicationAsync("Interviewer Bad Recommendation");
+        var round = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId, ivwId);
+
+        var submit = await ivw.PostAsJsonAsync($"/api/interviews/{round.Id}/scorecard/submit",
+            Module3Scenario.CompleteAnswers(template, recommendation: "99"));
+
+        Assert.Equal(HttpStatusCode.Conflict, submit.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_Panel_Member_Of_An_Earlier_Round_Reads_A_Later_Rounds_Submitted_Evaluations()
+    {
+        // Pins TODAY's rule, not a decision: ADR-0017 §4 opens the whole application to a panel
+        // member, and the blind rule (§3) is per round, so a later round's submitted evaluations are
+        // readable. Raised with the product owner 2026-10-19 (third security review, L1); if the
+        // answer is "own rounds only", this test flips.
+        var template = await _scenario.EnsureCompanyTemplateAsync();
+        var (ivw, ivwId) = await InterviewerAsync();
+        var (_, applicationId) = await _scenario.ApplicationAsync("Interviewer Later Evaluations");
+        await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId, ivwId);
+        var second = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId);
+        (await _scenario.SalesManager().PostAsJsonAsync($"/api/interviews/{second.Id}/scorecard/submit",
+            Module3Scenario.CompleteAnswers(template, recommendation: "Yes"))).EnsureSuccessStatusCode();
+
+        var seen = await ivw.GetFromJsonAsync<InterviewScorecardsDto>($"/api/interviews/{second.Id}/scorecards");
+
+        Assert.False(seen!.BlindedUntilYouSubmit);
+        Assert.Single(seen.Visible);
     }
 }

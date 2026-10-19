@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RecruitOps.Application.Common;
 using RecruitOps.Domain;
+using RecruitOps.Domain.Enums;
 using RecruitOps.Infrastructure.Persistence;
 
 namespace RecruitOps.Infrastructure.Services;
@@ -131,12 +132,17 @@ public class ApplicationAccess : IApplicationAccess
         return row is null ? null : new Row(row.ApplicationId, row.JobPostingId, row.DepartmentId);
     }
 
+    /// <summary>The panel exception's test. A <b>cancelled</b> round grants nothing: its panel can no
+    /// longer be edited, so someone seated on it by mistake — or on a round called off for any
+    /// reason — kept the candidate's whole file for good (third security review, 2026-10-19, M1).
+    /// <see cref="InterviewService"/>'s list applies the same cut; keep them together.</summary>
     private async Task<bool> IsOnPanelForAsync(
         Guid userId, Guid jobApplicationId, CancellationToken ct)
         => await (
             from ip in _db.InterviewParticipants.AsNoTracking()
             join i in _db.Interviews.AsNoTracking() on ip.InterviewId equals i.Id
             where i.JobApplicationId == jobApplicationId && ip.UserId == userId
+                  && i.Status != InterviewStatus.Cancelled
             select ip.Id
         ).AnyAsync(ct);
 

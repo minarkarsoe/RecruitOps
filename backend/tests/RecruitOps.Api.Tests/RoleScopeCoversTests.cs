@@ -15,7 +15,8 @@ namespace RecruitOps.Api.Tests;
 /// without revisiting the order, and this fails.</summary>
 public class RoleScopeCoversTests : IClassFixture<CustomWebAppFactory>
 {
-    private static readonly string[] RolePolicies = { Policies.AdminOnly, Policies.RecruitmentStaff, Policies.InternalUser };
+    private static readonly string[] RolePolicies =
+        { Policies.AdminOnly, Policies.RecruitmentStaff, Policies.InternalUser, Policies.PanelAccess };
 
     private readonly CustomWebAppFactory _factory;
 
@@ -39,12 +40,17 @@ public class RoleScopeCoversTests : IClassFixture<CustomWebAppFactory>
     }
 
     [Fact]
-    public async Task No_Role_Policy_Admits_Interviewer()
+    public async Task Only_PanelAccess_Admits_Interviewer_And_Every_Other_Role_Passes_It_Too()
     {
-        // A deactivated custom role leaves its holders on Interviewer precisely because of this;
-        // if a policy ever admits Interviewer, that stops meaning "no reach".
+        // A deactivated custom role leaves its holders on Interviewer precisely because of this:
+        // their reach is their own panels and nothing else (ADR-0021 amendment, 2026-10-19). A
+        // second policy admitting Interviewer would be a second door, and has to be decided, not
+        // added. Until 2026-10-19 this read "no role policy admits Interviewer" — and would have
+        // passed vacuously once PanelAccess existed, because PanelAccess was not in the list.
         var admits = await PoliciesAdmittingAsync();
-        Assert.Empty(admits[UserRole.Interviewer]);
+        Assert.Equal(new[] { Policies.PanelAccess }, admits[UserRole.Interviewer]);
+        Assert.All(Enum.GetValues<UserRole>().Where(r => r != UserRole.SuperAdmin),
+            role => Assert.Contains(Policies.PanelAccess, admits[role]));
     }
 
     [Fact]

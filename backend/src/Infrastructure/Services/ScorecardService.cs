@@ -81,8 +81,11 @@ public class ScorecardService : IScorecardService
         HireRecommendation? recommendation = null;
         if (!string.IsNullOrWhiteSpace(request.Recommendation))
         {
+            // IsDefined too: TryParse accepts "99", and a submitted scorecard can never be changed,
+            // so it would carry a recommendation that names nothing for good (third review, L4).
             if (!Enum.TryParse<HireRecommendation>(
-                    request.Recommendation, ignoreCase: false, out var parsed))
+                    request.Recommendation, ignoreCase: false, out var parsed)
+                || !Enum.IsDefined(parsed))
                 throw new InvalidOperationException(
                     $"'{request.Recommendation}' is not a recommendation.");
             recommendation = parsed;

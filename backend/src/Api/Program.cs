@@ -137,16 +137,14 @@ builder.Services.AddAuthorization(options =>
 
     // Any internal user, including department-scoped roles. Endpoints using this
     // MUST apply a department predicate themselves (ADR-0003).
-    options.AddPolicy(Policies.InternalUser, p =>
-        p.RequireRole(Roles.Admin, Roles.HrDirector, Roles.Recruiter,
-                      Roles.HiringManager, Roles.Approver));
+    string[] internalUsers = [Roles.Admin, Roles.HrDirector, Roles.Recruiter, Roles.HiringManager, Roles.Approver];
+    options.AddPolicy(Policies.InternalUser, p => p.RequireRole(internalUsers));
 
     // InternalUser plus Interviewer, for the panel's own screens only (ADR-0021 amendment,
     // 2026-10-19). Those services reach an application through IApplicationAccess, which gives
-    // Interviewer nothing but the panels it sits on.
-    options.AddPolicy(Policies.PanelAccess, p =>
-        p.RequireRole(Roles.Admin, Roles.HrDirector, Roles.Recruiter,
-                      Roles.HiringManager, Roles.Approver, Roles.Interviewer));
+    // Interviewer nothing but the panels it sits on. Built from the same list, so a role taken out
+    // of InternalUser cannot stay here by accident (third security review, L3).
+    options.AddPolicy(Policies.PanelAccess, p => p.RequireRole([.. internalUsers, Roles.Interviewer]));
 
     options.AddPolicy(Policies.AdminOnly, p => p.RequireRole(Roles.Admin));
 

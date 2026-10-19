@@ -132,6 +132,7 @@ public record SaveScorecardRequest
     [StringLength(4000)]
     public string? SummaryComment { get; init; }
 
+    [MaxLength(100)] // far above any template; bounds the per-element validation (third review, L5)
     public IReadOnlyList<ScorecardAnswerInput> Answers { get; init; } =
         Array.Empty<ScorecardAnswerInput>();
 }
