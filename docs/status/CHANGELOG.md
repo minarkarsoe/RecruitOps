@@ -22,6 +22,11 @@ did not hide them), and the whole note thread.
   hire/reject is still open.
 - Tests: InterviewerRoleTests reworked (the pins of the old rule flipped), mention and note-scope
   tests, and a pin that other roles are unchanged; mutation-checked. Backend **951**, internal **489**.
+- **Fourth security review** (no Critical/High/Medium), its lows fixed: a guessed @handle could
+  reveal who sits on another round (an Interviewer is now shown only mentions of people who reach
+  the candidate by department or sit on the note's round — at read time, covering older notes); a
+  409 could confirm a round id (now 404 first); and the application-level round lookup is now
+  private, so `ResolveRoundAsync` is the only way to resolve a round. Backend **954**.
 
 ## 2026-10-19 — third security review: panel seats are read-only, and a cancelled round grants nothing
 

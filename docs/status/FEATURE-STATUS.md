@@ -4,7 +4,7 @@
 > colleague's email reaches anyone without `users:read` (the audit log is the stated exception);
 > only Admin, HR Director and Recruiter reach administer departments and approval chains; an
 > Interviewer sees and scores only the rounds it sits on; a panel seat is read-only and a cancelled
-> round grants nothing. Suites: **backend 951** (122 domain + 829 api), **internal 489** (53 files),
+> round grants nothing. Suites: **backend 954** (122 domain + 832 api), **internal 489** (53 files),
 > **public 31**. One product decision open: panel-seat expiry (ADR-0017 amendment).
 
 > 🚢 **2026-10-16 — the production compose stack was run end to end for the first time**, and four
@@ -566,7 +566,7 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | A note author can test a guessed email local-part through `@mention` | 🔵 Low | A hit returns the colleague's id and name in the note — only for people who already reach the application; no address; at most 10 per note (`NoteService.ResolveMentionsAsync`). Predates 2026-10-19; Interviewers can now post notes on their panels too. Re-review when mentions send notifications |
 | ~~A panel seat could replace the candidate's CV~~ | ✅ **fixed 2026-10-19** | Third review M2: the upload ignored that a seat is read-only (ADR-0017 §4) |
 | ~~A seat on a cancelled round kept the candidate's file open for good~~ | ✅ **fixed 2026-10-19** | Third review M1: a cancelled round now grants nothing. ADR-0017 amendment |
-| ~~An Interviewer read the candidate's other rounds and their evaluations~~ | ✅ **fixed 2026-10-19** | Product owner: own rounds only. List, round, scorecards and notes (API-side) now stop at the rounds it sits on; Hiring Manager / Approver seats unchanged. ADR-0021 amendment |
+| ~~An Interviewer read the candidate's other rounds and their evaluations~~ | ✅ **fixed 2026-10-19** | Product owner: own rounds only. List, round, scorecards, notes and mentions (API-side) now stop at the rounds it sits on; `ResolveRoundAsync` is the only round resolver; Hiring Manager / Approver seats unchanged. Reviewed (no Critical/High/Medium). ADR-0021 amendment |
 | A panel seat never expires | 🟡 Medium — **product decision** | After a round concludes — and after hire/reject — a panel member keeps what their seat opens (an Interviewer: its rounds; other roles: the application). Option in the ADR-0017 amendment |
 | Behind Cloudflare the API sees Cloudflare's IP, not the visitor's | 🟠 High (Cloudflare installs only) | One shared login rate-limit bucket (anyone can lock everyone out) and wrong audit IPs. `realip` config + origin firewalling documented in the Cloudflare guide as a required step; **not built or tested**. ADR-0029 review L6 |
 | ~~Public apply fails when the optional phone is left blank~~ | ✅ **fixed 2026-10-17** | Both ways: phone-only applicants failed on `"email": ""` too. The DTO now reads a blank optional field as not given, before `[Phone]`/`[EmailAddress]` run; the form shows the API's 409 messages (written for applicants) and its own words for 400/429 instead of "try again" for everything. 6 backend + 7 frontend tests; verified in a browser against the prod stack |

@@ -178,6 +178,14 @@ recommendations refused; mentions and answers bounded.
 **Known residual:** a note author can `@mention` by guessing an email local-part, or a name. A hit
 returns that colleague's id and display name in the note — only for people who already reach the
 application (for an Interviewer: only on a note pinned to its round), and no address
-(`NoteService.ResolveMentionsAsync`, at most 10 handles per note). It
+(`NoteService.ResolveMentionsAsync`, at most 10 handles per note). **An Interviewer reading** is
+shown a mention only of someone who reaches the candidate by department or sits on the note's own
+round — so a guessed handle cannot reveal who sits on another round (fourth review, L1).
+
+**What the own-rounds rule cannot hide** (fourth review, I3): an Interviewer's own round number
+says earlier rounds exist; notes pinned to its round are free text that colleagues may use to
+discuss other rounds; notes are not under the blind rule. The rule is enforced in one place:
+`ResolveRoundAsync` is the only way `IApplicationAccess` resolves reach by round (the
+application-level variant is private, pinned by a reflection test). It
 predates this change; Interviewers can now post notes on their panels and so can ask it too.
 Nothing sends mention notifications yet — re-review this when something does.
