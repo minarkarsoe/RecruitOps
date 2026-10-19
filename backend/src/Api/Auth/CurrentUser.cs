@@ -43,6 +43,9 @@ public sealed class CurrentUser : ICurrentUser
     public bool IsExcludedFromCandidateData =>
         ParsedRole is not { } role || RoleScope.IsExcludedFromCandidateData(role);
 
+    public bool IsLimitedToOwnRounds =>
+        ParsedRole is not { } role || RoleScope.IsLimitedToOwnRounds(role);
+
     public bool IsSuperAdmin => IsSuperAdminPrincipal(Principal);
 
     /// <summary>Is this principal a super-admin? <b>The one definition</b>, static so that

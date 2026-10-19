@@ -26,6 +26,10 @@ public interface ICurrentUser
     /// (ADR-0017 §4).</para></summary>
     bool IsExcludedFromCandidateData { get; }
 
+    /// <summary>True when a panel seat opens only the round this user sits on, not the whole
+    /// application (<c>RoleScope.IsLimitedToOwnRounds</c>; Interviewer, 2026-10-19).</summary>
+    bool IsLimitedToOwnRounds { get; }
+
     /// <summary>True when the principal is a global Super-Admin user.</summary>
     bool IsSuperAdmin { get; }
 }

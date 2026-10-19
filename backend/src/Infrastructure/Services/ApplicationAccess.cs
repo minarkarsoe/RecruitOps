@@ -55,9 +55,10 @@ public class ApplicationAccess : IApplicationAccess
             return ViaDepartment(row);
         }
 
-        // Clause 2: the panel exception (ADR-0017 §4). Read-only, this application only.
+        // Clause 2: the panel exception (ADR-0017 §4). Read-only, this application only — and,
+        // for a role limited to its own rounds, only those (ResolveRoundAsync).
         return await IsOnPanelForAsync(userId.Value, jobApplicationId, ct)
-            ? ViaParticipation(row)
+            ? ViaParticipation(row, _user.IsLimitedToOwnRounds)
             : null;
     }
 
@@ -89,7 +90,7 @@ public class ApplicationAccess : IApplicationAccess
         }
 
         return await IsOnPanelForAsync(userId, jobApplicationId, ct)
-            ? ViaParticipation(row)
+            ? ViaParticipation(row, RoleScope.IsLimitedToOwnRounds(user.Role))
             : null;
     }
 
@@ -103,6 +104,24 @@ public class ApplicationAccess : IApplicationAccess
 
         return applicationId is null ? null : await ResolveAsync(applicationId.Value, ct);
     }
+
+    public async Task<ApplicationReach?> ResolveRoundAsync(Guid interviewId, CancellationToken ct = default)
+    {
+        var reach = await ResolveByInterviewAsync(interviewId, ct);
+        if (reach is null || !reach.OwnRoundsOnly) return reach;
+
+        // OwnRoundsOnly is only ever set on participation reach, which needs a signed-in user.
+        return _user.UserId is { } userId && await SitsOnAsync(userId, interviewId, ct) ? reach : null;
+    }
+
+    public async Task<bool> SitsOnAsync(Guid userId, Guid interviewId, CancellationToken ct = default)
+        => await (
+            from ip in _db.InterviewParticipants.AsNoTracking()
+            join i in _db.Interviews.AsNoTracking() on ip.InterviewId equals i.Id
+            where ip.InterviewId == interviewId && ip.UserId == userId
+                  && i.Status != InterviewStatus.Cancelled
+            select ip.Id
+        ).AnyAsync(ct);
 
     public async Task<bool> IsParticipantAsync(Guid interviewId, CancellationToken ct = default)
     {
@@ -150,7 +169,7 @@ public class ApplicationAccess : IApplicationAccess
         row.ApplicationId, row.JobPostingId, row.DepartmentId,
         ApplicationReachKind.Department);
 
-    private static ApplicationReach ViaParticipation(Row row) => new(
+    private static ApplicationReach ViaParticipation(Row row, bool ownRoundsOnly) => new(
         row.ApplicationId, row.JobPostingId, row.DepartmentId,
-        ApplicationReachKind.Participation);
+        ApplicationReachKind.Participation) { OwnRoundsOnly = ownRoundsOnly };
 }

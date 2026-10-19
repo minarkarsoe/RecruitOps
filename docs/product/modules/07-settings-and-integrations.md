@@ -26,10 +26,10 @@ A custom role has two parts, both chosen by whoever builds it in the Role Builde
    (a Hiring Manager base sees only its own departments; an Approver base sees no candidate data).
    One of **HR Director, Recruiter, Hiring Manager, Approver, Interviewer**. Required; never
    Admin or SuperAdmin — admin reach is given by assigning the Admin system role, openly.
-   **Interviewer** is the narrowest: it reaches the interviews it sits on — those rounds,
-   its own scorecard and the application's notes — and no other role-policy screen (pipeline,
-   candidates, search, analytics); only its own departments on permission-guarded screens
-   (requisitions). A requisition it is named to approve it can always open and decide.
+   **Interviewer** is the narrowest: it reaches only the rounds it sits on — each round, its
+   panel's evaluations under the blind rule, its own scorecard and the notes pinned to that round —
+   not the candidate's other rounds, and no other role-policy screen (pipeline, candidates, search,
+   analytics); only its own departments on permission-guarded screens (requisitions). A requisition it is named to approve it can always open and decide.
    An approve-only role is still better on an **Approver** base, which also lists requisitions
    from every department.
 2. **Permissions** — the matrix, which is the whole answer for permission-guarded endpoints

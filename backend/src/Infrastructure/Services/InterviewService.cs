@@ -101,13 +101,19 @@ public class InterviewService : IInterviewService
             .Select(p => p.InterviewId)
             .ToListAsync(ct)).ToHashSet();
 
-        //   A cancelled round grants nothing — the same cut as ApplicationAccess.IsOnPanelForAsync,
-        //   which the detail screen asks.
-        var myApplicationIds = (await (
+        //   A cancelled round grants nothing — the same cut as ApplicationAccess.SitsOnAsync, which
+        //   the detail screen asks.
+        //
+        //   A role limited to its own rounds (RoleScope.IsLimitedToOwnRounds — Interviewer) sees
+        //   only the live seats themselves, not the rest of those applications (2026-10-19).
+        var myLiveSeats = await (
             from p in _db.InterviewParticipants.AsNoTracking()
             join i in _db.Interviews.AsNoTracking() on p.InterviewId equals i.Id
             where p.UserId == userId.Value && i.Status != InterviewStatus.Cancelled
-            select i.JobApplicationId).Distinct().ToListAsync(ct)).ToHashSet();
+            select new { p.InterviewId, i.JobApplicationId }).ToListAsync(ct);
+        var myApplicationIds = myLiveSeats.Select(s => s.JobApplicationId).ToHashSet();
+        var myLiveInterviewIds = myLiveSeats.Select(s => s.InterviewId).ToHashSet();
+        var ownRoundsOnly = _user.IsLimitedToOwnRounds;
 
         // An unrecognised status name is dropped rather than rejected: it genuinely matches no
         // interview, so an empty list is the truthful answer, and a 400 here would turn a stale
@@ -169,7 +175,10 @@ public class InterviewService : IInterviewService
             {
                 var byDepartment = hasStandingReach
                     && (allowedDepartmentIds is null || allowedDepartmentIds.Contains(r.DepartmentId));
-                var reachable = byDepartment || myApplicationIds.Contains(r.JobApplicationId);
+                var bySeat = ownRoundsOnly
+                    ? myLiveInterviewIds.Contains(r.Id)
+                    : myApplicationIds.Contains(r.JobApplicationId);
+                var reachable = byDepartment || bySeat;
 
                 // "Only mine" means the rounds you are sitting on, not every round of an
                 // application you touched once — the label would be lying otherwise. Still within
@@ -349,6 +358,9 @@ public class InterviewService : IInterviewService
         var result = new List<InterviewDto>(ids.Count);
         foreach (var id in ids)
         {
+            // An Interviewer's seat is the round, not the candidate (RoleScope.IsLimitedToOwnRounds).
+            // `!` is safe: OwnRoundsOnly is only set on participation reach, which needs a user id.
+            if (reach.OwnRoundsOnly && !await _access.SitsOnAsync(_user.UserId!.Value, id, ct)) continue;
             var dto = await MapAsync(id, ct);
             if (dto is not null) result.Add(dto);
         }
@@ -357,7 +369,8 @@ public class InterviewService : IInterviewService
 
     public async Task<InterviewDto?> GetAsync(Guid interviewId, CancellationToken ct = default)
     {
-        var reach = await _access.ResolveByInterviewAsync(interviewId, ct);
+        // The round, not just the application: an Interviewer reaches only rounds it sits on.
+        var reach = await _access.ResolveRoundAsync(interviewId, ct);
         return reach is null ? null : await MapAsync(interviewId, ct);
     }
 

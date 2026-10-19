@@ -6,8 +6,9 @@ using Xunit;
 
 namespace RecruitOps.Api.Tests;
 
-/// <summary>The Interviewer role sees and scores its own panels, and nothing else (ADR-0021
-/// amendment, 2026-10-19; product owner's decision 2026-10-17).
+/// <summary>The Interviewer role sees and scores the rounds it sits on, and nothing else (ADR-0021
+/// amendment, 2026-10-19; product owner's decisions 2026-10-17 and 2026-10-19 — "only their own
+/// rounds": not the candidate's other rounds, their evaluations, or the rest of the thread).
 ///
 /// <para>Found by walking every menu as every role on a running install: the role's only menu
 /// item, Interviews, answered 403 — no role policy admitted the <c>Interviewer</c> enum, which
@@ -31,12 +32,20 @@ public class InterviewerRoleTests : IClassFixture<CustomWebAppFactory>
 
     private async Task<(HttpClient Client, Guid UserId)> InterviewerAsync()
     {
+        var (client, id, _) = await InterviewerWithHandleAsync();
+        return (client, id);
+    }
+
+    /// <summary>Also returns the user's @mention handle — the email local-part, unique per call.</summary>
+    private async Task<(HttpClient Client, Guid UserId, string Handle)> InterviewerWithHandleAsync()
+    {
+        var handle = $"ivw.{Guid.NewGuid():N}";
         var res = await _scenario.Client(Roles.Admin, _factory.AdminUserId).PostAsJsonAsync("/api/users",
-            new CreateUserRequest($"ivw.{Guid.NewGuid():N}@alpha.test", "Ivy Interviewer", "Correct-Horse-9",
+            new CreateUserRequest($"{handle}@alpha.test", "Ivy Interviewer", "Correct-Horse-9",
                 Role: "Interviewer"));
         res.EnsureSuccessStatusCode();
         var id = (await res.Content.ReadFromJsonAsync<UserDetailDto>())!.Id;
-        return (_scenario.Client(Roles.Interviewer, id), id);
+        return (_scenario.Client(Roles.Interviewer, id), id, handle);
     }
 
     [Fact]
@@ -87,42 +96,105 @@ public class InterviewerRoleTests : IClassFixture<CustomWebAppFactory>
     }
 
     [Fact]
-    public async Task A_Later_Round_Of_The_Same_Candidate_Is_Readable_But_Not_Theirs_To_Score()
+    public async Task Another_Round_Of_The_Same_Candidate_Is_Not_Theirs_At_All()
     {
-        // ADR-0017 §4 grants a panel member that one APPLICATION and its rounds, read-only — the
-        // same rule every other panel member has had since Module 3. Scoring stays per round:
-        // writing an evaluation for a conversation you were not in would be fabricating evidence.
+        // Product owner, 2026-10-19: an Interviewer sees only the rounds it sits on. ADR-0017 §4
+        // opens the whole application to every other panel member; for this role a seat is the
+        // round — not its siblings, not their evaluations (which the per-round blind rule would
+        // not hide), not their place in the list.
         var template = await _scenario.EnsureCompanyTemplateAsync();
         var (ivw, ivwId) = await InterviewerAsync();
         var (_, applicationId) = await _scenario.ApplicationAsync("Interviewer Second Round");
-        await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId, ivwId);
-        var second = await _scenario.ScheduleAsync(applicationId);
+        var mine = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId, ivwId);
+        var second = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId);
+        (await _scenario.SalesManager().PostAsJsonAsync($"/api/interviews/{second.Id}/scorecard/submit",
+            Module3Scenario.CompleteAnswers(template, recommendation: "Yes"))).EnsureSuccessStatusCode();
 
-        Assert.Equal(HttpStatusCode.OK, (await ivw.GetAsync($"/api/interviews/{second.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await ivw.GetAsync($"/api/interviews/{second.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await ivw.GetAsync($"/api/interviews/{second.Id}/scorecards")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await ivw.GetAsync($"/api/interviews/{second.Id}/scorecard")).StatusCode);
         var write = await ivw.PutAsJsonAsync($"/api/interviews/{second.Id}/scorecard",
             Module3Scenario.CompleteAnswers(template, recommendation: "Yes"));
         Assert.Equal(HttpStatusCode.NotFound, write.StatusCode);
+
+        foreach (var query in new[] { "", "?status=Scheduled&status=Completed" })
+        {
+            var list = await ivw.GetFromJsonAsync<List<InterviewListItemDto>>($"/api/interviews{query}");
+            Assert.Contains(list!, i => i.Id == mine.Id);
+            Assert.DoesNotContain(list!, i => i.Id == second.Id);
+        }
+        var rounds = await ivw.GetFromJsonAsync<List<InterviewDto>>($"/api/applications/{applicationId}/interviews");
+        Assert.Equal(new[] { mine.Id }, rounds!.Select(r => r.Id));
     }
 
     [Fact]
-    public async Task An_Interviewer_Reads_And_Writes_The_Notes_Of_Their_Panels_Only()
+    public async Task Other_Roles_Keep_The_Application_Wide_Seat()
     {
-        // The interview screen embeds the application's notes; the panel talks in the same thread.
+        // The narrowing is the Interviewer's alone: a Hiring Manager from another department, on
+        // round 1's panel, still reads round 2 (ADR-0017 §4, unchanged).
+        var (_, applicationId) = await _scenario.ApplicationAsync("Interviewer Narrowing Is Role Specific");
+        await _scenario.ScheduleAsync(applicationId); // Finance's manager sits on round 1
+        var second = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId);
+
+        Assert.Equal(HttpStatusCode.OK, (await _scenario.FinanceManager().GetAsync($"/api/interviews/{second.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task An_Interviewer_Reads_And_Writes_Only_The_Notes_Of_Their_Round()
+    {
+        // The interview screen shows the notes pinned to its round. It always filtered in the page;
+        // the response used to carry the candidate's whole thread. Now the API sends only those.
         var (ivw, ivwId) = await InterviewerAsync();
         var (_, mineApp) = await _scenario.ApplicationAsync("Interviewer Notes A");
         var (_, otherApp) = await _scenario.ApplicationAsync("Interviewer Notes B");
-        await _scenario.ScheduleWithAsync(mineApp, _factory.HiringManagerUserId, ivwId);
+        var mine = await _scenario.ScheduleWithAsync(mineApp, _factory.HiringManagerUserId, ivwId);
+        var sibling = await _scenario.ScheduleWithAsync(mineApp, _factory.HiringManagerUserId);
 
-        Assert.Equal(HttpStatusCode.OK, (await ivw.GetAsync($"/api/applications/{mineApp}/notes")).StatusCode);
+        // Recruiter notes: one on the thread, one on the sibling round, one on the Interviewer's round.
+        foreach (var (body, round) in new (string, Guid?)[]
+                 { ("Thread-wide note.", null), ("About round two.", sibling.Id), ("About your round.", mine.Id) })
+            (await _scenario.Recruiter().PostAsJsonAsync($"/api/applications/{mineApp}/notes",
+                new CreateNoteRequest { Body = body, InterviewId = round })).EnsureSuccessStatusCode();
+
+        var seen = await ivw.GetFromJsonAsync<List<NoteDto>>($"/api/applications/{mineApp}/notes");
+        Assert.Equal(new[] { "About your round." }, seen!.Select(n => n.Body));
+
         var post = await ivw.PostAsJsonAsync($"/api/applications/{mineApp}/notes",
-            new CreateNoteRequest { Body = "Strong on the system design question." });
+            new CreateNoteRequest { Body = "Strong on the system design question.", InterviewId = mine.Id });
         Assert.Equal(HttpStatusCode.OK, post.StatusCode);
+        // Unpinned would land on the thread it cannot read; another round is not theirs.
+        var unpinned = await ivw.PostAsJsonAsync($"/api/applications/{mineApp}/notes",
+            new CreateNoteRequest { Body = "To everyone." });
+        var onSibling = await ivw.PostAsJsonAsync($"/api/applications/{mineApp}/notes",
+            new CreateNoteRequest { Body = "About round two.", InterviewId = sibling.Id });
+        Assert.Equal(HttpStatusCode.Conflict, unpinned.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, onSibling.StatusCode);
 
         Assert.Equal(HttpStatusCode.NotFound, (await ivw.GetAsync($"/api/applications/{otherApp}/notes")).StatusCode);
         var stray = await ivw.PostAsJsonAsync($"/api/applications/{otherApp}/notes",
-            new CreateNoteRequest { Body = "Should not land." });
-        Assert.Equal(HttpStatusCode.NotFound, stray.StatusCode);
+            new CreateNoteRequest { Body = "Should not land.", InterviewId = mine.Id });
+        Assert.Equal(HttpStatusCode.NotFound, stray.StatusCode); // no reach answers first: nothing to learn
+    }
+
+    [Fact]
+    public async Task A_Mention_Reaches_An_Interviewer_Only_On_A_Note_They_Can_Open()
+    {
+        var (_, ivwId, handle) = await InterviewerWithHandleAsync();
+        var (_, applicationId) = await _scenario.ApplicationAsync("Interviewer Mentions");
+        var mine = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId, ivwId);
+        var sibling = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId);
+
+        async Task<NoteDto> PostAsync(Guid? round)
+        {
+            var res = await _scenario.Recruiter().PostAsJsonAsync($"/api/applications/{applicationId}/notes",
+                new CreateNoteRequest { Body = $"@{handle} what did you make of this?", InterviewId = round });
+            res.EnsureSuccessStatusCode();
+            return (await res.Content.ReadFromJsonAsync<NoteDto>())!;
+        }
+
+        Assert.Contains((await PostAsync(mine.Id)).Mentions, m => m.UserId == ivwId);
+        Assert.DoesNotContain((await PostAsync(sibling.Id)).Mentions, m => m.UserId == ivwId);
+        Assert.DoesNotContain((await PostAsync(null)).Mentions, m => m.UserId == ivwId);
     }
 
     [Fact]
@@ -225,24 +297,4 @@ public class InterviewerRoleTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal(HttpStatusCode.Conflict, submit.StatusCode);
     }
 
-    [Fact]
-    public async Task A_Panel_Member_Of_An_Earlier_Round_Reads_A_Later_Rounds_Submitted_Evaluations()
-    {
-        // Pins TODAY's rule, not a decision: ADR-0017 §4 opens the whole application to a panel
-        // member, and the blind rule (§3) is per round, so a later round's submitted evaluations are
-        // readable. Raised with the product owner 2026-10-19 (third security review, L1); if the
-        // answer is "own rounds only", this test flips.
-        var template = await _scenario.EnsureCompanyTemplateAsync();
-        var (ivw, ivwId) = await InterviewerAsync();
-        var (_, applicationId) = await _scenario.ApplicationAsync("Interviewer Later Evaluations");
-        await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId, ivwId);
-        var second = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId);
-        (await _scenario.SalesManager().PostAsJsonAsync($"/api/interviews/{second.Id}/scorecard/submit",
-            Module3Scenario.CompleteAnswers(template, recommendation: "Yes"))).EnsureSuccessStatusCode();
-
-        var seen = await ivw.GetFromJsonAsync<InterviewScorecardsDto>($"/api/interviews/{second.Id}/scorecards");
-
-        Assert.False(seen!.BlindedUntilYouSubmit);
-        Assert.Single(seen.Visible);
-    }
 }

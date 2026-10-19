@@ -63,9 +63,11 @@ side conversations in chat/email.
 
 - `Interview` — job application, scheduled slot, mode, location/link, status ✅
 - `InterviewParticipant` — interviewer/panel member; **grants narrow read access** to that one
-  application, which is what makes cross-department panels possible (ADR-0017 §4) ✅. It is the
-  **whole** of the Interviewer role's reach: its rounds, its scorecard, the application's notes
-  (ADR-0021 amendment, 2026-10-19). Shown by
+  application, which is what makes cross-department panels possible (ADR-0017 §4) ✅. For the
+  **Interviewer** role a seat is narrower: **that round only** — its detail, its panel's
+  evaluations (under the blind rule), the interviewer's own scorecard, and the notes pinned to it.
+  Not the candidate's other rounds, their evaluations, or the rest of the thread (product owner,
+  2026-10-19). A cancelled round grants nothing to anyone Shown by
   name, never by email address (ADR-0019); at most 20 per round
 - `ScorecardTemplate`, `ScorecardCriterion` — the configurable criteria set ✅
 - `Scorecard`, `ScorecardResponse` — per-interviewer evaluation ✅

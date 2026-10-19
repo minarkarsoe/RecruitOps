@@ -35,6 +35,13 @@ public record ApplicationReach(
     /// shipped behaviour and the test that pins it
     /// (<c>A_Panel_Member_Can_Read_And_Join_The_Thread</c>).</para></summary>
     public bool CanWrite => Kind == ApplicationReachKind.Department;
+
+    /// <summary>True when this reach is a panel seat that opens <b>only the rounds sat on</b>
+    /// (<c>RoleScope.IsLimitedToOwnRounds</c> — Interviewer). Every read of a round, its evaluations
+    /// or its notes must then also ask <see cref="IApplicationAccess.ResolveRoundAsync"/> or
+    /// <see cref="IApplicationAccess.SitsOnAsync"/>; the application-level answer alone is too
+    /// wide.</summary>
+    public bool OwnRoundsOnly { get; init; }
 }
 
 /// <summary>Resolves whether the current user may reach a job application at all.
@@ -80,4 +87,15 @@ public interface IApplicationAccess
     /// is only <i>blinded</i> to the panel's scores if they are on the panel themselves
     /// (ADR-0017 §3).</summary>
     Task<bool> IsParticipantAsync(Guid interviewId, CancellationToken ct = default);
+
+    /// <summary>Resolve reach to <b>one round</b>: the application's reach, and — when that reach is
+    /// <see cref="ApplicationReach.OwnRoundsOnly"/> — only if the caller sits on this round. The
+    /// question every read of a single round asks; asking <see cref="ResolveByInterviewAsync"/>
+    /// instead would open an Interviewer's every round of the candidate.</summary>
+    Task<ApplicationReach?> ResolveRoundAsync(Guid interviewId, CancellationToken ct = default);
+
+    /// <summary>True when <paramref name="userId"/> sits on this round and it is not cancelled — a
+    /// seat that grants something. The one definition: the panel exception, the own-rounds rule and
+    /// the interview list all use it.</summary>
+    Task<bool> SitsOnAsync(Guid userId, Guid interviewId, CancellationToken ct = default);
 }

@@ -30,10 +30,18 @@ public class NoteService : INoteService
         var reach = await _access.ResolveAsync(jobApplicationId, ct);
         if (reach is null) return null;
 
-        var notes = await _db.Notes.AsNoTracking()
-            .Where(n => n.JobApplicationId == jobApplicationId)
-            .OrderBy(n => n.CreatedAt)
-            .ToListAsync(ct);
+        var query = _db.Notes.AsNoTracking().Where(n => n.JobApplicationId == jobApplicationId);
+
+        // An Interviewer reads the notes pinned to the rounds it sits on — not the candidate's
+        // whole thread (product owner, 2026-10-19). Filtered here, not in the page: the interview
+        // screen always showed only the round's notes, but the response carried them all.
+        if (reach.OwnRoundsOnly)
+        {
+            var mine = await MyLiveRoundsAsync(jobApplicationId, ct);
+            query = query.Where(n => n.InterviewId != null && mine.Contains(n.InterviewId.Value));
+        }
+
+        var notes = await query.OrderBy(n => n.CreatedAt).ToListAsync(ct);
 
         return await MapAsync(notes, ct);
     }
@@ -67,6 +75,14 @@ public class NoteService : INoteService
                     "That interview does not belong to this application.");
         }
 
+        // An Interviewer writes where it reads: on a round it sits on, never the whole thread.
+        if (reach.OwnRoundsOnly)
+        {
+            if (request.InterviewId is not { } round)
+                throw new InvalidOperationException("Pin this note to the round you interviewed in.");
+            if (!await _access.SitsOnAsync(userId.Value, round, ct)) return null;
+        }
+
         var note = new Note
         {
             JobApplicationId = jobApplicationId,
@@ -76,7 +92,7 @@ public class NoteService : INoteService
         };
         _db.Notes.Add(note);
 
-        foreach (var target in await ResolveMentionsAsync(note.Body, jobApplicationId, ct))
+        foreach (var target in await ResolveMentionsAsync(note.Body, jobApplicationId, note.InterviewId, ct))
         {
             _db.NoteMentions.Add(new NoteMention
             {
@@ -91,6 +107,22 @@ public class NoteService : INoteService
     }
 
     // ---------- helpers ----------
+
+    /// <summary>The rounds of this application the caller sits on and that still grant something
+    /// (<c>IApplicationAccess.SitsOnAsync</c>, the one definition).</summary>
+    private async Task<HashSet<Guid>> MyLiveRoundsAsync(Guid jobApplicationId, CancellationToken ct)
+    {
+        var rounds = await _db.Interviews.AsNoTracking()
+            .Where(i => i.JobApplicationId == jobApplicationId)
+            .Select(i => i.Id)
+            .ToListAsync(ct);
+
+        var mine = new HashSet<Guid>();
+        if (_user.UserId is not { } userId) return mine;
+        foreach (var round in rounds)
+            if (await _access.SitsOnAsync(userId, round, ct)) mine.Add(round);
+        return mine;
+    }
 
     /// <summary>Turns `@handle` tokens in the body into users.
     ///
@@ -107,7 +139,7 @@ public class NoteService : INoteService
     private const int MaxMentions = 10;
 
     private async Task<List<MentionParser.MentionTarget>> ResolveMentionsAsync(
-        string body, Guid jobApplicationId, CancellationToken ct)
+        string body, Guid jobApplicationId, Guid? pinnedInterviewId, CancellationToken ct)
     {
         // At most MaxMentions handles are resolved: each match costs a reach check, and since panel
         // members (Interviewers included) post here too, a note is not a way to test the whole
@@ -152,8 +184,16 @@ public class NoteService : INoteService
             // This used to be a private copy in this file, and the copy had already drifted:
             // it granted an Approver every application in the company, which is the exact
             // case the doc comment above gives as the reason the check exists.
-            if (await _access.ResolveForUserAsync(target.UserId, jobApplicationId, ct) is not null)
-                allowed.Add(target);
+            var reach = await _access.ResolveForUserAsync(target.UserId, jobApplicationId, ct);
+            if (reach is null) continue;
+
+            // A colleague limited to their own rounds sees only notes pinned to one of them; a
+            // mention anywhere else would point them at a note they cannot open.
+            if (reach.OwnRoundsOnly
+                && (pinnedInterviewId is not { } round || !await _access.SitsOnAsync(target.UserId, round, ct)))
+                continue;
+
+            allowed.Add(target);
         }
 
         return allowed;

@@ -158,7 +158,9 @@ public class ScorecardService : IScorecardService
     public async Task<InterviewScorecardsDto?> GetForInterviewAsync(
         Guid interviewId, CancellationToken ct = default)
     {
-        var reach = await _access.ResolveByInterviewAsync(interviewId, ct);
+        // Per round: another round's evaluations are not an Interviewer's to read, and the blind
+        // rule below — per round too — would not hide them (product owner, 2026-10-19).
+        var reach = await _access.ResolveRoundAsync(interviewId, ct);
         if (reach is null) return null;
 
         var userId = _user.UserId;
@@ -211,7 +213,7 @@ public class ScorecardService : IScorecardService
     {
         if (_user.UserId is null) return null;
 
-        var reach = await _access.ResolveByInterviewAsync(interviewId, ct);
+        var reach = await _access.ResolveRoundAsync(interviewId, ct);
         if (reach is null) return null;
 
         if (!await _access.IsParticipantAsync(interviewId, ct)) return null;

@@ -51,6 +51,17 @@ public static class RoleScope
     /// </summary>
     public static bool IsExcludedFromCandidateData(UserRole role) => role is UserRole.Approver or UserRole.Interviewer;
 
+    /// <summary>True when a panel seat opens <b>only the round sat on</b> — its detail, its panel's
+    /// evaluations, the notes pinned to it — rather than the whole application, as ADR-0017 §4
+    /// grants every other role. A third axis, and like the two above it only narrows.
+    ///
+    /// <para><c>Interviewer</c> only (product owner, 2026-10-19): the role exists to evaluate one
+    /// conversation, and reading the candidate's other rounds — their evaluations included, which
+    /// the per-round blind rule does not hide — is more than that. A Hiring Manager or Approver on a
+    /// panel keeps the application-wide seat.</para>
+    /// </summary>
+    public static bool IsLimitedToOwnRounds(UserRole role) => role is UserRole.Interviewer;
+
     /// <summary>Parses a role name, returning null for anything unrecognised.
     ///
     /// <para>Callers must treat null as the <b>most restrictive</b> answer, not the least:
