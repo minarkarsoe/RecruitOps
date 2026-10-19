@@ -209,8 +209,15 @@ public class GovernanceReachTests : IClassFixture<CustomWebAppFactory>
         var (holder, holderId, _) = await CustomRoleHolderAsync(baseRole, RequisitionsRead, SettingsRead, SettingsUpdate);
         await AssertIdentityResolvesAsync(holder);
 
+        // Today's members plus the holder, so a regression adds one person instead of emptying the
+        // fixture's Sales department under every test that runs after this one.
+        var roster = await Admin().GetFromJsonAsync<List<DepartmentMemberDto>>(
+            $"/api/departments/{_factory.SalesDepartmentId}/members");
         var addSelf = await holder.PutAsJsonAsync($"/api/departments/{_factory.SalesDepartmentId}/members",
-            new SetDepartmentMembersRequest { UserIds = [holderId] });
+            new SetDepartmentMembersRequest
+            {
+                UserIds = [.. roster!.Where(m => m.IsMember).Select(m => m.UserId), holderId],
+            });
         var create = await holder.PostAsJsonAsync("/api/departments", new CreateDepartmentRequest { Name = $"Mine {Guid.NewGuid():N}" });
 
         Assert.Equal(HttpStatusCode.Forbidden, addSelf.StatusCode);

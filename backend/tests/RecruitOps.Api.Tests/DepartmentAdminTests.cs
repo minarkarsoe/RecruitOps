@@ -67,14 +67,27 @@ public class DepartmentAdminTests : IClassFixture<CustomWebAppFactory>
     }
 
     [Fact]
-    public async Task Only_An_Admin_Can_Read_Or_Write_Membership()
+    public async Task Only_An_Admin_Can_Write_Membership_And_A_Recruiter_Cannot_Read_It()
     {
         var department = await CreateAsync("Membership Authority");
 
-        var read = await ClientFor(Roles.Recruiter).GetAsync($"/api/departments/{department.Id}/members");
+        // Real users, not role headers without an id: with no `sub` the permission handler falls back
+        // to the role claim against the static seed, a branch no production token reaches — so these
+        // used to pass whatever the database said (security review, 2026-10-17).
+        var read = await ClientFor(Roles.Recruiter, _factory.RecruiterUserId)
+            .GetAsync($"/api/departments/{department.Id}/members");
         Assert.Equal(HttpStatusCode.Forbidden, read.StatusCode);
 
-        var write = await ClientFor(Roles.HrDirector).PutAsJsonAsync(
+        var hrDirector = await ClientFor(Roles.Admin, _factory.AdminUserId).PostAsJsonAsync("/api/users",
+            new CreateUserRequest($"hrd.{Guid.NewGuid():N}@alpha.test", "Members HR Director", "Correct-Horse-9", Role: "HrDirector"));
+        var hrDirectorId = (await hrDirector.Content.ReadFromJsonAsync<UserDetailDto>())!.Id;
+
+        // The HR Director reads membership (ADR-0019 amendment, 2026-10-17)…
+        var hrRead = await ClientFor(Roles.HrDirector, hrDirectorId).GetAsync($"/api/departments/{department.Id}/members");
+        Assert.Equal(HttpStatusCode.OK, hrRead.StatusCode);
+
+        // …and does not change it.
+        var write = await ClientFor(Roles.HrDirector, hrDirectorId).PutAsJsonAsync(
             $"/api/departments/{department.Id}/members",
             new SetDepartmentMembersRequest { UserIds = [_factory.HiringManagerUserId] });
         Assert.Equal(HttpStatusCode.Forbidden, write.StatusCode);

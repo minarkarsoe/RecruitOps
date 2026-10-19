@@ -188,6 +188,17 @@ public class RbacDomainTests
     }
 
     [Fact]
+    public void Every_Permission_A_System_Role_Grants_Is_In_The_Catalogue()
+    {
+        // Startup seeding refuses to run otherwise (security review, 2026-10-17, L3): since it also
+        // removes what a definition no longer names, a misspelt code would revoke the grant it meant.
+        var catalogue = RbacSeedData.GetCanonicalPermissions().Select(p => p.Code).ToHashSet();
+
+        Assert.All(RbacSeedData.GetSystemRoles(), role =>
+            Assert.All(role.PermissionCodes, code => Assert.Contains(code, catalogue)));
+    }
+
+    [Fact]
     public async Task DbInitializer_SeedPermissionsAndRolesAsync_Seeds_Db_And_Links_Existing_Users_Idempotently()
     {
         using var db = CreateDbContext();

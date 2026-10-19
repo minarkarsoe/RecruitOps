@@ -65,7 +65,12 @@ public class DepartmentIsolationTests : IClassFixture<CustomWebAppFactory>
         // the UI. The list is now scoped per ADR-0003 instead of blocked (see
         // DepartmentAdminTests), and the RBAC boundary this test guards moved to the admin
         // view, which really is cross-department.
-        var res = await ClientFor(_factory.TenantA, Roles.HiringManager).GetAsync("/api/departments/admin");
+        // A real Hiring Manager: without an id the permission handler never consults the database.
+        var client = ClientFor(_factory.TenantA, Roles.HiringManager);
+        client.DefaultRequestHeaders.Add("X-Test-UserId", _factory.HiringManagerUserId.ToString());
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/requisitions")).StatusCode);
+
+        var res = await client.GetAsync("/api/departments/admin");
         Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
     }
 }
