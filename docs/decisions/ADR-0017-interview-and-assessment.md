@@ -157,11 +157,14 @@ deactivated, including on a **cancelled** round.
 
 - **Now:** a **cancelled** round grants nothing (`ApplicationAccess.IsOnPanelForAsync` and the
   interview list). Someone seated by mistake loses the file when the round is called off.
-- **Still true, and a product decision (raised 2026-10-19):** a seat on a scheduled or concluded
-  round keeps read access to the application — its rounds, notes and the other rounds' submitted
-  evaluations — after the round ends and after the application is hired or rejected. Options: end
-  panel reach N days after the application is terminal; or limit a panel member to the rounds they
-  sit on (which also settles the cross-round evaluation question in ADR-0021's 2026-10-19
-  amendment).
+- **Decided the same day for the Interviewer role (product owner, 2026-10-19):** its seat opens
+  **only the rounds it sits on** — each round, that round's evaluations under the blind rule, its
+  own scorecard and the notes pinned to the round; not the candidate's other rounds, their
+  evaluations, or the application-wide thread (`RoleScope.IsLimitedToOwnRounds`,
+  `IApplicationAccess.ResolveRoundAsync`). Hiring Manager and Approver panel members keep the
+  application-wide seat this section describes.
+- **Still true, and a product decision:** a seat on a scheduled or concluded round never expires —
+  after the round ends and after the application is hired or rejected, the panel member keeps what
+  their seat opens. Option: end panel reach N days after the application is terminal.
 - A panel seat is **read-only** everywhere: the CV upload ignored that and is fixed (same review,
   M2).

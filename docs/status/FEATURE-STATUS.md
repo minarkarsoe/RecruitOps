@@ -3,9 +3,9 @@
 > 🔐 **2026-10-19 — governance reach reviewed twice and fixed; the Interviewer role works.** No
 > colleague's email reaches anyone without `users:read` (the audit log is the stated exception);
 > only Admin, HR Director and Recruiter reach administer departments and approval chains; an
-> Interviewer sees and scores its own panels; a panel seat is read-only and a cancelled round grants
-> nothing. Suites: **backend 950** (122 domain + 828 api), **internal 487** (53 files), **public 31**.
-> Two product decisions open: panel-seat expiry and cross-round reading (ADR-0017 amendment).
+> Interviewer sees and scores only the rounds it sits on; a panel seat is read-only and a cancelled
+> round grants nothing. Suites: **backend 951** (122 domain + 829 api), **internal 489** (53 files),
+> **public 31**. One product decision open: panel-seat expiry (ADR-0017 amendment).
 
 > 🚢 **2026-10-16 — the production compose stack was run end to end for the first time**, and four
 > of its defects fixed ([ADR-0029](../decisions/ADR-0029-production-edge-and-storage.md)): MinIO's
@@ -566,7 +566,8 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | A note author can test a guessed email local-part through `@mention` | 🔵 Low | A hit returns the colleague's id and name in the note — only for people who already reach the application; no address; at most 10 per note (`NoteService.ResolveMentionsAsync`). Predates 2026-10-19; Interviewers can now post notes on their panels too. Re-review when mentions send notifications |
 | ~~A panel seat could replace the candidate's CV~~ | ✅ **fixed 2026-10-19** | Third review M2: the upload ignored that a seat is read-only (ADR-0017 §4) |
 | ~~A seat on a cancelled round kept the candidate's file open for good~~ | ✅ **fixed 2026-10-19** | Third review M1: a cancelled round now grants nothing. ADR-0017 amendment |
-| A panel seat never expires, and opens the other rounds' evaluations | 🟡 Medium — **product decision** | After a round concludes — and after hire/reject — a panel member keeps reading the application, its notes and other rounds' submitted evaluations (blind rule is per round). Options in the ADR-0017 amendment; `InterviewerRoleTests` pins today's rule |
+| ~~An Interviewer read the candidate's other rounds and their evaluations~~ | ✅ **fixed 2026-10-19** | Product owner: own rounds only. List, round, scorecards and notes (API-side) now stop at the rounds it sits on; Hiring Manager / Approver seats unchanged. ADR-0021 amendment |
+| A panel seat never expires | 🟡 Medium — **product decision** | After a round concludes — and after hire/reject — a panel member keeps what their seat opens (an Interviewer: its rounds; other roles: the application). Option in the ADR-0017 amendment |
 | Behind Cloudflare the API sees Cloudflare's IP, not the visitor's | 🟠 High (Cloudflare installs only) | One shared login rate-limit bucket (anyone can lock everyone out) and wrong audit IPs. `realip` config + origin firewalling documented in the Cloudflare guide as a required step; **not built or tested**. ADR-0029 review L6 |
 | ~~Public apply fails when the optional phone is left blank~~ | ✅ **fixed 2026-10-17** | Both ways: phone-only applicants failed on `"email": ""` too. The DTO now reads a blank optional field as not given, before `[Phone]`/`[EmailAddress]` run; the form shows the API's 409 messages (written for applicants) and its own words for 400/429 instead of "try again" for everything. 6 backend + 7 frontend tests; verified in a browser against the prod stack |
 | ~~`System.Security.Cryptography.Xml` 10.0.10 has three high-severity advisories~~ | ✅ **fixed 2026-10-16** | Bumped to 10.0.13 (Infrastructure + Api.Tests), and the transitive `System.Security.Cryptography.Pkcs` pinned to 10.0.13 in Api, where EF Design's tooling chain held it at 9.0.0. `dotnet list package --vulnerable --include-transitive`: none in all six projects; build 0 warnings. The API now ships the patched Pkcs itself; `Xml` comes from the shared framework, so an install is patched only once rebuilt on a 10.0.13+ `aspnet:10.0` — runbook §3 now says `build --pull` |

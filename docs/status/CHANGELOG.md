@@ -3,7 +3,27 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-19 (latest) — third security review: panel seats are read-only, and a cancelled round grants nothing
+## 2026-10-19 (latest) — an Interviewer sees only the rounds it sits on
+
+**Product owner's decision:** "Interviewers should only see their own rounds." Until now an
+Interviewer's seat followed ADR-0017 §4 like every panel member's: the whole application — every
+round of the candidate, those rounds' submitted evaluations (the blind rule is per round, so it
+did not hide them), and the whole note thread.
+
+- **Now:** the interview list, the round page and an application's rounds show an Interviewer
+  only the rounds it sits on; another round — its detail, evaluations or scorecard — is a 404; the
+  notes API returns only notes pinned to its rounds (the page always filtered, but the response
+  carried the whole thread), and its own notes must be pinned to its round; an @mention reaches an
+  Interviewer only on a note they can open. The page no longer points them at a pipeline board
+  they cannot open.
+- **One rule in one place:** `RoleScope.IsLimitedToOwnRounds`; `IApplicationAccess.ResolveRoundAsync`
+  for every single-round read; `SitsOnAsync` as the one definition of a seat that grants something.
+- Hiring Manager and Approver panel members keep the application-wide seat. Seat expiry after a
+  hire/reject is still open.
+- Tests: InterviewerRoleTests reworked (the pins of the old rule flipped), mention and note-scope
+  tests, and a pin that other roles are unchanged; mutation-checked. Backend **951**, internal **489**.
+
+## 2026-10-19 — third security review: panel seats are read-only, and a cancelled round grants nothing
 
 Review of the Interviewer change (no Critical or High). Two pre-existing Mediums the new role made
 sharper, both fixed:
