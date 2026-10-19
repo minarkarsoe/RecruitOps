@@ -6,7 +6,7 @@ import type {
   ScorecardCriterion, SaveScorecardRequest,
 } from '@recruitops/types';
 import { api, ApiError } from '../lib/api';
-import { auth, hasPermission } from '../lib/auth';
+import { auth, hasPermission, isExcludedFromCandidateData } from '../lib/auth';
 import {
   type Draft, draftsFrom, emptyDraft, missingRequired as unansweredRequired, toAnswers,
 } from '../lib/scorecard';
@@ -429,7 +429,12 @@ export function InterviewDetailPage() {
             Debrief
           </h2>
           <p className="mb-2 text-sm text-ink-400">
-            Notes about this round. The candidate&apos;s full thread is on the pipeline board.
+            Notes about this round.
+            {/* Only for someone the pipeline board will open for: an Interviewer's seat is this
+                round alone (2026-10-19), and an Approver reaches no candidate — pointing either at
+                the board would point at a 403. */}
+            {session && !isExcludedFromCandidateData(session.role) &&
+              ' The candidate\u2019s full thread is on the pipeline board.'}
           </p>
           {/* Notes are not blinded — they are a conversation, not an independent judgement,
               and the blind rule (ADR-0017 §3) is about scorecards. Someone who wants to keep

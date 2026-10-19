@@ -160,3 +160,23 @@ describe('saving a draft', () => {
     expect(screen.getByText(/Still needed to submit: Technical depth/)).toBeInTheDocument();
   });
 });
+
+describe('the debrief pointer', () => {
+  // An Interviewer's seat is this round alone (2026-10-19): the page must not send them to a
+  // pipeline board that answers 403.
+  it.each([
+    ['Recruiter', true],
+    ['Interviewer', false],
+  ] as const)('a %s is pointed at the full thread: %s', async (role, pointed) => {
+    auth.set({
+      accessToken: 'token', expiresAtUtc: '2099-01-01T00:00:00Z', role,
+      displayName: 'Panel Member', userId: 'usr-interviewer', isSuperAdmin: false,
+      permissions: ['permission:scorecards:scorecards:submit'],
+    });
+    serve({ mine: myScorecard(), scorecards: panel({ hiddenCount: 0, blindedUntilYouSubmit: true }) });
+    renderPage();
+
+    expect(await screen.findByText(/Notes about this round/)).toBeInTheDocument();
+    expect(screen.queryByText(/full thread is on the pipeline board/) !== null).toBe(pointed);
+  });
+});
