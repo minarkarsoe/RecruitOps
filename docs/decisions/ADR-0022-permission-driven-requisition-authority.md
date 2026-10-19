@@ -219,3 +219,15 @@ effect: only Admin holds `settings:update`. Membership is the department-scoping
 so whoever is granted `settings:update` can move people between departments — the grantor ceiling
 (ADR-0021) means only a holder can grant it, and every membership change is audited (ADR-0027).
 The Departments and Approval-chains pages hide their editing controls without `settings:update`.
+
+**Company-wide reach, too (2026-10-19, from this amendment's security review, M2).** The ceiling
+decides who may *give* `settings:update`; it says nothing about what a department-scoped holder does
+with it. An Admin can build a role on a **Hiring Manager** base holding `settings:update` — and its
+holder could then add themselves to every department, or name themselves on every approval chain
+(an approver can open the requisitions they decide), and so leave the base the ceiling approved.
+So department administration (`GET /admin`, members, create, rename, (de)activate) and every
+approval-chain endpoint now also need the **`CompanyWide`** policy: a role claim that
+`RoleScope.IsDepartmentScoped` says no to. A role on a Hiring Manager or Interviewer base
+administers neither, whatever it holds; the SPA hides both links from it. The permission still
+says *whether*; the policy says *only company-wide*. Department create, rename, deactivate and
+reactivate are now audited too — they were delegable and unrecorded.

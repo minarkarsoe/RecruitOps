@@ -1,5 +1,10 @@
 # Feature Status
 
+> 🔐 **2026-10-19 — governance reach, reviewed and fixed.** No user email reaches anyone without
+> `users:read` (directory, panel, department roster), and a department-scoped role administers no
+> department or approval chain. Suites: **backend 929** (122 domain + 807 api), **internal 478**
+> (53 files), **public 31**. Open: the Interviewer role still has no working screen — next.
+
 > 🚢 **2026-10-16 — the production compose stack was run end to end for the first time**, and four
 > of its defects fixed ([ADR-0029](../decisions/ADR-0029-production-edge-and-storage.md)): MinIO's
 > images no longer exist (→ `chainguard/minio`, pinned), **the CV bucket allowed anonymous list and
@@ -551,6 +556,9 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | ~~A phone typed in Burmese digits never matched the same phone in ASCII~~ | ✅ **fixed 2026-10-17** | Module 2.7: stored in Burmese digits, so duplicate detection and phone search missed it — one person, two candidates. `ContactNormalizer` now stores ASCII (every Unicode digit system); migration `NormalizeBurmeseDigitPhones` fixes stored rows; search now finds a phone however it is typed (it never matched spaces or +95). Pairs already split need a human merge (NEXT-SESSION query) |
 | ~~A Recruiter could read every user's email (and permissions, SuperAdmin flag)~~ | ✅ **fixed 2026-10-17** | Recruiter held `users:read`, which guards `GET /api/users/{id}`, and the picker hands out every id. Removed from the seed; startup seeding now revokes what a system role's seed no longer grants (audited). ADR-0019 amendment |
 | ~~HR Director's Users and Departments menu items answered 403~~ | ✅ **fixed 2026-10-17** | Read-only by the product owner's decision: directory on `users:read`, departments on `settings:read`/`settings:update` like approval chains; editing controls hidden without the write permission |
+| ~~A Recruiter could still read every email through the interview panel~~ | ✅ **fixed 2026-10-19** | Review M1 of the fix above: the panel record carried each member's email and the picker offers every id. No email on a panel now; at most 20 members. The department roster shows emails only with `users:read` (L1). ADR-0019 follow-up |
+| ~~A department-scoped custom role with `settings:update` could widen its own reach~~ | ✅ **fixed 2026-10-19** | Review M2: add itself to every department, or name itself on every approval chain. Both now also need the `CompanyWide` policy; links hidden in the SPA. Department lifecycle changes audited (L4). ADR-0022 amendment |
+| ~~The SPA's role-scope mirrors were stale~~ | ✅ **fixed 2026-10-19** | `isDepartmentScoped` / `isExcludedFromCandidateData` missed Interviewer, which the server added 2026-10-15. Now pinned role by role in `auth.test.ts` |
 | **The Interviewer system role cannot see its interviews** | 🔴 High | Its only menu item (`/interviews`) answers 403: no role policy admits the `Interviewer` enum (ADR-0021 decision 5 made it the no-access holder for inactive custom roles). A user given the Interviewer role cannot see or score a panel |
 | Behind Cloudflare the API sees Cloudflare's IP, not the visitor's | 🟠 High (Cloudflare installs only) | One shared login rate-limit bucket (anyone can lock everyone out) and wrong audit IPs. `realip` config + origin firewalling documented in the Cloudflare guide as a required step; **not built or tested**. ADR-0029 review L6 |
 | ~~Public apply fails when the optional phone is left blank~~ | ✅ **fixed 2026-10-17** | Both ways: phone-only applicants failed on `"email": ""` too. The DTO now reads a blank optional field as not given, before `[Phone]`/`[EmailAddress]` run; the form shows the API's 409 messages (written for applicants) and its own words for 400/429 instead of "try again" for everything. 6 backend + 7 frontend tests; verified in a browser against the prod stack |

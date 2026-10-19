@@ -67,6 +67,14 @@ change either way. Each is a permission (`users:read`, `settings:read`, `roles:r
 `system:audit` to see; `users:create`/`update`, `settings:update`, `roles:*` to change), so an Admin
 can give a custom role the same view.
 
+Two rules on top of the permissions:
+- **Departments and approval chains need company-wide reach.** A role on a Hiring Manager or
+  Interviewer base never opens either, whatever it holds — membership and approval chains are
+  what decide its own reach, so it could otherwise widen itself (ADR-0022 amendment).
+- **A colleague's email address is `users:read`, wherever it appears.** The department roster
+  shows names and roles to anyone with `settings:read`, addresses only with `users:read` too; an
+  interview panel never shows them (ADR-0019 follow-up).
+
 ### 7.2 HRMS & Payroll Integrations — ⬜
 Connect data to the company's core **HRMS (e.g. QHRM)** and payroll systems.
 
@@ -91,6 +99,7 @@ choice.
 | Stolen session token used | a rotated refresh token came back — someone else held a copy; every session the user had is ended (ADR-0028) |
 | User created, renamed, role changed, deactivated, reactivated | through the user directory, and the first Administrator created at install. Deactivating ends the user's sessions, and says how many |
 | Department access changed | who belongs to a department — which requisitions a Hiring Manager reaches (ADR-0003) |
+| Department created, renamed, deactivated, reactivated | through Departments (`settings:update`) |
 | Role created, changed, deleted | a change lists what moved: name, base role, active, permissions added and removed, and holders whose access moved with it. The system's own changes at startup — system roles created or granted new permissions on an upgrade — are recorded as `System (startup)` |
 | Access change refused | the grantor ceiling turned a request away (ADR-0021) — someone tried to give what they do not hold |
 

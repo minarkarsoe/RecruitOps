@@ -3,7 +3,40 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-17 (latest) — a Recruiter can no longer read every user's email; HR Director's screens open
+## 2026-10-19 (latest) — the governance-reach review: two more email routes, and scoped roles kept in their scope
+
+The security review of the 2026-10-17 change below (no Critical, no High) found the leak it closed
+still open by another door, and a way for a department-scoped role to widen itself:
+
+- **M1 — a Recruiter could still read every user's email, through the interview panel.**
+  `InterviewParticipantDto` carried each member's address; schedule a round with every id the picker
+  offers and the response lists them all. The panel record now has **no email** (no screen used it),
+  and a panel holds at most 20 people. ADR-0019 follow-up.
+- **M2 — a Hiring Manager-based custom role holding `settings:update` could leave its departments**:
+  add itself to every department, or name itself on every approval chain (an approver can open the
+  requisitions it decides). Department administration and approval chains now also need the new
+  **`CompanyWide`** policy (`RoleScope.IsDepartmentScoped` says no); the SPA hides both links from
+  scoped roles. ADR-0022 amendment.
+- **L1** — the department roster (every active user) showed emails to any `settings:read` holder;
+  now only with `users:read` as well. **L4** — department create, rename, deactivate and reactivate
+  are audited. **L3** — startup refuses to seed if a system role names a permission the catalogue
+  lacks (with removal, a typo would have revoked the grant it meant). **L2** — runbook §3 lists the
+  custom roles an upgrade widens, and says rollback re-grants what seeding removed.
+- **Found on the way:** the SPA's `isDepartmentScoped` / `isExcludedFromCandidateData` had not
+  followed the server's 2026-10-15 change adding Interviewer — the two-copies bug `RoleScope` exists
+  to prevent. Fixed, and pinned role by role.
+- **Tests that passed for the wrong reason, fixed:** three department tests sent a role header with
+  no user id (the permission handler then never reads the database); every denial in
+  `GovernanceReachTests` now has an allow for the same identity; membership probes no longer empty
+  the fixture's Sales department if a guard regresses — which is exactly what happened when the
+  guard was removed to check the tests bite.
+- **Verified on real Postgres** (scratch database, dropped after): an install whose Recruiter still
+  held `users:read` lost it on restart, audited as `System (startup)`; Admin and two custom roles
+  were untouched; the runbook query returned exactly the custom roles it should.
+- Suites: backend **929** (122 Domain + 807 Api, +8), internal **478** (+12). Mutation-checked: with
+  `CompanyWide` and the roster gate removed, exactly the targeted tests fail.
+
+## 2026-10-17 — a Recruiter can no longer read every user's email; HR Director's screens open
 
 Found by signing in as every role on a running install and opening every menu item:
 - **A Recruiter could read the email of every user in the company** — and each one's permissions

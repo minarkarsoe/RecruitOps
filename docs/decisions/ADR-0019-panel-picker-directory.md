@@ -119,3 +119,19 @@ decision above:
 
 The reasoning above still stands, unchanged in kind: a wider audience gets the narrower payload.
 What changed is *who* counts as the wider audience — RecruitmentStaff minus HR, not including it.
+
+### Follow-up, 2026-10-19 — the other two places an address leaked
+
+The security review of the change above found the same disclosure by two more routes:
+
+- **The interview panel.** `InterviewParticipantDto` carried each member's email, and whoever sets
+  a panel names it from the picker — so a Recruiter could schedule a round with every selectable
+  id and read every address in the response. The panel record now carries **no email** (the SPA
+  never showed it), and a panel holds at most 20 people (`PanelLimits.MaxParticipants`), so it
+  cannot be a way to address the company in one request.
+- **The department roster.** `GET /api/departments/{id}/members` lists every active user, on
+  `settings:read`. It now includes addresses only for a caller who also holds `users:read` — the
+  directory's permission. Admin and HR Director hold both, so their screen is unchanged.
+
+The rule this ADR now stands for, stated once: **an email address of a colleague is `users:read`,
+wherever in the API it appears.**

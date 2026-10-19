@@ -198,6 +198,31 @@ docker compose exec db pg_restore -U postgres -d recruitops --clean --if-exists 
    image does (2026-10-16: the advisories fixed in 10.0.13 needed both).
 5. Verify health: `curl https://<customer>.recruitops.com/health`.
 
+**Stop the old instance before the new one starts.** Startup seeding makes system roles match the
+release — since 2026-10-17 it also *removes* permissions a system role no longer has, audited as
+`System (startup)`. One instance per company (ADR-0004) makes this the normal case; two seeding at
+once only fight over the same rows. **Rolling back** to a release from before 2026-10-17 does not
+undo the removals by itself: the old seeder only adds, so it re-grants them (Recruiter regains
+`users:read`).
+
+**Upgrading past 2026-10-17 — custom roles worth a look.** Defaults do not widen, but a *custom*
+role keeps what it holds, and three permissions now open more than they did: `users:read` opens the
+directory list (it was Admin-only), `settings:read` opens Departments, and `settings:update` creates,
+renames and deactivates departments and sets their members. List the custom roles holding any of
+them and confirm each was meant to:
+```sql
+SELECT r."Name", r."BaseRole", p."Code"
+FROM "Roles" r
+JOIN "RolePermissions" rp ON rp."RoleId" = r."Id"
+JOIN "Permissions" p ON p."Id" = rp."PermissionId"
+WHERE NOT r."IsSystemRole"
+  AND p."Code" IN ('permission:users:users:read', 'permission:settings:settings:read',
+                   'permission:settings:settings:update')
+ORDER BY r."Name", p."Code";
+```
+A role on a Hiring Manager or Interviewer base gets nothing from the two `settings` permissions —
+those screens need company-wide reach (ADR-0022 amendment).
+
 ---
 
 ## 4. Feature Flag Add-on Gating (ADR-0007)

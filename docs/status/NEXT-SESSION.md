@@ -1,12 +1,31 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-16 · **Backend 878/878 (102 Domain + 776 Api) · Frontend 463/463 · public 24/24 · typecheck clean · builds clean**
+**Last updated:** 2026-10-19 · **Backend 929/929 (122 Domain + 807 Api) · Frontend 478/478 · public 31/31 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
 · All seven modules have a drawn UI (26 screens)
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
+
+> 🔐 **2026-10-19 — governance reach is reviewed and fixed** (CHANGELOG). Before upgrading an
+> install past 2026-10-17, run the custom-role query in runbook §3: three permissions now open
+> more than they did. **Next: task — the Interviewer role sees and scores only its own panels**
+> (product owner's decision, 2026-10-17: "Panel ပဲ မြင်ရမယ်"). Its holders, and holders of a
+> deactivated custom role, see only the interviews they sit on; to lock someone out entirely,
+> deactivate the user. The plan: admit the `Interviewer` enum only to the interview, scorecard and
+> note endpoints whose services already apply the ADR-0017 §4 panel rule — never `InternalUser`
+> wholesale — and prove it with a real Interviewer user on and off a panel.
+> Lessons from this round:
+> - **A review that closes a leak should go looking for the same data elsewhere.** The directory
+>   was closed, and the identical emails were one endpoint away, in a panel response no screen
+>   even displayed. Grep the DTOs for the field, not the endpoints for the permission.
+> - **A permission says what; reach says where.** The grantor ceiling governs who can *grant*
+>   `settings:update`; nothing governed what a department-scoped holder did with it. When a
+>   permission edits the scoping axis itself, it needs a reach check too (`Policies.CompanyWide`).
+> - **Make a denial probe harmless if it succeeds.** Two tests sent a member list that would have
+>   emptied the fixture's Sales department had the guard regressed — and when the guard was
+>   removed to check the tests bite, unrelated tests failed downstream. Send the current state.
 
 > 🚢 **2026-10-16 — the production compose stack runs** ([ADR-0029](../decisions/ADR-0029-production-edge-and-storage.md)).
 > It had never been started. Now: MinIO from `chainguard/minio` (pinned by digest — `minio/minio`
