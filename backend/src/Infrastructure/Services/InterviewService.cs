@@ -359,8 +359,9 @@ public class InterviewService : IInterviewService
         foreach (var id in ids)
         {
             // An Interviewer's seat is the round, not the candidate (RoleScope.IsLimitedToOwnRounds).
-            // `!` is safe: OwnRoundsOnly is only set on participation reach, which needs a user id.
-            if (reach.OwnRoundsOnly && !await _access.SitsOnAsync(_user.UserId!.Value, id, ct)) continue;
+            // No user id cannot happen with OwnRoundsOnly reach, and would show nothing if it did.
+            if (reach.OwnRoundsOnly && (_user.UserId is not { } me || !await _access.SitsOnAsync(me, id, ct)))
+                continue;
             var dto = await MapAsync(id, ct);
             if (dto is not null) result.Add(dto);
         }
@@ -501,7 +502,7 @@ public class InterviewService : IInterviewService
     /// something each method gets to remember.</para></summary>
     private async Task<Interview?> LoadWritableAsync(Guid interviewId, CancellationToken ct)
     {
-        var reach = await _access.ResolveByInterviewAsync(interviewId, ct);
+        var reach = await _access.ResolveRoundAsync(interviewId, ct);
         if (reach is null || !reach.CanWrite) return null;
 
         return await _db.Interviews.FirstOrDefaultAsync(i => i.Id == interviewId, ct);

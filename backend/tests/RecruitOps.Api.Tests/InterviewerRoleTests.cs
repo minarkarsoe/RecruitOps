@@ -297,4 +297,72 @@ public class InterviewerRoleTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal(HttpStatusCode.Conflict, submit.StatusCode);
     }
 
+
+    [Fact]
+    public async Task An_Interviewer_Is_Not_Shown_Who_Sits_On_Another_Round_Through_A_Mention()
+    {
+        // Fourth security review, L1: a resolved @handle names its target. Guess the handle of
+        // someone who sits only on round 2, and a resolved mention would say so. Shown only for
+        // people who reach the candidate by department (nothing about rounds) or who sit on the
+        // note's own round — at read time, so mentions stored before the rule are covered too.
+        var (ivw, ivwId) = await InterviewerAsync();
+        var (_, applicationId) = await _scenario.ApplicationAsync("Interviewer Mention Probe");
+        var mine = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId, ivwId);
+        await _scenario.ScheduleWithAsync(applicationId, _factory.FinanceManagerUserId); // Finance only on round 2
+
+        var probe = await ivw.PostAsJsonAsync($"/api/applications/{applicationId}/notes",
+            new CreateNoteRequest { Body = "@finance.manager @recruiter thoughts?", InterviewId = mine.Id });
+        probe.EnsureSuccessStatusCode();
+        var probed = (await probe.Content.ReadFromJsonAsync<NoteDto>())!;
+        Assert.DoesNotContain(probed.Mentions, m => m.UserId == _factory.FinanceManagerUserId);
+        Assert.Contains(probed.Mentions, m => m.UserId == _factory.RecruiterUserId);
+        Assert.DoesNotContain("finance", probed.BodyHtml.Replace("@finance.manager", string.Empty), StringComparison.OrdinalIgnoreCase);
+
+        // A recruiter's note on the Interviewer's round naming round 2's panelist: stored as a mention
+        // (the recruiter may), shown to the recruiter, not to the Interviewer.
+        (await _scenario.Recruiter().PostAsJsonAsync($"/api/applications/{applicationId}/notes",
+            new CreateNoteRequest { Body = "@finance.manager will cover on-call.", InterviewId = mine.Id }))
+            .EnsureSuccessStatusCode();
+        var asInterviewer = await ivw.GetFromJsonAsync<List<NoteDto>>($"/api/applications/{applicationId}/notes");
+        var asRecruiter = await _scenario.Recruiter().GetFromJsonAsync<List<NoteDto>>($"/api/applications/{applicationId}/notes");
+        Assert.DoesNotContain(asInterviewer!.SelectMany(n => n.Mentions), m => m.UserId == _factory.FinanceManagerUserId);
+        Assert.Contains(asRecruiter!.SelectMany(n => n.Mentions), m => m.UserId == _factory.FinanceManagerUserId);
+    }
+
+    [Fact]
+    public async Task A_Round_That_Is_Not_Theirs_Is_A_404_Whichever_Application_It_Is_On()
+    {
+        // Fourth security review, L2: the belongs-to-this-application check (409) used to run first,
+        // so an Interviewer could tell a round of this candidate from any other id.
+        var (ivw, ivwId) = await InterviewerAsync();
+        var (_, applicationId) = await _scenario.ApplicationAsync("Interviewer Round Oracle A");
+        var (_, elsewhere) = await _scenario.ApplicationAsync("Interviewer Round Oracle B");
+        var mine = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId, ivwId);
+        var sibling = await _scenario.ScheduleWithAsync(applicationId, _factory.HiringManagerUserId);
+        var foreign = await _scenario.ScheduleWithAsync(elsewhere, _factory.HiringManagerUserId);
+
+        foreach (var round in new[] { sibling.Id, foreign.Id, Guid.NewGuid() })
+        {
+            var res = await ivw.PostAsJsonAsync($"/api/applications/{applicationId}/notes",
+                new CreateNoteRequest { Body = "Probe.", InterviewId = round });
+            Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+        }
+        Assert.Equal(HttpStatusCode.OK, (await ivw.PostAsJsonAsync($"/api/applications/{applicationId}/notes",
+            new CreateNoteRequest { Body = "Mine.", InterviewId = mine.Id })).StatusCode);
+    }
+
+    [Fact]
+    public void A_Round_Can_Only_Be_Resolved_Through_The_Round_Aware_Question()
+    {
+        // Fourth security review, I2. The own-rounds rule was opt-in: IApplicationAccess also offered
+        // an application-level answer for a round, and the next read built on it would have opened
+        // every round of the candidate to an Interviewer. It is private now; anything that takes an
+        // interview id and answers reach must be ResolveRoundAsync. A new method here is a decision.
+        var byInterview = typeof(RecruitOps.Application.Common.IApplicationAccess).GetMethods()
+            .Where(m => m.ReturnType == typeof(Task<RecruitOps.Application.Common.ApplicationReach?>)
+                        && m.GetParameters().Any(p => p.Name == "interviewId"))
+            .Select(m => m.Name);
+
+        Assert.Equal(new[] { "ResolveRoundAsync" }, byInterview);
+    }
 }

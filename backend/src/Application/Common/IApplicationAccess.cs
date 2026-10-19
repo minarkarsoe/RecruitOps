@@ -64,8 +64,6 @@ public interface IApplicationAccess
     /// <summary>Resolve reach to an application by its id.</summary>
     Task<ApplicationReach?> ResolveAsync(Guid jobApplicationId, CancellationToken ct = default);
 
-    /// <summary>Resolve reach to the application behind an interview.</summary>
-    Task<ApplicationReach?> ResolveByInterviewAsync(Guid interviewId, CancellationToken ct = default);
 
     /// <summary>Resolve reach for <b>some other user</b>, not the caller.
     ///
@@ -89,9 +87,11 @@ public interface IApplicationAccess
     Task<bool> IsParticipantAsync(Guid interviewId, CancellationToken ct = default);
 
     /// <summary>Resolve reach to <b>one round</b>: the application's reach, and — when that reach is
-    /// <see cref="ApplicationReach.OwnRoundsOnly"/> — only if the caller sits on this round. The
-    /// question every read of a single round asks; asking <see cref="ResolveByInterviewAsync"/>
-    /// instead would open an Interviewer's every round of the candidate.</summary>
+    /// <see cref="ApplicationReach.OwnRoundsOnly"/> — only if the caller sits on this round. The only
+    /// way to resolve by round: the application-level answer for a round used to be on this
+    /// interface too, and asking it would have opened an Interviewer's every round of the candidate
+    /// (fourth security review, 2026-10-19). Writes check <see cref="ApplicationReach.CanWrite"/> on
+    /// the result.</summary>
     Task<ApplicationReach?> ResolveRoundAsync(Guid interviewId, CancellationToken ct = default);
 
     /// <summary>True when <paramref name="userId"/> sits on this round and it is not cancelled — a

@@ -62,6 +62,16 @@ public class NoteService : INoteService
         if (string.IsNullOrWhiteSpace(request.Body))
             throw new InvalidOperationException("A note needs a body.");
 
+        // An Interviewer writes where it reads: on a round it sits on, never the whole thread.
+        // Before the belongs-check below, so a round that is not theirs answers 404 whichever
+        // application it is on — never 409, which would confirm the id (fourth review, L2).
+        if (reach.OwnRoundsOnly)
+        {
+            if (request.InterviewId is not { } round)
+                throw new InvalidOperationException("Pin this note to the round you interviewed in.");
+            if (!await _access.SitsOnAsync(userId.Value, round, ct)) return null;
+        }
+
         // A note pinned to an interview must be pinned to an interview on THIS application,
         // or the id becomes a way to attach commentary to a candidate the author cannot see.
         if (request.InterviewId is not null)
@@ -73,14 +83,6 @@ public class NoteService : INoteService
             if (!belongs)
                 throw new InvalidOperationException(
                     "That interview does not belong to this application.");
-        }
-
-        // An Interviewer writes where it reads: on a round it sits on, never the whole thread.
-        if (reach.OwnRoundsOnly)
-        {
-            if (request.InterviewId is not { } round)
-                throw new InvalidOperationException("Pin this note to the round you interviewed in.");
-            if (!await _access.SitsOnAsync(userId.Value, round, ct)) return null;
         }
 
         var note = new Note
@@ -212,6 +214,26 @@ public class NoteService : INoteService
             where noteIds.Contains(m.NoteId)
             select new { m.NoteId, m.MentionedUserId, u.DisplayName, u.Email }
         ).ToListAsync(ct);
+
+        // A reader limited to its own rounds is shown a mention only of someone who reaches the
+        // candidate by department — which says nothing about rounds — or who sits on the note's own
+        // round. Otherwise a resolved @handle names another round's panelist: a cross-round channel
+        // by guessing (fourth security review, 2026-10-19, L1). At read time, so the mentions stored
+        // before that day are covered too; the handle stays in the text, unmarked.
+        if (_user.IsLimitedToOwnRounds && mentions.Count > 0)
+        {
+            var noteById = notes.ToDictionary(n => n.Id);
+            var shown = new HashSet<(Guid NoteId, Guid UserId)>();
+            foreach (var m in mentions)
+            {
+                var note = noteById[m.NoteId];
+                var reach = await _access.ResolveForUserAsync(m.MentionedUserId, note.JobApplicationId, ct);
+                if (reach?.Kind == ApplicationReachKind.Department
+                    || (note.InterviewId is { } round && await _access.SitsOnAsync(m.MentionedUserId, round, ct)))
+                    shown.Add((m.NoteId, m.MentionedUserId));
+            }
+            mentions = mentions.Where(m => shown.Contains((m.NoteId, m.MentionedUserId))).ToList();
+        }
 
         var authorIds = notes.Select(n => n.AuthorUserId).Distinct().ToList();
         var authors = await _db.Users.AsNoTracking()

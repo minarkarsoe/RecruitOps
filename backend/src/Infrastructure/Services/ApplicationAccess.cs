@@ -94,8 +94,11 @@ public class ApplicationAccess : IApplicationAccess
             : null;
     }
 
-    public async Task<ApplicationReach?> ResolveByInterviewAsync(
-        Guid interviewId, CancellationToken ct = default)
+    /// <summary>The application-level answer for a round's application. Private on purpose: for a
+    /// role limited to its own rounds it is too wide, so nothing outside this class may serve a
+    /// round from it — <see cref="ResolveRoundAsync"/> is the public question.</summary>
+    private async Task<ApplicationReach?> ResolveByInterviewAsync(
+        Guid interviewId, CancellationToken ct)
     {
         var applicationId = await _db.Interviews.AsNoTracking()
             .Where(i => i.Id == interviewId)
