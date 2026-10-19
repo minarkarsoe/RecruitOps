@@ -169,7 +169,9 @@ public class ApplicationAccess : IApplicationAccess
         row.ApplicationId, row.JobPostingId, row.DepartmentId,
         ApplicationReachKind.Department);
 
-    private static ApplicationReach ViaParticipation(Row row, bool ownRoundsOnly) => new(
-        row.ApplicationId, row.JobPostingId, row.DepartmentId,
-        ApplicationReachKind.Participation) { OwnRoundsOnly = ownRoundsOnly };
+    private static ApplicationReach ViaParticipation(Row row, bool ownRoundsOnly) =>
+        new(row.ApplicationId, row.JobPostingId, row.DepartmentId, ApplicationReachKind.Participation)
+        {
+            OwnRoundsOnly = ownRoundsOnly,
+        };
 }
