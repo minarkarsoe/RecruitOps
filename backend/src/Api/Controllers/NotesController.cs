@@ -7,12 +7,14 @@ using RecruitOps.Application.Interfaces;
 namespace RecruitOps.Api.Controllers;
 
 /// <summary>Module 3.4 — collaborative notes on an application.
-/// <para><see cref="Policies.InternalUser"/> throughout: the whole point is that a hiring
-/// manager and a recruiter talk in the same thread. Who may actually see the thread is
-/// decided by <c>IApplicationAccess</c> in the service (ADR-0003 / ADR-0017 §4).</para></summary>
+/// <para><see cref="Policies.PanelAccess"/> throughout: the whole point is that a hiring
+/// manager, a recruiter and the panel talk in the same thread — the interview screen embeds it.
+/// Who may actually see the thread is decided by <c>IApplicationAccess</c> in the service
+/// (ADR-0003 / ADR-0017 §4); an Interviewer reaches only the applications whose panel it sits
+/// on.</para></summary>
 [ApiController]
 [Route("api/applications/{applicationId:guid}/notes")]
-[Authorize(Policy = Policies.InternalUser)]
+[Authorize(Policy = Policies.PanelAccess)]
 public class NotesController : ControllerBase
 {
     private readonly INoteService _notes;

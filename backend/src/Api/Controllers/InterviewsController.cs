@@ -8,12 +8,14 @@ namespace RecruitOps.Api.Controllers;
 
 /// <summary>Module 3 — interview rounds, panels and evaluations.
 ///
-/// <para><b>Read endpoints are <see cref="Policies.InternalUser"/>, not
+/// <para><b>Read endpoints are <see cref="Policies.PanelAccess"/>, not
 /// <see cref="Policies.RecruitmentStaff"/>.</b> A panel member is very often a Hiring
-/// Manager from another department; locking these to recruitment staff would make
-/// cross-department panels impossible, which is the case ADR-0017 §4 exists to allow. The
-/// department predicate is applied in the service, as ADR-0003 requires — the policy here
-/// is not the access control.</para>
+/// Manager from another department — or an Interviewer, whose whole job this screen is;
+/// locking these to recruitment staff would make cross-department panels impossible, which is
+/// the case ADR-0017 §4 exists to allow. The department predicate and the panel exception are
+/// applied in the service, as ADR-0003 requires — the policy here is not the access control.
+/// It was <see cref="Policies.InternalUser"/> until 2026-10-19, which left the Interviewer role
+/// with no working screen at all (ADR-0021 amendment).</para>
 ///
 /// <para><b>Write endpoints are <see cref="Policies.RecruitmentStaff"/></b>, and the service
 /// additionally refuses a caller whose only reach is participation. Two guards, because the
@@ -22,7 +24,7 @@ namespace RecruitOps.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api")]
-[Authorize(Policy = Policies.InternalUser)]
+[Authorize(Policy = Policies.PanelAccess)]
 public class InterviewsController : ControllerBase
 {
     private readonly IInterviewService _interviews;
@@ -40,7 +42,7 @@ public class InterviewsController : ControllerBase
     /// every kit screen has always carried an "Interviews" item, and there was nothing behind
     /// it — a round could only be reached by opening a posting and expanding a candidate.
     ///
-    /// <para><see cref="Policies.InternalUser"/> like the other reads, for the reason in the
+    /// <para><see cref="Policies.PanelAccess"/> like the other reads, for the reason in the
     /// class comment: a panel member is often a Hiring Manager from another department. Access
     /// is decided in the service, by the same rule the detail endpoint uses.</para></summary>
     /// <param name="status">Repeatable. Omit for the default view, which shows everything except

@@ -22,6 +22,18 @@ public static class Policies
     /// control; it only establishes that somebody is logged in and internal.</para></summary>
     public const string InternalUser = "InternalUser";
 
+    /// <summary><see cref="InternalUser"/> plus <b>Interviewer</b> — for the Module 3 reads, a panel
+    /// member's own scorecard, and an application's notes: the endpoints whose service decides
+    /// reach per application through <c>IApplicationAccess</c>, which gives a role excluded from
+    /// candidate data exactly the applications whose panel it sits on (ADR-0017 §4).
+    ///
+    /// <para>Interviewer was in no role policy at all until 2026-10-19, so the role's one screen
+    /// answered 403 — including for holders of a deactivated custom role, which carry it (ADR-0021).
+    /// Product owner's decision: they see and score their own panels, and nothing else. Never widen
+    /// <see cref="InternalUser"/> instead — dozens of endpoints rely on it excluding Interviewer,
+    /// several of them guarded only by that and a permission.</para></summary>
+    public const string PanelAccess = "PanelAccess";
+
     /// <summary>Administrators only.</summary>
     public const string AdminOnly = "AdminOnly";
 

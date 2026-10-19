@@ -8,4 +8,5 @@ public static class Roles
     public const string Recruiter = "Recruiter";
     public const string HiringManager = "HiringManager";
     public const string Approver = "Approver";
+    public const string Interviewer = "Interviewer";
 }

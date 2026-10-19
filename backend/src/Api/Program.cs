@@ -141,6 +141,13 @@ builder.Services.AddAuthorization(options =>
         p.RequireRole(Roles.Admin, Roles.HrDirector, Roles.Recruiter,
                       Roles.HiringManager, Roles.Approver));
 
+    // InternalUser plus Interviewer, for the panel's own screens only (ADR-0021 amendment,
+    // 2026-10-19). Those services reach an application through IApplicationAccess, which gives
+    // Interviewer nothing but the panels it sits on.
+    options.AddPolicy(Policies.PanelAccess, p =>
+        p.RequireRole(Roles.Admin, Roles.HrDirector, Roles.Recruiter,
+                      Roles.HiringManager, Roles.Approver, Roles.Interviewer));
+
     options.AddPolicy(Policies.AdminOnly, p => p.RequireRole(Roles.Admin));
 
     // Fails closed: no role claim, or one that is not exactly a role, is not company-wide.
