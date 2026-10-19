@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { CommandPalette, type CommandItem } from '@recruitops/ui';
-import { auth, hasPermission } from '../lib/auth';
+import { auth, hasCompanyWideReach, hasPermission, isInternalUser } from '../lib/auth';
 import { revokeSession } from '../lib/api';
 import { TenantSwitcherBar } from './TenantSwitcherBar';
 import { Sidebar } from './Sidebar';
@@ -13,8 +13,10 @@ export function AppLayout() {
   const session = auth.get();
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
+  // Search is InternalUser on the server; an Interviewer asking would only collect a 403 and the
+  // palette's "Failed to search backend" — its commands still work without it.
   const { query, setQuery, results, isLoading, error, clear } = useSearch({
-    enabled: isCommandPaletteOpen,
+    enabled: isCommandPaletteOpen && session !== null && isInternalUser(session.role),
   });
 
   const searchResults: CommandItem[] = (results?.items ?? []).map((item) => ({
@@ -56,7 +58,9 @@ export function AppLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [clear]);
 
-  const rawCommandItems = [
+  // `permission` omitted = any signed-in user; `companyWide` = also needs company-wide reach (the
+  // same two rules as the Sidebar, which this list must not contradict).
+  const rawCommandItems: (CommandItem & { permission?: string; companyWide?: boolean })[] = [
     {
       id: 'nav-requisitions',
       title: 'Requisitions',
@@ -94,6 +98,13 @@ export function AppLayout() {
       permission: 'permission:requisitions:requisitions:approve',
     },
     {
+      id: 'nav-interviews',
+      title: 'Interviews',
+      description: 'Rounds in your departments and the panels you sit on',
+      category: 'Navigation',
+      path: '/interviews',
+    },
+    {
       id: 'nav-jdtemplates',
       title: 'JD Templates',
       description: 'Job description templates library',
@@ -125,6 +136,7 @@ export function AppLayout() {
       category: 'Governance',
       path: '/approvalchains',
       permission: 'permission:settings:settings:read',
+      companyWide: true,
     },
     {
       id: 'nav-departments',
@@ -134,6 +146,7 @@ export function AppLayout() {
       path: '/departments',
       shortcut: 'G D',
       permission: 'permission:settings:settings:read',
+      companyWide: true,
     },
     {
       id: 'nav-users',
@@ -154,8 +167,9 @@ export function AppLayout() {
   ];
 
   const commandItems = rawCommandItems
-    .filter((item) => hasPermission(session, item.permission))
-    .map(({ permission: _, ...item }) => item);
+    .filter((item) => session !== null && (item.permission === undefined || hasPermission(session, item.permission)))
+    .filter((item) => !item.companyWide || (session !== null && hasCompanyWideReach(session.role)))
+    .map(({ permission: _, companyWide: __, ...item }) => item);
 
   return (
     // ⚠️ `h-screen` + `overflow-hidden`, NOT `min-h-screen`. This is the app-shell pattern the

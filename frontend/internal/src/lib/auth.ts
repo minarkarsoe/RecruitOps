@@ -145,6 +145,25 @@ export function isExcludedFromCandidateData(role: UserRole): boolean {
 }
 
 /**
+ * The `CompanyWide` policy: reach over every department on both axes. Department and
+ * approval-chain administration need it on top of their permission, because both move a scoped
+ * role's own reach — so Hiring Manager, Interviewer and Approver bases never get those screens,
+ * whatever they hold. Built from the two predicates above, as the server's is from `RoleScope`.
+ */
+export function hasCompanyWideReach(role: UserRole): boolean {
+  return !isDepartmentScoped(role) && !isExcludedFromCandidateData(role);
+}
+
+/**
+ * The `InternalUser` policy — everyone but Interviewer. Most of the API (search, pipeline,
+ * postings, analytics) sits behind it; an Interviewer reaches only its panels (`PanelAccess`).
+ * Listed rather than negated so an unknown role fails closed.
+ */
+export function isInternalUser(role: UserRole): boolean {
+  return ['SuperAdmin', 'Admin', 'HrDirector', 'Recruiter', 'HiringManager', 'Approver'].includes(role);
+}
+
+/**
  * The `RecruitmentStaff` policy: who owns the hiring process. Scheduling, rescheduling,
  * changing a panel, cancelling, completing, moving a stage and editing scorecard templates
  * are all gated on this server-side.

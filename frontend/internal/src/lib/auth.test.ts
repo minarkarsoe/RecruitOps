@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { hasPermission, homePath, isDepartmentScoped, isExcludedFromCandidateData, type Session } from './auth';
+import {
+  hasCompanyWideReach, hasPermission, homePath, isDepartmentScoped, isExcludedFromCandidateData, isInternalUser,
+  type Session,
+} from './auth';
 
 /**
  * Regression cover for the fail-open `hasPermission()`.
@@ -83,16 +86,23 @@ describe('hasPermission — admin bypass mirrors PermissionAuthorizationHandler'
  */
 describe('role scope mirrors RoleScope', () => {
   it.each([
-    ['SuperAdmin', false, false],
-    ['Admin', false, false],
-    ['HrDirector', false, false],
-    ['Recruiter', false, false],
-    ['HiringManager', true, false],
-    ['Approver', false, true],
-    ['Interviewer', true, true],
-  ] as const)('%s: department-scoped %s, excluded from candidate data %s', (role, scoped, excluded) => {
+    // role, department-scoped, excluded from candidates, CompanyWide, InternalUser
+    ['SuperAdmin', false, false, true, true],
+    ['Admin', false, false, true, true],
+    ['HrDirector', false, false, true, true],
+    ['Recruiter', false, false, true, true],
+    ['HiringManager', true, false, false, true],
+    ['Approver', false, true, false, true],
+    ['Interviewer', true, true, false, false],
+  ] as const)('%s: scoped %s, excluded %s, company-wide %s, internal %s', (role, scoped, excluded, wide, internal) => {
     expect(isDepartmentScoped(role)).toBe(scoped);
     expect(isExcludedFromCandidateData(role)).toBe(excluded);
+    expect(hasCompanyWideReach(role)).toBe(wide);
+    expect(isInternalUser(role)).toBe(internal);
+  });
+
+  it('an unknown role is neither company-wide nor internal', () => {
+    expect(isInternalUser('Contractor')).toBe(false);
   });
 });
 

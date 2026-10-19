@@ -276,4 +276,50 @@ describe('CommandPalette Feature & Keyboard Navigation Test Suite', () => {
     expect(within(dialog).queryByText('Users')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('Role Builder')).not.toBeInTheDocument();
   });
+
+  // 2026-10-19. Search is InternalUser on the server, so an Interviewer's every keystroke used to
+  // collect a 403 and "Failed to search backend". Its commands — Interviews — still work.
+  it('never asks the search API for an Interviewer, and still offers their one screen', async () => {
+    auth.set({
+      accessToken: 'token-ivw', expiresAtUtc: '2099-01-01T00:00:00Z', role: 'Interviewer',
+      displayName: 'Tun Interviewer', userId: 'usr-ivw', isSuperAdmin: false,
+      permissions: ['permission:interviews:interviews:read', 'permission:scorecards:scorecards:submit'],
+    });
+    render(
+      <MemoryRouter>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    const dialog = screen.getByRole('dialog', { name: /command palette/i });
+    expect(within(dialog).getByText('Interviews')).toBeInTheDocument();
+    expect(within(dialog).queryByText('Requisitions')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText(/type a command or search/i), { target: { value: 'Thiri' } });
+    await new Promise((resolve) => setTimeout(resolve, 600)); // past the 300ms debounce
+    expect(searchApi.search).not.toHaveBeenCalled();
+    expect(within(dialog).queryByText(/failed to search/i)).not.toBeInTheDocument();
+  });
+
+  // The palette must not contradict the rail: Departments and Approval chains need company-wide
+  // reach on the server (Policies.CompanyWide), whatever settings:read says.
+  it.each(['HiringManager', 'Approver'])('offers no governance screens to a %s base holding settings:read', (role) => {
+    auth.set({
+      accessToken: 'token-scoped', expiresAtUtc: '2099-01-01T00:00:00Z', role,
+      displayName: 'Scoped Holder', userId: 'usr-scoped', isSuperAdmin: false,
+      permissions: ['permission:requisitions:requisitions:read', 'permission:settings:settings:read'],
+    });
+    render(
+      <MemoryRouter>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    const dialog = screen.getByRole('dialog', { name: /command palette/i });
+    expect(within(dialog).getByText('Requisitions')).toBeInTheDocument();
+    expect(within(dialog).queryByText('Departments')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('Approval Chains')).not.toBeInTheDocument();
+  });
 });

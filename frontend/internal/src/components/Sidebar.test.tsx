@@ -336,9 +336,9 @@ describe('Sidebar nav groups', () => {
 
 /**
  * Departments and approval chains need company-wide reach on the server (`Policies.CompanyWide`,
- * 2026-10-17): a department-scoped role administers neither, whatever it holds, because both move
- * its own scope. A Hiring Manager-based custom role given `settings:read` used to see both links
- * and get a 403 from each.
+ * 2026-10-17, widened to Approver 2026-10-19): a role that is department-scoped or reaches no
+ * candidate administers neither, whatever it holds, because both move a scoped role's reach. A
+ * Hiring Manager-based custom role given `settings:read` used to see both links and a 403 from each.
  */
 describe('Sidebar governance links need company-wide reach', () => {
   beforeEach(() => {
@@ -358,7 +358,7 @@ describe('Sidebar governance links need company-wide reach', () => {
       </MemoryRouter>
     );
 
-  it.each(['HiringManager', 'Interviewer'] as const)('hides them from a %s base', (role) => {
+  it.each(['HiringManager', 'Interviewer', 'Approver'] as const)('hides them from a %s base', (role) => {
     renderAs(withSettings(role));
 
     expect(screen.getByRole('link', { name: /requisitions/i })).toBeInTheDocument();

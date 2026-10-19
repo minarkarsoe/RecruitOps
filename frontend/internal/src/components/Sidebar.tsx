@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { auth, hasPermission, isDepartmentScoped, isSuperAdmin, Session } from '../lib/auth';
+import { auth, hasCompanyWideReach, hasPermission, isSuperAdmin, Session } from '../lib/auth';
 import { useFeatureFlags } from '../lib/useFeatureFlags';
 
 // Built against the nav rail in `design/internal/board.html` (ADR-0025), which every internal
@@ -31,9 +31,10 @@ interface NavItem {
    */
   permission?: string;
   /**
-   * The server also needs company-wide reach (`Policies.CompanyWide`): a department-scoped role
-   * administers no department and no approval chain, whatever it holds, because both move its
-   * own scope. Without this, a Hiring Manager base given `settings:read` saw the link and a 403.
+   * The server also needs company-wide reach (`Policies.CompanyWide`): a Hiring Manager,
+   * Interviewer or Approver base administers no department and no approval chain, whatever it
+   * holds, because both move a scoped role's reach. Without this, such a role given
+   * `settings:read` saw the link and a 403.
    */
   companyWide?: boolean;
   featureFlag?: string;
@@ -289,7 +290,7 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
       items: group.items.filter(
         (item) =>
           (item.permission === undefined || hasPermission(session, item.permission)) &&
-          (!item.companyWide || (session !== null && !isDepartmentScoped(session.role))) &&
+          (!item.companyWide || (session !== null && hasCompanyWideReach(session.role))) &&
           (!item.featureFlag || isFeatureEnabled(item.featureFlag))
       ),
     }))
