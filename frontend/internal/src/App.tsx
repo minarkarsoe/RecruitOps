@@ -20,6 +20,13 @@ import { RolesPage } from './pages/RolesPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { DeliveryLogPage } from './pages/DeliveryLogPage';
 import { AuditLogPage } from './pages/AuditLogPage';
+import { auth, homePath } from './lib/auth';
+
+/** Read at render time, inside the signed-in layout — the session does not exist when App
+ *  first renders. */
+function Home() {
+  return <Navigate to={homePath(auth.get())} replace />;
+}
 
 export function App() {
   return (
@@ -97,9 +104,11 @@ export function App() {
               (ADR-0003 / ADR-0018). An Approver gets an empty log rather than a 403, which is
               correct — they are allowed to ask, and the answer is nothing. */}
           <Route path="/delivery" element={<DeliveryLogPage />} />
-        </Route>
 
-        <Route path="*" element={<Navigate to="/requisitions" replace />} />
+          {/* Anything else, "/" included, goes to the user's home — inside the signed-in layout,
+              so an anonymous visitor signs in first and then lands where their role can work. */}
+          <Route path="*" element={<Home />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );

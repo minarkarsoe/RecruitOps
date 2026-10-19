@@ -197,4 +197,14 @@ export function hasPermission(session: Session | null, permissionCode: string): 
   return session.permissions?.includes(permissionCode) ?? false;
 }
 
+/**
+ * Where a signed-in user lands: Requisitions for everyone who can read them, Interviews
+ * otherwise — the Interviewer role's one screen, and the only one a deactivated custom role's
+ * holders reach. Until 2026-10-19 every sign-in landed on Requisitions, so an Interviewer's first
+ * sight of the product was an error.
+ */
+export function homePath(session: Session | null): string {
+  return hasPermission(session, 'permission:requisitions:requisitions:read') ? '/requisitions' : '/interviews';
+}
+
 

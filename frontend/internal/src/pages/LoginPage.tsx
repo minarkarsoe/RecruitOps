@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { LoginRequest, LoginResponse } from '@recruitops/types';
 import { api, ApiError } from '../lib/api';
-import { auth } from '../lib/auth';
+import { auth, homePath } from '../lib/auth';
 
 // Built against `design/internal/login.html` (ADR-0025). Two things on this screen are
 // decisions rather than styling, and both come from ADR-0004 — one instance and one database
@@ -90,7 +90,7 @@ export function LoginPage() {
         body: JSON.stringify(body),
       });
       auth.set(res);
-      const from = (location.state as { from?: string } | null)?.from ?? '/requisitions';
+      const from = (location.state as { from?: string } | null)?.from ?? homePath(auth.get());
       navigate(from, { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) {

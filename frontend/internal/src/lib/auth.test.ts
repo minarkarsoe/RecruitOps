@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasPermission, isDepartmentScoped, isExcludedFromCandidateData, type Session } from './auth';
+import { hasPermission, homePath, isDepartmentScoped, isExcludedFromCandidateData, type Session } from './auth';
 
 /**
  * Regression cover for the fail-open `hasPermission()`.
@@ -93,5 +93,17 @@ describe('role scope mirrors RoleScope', () => {
   ] as const)('%s: department-scoped %s, excluded from candidate data %s', (role, scoped, excluded) => {
     expect(isDepartmentScoped(role)).toBe(scoped);
     expect(isExcludedFromCandidateData(role)).toBe(excluded);
+  });
+});
+
+describe('homePath — where a signed-in user lands', () => {
+  it('is Requisitions for anyone who can read them', () => {
+    expect(homePath(session({ permissions: ['permission:requisitions:requisitions:read'] }))).toBe('/requisitions');
+    expect(homePath(session({ role: 'Admin', permissions: [] }))).toBe('/requisitions');
+  });
+
+  it('is Interviews for the Interviewer role, whose only screen it is', () => {
+    expect(homePath(session({ role: 'Interviewer', permissions: ['permission:interviews:interviews:read'] })))
+      .toBe('/interviews');
   });
 });

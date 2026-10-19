@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import type { LoginResponse } from '@recruitops/types';
 import { LoginPage } from './LoginPage';
 import { ApiError } from '../lib/api';
 
@@ -157,5 +158,32 @@ describe('LoginPage', () => {
     // The absence of sign-up is stated in words rather than left as a missing element.
     expect(screen.getByText(/no self-signup/i)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /sign up|create account|register/i })).toBeNull();
+  });
+
+  // ------------------------------------------------------------ where it lands
+
+  // Every sign-in used to land on Requisitions, so the Interviewer role's first screen was an
+  // error — its one working screen is Interviews (ADR-0021 amendment, 2026-10-19).
+  it.each([
+    ['Interviewer', ['permission:interviews:interviews:read', 'permission:scorecards:scorecards:submit'], 'Interviews home'],
+    ['Recruiter', ['permission:requisitions:requisitions:read'], 'Requisitions home'],
+  ] as const)('lands a %s where their role can work', async (role, permissions, landing) => {
+    const response: LoginResponse = {
+      accessToken: 'token', expiresAtUtc: '2099-01-01T00:00:00Z', role,
+      displayName: 'Signed In', userId: 'usr-1', permissions: [...permissions],
+    };
+    mockApi.mockResolvedValue(response);
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/interviews" element={<p>Interviews home</p>} />
+          <Route path="/requisitions" element={<p>Requisitions home</p>} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await signIn();
+
+    expect(await screen.findByText(landing)).toBeInTheDocument();
   });
 });
