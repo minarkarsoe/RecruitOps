@@ -320,7 +320,7 @@ tailwind.config = {
 <!-- ============================== HERO ============================== -->
 <section class="relative overflow-hidden border-b border-line bg-canvas">
   <div class="max-w-7xl mx-auto px-6 pt-16 pb-20 lg:pt-24 lg:pb-28">
-    <div class="grid lg:grid-cols-12 gap-12 lg:gap-10 items-center">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-10 items-center">
 
       <div class="lg:col-span-5">
         <h1 class="font-bold text-ink-900 tracking-tightest text-[40px] leading-[1.05] sm:text-[52px] lg:text-[56px]">
@@ -464,7 +464,7 @@ tailwind.config = {
 <!-- ============================== TRUST STRIP ============================== -->
 <section class="border-b border-line bg-white">
   <div class="max-w-7xl mx-auto px-6 py-10">
-    <div class="grid lg:grid-cols-12 gap-8 items-center">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
       <div class="lg:col-span-5">
         <p class="text-[13px] font-semibold text-ink-900">Built for regulated, department-heavy organisations</p>
         <div class="mt-3 flex flex-wrap gap-2">
@@ -507,7 +507,7 @@ tailwind.config = {
     </div>
 
     <!-- Row 1 — requisition governance (large) + the email it replaces -->
-    <div class="mt-12 grid lg:grid-cols-12 gap-6">
+    <div class="mt-12 grid grid-cols-1 lg:grid-cols-12 gap-6">
 
       <article class="lg:col-span-7 rounded-xl border border-line bg-white overflow-hidden">
         <div class="p-6 sm:p-8">
@@ -559,7 +559,7 @@ tailwind.config = {
     </div>
 
     <!-- Row 2 — blind scorecard + bilingual profiler -->
-    <div class="mt-6 grid lg:grid-cols-12 gap-6">
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
 
       <!-- Blind panel -->
       <article class="lg:col-span-6 rounded-xl border border-line bg-white overflow-hidden flex flex-col">
@@ -645,7 +645,7 @@ tailwind.config = {
 
     <!-- Row 3 — search, full width, different shape -->
     <article class="mt-6 rounded-xl border border-line bg-white overflow-hidden">
-      <div class="grid lg:grid-cols-12">
+      <div class="grid grid-cols-1 lg:grid-cols-12">
         <div class="lg:col-span-5 p-6 sm:p-8 border-b lg:border-b-0 lg:border-r border-line">
           <h3 class="text-[22px] font-semibold text-ink-900 tracking-tight">Search that works in Burmese</h3>
           <p class="mt-3 text-[15px] leading-[1.65] text-ink-600">
@@ -681,7 +681,7 @@ tailwind.config = {
       </p>
     </div>
 
-    <div class="mt-12 grid lg:grid-cols-12 gap-6">
+    <div class="mt-12 grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div class="lg:col-span-5">
         <div class="flex flex-col gap-2" role="tablist" aria-label="Hiring workflow stages">
           <button class="tour-step text-left rounded-lg border border-line bg-canvas px-4 py-3.5 flex items-center gap-3.5 transition-all" role="tab" aria-selected="true" aria-controls="tourPanel" id="tour-0" data-step="0">
@@ -731,7 +731,7 @@ tailwind.config = {
 <!-- ============================== SECURITY / SOVEREIGNTY ============================== -->
 <section id="security" class="bg-brand-900 text-white">
   <div class="max-w-7xl mx-auto px-6 py-20 lg:py-28">
-    <div class="grid lg:grid-cols-12 gap-12">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
       <div class="lg:col-span-5">
         <h2 class="font-bold tracking-tightest text-[32px] sm:text-[40px] leading-[1.1] text-white">
           Your candidate data never shares a database with anyone
@@ -828,8 +828,11 @@ tailwind.config = {
 
     <div class="relative lg:mt-12">
       <!-- The table is wider than a phone and scrolls inside its own box. The fade marks the
-           cut edge so Enterprise does not simply vanish with nothing to say it is there. -->
-      <div class="overflow-x-auto rounded-xl border border-line">
+           cut edge so Enterprise does not simply vanish with nothing to say it is there.
+           `relative` on the scroll box itself: the cells' sr-only labels are absolutely
+           positioned, and with the containing block outside this box they escaped it and
+           widened the whole page to 602px on a phone (measured 2026-10-21). -->
+      <div class="relative overflow-x-auto rounded-xl border border-line">
       <table class="w-full min-w-[720px] border-collapse bg-white">
         <caption class="sr-only">Feature comparison across Core, Professional add-ons and Enterprise</caption>
         <thead>
@@ -881,7 +884,7 @@ tailwind.config = {
 <!-- ============================== FAQ ============================== -->
 <section id="faq" class="border-b border-line">
   <div class="max-w-7xl mx-auto px-6 py-20 lg:py-28">
-    <div class="grid lg:grid-cols-12 gap-12">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
       <div class="lg:col-span-4">
         <h2 class="font-bold text-ink-900 tracking-tightest text-[32px] sm:text-[40px] leading-[1.1]">
           Questions procurement always asks
@@ -976,7 +979,7 @@ tailwind.config = {
 <!-- ============================== CTA ============================== -->
 <section id="demo" class="bg-ink-900">
   <div class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
-    <div class="grid lg:grid-cols-12 gap-10 items-center">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
       <div class="lg:col-span-7">
         <h2 class="font-bold tracking-tightest text-[32px] sm:text-[42px] leading-[1.08] text-white">
           Run one real requisition through it
@@ -1192,7 +1195,11 @@ tailwind.config = {
     tourBody.textContent = step.body;
     tourWho.textContent = step.who;
     tourRecord.textContent = step.record;
-    tourPerm.textContent = step.perm;
+    // A break opportunity after each colon: the code is one unbreakable word in a monospace face,
+    // and at 320px it pushed the whole page 39px sideways (measured 2026-10-21). <wbr> rather than a
+    // zero-width space, so a copied code is still the code.
+    tourPerm.replaceChildren(...step.perm.split(':').flatMap((part, i, all) =>
+      i < all.length - 1 ? [part + ':', document.createElement('wbr')] : [part]));
     tourPanel.setAttribute('aria-labelledby', 'tour-' + index);
   }
 
