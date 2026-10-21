@@ -253,16 +253,25 @@ permissions — those screens need company-wide reach (ADR-0022 amendment).
 now see the interviews they sit on (ADR-0021 amendment). Anyone meant to have no access at all
 should be a deactivated **user**, not a holder of a deactivated role.
 
-**Upgrading past 2026-10-21 — add two lines to `.env` first, or `up` stops:**
+**Upgrading past 2026-10-21 — add one line to `.env` first, or `up` stops:**
 ```env
-MINIO_APP_USER=recruitops-api
 MINIO_APP_PASSWORD=<openssl rand -hex 16>
 ```
-The API now uses its own storage account, limited to the CV bucket, instead of MinIO's root user
-(a leaked API config used to be a storage admin key). `create-buckets` creates it — and updates its
-password — on every start, then proves it can read, write and delete CVs and cannot administer the
-server, create buckets or see others; if any of that fails, the API does not start. The root
-credentials (`MINIO_USER` / `MINIO_PASSWORD`) stay for administration and backups.
+The API now uses its own storage account, `recruitops-api`, limited to the CV bucket, instead of
+MinIO's root user (a leaked API config used to be a storage admin key). `create-buckets` creates it
+— and sets its password — on every start, then proves it: exactly that policy attached, CVs
+written, read and deleted, a missing CV a 404, and Access Denied for administering the server or
+creating a bucket, and no other bucket visible. If any of that fails, the API does not start.
+**Then rotate the root password** — the API held it until now, so every old copy of the API's
+configuration is a storage admin key: set a new `MINIO_PASSWORD` in `.env` and run
+`docker compose -f docker-compose.prod.yml up -d`. Storage restarts with it, the old one is refused,
+and the API's account and every CV stay as they were (measured 2026-10-21).
+
+**Rotating the API's storage credential** — after a suspected leak, or on a schedule: set a new
+`MINIO_APP_PASSWORD` and run `up -d`. `create-buckets` sets it before the API is recreated with it;
+the old one stops working at once. This is the only revocation — disabling the account in MinIO is
+not one, because `create-buckets` re-enables it on the next start (measured), and the account name
+is fixed so there is never an old one left behind.
 
 ---
 

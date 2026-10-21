@@ -62,9 +62,8 @@ JWT_KEY=
 # Object storage (MinIO) root credentials — administration only. `minioadmin` is refused.
 MINIO_USER=recruitops-storage
 MINIO_PASSWORD=
-# The API's own storage account, created on every start with access to the CV bucket only.
-# A different user from the root one, 12+ characters:  openssl rand -hex 16
-MINIO_APP_USER=recruitops-api
+# Password of the API's own storage account (`recruitops-api`), created on every start with access
+# to the CV bucket only. Not the root password; 12+ characters:  openssl rand -hex 16
 MINIO_APP_PASSWORD=
 
 # Behind Cloudflare? none | cloudflare | cloudflare-tunnel (cloudflare-integration-guide.md)

@@ -3,7 +3,26 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-21 (latest) — backups include the CVs, and restoring one is a drill that passed
+## 2026-10-21 (latest) — security reviews of the Cloudflare and storage-account changes, fixed
+
+No Critical or High in either. Fixed, each measured on the stack:
+- **Storage account:** the name is fixed (`recruitops-api`) — a configurable one could be changed
+  and leave the old account enabled, and MinIO re-enables a disabled user on `user add`; rotating
+  the password is the revocation (runbook). The upgrade now says to rotate the root password the API
+  held. The proof got stricter: exactly one policy attached, a GET of a missing CV is a 404
+  (`mc stat` cannot tell — measured), denials must say Access Denied, and the account must see its
+  own bucket (an empty listing used to pass). Mutations caught: extra policy, `ListBucket` removed,
+  app password = root password.
+- **Cloudflare:** the update script checks every line, refuses ranges wider than /12 (IPv4) or /28
+  (IPv6) and lists shorter than Cloudflare's — one `0.0.0.0/0` would have let anyone choose their
+  address. The tunnel is hardened (read-only, no capabilities, metrics on loopback — they bound
+  0.0.0.0 in the proxy's namespace) and restarts with the proxy (`restart: true`; it kept a dead
+  namespace before). nginx logs the TCP peer and the header it sent. The guide now says what the
+  header trust rests on: Cloudflare overwriting it, Pseudo IPv4 off, an A record only, and
+  Authenticated Origin Pulls against other Cloudflare zones; plus a go-live check.
+- `.gitattributes` keeps shell scripts LF on Windows checkouts.
+
+## 2026-10-21 — backups include the CVs, and restoring one is a drill that passed
 
 Runbook §2 backed up Postgres only — a restore gave every candidate a CV that would not open — and
 its commands did not run as written on a production install (wrong user and database, no
@@ -17,11 +36,11 @@ their CV byte-identical.
 ## 2026-10-21 — the API has its own storage account
 
 The API used MinIO's root credentials, so a leaked API config was a storage admin key (ADR-0029
-follow-up). `create-buckets` now creates `MINIO_APP_USER` with access to the CV bucket only —
+follow-up). `create-buckets` now creates `recruitops-api` with access to the CV bucket only —
 read, write, delete objects, list that bucket — and on every start proves it can do the API's job
 and nothing an admin could; if not, the API does not start. Production turns off the API's bucket
-auto-creation. **Existing installs must add `MINIO_APP_USER` / `MINIO_APP_PASSWORD` to `.env`
-before their next `up`** (runbook §3). Measured on the stack: repeat runs succeed, a CV
+auto-creation. **Existing installs must add `MINIO_APP_PASSWORD` to `.env` before their next
+`up`, then rotate `MINIO_PASSWORD`** (runbook §3). Measured on the stack: repeat runs succeed, a CV
 round-trips through the API, misconfiguration stops the job. Found on the way: the MinIO image has
 no `grep`, so a check written with it passes by failing to run — the script uses built-ins only.
 

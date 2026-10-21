@@ -146,13 +146,23 @@ backend one on every push.
 
 Listed as an open item since this ADR: the API used `MINIO_USER` / `MINIO_PASSWORD`, so a leaked API
 configuration was a storage admin key — every bucket, every user, the server's settings.
-`create-buckets` now also creates the API's own account (`MINIO_APP_USER` / `MINIO_APP_PASSWORD`,
-required) with a policy of `s3:GetObject`, `PutObject`, `DeleteObject` on `recruitops-cvs/*` and
-`s3:ListBucket`, `GetBucketLocation` on the bucket (without `ListBucket` a missing CV answers 403,
-not 404). Every start re-applies it and proves it: a probe object is written, read and deleted;
-`mc admin info`, creating a bucket and seeing any other bucket must all fail. The API's
-`AutoCreateBucket` is off in production. Measured 2026-10-21 on the stack: two consecutive runs
-succeed, a CV uploaded through the API comes back byte-for-byte, and an app user equal to the root
-user, or a short password, stops the job. The image has no `grep`; the scripts use shell built-ins
-only (a `grep` check had passed by failing to run).
+`create-buckets` now also creates the API's own account, **`recruitops-api`** (password
+`MINIO_APP_PASSWORD`, required), with a policy of `s3:GetObject`, `PutObject`, `DeleteObject` on
+`recruitops-cvs/*` and `s3:ListBucket`, `GetBucketLocation` on the bucket (without `ListBucket` a
+missing CV answers 403, not 404). Every start re-applies it and proves it: exactly that policy and
+no group attached; a probe object written, read and deleted; a GET of a missing key "does not
+exist"; `mc admin info` and creating a bucket answer **Access Denied** (any other error proves
+nothing — with a missing alias `mc` reads `api/...` as a local path); its own bucket listed and no
+other. The API's `AutoCreateBucket` is off in production.
+
+The account name is fixed after the security review of this change (M1): a configurable name could
+be changed and leave the old account enabled, and `mc admin user add` re-enables a disabled user
+(measured) — so rotating `MINIO_APP_PASSWORD` is the revocation. The upgrade note says to rotate the
+root password too, which the API had held (M2); rotating it on a running install was measured.
+
+Measured 2026-10-21 on the stack: repeat runs succeed; a CV round-trips through the API; each of an
+extra policy attached, `ListBucket` removed from the policy, an app password equal to the root one,
+and a short password stops the job. Found on the way, and why the checks look as they do: the image
+has no `grep`, `sed` or `awk` (a `grep` check had passed by failing to run), and `mc stat` reports
+"does not exist" with or without `ListBucket` — only a GET tells them apart.
 

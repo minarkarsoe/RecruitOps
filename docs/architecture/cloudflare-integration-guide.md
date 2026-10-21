@@ -72,10 +72,16 @@ Cloudflare Tunnel lets you close Port 80 and Port 443 on your VPS UFW Firewall c
    the proxy without it leaves the tunnel attached to a container that no longer exists.
 
 3. **Public Hostname Route**:
-   - Route `company.recruitops.com` → `https://localhost:443`, with **Origin Server Name** set to
+   - Route `company.recruitops.com` → `https://127.0.0.1:443`, with **Origin Server Name** set to
      `company.recruitops.com` and a Cloudflare Origin Certificate in `TLS_CERT_DIR` (the compose
-     stack requires one either way). `localhost`, because cloudflared runs inside the proxy's
-     network namespace — which is also what lets nginx trust it and nothing else (below).
+     stack requires one either way). Loopback, because cloudflared runs inside the proxy's network
+     namespace — which is also what lets nginx trust it and nothing else (below). `127.0.0.1`, not
+     `localhost`, which may resolve to `::1`.
+   - The token is an environment variable, like the stack's other secrets — anyone who can run
+     `docker inspect` can read it, and whoever holds it can run a connector for your hostname.
+     Treat it like `JWT_KEY`. After the proxy is restarted by Docker itself (a crash), run
+     `docker compose -f docker-compose.prod.yml --profile cloudflare-tunnel restart tunnel`;
+     Compose restarts it on its own for a `docker compose restart proxy` (measured).
    - ⚠️ Not port 80: it answers only certificate challenges and redirects everything else to
      HTTPS (ADR-0029), so a tunnel pointed there loops.
 4. **Close the ports.** With the tunnel up nothing needs 80/443 published; remove them with a
@@ -102,17 +108,30 @@ Cloudflare's address for every sign-in (ADR-0027). Security review of ADR-0029, 
 | `cloudflare` (Method A) | one of Cloudflare's published ranges (`cloudflare.conf`) |
 | `cloudflare-tunnel` (Method B) | `127.0.0.1` — the bundled tunnel, inside the proxy's namespace |
 
-**A forged header gets nobody anywhere.** nginx honours `CF-Connecting-IP` only from the trusted
-peers above; a client connecting to the server directly is not one, so its own address is used
-whatever it sends. (This guide used to say the opposite — that the origin *had* to be firewalled
-for the address to be safe. Firewalling Method A's origin to Cloudflare's ranges, or closing
-Method B's ports, is still worth doing: it stops anyone **bypassing Cloudflare's WAF**. It is not
-what keeps the address honest.)
+**A forged header from outside Cloudflare gets nobody anywhere.** nginx honours `CF-Connecting-IP`
+only from the trusted peers above; a client connecting to the server directly is not one, so its
+own address is used whatever it sends. Two things this rests on, and one it does not cover:
+- **Cloudflare sets the header.** Method A trusts every Cloudflare address, which serves every
+  Cloudflare customer; the address is honest because Cloudflare overwrites `CF-Connecting-IP` on
+  what it proxies. **Keep Pseudo IPv4 off** (Network settings) — "Overwrite headers" replaces an
+  IPv6 visitor's address with a made-up IPv4 one.
+- **Docker passes the peer on.** Method A needs the connection to reach nginx with Cloudflare's
+  address. nginx listens on IPv4 only, and an IPv6 connection may be relayed by Docker from the
+  bridge gateway — which is not trusted, so those visitors fall back to one shared bucket (safe,
+  but silent). **Give the hostname an A record only, no AAAA.**
+- **Not covered: someone else's Cloudflare zone.** Any Cloudflare account can point its own
+  proxied hostname at your origin's IP, and that traffic arrives from Cloudflare's ranges like
+  yours — past *your* WAF rules. Firewalling to Cloudflare's ranges does not stop that; **turn on
+  Authenticated Origin Pulls** with a per-zone certificate, or use Method B with the ports closed.
+  (This guide used to say firewalling was what kept the address honest. It is not — but it is
+  part of keeping the WAF in the path.)
 
 **Before going live on Method A**, refresh the ranges — they were written from Cloudflare's list
 as known on 2026-10-21, not fetched live: run `infra/nginx/realip/update-cloudflare.sh` on a
 machine with internet access (it rewrites `cloudflare.conf` from
-`https://www.cloudflare.com/ips-v4` and `/ips-v6`), then `docker compose -f
+`https://www.cloudflare.com/ips-v4` and `/ips-v6`, and refuses the answer unless every line is a
+range no wider than an IPv4 /12 or IPv6 /28 and there are at least 10 and 5 of them — one
+`0.0.0.0/0` would let anyone choose their address). Review the diff, then `docker compose -f
 docker-compose.prod.yml restart proxy`. Again yearly, or when Cloudflare announces a change: an
 edge address missing from the file puts that edge's visitors back in one bucket.
 
@@ -120,7 +139,10 @@ edge address missing from the file puts that edge's visitors back in one bucket.
 failed sign-in sent with a forged `CF-Connecting-IP`: from outside, all three modes record the real
 peer; from loopback, only `cloudflare-tunnel` takes the header; from a peer inside a Cloudflare
 range (a test network numbered `104.16.5.0/24`), `cloudflare` records the visitor's address. Not
-measured against Cloudflare itself — after go-live, sign in and check the IP the audit log shows.
+measured against Cloudflare itself. **Go-live check:** from a machine whose public address you
+know, sign in once with a wrong password, and confirm Users & Roles → Audit log shows that address.
+nginx's access log records each request's TCP peer (`peer=`) and the header it sent (`cf=`), so a
+forged header from an untrusted peer is visible there too.
 
 ---
 
