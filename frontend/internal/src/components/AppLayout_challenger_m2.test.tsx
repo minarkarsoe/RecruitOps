@@ -229,6 +229,12 @@ describe('Milestone 2 Empirical Challenger Test Suite', () => {
         { label: 'Posting Details', path: '/jobpostings/jp-99' },
         { label: 'Edit', path: undefined },
       ]);
+
+      expect(getBreadcrumbsForPath('/offers/b17d9418-a95d-4fe0-a99c-611f9c0ffee0')).toEqual([
+        { label: 'Home', path: '/' },
+        { label: 'Offers', path: '/offers' },
+        { label: 'Offer Details', path: undefined },
+      ]);
     });
   });
 

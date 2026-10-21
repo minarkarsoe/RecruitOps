@@ -11,6 +11,7 @@ const ROUTE_LABELS: Record<string, string> = {
   jobpostings: 'Job Postings',
   interviews: 'Interviews',
   inbox: 'Inbox',
+  offers: 'Offers',
   jdtemplates: 'JD Templates',
   scorecardtemplates: 'Scorecard Templates',
   approvalchains: 'Approval Chains',
@@ -47,6 +48,9 @@ export function getBreadcrumbsForPath(pathname: string): BreadcrumbItem[] {
         label = 'Posting Details';
       } else if (prevSeg === 'interviews') {
         label = 'Interview Round';
+      } else if (prevSeg === 'offers') {
+        // The page shows the OFR- reference; the URL carries an id nobody should have to read.
+        label = 'Offer Details';
       } else {
         label = seg.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       }

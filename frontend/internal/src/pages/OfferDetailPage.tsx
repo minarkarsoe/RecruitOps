@@ -141,12 +141,13 @@ export function OfferDetailPage() {
           {editable && (
             <div className="ml-auto flex items-center gap-2">
               <Button variant="secondary" onClick={save} disabled={busy}>Save draft</Button>
+              {/* Keyed apart: two different actions, not one button changing colour mid-transition. */}
               {needsApproval ? (
-                <Button onClick={submit} disabled={busy}>Send for internal approval</Button>
+                <Button key="submit" onClick={submit} disabled={busy}>Send for internal approval</Button>
               ) : (
                 // Sending is Module 4 slice B (the candidate portal). Drawn, not yet built — so the
                 // button says so instead of pretending.
-                <Button disabled title="Sending arrives with the candidate portal">Send to candidate</Button>
+                <Button key="send" disabled title="Sending arrives with the candidate portal">Send to candidate</Button>
               )}
             </div>
           )}
@@ -266,8 +267,14 @@ export function OfferDetailPage() {
                   value={form.letterBody} onChange={(e) => setForm({ ...form, letterBody: e.target.value })}
                 />
                 <p className="mt-1 text-sm text-ink-600">
-                  Editing here changes this offer only. Fields such as <code className="font-mono">{'{{BaseSalary}}'}</code> are
-                  filled from the saved terms — save the draft, then preview.
+                  {editable ? (
+                    <>
+                      Editing here changes this offer only. Fields such as <code className="font-mono">{'{{BaseSalary}}'}</code> are
+                      filled from the saved terms — save the draft, then preview.
+                    </>
+                  ) : (
+                    <>Fields such as <code className="font-mono">{'{{BaseSalary}}'}</code> are filled in for the candidate — preview to read it as they will.</>
+                  )}
                 </p>
                 {letter !== null && (
                   // Plain text from the server, rendered as text: a name is never markup.
