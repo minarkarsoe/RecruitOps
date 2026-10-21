@@ -134,7 +134,8 @@ public class Challenger1AdversarialTests : IClassFixture<CustomWebAppFactory>
         Assert.NotNull(content);
         Assert.Equal("Unhealthy", content!.Status);
         Assert.Equal("Unhealthy", content.Checks["storage"].Status);
-        Assert.Contains("Storage error", content.Checks["storage"].Details);
+        // Which dependency is down, never why: /health is anonymous (HealthCheckDisclosureTests).
+        Assert.Equal("Object storage unavailable", content.Checks["storage"].Details);
         Assert.Equal("Healthy", content.Checks["database"].Status);
     }
 
