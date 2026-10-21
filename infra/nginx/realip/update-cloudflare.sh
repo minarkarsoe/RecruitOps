@@ -5,11 +5,29 @@
 # login rate-limit bucket. Then `docker compose -f docker-compose.prod.yml restart proxy`.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
-v4="$(curl -fsS https://www.cloudflare.com/ips-v4)"
-v6="$(curl -fsS https://www.cloudflare.com/ips-v6)"
-# Refuse an empty or odd answer rather than write a file that trusts nothing (or garbage).
-grep -Eq '^[0-9.]+/[0-9]+$' <<<"$(head -n1 <<<"$v4")" || { echo "unexpected ips-v4 answer" >&2; exit 1; }
-grep -Eq '^[0-9a-f:]+/[0-9]+$' <<<"$(head -n1 <<<"$v6")" || { echo "unexpected ips-v6 answer" >&2; exit 1; }
+fetch() { curl -fsS --proto '=https' --tlsv1.2 --max-time 20 --retry 2 "$1"; }
+v4="$(fetch https://www.cloudflare.com/ips-v4)"
+v6="$(fetch https://www.cloudflare.com/ips-v6)"
+# The output is a trust list for the login rate limit and the audit log, so every line is checked,
+# not just the first: one `0.0.0.0/0` would let anyone choose their address. Cloudflare's widest
+# ranges are an IPv4 /13 and an IPv6 /29; anything wider than /12 or /28 is refused, and so is a list
+# much shorter than Cloudflare's (15 and 7 ranges in 2026), which means a truncated or wrong answer.
+check() { # family, minimum prefix, minimum count, list
+  local n=0 line prefix
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    case "$1" in
+      v4) [[ "$line" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]{1,2})$ ]] || { echo "refusing ips-v4 line: $line" >&2; exit 1; } ;;
+      v6) [[ "$line" =~ ^[0-9a-f:]+/([0-9]{1,3})$ ]] || { echo "refusing ips-v6 line: $line" >&2; exit 1; } ;;
+    esac
+    prefix="${line##*/}"
+    [ "$prefix" -ge "$2" ] || { echo "refusing $line: wider than /$2" >&2; exit 1; }
+    n=$((n + 1))
+  done <<<"$4"
+  [ "$n" -ge "$3" ] || { echo "refusing the $1 list: $n ranges, expected at least $3" >&2; exit 1; }
+}
+check v4 12 10 "$v4"
+check v6 28 5 "$v6"
 {
   cat <<HEADER
 # EDGE_PROXY=cloudflare — Method A of docs/architecture/cloudflare-integration-guide.md (DNS proxied
@@ -31,3 +49,5 @@ HEADER
 } > "$here/cloudflare.conf.new"
 mv "$here/cloudflare.conf.new" "$here/cloudflare.conf"
 echo "Wrote $here/cloudflare.conf ($(grep -c set_real_ip_from "$here/cloudflare.conf") ranges)."
+echo "Review the change (git diff), check it (docker compose -f docker-compose.prod.yml exec proxy nginx -t"
+echo "after the restart below shows the new file), then: docker compose -f docker-compose.prod.yml restart proxy"
