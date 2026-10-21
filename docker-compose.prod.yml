@@ -78,9 +78,8 @@ services:
     environment:
       MINIO_USER: ${MINIO_USER}
       MINIO_PASSWORD: ${MINIO_PASSWORD}
-      # The API's own account — see the end of the script.
-      MINIO_APP_USER: ${MINIO_APP_USER:?Set MINIO_APP_USER in .env - the API's storage account, not the root user}
-      MINIO_APP_PASSWORD: ${MINIO_APP_PASSWORD:?Set MINIO_APP_PASSWORD in .env - 12+ characters}
+      # The API's own account (`recruitops-api`) — see the end of the script.
+      MINIO_APP_PASSWORD: ${MINIO_APP_PASSWORD:?Set MINIO_APP_PASSWORD in .env - the API's storage password, 12+ characters}
     entrypoint:
       - /bin/sh
       - -c
@@ -118,26 +117,54 @@ services:
 
         # The API's own account (ADR-0029 follow-up). The API used the root credentials, so a leaked
         # API config was a storage admin key: every bucket, every user, the server's settings. This
-        # account reaches the CV bucket and the objects in it, nothing else — and like the policy
-        # above it is re-applied on every start, so a changed MINIO_APP_PASSWORD takes effect here.
+        # account reaches the CV bucket and the objects in it, nothing else, and is re-applied on
+        # every start — so a changed MINIO_APP_PASSWORD takes effect here, and **rotating it is how
+        # the credential is revoked**. The name is fixed: a configurable name could be changed and
+        # leave the old account enabled; and `mc admin user add` re-enables a disabled user (both
+        # measured), so disabling it is not a revocation either.
         # ListBucket: without it a missing CV answers 403, not 404, and the API cannot tell them apart.
-        [ "$$MINIO_APP_USER" != "$$MINIO_USER" ] || { echo "MINIO_APP_USER must not be the root user" >&2; exit 1; }
-        case "$$MINIO_APP_PASSWORD" in minioadmin | "$$MINIO_PASSWORD") echo "MINIO_APP_PASSWORD must be its own secret" >&2; exit 1 ;; esac
+        app=recruitops-api
         [ "$${#MINIO_APP_PASSWORD}" -ge 12 ] || { echo "MINIO_APP_PASSWORD needs 12+ characters" >&2; exit 1; }
+        case "$$MINIO_APP_PASSWORD" in "$$MINIO_PASSWORD" | "$$app") echo "MINIO_APP_PASSWORD must be its own secret" >&2; exit 1 ;; esac
         printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetBucketLocation","s3:ListBucket"],"Resource":["arn:aws:s3:::recruitops-cvs"]},{"Effect":"Allow","Action":["s3:GetObject","s3:PutObject","s3:DeleteObject"],"Resource":["arn:aws:s3:::recruitops-cvs/*"]}]}' > /tmp/recruitops-api.json
         mc admin policy create myminio recruitops-api /tmp/recruitops-api.json > /dev/null
-        mc admin user add myminio "$$MINIO_APP_USER" "$$MINIO_APP_PASSWORD" > /dev/null
-        mc admin policy attach myminio recruitops-api --user "$$MINIO_APP_USER" > /dev/null 2>&1 || true # "already in effect" on later runs; proven below either way
-        # Proven, not assumed: the account does the API's job, and nothing an admin could.
+        mc admin user add myminio "$$app" "$$MINIO_APP_PASSWORD" > /dev/null
+        mc admin policy attach myminio recruitops-api --user "$$app" > /dev/null 2>&1 || true # "already in effect" on later runs; proven below
+        # Proven, not assumed. Shell built-ins only: this image has no grep, sed or awk (a grep check
+        # here once "passed" by failing to run). Every denial must say Access Denied — any other error
+        # proves nothing (with a missing alias, mc reads `api/...` as a local path).
         afail() { echo "the API's storage account is wrong ($$1) - stopping" >&2; exit 1; }
-        mc alias set api http://storage:9000 "$$MINIO_APP_USER" "$$MINIO_APP_PASSWORD" > /dev/null
+        denied() { case "$$1" in *"Access Denied."*) ;; *) afail "$$2 did not answer Access Denied" ;; esac; }
+        # Exactly this policy, nothing attached besides — an extra policy or group would pass every
+        # probe below that it does not happen to touch.
+        mc admin user info myminio "$$app" > /tmp/app-info
+        seen=
+        while IFS= read -r line; do
+          case "$$line" in
+            "Status: enabled" | "AccessKey: $$app") ;;
+            "PolicyName: recruitops-api") seen=yes ;;
+            "MemberOf: []" | "") ;;
+            *) afail "unexpected: $$line" ;;
+          esac
+        done < /tmp/app-info
+        [ "$$seen" = yes ] || afail "policy recruitops-api is not attached"
+        mc alias set api http://storage:9000 "$$app" "$$MINIO_APP_PASSWORD" > /dev/null
         echo probe | mc pipe api/recruitops-cvs/.create-buckets-probe > /dev/null || afail "cannot write a CV"
         [ "$$(mc cat api/recruitops-cvs/.create-buckets-probe)" = probe ] || afail "cannot read a CV"
         mc rm api/recruitops-cvs/.create-buckets-probe > /dev/null || afail "cannot delete a CV"
-        if mc admin info api > /dev/null 2>&1; then afail "it can administer the server"; fi
-        if mc mb api/recruitops-not-allowed > /dev/null 2>&1; then afail "it can create buckets"; fi
-        # Shell built-ins only: this image has no grep (a grep here once passed by failing to run).
-        mc ls api/ 2>/dev/null | while IFS= read -r bucket; do
+        # A GET, like the API's: `mc stat` says "does not exist" with or without ListBucket (measured),
+        # so it cannot tell; a GET of a missing key answers Access Denied without it.
+        if out=$$(mc cat api/recruitops-cvs/.no-such-key 2>&1); then afail "a missing CV exists"; fi
+        case "$$out" in *"Object does not exist."*) ;; *) afail "a missing CV is not a 404 - ListBucket missing?" ;; esac
+        if out=$$(mc admin info api 2>&1); then afail "it can administer the server"; fi
+        denied "$$out" "admin info"
+        if out=$$(mc mb api/recruitops-not-allowed 2>&1); then afail "it can create buckets"; fi
+        denied "$$out" "creating a bucket"
+        # It must see its own bucket (a positive control: an empty or failed listing proves nothing),
+        # and nothing else.
+        listing=$$(mc ls api/) || afail "cannot list its own bucket"
+        case "$$listing" in *" recruitops-cvs/"*) ;; *) afail "does not see recruitops-cvs" ;; esac
+        printf '%s\n' "$$listing" | while IFS= read -r bucket; do
           case "$$bucket" in *" recruitops-cvs/") ;; *) exit 1 ;; esac
         done || afail "it can see other buckets"
         echo "the API's storage account reaches recruitops-cvs only"
@@ -176,7 +203,7 @@ services:
       FileStorage__BucketName: "recruitops-cvs"
       # Its own account, made and checked by create-buckets: the CV bucket and nothing else. Not the
       # root user — a leaked API config used to be a storage admin key (ADR-0029 follow-up).
-      FileStorage__AccessKey: ${MINIO_APP_USER}
+      FileStorage__AccessKey: recruitops-api
       FileStorage__SecretKey: ${MINIO_APP_PASSWORD}
       FileStorage__ForcePathStyle: "true"
       # create-buckets makes the bucket; the API's account may not, and should not try.
@@ -243,20 +270,32 @@ services:
   # `--profile cloudflare-tunnel`, and then needs EDGE_PROXY=cloudflare-tunnel and
   # CLOUDFLARE_TUNNEL_TOKEN. It shares the proxy's network namespace, so it reaches nginx on
   # 127.0.0.1 — the one address realip/cloudflare-tunnel.conf trusts — and in the Cloudflare
-  # dashboard the route is https://localhost:443 (Origin Server Name = your hostname). With the
-  # tunnel up, drop the proxy's published ports in an override file: nothing needs them.
+  # dashboard the route is https://127.0.0.1:443 (Origin Server Name = your hostname; not
+  # `localhost`, which may resolve to ::1). With the tunnel up, drop the proxy's published ports in
+  # an override file: nothing needs them.
   tunnel:
     image: cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
     profiles: ["cloudflare-tunnel"]
     restart: always
-    command: tunnel --no-autoupdate run
+    # Metrics on loopback: the default binds 0.0.0.0, which in the proxy's namespace would answer on
+    # the proxy's address to every container in the stack.
+    command: tunnel --no-autoupdate --metrics 127.0.0.1:20241 run
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     environment:
       # Not `:?` — Compose interpolates every service, profile or not, so a required variable here
       # would stop `up` for installs that never use the tunnel. cloudflared refuses an empty token.
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
     network_mode: "service:proxy"
+    # restart: a container in another's namespace keeps the OLD namespace when that one restarts, so
+    # `docker compose restart proxy` would leave the tunnel attached to nothing. With this, Compose
+    # restarts the tunnel after the proxy. (A restart by the engine itself, after a crash, is not
+    # covered: after one, `docker compose --profile cloudflare-tunnel restart tunnel`.)
     depends_on:
-      - proxy
+      proxy:
+        condition: service_started
+        restart: true
 
 volumes:
   pgdata:
