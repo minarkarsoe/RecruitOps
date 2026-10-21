@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RecruitOps.Application.Common;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Application.Interfaces;
+using RecruitOps.Domain;
 using RecruitOps.Domain.Entities;
 using RecruitOps.Domain.Enums;
 using RecruitOps.Infrastructure.Persistence;
@@ -240,77 +241,35 @@ public class RequisitionService : IRequisitionService
         // Only the current round is live. Earlier rounds are history and must never be
         // decided on, or re-approved (ADR-0023) — their Waiting rows are the honest record
         // of a chain that was cut short, not work anybody still owes.
-        var currentRound = allRows.Max(a => a.Round);
-        var approvals = allRows.Where(a => a.Round == currentRound).ToList();
+        var approvals = ApprovalRail.LiveRound(allRows);
 
         // Identify the caller BEFORE reporting anything about the requisition's state.
         // The status guard below throws a 409 that names the status; running it first let
         // any authenticated user probe an arbitrary GUID and tell "doesn't exist" (404) from
         // "exists, and is Approved" (409) — the leak ADR-0003's 404-not-403 rule prevents.
         // Skip-ahead must not reopen that: an unauthorised caller still gets a bare 404.
-        if (_user.UserId is null) return null;
+        if (_user.UserId is not { } userId) return null;
 
-        // The caller's OWN waiting step, not merely the lowest one. Under ADR-0024 a later
-        // step outranks an earlier one, so being further down the chain is now sufficient
-        // authority to act — but only from a step the caller was actually named on.
-        var mine = approvals.FirstOrDefault(
-            a => a.Decision == ApprovalDecision.Waiting && a.ApproverUserId == _user.UserId.Value);
+        // The caller's OWN waiting step, not merely the lowest one (ADR-0024).
+        var mine = ApprovalRail.WaitingStepOf(approvals, userId);
         if (mine is null) return null;
-
-        // Whose turn it genuinely is: the lowest undecided step in this round.
-        var lowestWaiting = approvals
-            .Where(a => a.Decision == ApprovalDecision.Waiting)
-            .MinBy(a => a.Sequence)!;
 
         if (requisition.Status != RequisitionStatus.PendingApproval)
             throw new InvalidOperationException($"This requisition is {requisition.Status}, not awaiting approval.");
 
-        // Rejecting forward is refused, and it is not the mirror image of approving forward
-        // (ADR-0024). Approving forward removes a junior's step but not their say — the
-        // requisition proceeds, which their approval would have caused anyway. Rejecting
-        // forward would END it before the junior ever saw it, substituting the senior's
-        // opinion for a review that never happened. A senior may still reject their own step.
-        if (!request.Approve && mine.Sequence != lowestWaiting.Sequence)
-            throw new InvalidOperationException(
-                $"This requisition is waiting on {lowestWaiting.Label}. You can approve on their behalf, " +
-                "but only they can reject at their step.");
-
+        // The rules themselves — reject only at the active step, approve forward recording who
+        // acted — are shared with offer approval (ApprovalRail, ADR-0030 §1).
         var now = _clock.GetUtcNow();
-
-        if (!request.Approve)
+        switch (ApprovalRail.Apply(approvals, mine, userId, request.Approve, request.Comment, now, "This requisition"))
         {
-            mine.Decision = ApprovalDecision.Rejected;
-            mine.DecidedAt = now;
-            mine.Comment = request.Comment;
-
-            requisition.Status = RequisitionStatus.Rejected;
-            requisition.DecidedAt = now;
-        }
-        else
-        {
-            // Everything at or below the caller's own position closes in one action. When it
-            // was not their step, DecidedByUserId records who really pressed the button —
-            // the chain is a record of what happened, not of what the template expected.
-            var closing = approvals.Where(a =>
-                a.Decision == ApprovalDecision.Waiting && a.Sequence <= mine.Sequence);
-
-            foreach (var step in closing)
-            {
-                step.Decision = ApprovalDecision.Approved;
-                step.DecidedAt = now;
-                step.Comment = request.Comment;
-                if (step.ApproverUserId != _user.UserId.Value)
-                    step.DecidedByUserId = _user.UserId.Value;
-            }
-
-            // Scoped to this round. Across all rounds this could never be true once a
-            // rejected round is preserved, and a fully-approved requisition would silently
-            // sit in PendingApproval with no Waiting step — invisible in every inbox.
-            if (approvals.All(a => a.Decision == ApprovalDecision.Approved))
-            {
+            case ApprovalRail.Outcome.Rejected:
+                requisition.Status = RequisitionStatus.Rejected;
+                requisition.DecidedAt = now;
+                break;
+            case ApprovalRail.Outcome.FullyApproved:
                 requisition.Status = RequisitionStatus.Approved;
                 requisition.DecidedAt = now;
-            }
+                break;
         }
 
         requisition.UpdatedAt = now;

@@ -7,7 +7,7 @@ namespace RecruitOps.Domain.Entities;
 /// company's <see cref="ApprovalChain"/> when the requisition is submitted (Module 1.3).
 /// Kept separate from the chain so editing the chain never rewrites decisions
 /// already made — the audit trail must stay truthful.</summary>
-public class RequisitionApproval : BaseEntity, ITenantScoped
+public class RequisitionApproval : BaseEntity, ITenantScoped, IApprovalStep
 {
     public Guid TenantId { get; set; }
     public Guid RequisitionId { get; set; }
