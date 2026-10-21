@@ -192,6 +192,30 @@ describe('AppLayout Permission-Aware Navigation', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
+
+  // The palette must not contradict the rail: the Talent pool is a role check on the server
+  // (Policies.RecruitmentStaff), so a Hiring Manager is never offered it, whatever it holds.
+  it.each([
+    ['Recruiter', true],
+    ['HiringManager', false],
+  ] as const)('offers the Talent pool in the palette to a %s: %s', (role, offered) => {
+    auth.set({
+      accessToken: 'token-palette', expiresAtUtc: '2099-01-01T00:00:00Z', role,
+      displayName: 'Palette User', userId: 'usr-palette', isSuperAdmin: false,
+      permissions: ['permission:requisitions:requisitions:read'],
+    });
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /search commands/i }));
+    const dialog = screen.getByRole('dialog', { name: /command palette/i });
+    // Positive control: the palette lists this session's other destinations.
+    expect(within(dialog).getByText('Requisitions')).toBeInTheDocument();
+    expect(within(dialog).queryByText('Talent pool') !== null).toBe(offered);
+  });
 });
 
 /**

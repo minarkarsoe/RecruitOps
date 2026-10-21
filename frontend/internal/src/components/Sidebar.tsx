@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { auth, hasCompanyWideReach, hasPermission, isSuperAdmin, Session } from '../lib/auth';
+import { auth, hasCompanyWideReach, hasPermission, isRecruitmentStaff, isSuperAdmin, Session } from '../lib/auth';
 import { useFeatureFlags } from '../lib/useFeatureFlags';
 
 // Built against the nav rail in `design/internal/board.html` (ADR-0025), which every internal
@@ -37,6 +37,11 @@ interface NavItem {
    * `settings:read` saw the link and a 403.
    */
   companyWide?: boolean;
+  /**
+   * The server gates on the role, not a permission (`Policies.RecruitmentStaff`): no catalogue
+   * permission covers candidate records across postings, so a role check is the only honest one.
+   */
+  recruitmentStaff?: boolean;
   featureFlag?: string;
   icon: JSX.Element;
 }
@@ -52,6 +57,14 @@ const icons = {
   requisitions: (
     <path d="M4 2.5h8a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1v-9a1 1 0 011-1zM5.5 6h5M5.5 9h3"
       stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  ),
+  talentPool: (
+    <>
+      <circle cx="5.5" cy="6" r="2" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="10.5" cy="6" r="2" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M2 13c0-1.8 1.6-3 3.5-3s3.5 1.2 3.5 3M9.5 10.2c.3-.1.7-.2 1-.2 1.9 0 3.5 1.2 3.5 3"
+        stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </>
   ),
   postings: (
     <path d="M8 2.5l5 2.5v6l-5 2.5-5-2.5v-6l5-2.5z"
@@ -241,6 +254,7 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
       items: [
         { to: '/requisitions', label: 'Requisitions', permission: 'permission:requisitions:requisitions:read', icon: icons.requisitions },
         { to: '/jobpostings', label: 'Job postings', permission: 'permission:postings:postings:read', icon: icons.postings },
+        { to: '/talent-pool', label: 'Talent pool', recruitmentStaff: true, icon: icons.talentPool },
         { to: '/inbox', label: 'Inbox', permission: 'permission:requisitions:requisitions:approve', icon: icons.inbox },
         // No permission: see the note on NavItem.permission. The API is InternalUser here and
         // the service decides reach per row, so an Interviewer — who holds no `applications:*`
@@ -291,6 +305,7 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
         (item) =>
           (item.permission === undefined || hasPermission(session, item.permission)) &&
           (!item.companyWide || (session !== null && hasCompanyWideReach(session.role))) &&
+          (!item.recruitmentStaff || (session !== null && isRecruitmentStaff(session.role))) &&
           (!item.featureFlag || isFeatureEnabled(item.featureFlag))
       ),
     }))

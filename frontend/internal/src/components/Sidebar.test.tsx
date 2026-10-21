@@ -373,3 +373,30 @@ describe('Sidebar governance links need company-wide reach', () => {
     expect(screen.getByRole('link', { name: /approval chains/i })).toBeInTheDocument();
   });
 });
+
+// Module 2.7: the server gates the Talent pool on the role (`Policies.RecruitmentStaff`), not on a
+// permission — so no permission a Hiring Manager is granted may bring the link back.
+describe('Sidebar Talent pool link follows the recruitment-staff role', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  const renderAs = (role: Session['role']) =>
+    render(
+      <MemoryRouter>
+        <Sidebar session={{ ...session, role }} onSignOut={vi.fn()} />
+      </MemoryRouter>
+    );
+
+  it.each(['Admin', 'HrDirector', 'Recruiter'] as const)('shows it to %s', (role) => {
+    renderAs(role);
+    expect(screen.getByRole('link', { name: /talent pool/i })).toHaveAttribute('href', '/talent-pool');
+  });
+
+  it.each(['HiringManager', 'Interviewer', 'Approver'] as const)('hides it from %s, whatever it holds', (role) => {
+    renderAs(role);
+    // Positive control: the same session still sees its other links.
+    expect(screen.getByRole('link', { name: /requisitions/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /talent pool/i })).not.toBeInTheDocument();
+  });
+});

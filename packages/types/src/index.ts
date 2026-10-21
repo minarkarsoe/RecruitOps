@@ -234,6 +234,49 @@ export interface SetDepartmentMembersRequest {
   userIds: string[];
 }
 
+// ── Possible duplicate candidates (Module 2.7) ──────────────────────────────
+
+/** One side of a possible duplicate — what a reviewer needs to tell two records apart. */
+export interface DuplicateCandidate {
+  id: string;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  /** The candidate's first source channel, as the enum name. */
+  source: SourceChannel | string;
+  createdAt: string;
+  applicationCount: number;
+  interviewCount: number;
+  /** An interviewer has submitted an evaluation on one of this record's applications. */
+  hasSubmittedScorecard: boolean;
+}
+
+/** Two records that may be one person. `first` is the older, and the default to keep. */
+export interface DuplicatePair {
+  first: DuplicateCandidate;
+  second: DuplicateCandidate;
+  matchedOn: 'Phone' | 'Email' | 'Phone and email' | string;
+  /** The shared phone or email (the phone when both match). */
+  matchedValue: string;
+}
+
+export interface MergeCandidatesRequest {
+  /** Stays. Its fields win; its blanks are filled from the other. */
+  keepCandidateId: string;
+  /** Folded in. Its applications move; it keeps a pointer to the kept one. */
+  mergeCandidateId: string;
+}
+
+export interface KeepCandidatesSeparateRequest {
+  firstCandidateId: string;
+  secondCandidateId: string;
+}
+
+export interface MergeCandidatesResult {
+  keptCandidateId: string;
+  applicationsMoved: number;
+}
+
 /** Summary row — used in lists and the approver inbox. */
 export interface RequisitionListItem {
   id: string;
@@ -1142,6 +1185,8 @@ export type AuditAction =
   | 'DepartmentUpdated'
   | 'DepartmentDeactivated'
   | 'DepartmentReactivated'
+  | 'CandidatesMerged'
+  | 'CandidatesKeptSeparate'
   | 'RoleCreated'
   | 'RoleUpdated'
   | 'RoleDeleted'

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { CommandPalette, type CommandItem } from '@recruitops/ui';
-import { auth, hasCompanyWideReach, hasPermission, isInternalUser } from '../lib/auth';
+import { auth, hasCompanyWideReach, hasPermission, isInternalUser, isRecruitmentStaff } from '../lib/auth';
 import { revokeSession } from '../lib/api';
 import { TenantSwitcherBar } from './TenantSwitcherBar';
 import { Sidebar } from './Sidebar';
@@ -58,9 +58,10 @@ export function AppLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [clear]);
 
-  // `permission` omitted = any signed-in user; `companyWide` = also needs company-wide reach (the
-  // same two rules as the Sidebar, which this list must not contradict).
-  const rawCommandItems: (CommandItem & { permission?: string; companyWide?: boolean })[] = [
+  // `permission` omitted = any signed-in user; `companyWide` = also needs company-wide reach;
+  // `recruitmentStaff` = the role itself (the same rules as the Sidebar, which this list must not
+  // contradict).
+  const rawCommandItems: (CommandItem & { permission?: string; companyWide?: boolean; recruitmentStaff?: boolean })[] = [
     {
       id: 'nav-requisitions',
       title: 'Requisitions',
@@ -87,6 +88,14 @@ export function AppLayout() {
       path: '/jobpostings',
       shortcut: 'G J',
       permission: 'permission:postings:postings:read',
+    },
+    {
+      id: 'nav-talentpool',
+      title: 'Talent pool',
+      description: 'Possible duplicate candidates to merge or keep apart',
+      category: 'Navigation',
+      path: '/talent-pool',
+      recruitmentStaff: true,
     },
     {
       id: 'nav-inbox',
@@ -169,7 +178,8 @@ export function AppLayout() {
   const commandItems = rawCommandItems
     .filter((item) => session !== null && (item.permission === undefined || hasPermission(session, item.permission)))
     .filter((item) => !item.companyWide || (session !== null && hasCompanyWideReach(session.role)))
-    .map(({ permission: _, companyWide: __, ...item }) => item);
+    .filter((item) => !item.recruitmentStaff || (session !== null && isRecruitmentStaff(session.role)))
+    .map(({ permission: _, companyWide: __, recruitmentStaff: ___, ...item }) => item);
 
   return (
     // ⚠️ `h-screen` + `overflow-hidden`, NOT `min-h-screen`. This is the app-shell pattern the

@@ -20,6 +20,7 @@ import { RolesPage } from './pages/RolesPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { DeliveryLogPage } from './pages/DeliveryLogPage';
 import { AuditLogPage } from './pages/AuditLogPage';
+import { TalentPoolPage } from './pages/TalentPoolPage';
 import { auth, homePath } from './lib/auth';
 
 /** Read at render time, inside the signed-in layout — the session does not exist when App
@@ -62,6 +63,8 @@ export function App() {
 
           {/* Admin + Recruiter + HrDirector */}
           <Route path="/jdtemplates" element={<JdTemplatesPage />} />
+          {/* Module 2.7 — recruitment staff; the page answers anyone else itself, as the API does. */}
+          <Route path="/talent-pool" element={<TalentPoolPage />} />
           {/* Readable by any internal user — an interviewer should be able to see what they
               will be asked before the day; the page hides its editing affordances itself. */}
           <Route path="/scorecardtemplates" element={<ScorecardTemplatesPage />} />
