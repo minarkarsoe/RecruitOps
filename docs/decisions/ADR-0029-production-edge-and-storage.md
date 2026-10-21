@@ -141,3 +141,18 @@ backend one on every push.
   tunnel is a bundled compose profile that shares the proxy's network namespace, so nginx trusts
   exactly 127.0.0.1; measured on the stack — see the Cloudflare guide); **L2** — the policy is enforced on `up`, not on
   `restart`; **L7** — no signature check or scanning of the pinned image yet.
+
+## Follow-up, 2026-10-21 — the API no longer holds MinIO's root credentials
+
+Listed as an open item since this ADR: the API used `MINIO_USER` / `MINIO_PASSWORD`, so a leaked API
+configuration was a storage admin key — every bucket, every user, the server's settings.
+`create-buckets` now also creates the API's own account (`MINIO_APP_USER` / `MINIO_APP_PASSWORD`,
+required) with a policy of `s3:GetObject`, `PutObject`, `DeleteObject` on `recruitops-cvs/*` and
+`s3:ListBucket`, `GetBucketLocation` on the bucket (without `ListBucket` a missing CV answers 403,
+not 404). Every start re-applies it and proves it: a probe object is written, read and deleted;
+`mc admin info`, creating a bucket and seeing any other bucket must all fail. The API's
+`AutoCreateBucket` is off in production. Measured 2026-10-21 on the stack: two consecutive runs
+succeed, a CV uploaded through the API comes back byte-for-byte, and an app user equal to the root
+user, or a short password, stops the job. The image has no `grep`; the scripts use shell built-ins
+only (a `grep` check had passed by failing to run).
+

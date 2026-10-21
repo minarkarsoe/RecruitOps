@@ -3,7 +3,18 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-21 (latest) — behind Cloudflare, the API sees the visitor
+## 2026-10-21 (latest) — the API has its own storage account
+
+The API used MinIO's root credentials, so a leaked API config was a storage admin key (ADR-0029
+follow-up). `create-buckets` now creates `MINIO_APP_USER` with access to the CV bucket only —
+read, write, delete objects, list that bucket — and on every start proves it can do the API's job
+and nothing an admin could; if not, the API does not start. Production turns off the API's bucket
+auto-creation. **Existing installs must add `MINIO_APP_USER` / `MINIO_APP_PASSWORD` to `.env`
+before their next `up`** (runbook §3). Measured on the stack: repeat runs succeed, a CV
+round-trips through the API, misconfiguration stops the job. Found on the way: the MinIO image has
+no `grep`, so a check written with it passes by failing to run — the script uses built-ins only.
+
+## 2026-10-21 — behind Cloudflare, the API sees the visitor
 
 ADR-0029 L6, the blocker for any Cloudflare install: behind Cloudflare the TCP peer is a Cloudflare
 server, so every visitor shared one login rate-limit bucket (one attacker could lock everyone out of

@@ -238,6 +238,17 @@ permissions — those screens need company-wide reach (ADR-0022 amendment).
 now see the interviews they sit on (ADR-0021 amendment). Anyone meant to have no access at all
 should be a deactivated **user**, not a holder of a deactivated role.
 
+**Upgrading past 2026-10-21 — add two lines to `.env` first, or `up` stops:**
+```env
+MINIO_APP_USER=recruitops-api
+MINIO_APP_PASSWORD=<openssl rand -hex 16>
+```
+The API now uses its own storage account, limited to the CV bucket, instead of MinIO's root user
+(a leaked API config used to be a storage admin key). `create-buckets` creates it — and updates its
+password — on every start, then proves it can read, write and delete CVs and cannot administer the
+server, create buckets or see others; if any of that fails, the API does not start. The root
+credentials (`MINIO_USER` / `MINIO_PASSWORD`) stay for administration and backups.
+
 ---
 
 ## 4. Feature Flag Add-on Gating (ADR-0007)

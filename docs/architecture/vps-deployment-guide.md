@@ -59,9 +59,16 @@ POSTGRES_DB=recruitops_prod
 # Signing key, 32+ bytes:  openssl rand -base64 48
 JWT_KEY=
 
-# Object storage (MinIO) credentials — the API uses these too. `minioadmin` is refused.
+# Object storage (MinIO) root credentials — administration only. `minioadmin` is refused.
 MINIO_USER=recruitops-storage
 MINIO_PASSWORD=
+# The API's own storage account, created on every start with access to the CV bucket only.
+# A different user from the root one, 12+ characters:  openssl rand -hex 16
+MINIO_APP_USER=recruitops-api
+MINIO_APP_PASSWORD=
+
+# Behind Cloudflare? none | cloudflare | cloudflare-tunnel (cloudflare-integration-guide.md)
+# EDGE_PROXY=none
 
 # First Administrator — used only while the database has no users; 12+ characters.
 # Remove both and run `up -d` again once you have signed in (runbook, section 0b).
