@@ -26,4 +26,12 @@ public class Company : BaseEntity
     public string? TimeZoneId { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Module 4: every offer goes through the offer approval chain, not only those over
+    /// the requisition's budget (ADR-0030 §2).</summary>
+    public bool RequireOfferApproval { get; set; }
+
+    /// <summary>Module 4: Hiring Managers see offered salaries on their departments' offers. Off by
+    /// default — the API then omits salary fields for them (ADR-0030 §4).</summary>
+    public bool ShowOfferSalaryToHiringManagers { get; set; }
 }

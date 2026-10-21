@@ -10,4 +10,10 @@ public record ApprovalDecisionRequest
 
     [StringLength(1000)]
     public string? Comment { get; init; }
+
+    /// <summary>The approval round the decider was looking at. <b>Offers require it</b> (ADR-0030
+    /// §1): a decision is refused if the offer was revised and resubmitted since — an approver must
+    /// never approve terms they did not see. Requisitions ignore it.</summary>
+    [Range(1, int.MaxValue)]
+    public int? Round { get; init; }
 }

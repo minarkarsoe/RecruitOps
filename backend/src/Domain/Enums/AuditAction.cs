@@ -35,6 +35,10 @@ public enum AuditAction
     /// merged for good, so it is answerable too. Ids only, never names.</summary>
     CandidatesKeptSeparate,
 
+    /// <summary>The company's offer policy changed (ADR-0030): whether Hiring Managers see offered
+    /// salaries — an access change — and whether every offer needs approval — a financial control.</summary>
+    OfferSettingsChanged,
+
     RoleCreated,
     RoleUpdated,
     RoleDeleted,

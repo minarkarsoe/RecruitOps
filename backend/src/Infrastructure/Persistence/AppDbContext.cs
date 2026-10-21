@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RecruitOps.Application.Common;
 using RecruitOps.Domain.Common;
 using RecruitOps.Domain.Entities;
+using RecruitOps.Domain.Enums;
 
 namespace RecruitOps.Infrastructure.Persistence;
 
@@ -34,6 +35,9 @@ public class AppDbContext : DbContext
     public DbSet<ApprovalChainStep> ApprovalChainSteps => Set<ApprovalChainStep>();
     public DbSet<Requisition> Requisitions => Set<Requisition>();
     public DbSet<RequisitionApproval> RequisitionApprovals => Set<RequisitionApproval>();
+    public DbSet<Offer> Offers => Set<Offer>();
+    public DbSet<OfferApproval> OfferApprovals => Set<OfferApproval>();
+    public DbSet<OfferTemplate> OfferTemplates => Set<OfferTemplate>();
 
     // Module 3 — Interview & Assessment
     public DbSet<Interview> Interviews => Set<Interview>();
@@ -323,6 +327,11 @@ public class AppDbContext : DbContext
             e.Property(x => x.Name).IsRequired().HasMaxLength(200);
             // One active chain per department; DepartmentId null = company-wide default.
             e.HasIndex(x => new { x.TenantId, x.DepartmentId });
+            // Every chain that existed before offers approves requisitions (ADR-0030 §1). Same
+            // default-plus-ValueGeneratedNever pairing as RequisitionApproval.Round: the default
+            // backfills existing rows, and the value written is always the one meant.
+            e.Property(x => x.Purpose).HasConversion<string>().HasMaxLength(20)
+                .HasDefaultValue(ApprovalChainPurpose.Requisition).ValueGeneratedNever();
         });
 
         builder.Entity<ApprovalChainStep>(e =>
@@ -364,6 +373,54 @@ public class AppDbContext : DbContext
             e.HasIndex(x => new { x.ApproverUserId, x.Decision }); // "awaiting my approval"
             e.HasOne<Requisition>().WithMany().HasForeignKey(x => x.RequisitionId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ---------- Module 4: Offer & Pre-boarding (ADR-0030) ----------
+        builder.Entity<Offer>(e =>
+        {
+            // A concurrency token: every UPDATE also requires the status the offer was read with, so
+            // two changes racing each other — an approval and a revise, two submits — cannot both
+            // commit; the second is told to reload (OfferService.SaveAsync).
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsConcurrencyToken();
+            e.Property(x => x.BaseSalary).HasPrecision(18, 2);
+            e.Property(x => x.Allowances).HasPrecision(18, 2);
+            e.Property(x => x.LetterBody).IsRequired();
+            // OFR-<year>-<number>: the index is the numbering's guarantee, not a counter row.
+            e.HasIndex(x => new { x.TenantId, x.Year, x.Number }).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.Status });
+            e.HasIndex(x => x.JobApplicationId);
+            // One open offer per application, in the database and not only in the service: two
+            // "Create offer" clicks at once both pass the service's check. The predicate is the
+            // complement of OfferService.Open — keep the two in step.
+            e.HasIndex(x => x.JobApplicationId, "IX_Offers_OneOpenPerApplication").IsUnique()
+                .HasFilter("\"Status\" NOT IN ('Rejected', 'Expired')");
+            // An application with an offer is not deleted from under it.
+            e.HasOne<JobApplication>().WithMany().HasForeignKey(x => x.JobApplicationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<OfferTemplate>().WithMany().HasForeignKey(x => x.OfferTemplateId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<OfferApproval>(e =>
+        {
+            e.Property(x => x.Label).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Comment).HasMaxLength(1000);
+            // A concurrency token: a step is decided once. A rejection at the active step and a later
+            // approver approving forward over it, at the same moment, cannot both write it.
+            e.Property(x => x.Decision).HasConversion<string>().HasMaxLength(20).IsConcurrencyToken();
+            e.Property(x => x.Round).ValueGeneratedNever();
+            // Round is part of the key for the same reason as RequisitionApproval's (ADR-0023).
+            e.HasIndex(x => new { x.OfferId, x.Round, x.Sequence }).IsUnique();
+            e.HasIndex(x => new { x.ApproverUserId, x.Decision }); // "awaiting my approval"
+            e.HasOne<Offer>().WithMany().HasForeignKey(x => x.OfferId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<OfferTemplate>(e =>
+        {
+            e.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Body).IsRequired();
+            e.HasIndex(x => new { x.TenantId, x.Name });
         });
 
         // ---------- Module 3: Interview & Assessment ----------
@@ -605,6 +662,9 @@ public class AppDbContext : DbContext
         builder.Entity<ApprovalChainStep>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<Requisition>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<RequisitionApproval>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<Offer>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<OfferApproval>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<OfferTemplate>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<Interview>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<InterviewParticipant>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<ScorecardTemplate>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);

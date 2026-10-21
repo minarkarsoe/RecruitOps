@@ -19,6 +19,10 @@ public record CreateApprovalChainRequest
     /// <summary>Null creates the company-wide default chain.</summary>
     public Guid? DepartmentId { get; init; }
 
+    /// <summary>What the chain approves: <c>Requisition</c> (the default) or <c>Offer</c> (ADR-0030 §1).</summary>
+    [RegularExpression("^(Requisition|Offer)$")]
+    public string Purpose { get; init; } = "Requisition";
+
     /// <summary>Ordered. Sequence numbers are assigned from this order (1-based),
     /// so callers cannot create gaps or duplicates. At most 20: every submission against the
     /// chain writes one approval row per step.</summary>

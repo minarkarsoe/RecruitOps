@@ -1,4 +1,5 @@
 using RecruitOps.Domain.Common;
+using RecruitOps.Domain.Enums;
 
 namespace RecruitOps.Domain.Entities;
 
@@ -13,4 +14,8 @@ public class ApprovalChain : BaseEntity, ITenantScoped
     public Guid? DepartmentId { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>What the chain approves. A requisition and an offer of the same department find
+    /// their chains separately (ADR-0030 §1).</summary>
+    public ApprovalChainPurpose Purpose { get; set; } = ApprovalChainPurpose.Requisition;
 }

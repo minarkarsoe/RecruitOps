@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Application.Interfaces;
 using RecruitOps.Domain.Entities;
+using RecruitOps.Domain.Enums;
 using RecruitOps.Infrastructure.Persistence;
 
 namespace RecruitOps.Infrastructure.Services;
@@ -59,6 +60,7 @@ public class ApprovalChainService : IApprovalChainService
             Name = request.Name,
             DepartmentId = request.DepartmentId,
             IsActive = true,
+            Purpose = Enum.Parse<ApprovalChainPurpose>(request.Purpose),
         };
         _db.ApprovalChains.Add(chain);
 
@@ -84,6 +86,7 @@ public class ApprovalChainService : IApprovalChainService
             chain.Name,
             chain.DepartmentId,
             chain.IsActive,
+            chain.Purpose.ToString(),
             allSteps.Where(s => s.ApprovalChainId == chain.Id)
                     .OrderBy(s => s.Sequence)
                     .Select(s => new ApprovalChainStepDto(s.Sequence, s.ApproverUserId, s.Label))

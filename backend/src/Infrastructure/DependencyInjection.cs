@@ -52,6 +52,7 @@ public static class DependencyInjection
         services.AddSingleton<UnknownSignInAuditGate>();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IOfferService, OfferService>();
         services.AddScoped<ICandidateDuplicateService, CandidateDuplicateService>();
         services.AddScoped<IFeatureFlagService, FeatureFlagService>();
 

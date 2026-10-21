@@ -7,4 +7,5 @@ public record ApprovalChainDto(
     string Name,
     Guid? DepartmentId,      // null = company-wide default
     bool IsActive,
+    string Purpose,          // "Requisition" | "Offer" (ADR-0030 §1)
     IReadOnlyList<ApprovalChainStepDto> Steps);

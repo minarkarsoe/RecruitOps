@@ -172,7 +172,8 @@ public class RequisitionService : IRequisitionService
 
         // Department-specific chain first, then the company-wide default (DepartmentId null).
         var chain = await _db.ApprovalChains
-            .Where(c => c.IsActive && (c.DepartmentId == requisition.DepartmentId || c.DepartmentId == null))
+            .Where(c => c.IsActive && c.Purpose == ApprovalChainPurpose.Requisition
+                        && (c.DepartmentId == requisition.DepartmentId || c.DepartmentId == null))
             .OrderBy(c => c.DepartmentId == null ? 1 : 0)
             .FirstOrDefaultAsync(ct);
 
