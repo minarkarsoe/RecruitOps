@@ -400,3 +400,29 @@ describe('Sidebar Talent pool link follows the recruitment-staff role', () => {
     expect(screen.queryByRole('link', { name: /talent pool/i })).not.toBeInTheDocument();
   });
 });
+
+/*
+ * Offers (ADR-0030 §4): every internal user may open the dashboard — the server narrows the rows to
+ * what each one reaches — but an Interviewer reaches no offer at all, so the link would be a dead end.
+ */
+describe('Sidebar — Offers', () => {
+  function renderAs(role: Session['role']) {
+    return render(
+      <MemoryRouter>
+        <Sidebar session={{ ...session, role, permissions: ['permission:requisitions:requisitions:read'] }} onSignOut={vi.fn()} />
+      </MemoryRouter>
+    );
+  }
+
+  afterEach(cleanup);
+
+  it.each(['Recruiter', 'HiringManager', 'Approver'] as const)('shows Offers to a %s', (role) => {
+    renderAs(role);
+    expect(screen.getByRole('link', { name: 'Offers' })).toHaveAttribute('href', '/offers');
+  });
+
+  it('hides Offers from an Interviewer', () => {
+    renderAs('Interviewer');
+    expect(screen.queryByRole('link', { name: 'Offers' })).not.toBeInTheDocument();
+  });
+});

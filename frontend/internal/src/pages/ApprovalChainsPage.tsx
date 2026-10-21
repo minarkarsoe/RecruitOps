@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Button, Card } from '@recruitops/ui';
 import type {
-  ApprovalChain, CreateApprovalChainRequest,
-  DepartmentListItem, SelectableUser,
+  ApprovalChain, ApprovalChainPurpose, CreateApprovalChainRequest,
+  DepartmentListItem, OfferSettings, SelectableUser, UpdateOfferSettingsRequest,
 } from '@recruitops/types';
 import { api } from '../lib/api';
 import { auth, hasPermission } from '../lib/auth';
@@ -12,6 +12,7 @@ type StepDraft = { label: string; approverUserId: string };
 const EMPTY_FORM: CreateApprovalChainRequest = {
   name: '',
   departmentId: null,
+  purpose: 'Requisition',
   steps: [{ label: '', approverUserId: '' }],
 };
 
@@ -113,7 +114,7 @@ export function ApprovalChainsPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Approval chains</h1>
           <p className="mt-1 text-sm text-ink-400">
-            Define who must approve a requisition and in what order.
+            Define who must approve a requisition, or an over-budget offer, and in what order.
           </p>
         </div>
         {/* Creating a chain needs settings:update; the HR Director reads chains without it
@@ -125,6 +126,8 @@ export function ApprovalChainsPage() {
 
       {error && <p role="alert" className="mb-4 text-sm text-critical-700">{error}</p>}
 
+      <OfferPolicyCard />
+
       {/* ── Create form ── */}
       {showForm && (
         <Card>
@@ -132,7 +135,7 @@ export function ApprovalChainsPage() {
             New approval chain
           </h2>
           <form onSubmit={submit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <label className="mb-1 block text-sm font-semibold">Chain name</label>
                 <input required className={field} placeholder="e.g. Default headcount approval"
@@ -149,6 +152,17 @@ export function ApprovalChainsPage() {
                   {departments.map((d) => (
                     <option key={d.id} value={d.id}>{d.name}</option>
                   ))}
+                </select>
+              </div>
+              {/* ADR-0030 §1: an offer is approved by the same rules on a chain of its own, so a
+                  department's offer approvers can differ from its requisition approvers. */}
+              <div>
+                <label htmlFor="chain-purpose" className="mb-1 block text-sm font-semibold">Approves</label>
+                <select id="chain-purpose" className={field}
+                  value={form.purpose ?? 'Requisition'}
+                  onChange={(e) => setForm({ ...form, purpose: e.target.value as ApprovalChainPurpose })}>
+                  <option value="Requisition">Requisitions</option>
+                  <option value="Offer">Offers</option>
                 </select>
               </div>
             </div>
@@ -231,6 +245,8 @@ export function ApprovalChainsPage() {
                 <div>
                   <p className="font-semibold">{chain.name}</p>
                   <p className="text-sm text-ink-400">
+                    {chain.purpose === 'Offer' ? 'Offers' : 'Requisitions'}
+                    {' · '}
                     {chain.departmentId
                       ? departments.find((d) => d.id === chain.departmentId)?.name ?? 'Specific department'
                       : 'Company-wide'
@@ -266,5 +282,76 @@ export function ApprovalChainsPage() {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The company's offer policy (ADR-0030 §2, §4), beside the chains it routes offers through.
+ *
+ * ⚠️ Not drawn in `design/` — `settings-org.html` has the chains and no offer policy. Kept to two
+ * plain switches until it is. Readers need `settings:read` (the API answers 403 otherwise, and the
+ * card then stays away); changing it needs `settings:update`, and every change is audited.
+ */
+function OfferPolicyCard() {
+  const canEdit = hasPermission(auth.get(), 'permission:settings:settings:update');
+  const [settings, setSettings] = useState<OfferSettings | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    api<OfferSettings>('/settings/offers').then(setSettings).catch(() => setSettings(null));
+  }, []);
+
+  if (!settings) return null;
+
+  async function save(next: OfferSettings) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const body: UpdateOfferSettingsRequest = next;
+      setSettings(await api<OfferSettings>('/settings/offers', { method: 'PUT', body: JSON.stringify(body) }));
+      setMessage('Saved.');
+    } catch (e) {
+      setMessage(errorMessage(e, 'Could not save the offer policy.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mb-6">
+      <Card>
+        <h2 className="text-base font-semibold">Offer policy</h2>
+        <div className="mt-3 space-y-3">
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox" className="mt-1 h-4 w-4" disabled={!canEdit || busy}
+              checked={settings.requireOfferApproval}
+              onChange={(e) => void save({ ...settings, requireOfferApproval: e.target.checked })}
+            />
+            <span>
+              <span className="block text-md font-medium">Every offer needs approval</span>
+              <span className="block text-sm text-ink-600">
+                Off: only offers above the requisition's budget go to the offer chain.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox" className="mt-1 h-4 w-4" disabled={!canEdit || busy}
+              checked={settings.showOfferSalaryToHiringManagers}
+              onChange={(e) => void save({ ...settings, showOfferSalaryToHiringManagers: e.target.checked })}
+            />
+            <span>
+              <span className="block text-md font-medium">Hiring Managers see offered salaries</span>
+              <span className="block text-sm text-ink-600">
+                Off: they see their departments' offers and where each stands, but no amounts.
+              </span>
+            </span>
+          </label>
+        </div>
+        {message && <p role="status" className="mt-3 text-sm text-ink-600">{message}</p>}
+      </Card>
+    </div>
   );
 }

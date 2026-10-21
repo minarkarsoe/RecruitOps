@@ -61,7 +61,9 @@ export function AppLayout() {
   // `permission` omitted = any signed-in user; `companyWide` = also needs company-wide reach;
   // `recruitmentStaff` = the role itself (the same rules as the Sidebar, which this list must not
   // contradict).
-  const rawCommandItems: (CommandItem & { permission?: string; companyWide?: boolean; recruitmentStaff?: boolean })[] = [
+  const rawCommandItems: (CommandItem & {
+    permission?: string; companyWide?: boolean; recruitmentStaff?: boolean; internalUser?: boolean;
+  })[] = [
     {
       id: 'nav-requisitions',
       title: 'Requisitions',
@@ -112,6 +114,14 @@ export function AppLayout() {
       description: 'Rounds in your departments and the panels you sit on',
       category: 'Navigation',
       path: '/interviews',
+    },
+    {
+      id: 'nav-offers',
+      title: 'Offers',
+      description: 'Offer dashboard, drafts and approvals',
+      category: 'Navigation',
+      path: '/offers',
+      internalUser: true,
     },
     {
       id: 'nav-jdtemplates',
@@ -179,7 +189,8 @@ export function AppLayout() {
     .filter((item) => session !== null && (item.permission === undefined || hasPermission(session, item.permission)))
     .filter((item) => !item.companyWide || (session !== null && hasCompanyWideReach(session.role)))
     .filter((item) => !item.recruitmentStaff || (session !== null && isRecruitmentStaff(session.role)))
-    .map(({ permission: _, companyWide: __, recruitmentStaff: ___, ...item }) => item);
+    .filter((item) => !item.internalUser || (session !== null && isInternalUser(session.role)))
+    .map(({ permission: _, companyWide: __, recruitmentStaff: ___, internalUser: ____, ...item }) => item);
 
   return (
     // ⚠️ `h-screen` + `overflow-hidden`, NOT `min-h-screen`. This is the app-shell pattern the

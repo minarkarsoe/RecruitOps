@@ -56,6 +56,7 @@ function serve(routes: Route) {
     if (path === '/approvalchains') return resolve(routes.chains ?? []);
     if (path === '/departments') return resolve(routes.departments ?? []);
     if (path === '/users/selectable') return resolve(routes.users ?? []);
+    if (path === '/settings/offers') return Promise.resolve({ requireOfferApproval: false, showOfferSalaryToHiringManagers: false });
     throw new Error(`unexpected call: ${path}`);
   });
 }

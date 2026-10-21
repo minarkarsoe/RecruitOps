@@ -19,6 +19,17 @@ export type RequisitionStatus =
 
 export type ApprovalDecision = 'Waiting' | 'Approved' | 'Rejected';
 
+/** What an approval chain approves (ADR-0030 §1). Every chain from before offers is `Requisition`. */
+export type ApprovalChainPurpose = 'Requisition' | 'Offer';
+
+/**
+ * Module 4 offer lifecycle (ADR-0030 §3). `Approved` = cleared to send, not yet sent.
+ * ⚠️ `Rejected` here means **the candidate declined** — a different enum from the pipeline's
+ * `Rejected`, never mixed with it. An approver's rejection returns the offer to `Draft`.
+ */
+export type OfferStatus =
+  | 'Draft' | 'PendingApproval' | 'Approved' | 'Sent' | 'Viewed' | 'Accepted' | 'Rejected' | 'Expired';
+
 export type JobStatus = 'Draft' | 'Live' | 'Closed';
 
 export type EmploymentType =
@@ -350,6 +361,9 @@ export interface UpdateRequisitionRequest {
 export interface ApprovalDecisionRequest {
   approve: boolean;
   comment?: string | null;
+  /** The approval round the decider was shown. Offers require it: a decision on a round the
+   *  approver did not see is refused (ADR-0030 §1). Requisitions ignore it. */
+  round?: number;
 }
 
 export interface ApprovalChainStep {
@@ -363,12 +377,15 @@ export interface ApprovalChain {
   name: string;
   departmentId: string | null;
   isActive: boolean;
+  purpose: ApprovalChainPurpose;
   steps: ApprovalChainStep[];
 }
 
 export interface CreateApprovalChainRequest {
   name: string;
   departmentId: string | null;
+  /** Omitted = `Requisition`. */
+  purpose?: ApprovalChainPurpose;
   steps: { label: string; approverUserId: string }[];
 }
 
@@ -1215,3 +1232,111 @@ export interface AuditLogEntry {
   ipAddress: string | null;
   traceId: string | null;
 }
+
+// ── Module 4: Offers (ADR-0030) — mirrors OfferDtos.cs ──────────────────────
+
+/** One row of the Offer Dashboard. */
+export interface OfferListItem {
+  id: string;
+  /** `OFR-2026-0042`. */
+  reference: string;
+  jobApplicationId: string;
+  candidateName: string;
+  position: string;
+  departmentId: string;
+  departmentName: string;
+  /** MMK / month. Null when the viewer may not see salaries (a Hiring Manager, by default). */
+  baseSalary: number | null;
+  status: OfferStatus;
+  createdAt: string;
+  sentAt: string | null;
+  /** The viewer holds a waiting step of the live approval round. */
+  awaitingMe: boolean;
+  /** While pending approval: the label of the step whose turn it is. */
+  waitingOn: string | null;
+}
+
+/**
+ * One offer. Every money field — and the letter, which quotes them — is null when `salaryVisible`
+ * is false: the API omits them, the screen does not merely hide them.
+ */
+export interface OfferDetail {
+  id: string;
+  reference: string;
+  status: OfferStatus;
+  jobApplicationId: string;
+  requisitionId: string;
+  candidateName: string;
+  position: string;
+  departmentId: string;
+  departmentName: string;
+  salaryVisible: boolean;
+  baseSalary: number | null;
+  allowances: number | null;
+  /** The requisition's budget, MMK per month per hire. */
+  salaryBudget: number | null;
+  overBudget: boolean | null;
+  needsApproval: boolean | null;
+  /** The company requires approval for every offer, whatever the budget. */
+  policyRequiresApproval: boolean | null;
+  /** `YYYY-MM-DD`. */
+  joiningDate: string;
+  probationMonths: number;
+  /** `YYYY-MM-DD` — the last day the candidate can answer. */
+  expiresOn: string;
+  offerTemplateId: string | null;
+  letterBody: string | null;
+  /** Edit, submit, revise, delete. A display hint; the API re-checks. */
+  canManage: boolean;
+  /** For a Draft that needs approval: the step labels the offer chain would use. Null when not
+   *  applicable or when no offer chain is configured. */
+  approvalPreview: string[] | null;
+  approvals: ApprovalStep[];
+  createdAt: string;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  sentAt: string | null;
+}
+
+export interface OfferEligibleApplication {
+  jobApplicationId: string;
+  candidateName: string;
+  position: string;
+  departmentName: string;
+  appliedAt: string;
+}
+
+export interface CreateOfferRequest {
+  jobApplicationId: string;
+  /** Null = the built-in default letter. */
+  offerTemplateId?: string | null;
+}
+
+export interface UpdateOfferRequest {
+  baseSalary: number;
+  allowances: number;
+  joiningDate: string;
+  probationMonths: number;
+  expiresOn: string;
+  letterBody: string;
+}
+
+export interface OfferLetter {
+  text: string;
+}
+
+export interface OfferTemplate {
+  /** Null for the built-in default. */
+  id: string | null;
+  name: string;
+  body: string;
+  isActive: boolean;
+}
+
+export interface OfferSettings {
+  requireOfferApproval: boolean;
+  showOfferSalaryToHiringManagers: boolean;
+}
+
+/** Both values, always — the API refuses half a policy rather than defaulting one to off. */
+export type UpdateOfferSettingsRequest = OfferSettings;

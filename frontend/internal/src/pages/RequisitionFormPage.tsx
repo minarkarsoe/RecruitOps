@@ -144,7 +144,9 @@ export function RequisitionFormPage({ mode }: { mode: 'create' | 'edit' }) {
             </div>
             <div>
               <label htmlFor="salary" className="mb-1 block text-sm font-semibold">
-                Salary budget <span className="font-normal text-ink-400">(optional)</span>
+                {/* Per month, per hire — as requisition-new.html labels it, and what an offer's
+                    budget check compares the monthly package with (ADR-0030 §2). */}
+                Salary budget <span className="font-normal text-ink-400">(MMK / month, optional)</span>
               </label>
               <input
                 id="salary" type="number" min={0} className={field}

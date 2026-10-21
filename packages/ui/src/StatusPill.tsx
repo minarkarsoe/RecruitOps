@@ -1,5 +1,5 @@
 import type {
-  InterviewStatus, JobStatus, PipelineStatus, RequisitionStatus,
+  InterviewStatus, JobStatus, OfferStatus, PipelineStatus, RequisitionStatus,
 } from '@recruitops/types';
 
 // Signature component (design system §5.2). Fixed vocabulary — never invent labels.
@@ -19,7 +19,8 @@ export type StatusPillVocabulary =
   | PipelineStatus
   | RequisitionStatus
   | JobStatus
-  | InterviewStatus;
+  | InterviewStatus
+  | OfferStatus;
 
 type Status = StatusPillVocabulary;
 
@@ -65,6 +66,12 @@ const STYLES: Record<string, string> = {
   NoShow: 'bg-warn-50 text-warn-700',
   // Shared
   Rejected: 'bg-critical-50 text-critical-700',
+  // Offers (ADR-0030), as drawn in design/internal/offer-dashboard.html. `Rejected` is shared by
+  // name with the pipeline's and keeps its colour; the dashboard spells out "Declined by candidate".
+  Sent: 'bg-info-50 text-info-700',
+  Viewed: 'bg-info-50 text-info-700',
+  Accepted: 'bg-positive-50 text-positive-700',
+  Expired: NEUTRAL,
 };
 
 // Insert a space before capitals so "PendingApproval" reads as "Pending Approval",

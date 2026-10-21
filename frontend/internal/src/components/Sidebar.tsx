@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { auth, hasCompanyWideReach, hasPermission, isRecruitmentStaff, isSuperAdmin, Session } from '../lib/auth';
+import { auth, hasCompanyWideReach, hasPermission, isInternalUser, isRecruitmentStaff, isSuperAdmin, Session } from '../lib/auth';
 import { useFeatureFlags } from '../lib/useFeatureFlags';
 
 // Built against the nav rail in `design/internal/board.html` (ADR-0025), which every internal
@@ -42,6 +42,12 @@ interface NavItem {
    * permission covers candidate records across postings, so a role check is the only honest one.
    */
   recruitmentStaff?: boolean;
+  /**
+   * Any internal user, not an Interviewer — the server's `InternalUser` policy. For a destination
+   * whose rows the server filters per user (Offers: an Approver sees only the offers it is named on,
+   * which may be none — an empty list is the honest answer, not a hidden link).
+   */
+  internalUser?: boolean;
   featureFlag?: string;
   icon: JSX.Element;
 }
@@ -64,6 +70,13 @@ const icons = {
       <circle cx="10.5" cy="6" r="2" stroke="currentColor" strokeWidth="1.4" />
       <path d="M2 13c0-1.8 1.6-3 3.5-3s3.5 1.2 3.5 3M9.5 10.2c.3-.1.7-.2 1-.2 1.9 0 3.5 1.2 3.5 3"
         stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </>
+  ),
+  offers: (
+    <>
+      <path d="M4 2.5h6l2.5 2.5v8.5a.5.5 0 01-.5.5H4a.5.5 0 01-.5-.5v-10.5a.5.5 0 01.5-.5z"
+        stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M5.8 9.2l1.5 1.5 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </>
   ),
   postings: (
@@ -260,6 +273,7 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
         // the service decides reach per row, so an Interviewer — who holds no `applications:*`
         // permission — still reaches the panels they sit on (ADR-0017 §4).
         { to: '/interviews', label: 'Interviews', icon: icons.interviews },
+        { to: '/offers', label: 'Offers', internalUser: true, icon: icons.offers },
         { to: '/jdtemplates', label: 'JD templates', permission: 'permission:requisitions:requisitions:read', icon: icons.templates },
         { to: '/scorecardtemplates', label: 'Scorecard templates', permission: 'permission:scorecards:scorecards:manage_templates', icon: icons.templates },
         // ADR-0026's delivery log. Gated on `applications:read` rather than on a permission of
@@ -306,6 +320,7 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
           (item.permission === undefined || hasPermission(session, item.permission)) &&
           (!item.companyWide || (session !== null && hasCompanyWideReach(session.role))) &&
           (!item.recruitmentStaff || (session !== null && isRecruitmentStaff(session.role))) &&
+          (!item.internalUser || (session !== null && isInternalUser(session.role))) &&
           (!item.featureFlag || isFeatureEnabled(item.featureFlag))
       ),
     }))

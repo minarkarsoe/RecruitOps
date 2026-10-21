@@ -58,6 +58,7 @@ function chainWithSteps(overrides: Partial<ApprovalChain> = {}): ApprovalChain {
     name: 'Default headcount approval',
     departmentId: 'dept-eng',
     isActive: true,
+    purpose: 'Requisition',
     steps: [
       { sequence: 1, approverUserId: AUNG.id, label: 'HR Review' },
       { sequence: 2, approverUserId: THIDA.id, label: 'Department sign-off' },
@@ -240,8 +241,9 @@ describe('Admin opens the create form', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'New chain' }));
 
-    // Two dropdowns exist on the form: department, and the step's approver picker.
-    expect(screen.getAllByRole('combobox')).toHaveLength(2);
+    // Three dropdowns exist on the form: department, what the chain approves (ADR-0030 §1), and
+    // the step's approver picker.
+    expect(screen.getAllByRole('combobox')).toHaveLength(3);
 
     // Both users must be offerable, labelled name + role.
     expect(await screen.findByRole('option', { name: 'Aung Myat (HrDirector)' })).toBeInTheDocument();
@@ -255,6 +257,7 @@ describe('Admin opens the create form', () => {
       name: 'Engineering headcount',
       departmentId: 'dept-eng',
       isActive: true,
+      purpose: 'Requisition',
       steps: [{ sequence: 1, approverUserId: THIDA.id, label: 'Dept sign-off' }],
     };
     serve([], created);
@@ -268,7 +271,7 @@ describe('Admin opens the create form', () => {
 
     const selects = screen.getAllByRole('combobox');
     await user.selectOptions(selects[0], 'dept-eng');           // department
-    await user.selectOptions(selects[1], THIDA.id);             // approver — needs the picker
+    await user.selectOptions(selects[2], THIDA.id);             // approver — needs the picker
     await user.click(screen.getByRole('button', { name: 'Create chain' }));
 
     const post = apiMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'POST');
@@ -277,6 +280,7 @@ describe('Admin opens the create form', () => {
     expect(body).toEqual({
       name: 'Engineering headcount',
       departmentId: 'dept-eng',
+      purpose: 'Requisition',
       steps: [{ label: 'Dept sign-off', approverUserId: THIDA.id }],
     });
 

@@ -21,6 +21,8 @@ import { AnalyticsPage } from './pages/AnalyticsPage';
 import { DeliveryLogPage } from './pages/DeliveryLogPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { TalentPoolPage } from './pages/TalentPoolPage';
+import { OffersPage } from './pages/OffersPage';
+import { OfferDetailPage } from './pages/OfferDetailPage';
 import { auth, homePath } from './lib/auth';
 
 /** Read at render time, inside the signed-in layout — the session does not exist when App
@@ -65,6 +67,10 @@ export function App() {
           <Route path="/jdtemplates" element={<JdTemplatesPage />} />
           {/* Module 2.7 — recruitment staff; the page answers anyone else itself, as the API does. */}
           <Route path="/talent-pool" element={<TalentPoolPage />} />
+          {/* Module 4 (ADR-0030) — reach is per offer and the server's: staff all, a Hiring Manager
+              their departments' without salary, a named approver the offers they decide. */}
+          <Route path="/offers" element={<OffersPage />} />
+          <Route path="/offers/:id" element={<OfferDetailPage />} />
           {/* Readable by any internal user — an interviewer should be able to see what they
               will be asked before the day; the page hides its editing affordances itself. */}
           <Route path="/scorecardtemplates" element={<ScorecardTemplatesPage />} />
