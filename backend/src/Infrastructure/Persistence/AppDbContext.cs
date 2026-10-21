@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<JobPosting> JobPostings => Set<JobPosting>();
     public DbSet<JobChannelPost> JobChannelPosts => Set<JobChannelPost>();
     public DbSet<Candidate> Candidates => Set<Candidate>();
+    public DbSet<DistinctCandidatePair> DistinctCandidatePairs => Set<DistinctCandidatePair>();
     public DbSet<JobApplication> JobApplications => Set<JobApplication>();
     public DbSet<PortalLink> PortalLinks => Set<PortalLink>();
     public DbSet<ApplicationStageHistory> ApplicationStageHistories => Set<ApplicationStageHistory>();
@@ -251,6 +252,26 @@ public class AppDbContext : DbContext
             // Dedup is a detect-and-merge flow; a constraint here would reject real applicants.
             e.HasIndex(x => new { x.TenantId, x.Email });
             e.HasIndex(x => new { x.TenantId, x.Phone });
+
+            // Every UPDATE of a candidate also requires the stamp it was read with, and every merge
+            // decision renews the stamp on both records it touches — so two decisions about
+            // overlapping records cannot both commit (CandidateDuplicateService). Pointing at a whole
+            // decision rather than at MergedIntoCandidateId is what catches C-into-A racing A-into-B:
+            // that changes nothing on A but its stamp.
+            e.Property(x => x.MergeStamp).IsConcurrencyToken();
+        });
+
+        // Module 2.7: "not the same person", remembered once per pair (smaller id first).
+        builder.Entity<DistinctCandidatePair>(e =>
+        {
+            // The order is what makes the unique index mean "one row per pair": without it (A,B) and
+            // (B,A) are two rows. Guid.CompareTo and PostgreSQL's uuid comparison agree (both bytewise).
+            e.ToTable(t => t.HasCheckConstraint("ck_distinct_candidate_pair_ordered",
+                "\"FirstCandidateId\" < \"SecondCandidateId\""));
+            e.HasIndex(x => new { x.TenantId, x.FirstCandidateId, x.SecondCandidateId }).IsUnique()
+                .HasDatabaseName("IX_DistinctCandidatePairs_Tenant_First_Second");
+            e.HasOne<Candidate>().WithMany().HasForeignKey(x => x.FirstCandidateId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Candidate>().WithMany().HasForeignKey(x => x.SecondCandidateId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // ---------- JobApplication ----------
@@ -571,6 +592,7 @@ public class AppDbContext : DbContext
         builder.Entity<JobPosting>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<JobChannelPost>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<Candidate>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<DistinctCandidatePair>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<JobApplication>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<ApplicationStageHistory>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         // ⚠️ PortalLink is filtered like everything else, but the public job endpoints MUST

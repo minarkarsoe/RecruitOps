@@ -8,6 +8,10 @@ public sealed record AuditTarget(string Type, Guid? Id, string? Name)
     public static AuditTarget User(Guid id, string name) => new("User", id, name);
     public static AuditTarget Role(Guid id, string name) => new("Role", id, name);
     public static AuditTarget Department(Guid id, string name) => new("Department", id, name);
+    /// <summary>A candidate is recorded by id alone. The log is permanent and cannot be erased, a
+    /// candidate's name is their own data rather than a colleague's, and not every reader of the log
+    /// may see candidate data (Module 2.7 security review, M2).</summary>
+    public static AuditTarget Candidate(Guid id) => new("Candidate", id, null);
 }
 
 /// <summary>Who acted, when it is not the signed-in user — the person signing in, or the system.</summary>

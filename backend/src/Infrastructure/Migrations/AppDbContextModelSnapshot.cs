@@ -316,6 +316,10 @@ namespace RecruitOps.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<Guid>("MergeStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("MergedIntoCandidateId")
                         .HasColumnType("uuid");
 
@@ -417,6 +421,46 @@ namespace RecruitOps.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Departments");
+                });
+
+            modelBuilder.Entity("RecruitOps.Domain.Entities.DistinctCandidatePair", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DecidedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("FirstCandidateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SecondCandidateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FirstCandidateId");
+
+                    b.HasIndex("SecondCandidateId");
+
+                    b.HasIndex("TenantId", "FirstCandidateId", "SecondCandidateId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_DistinctCandidatePairs_Tenant_First_Second");
+
+                    b.ToTable("DistinctCandidatePairs", t =>
+                        {
+                            t.HasCheckConstraint("ck_distinct_candidate_pair_ordered", "\"FirstCandidateId\" < \"SecondCandidateId\"");
+                        });
                 });
 
             modelBuilder.Entity("RecruitOps.Domain.Entities.Interview", b =>
@@ -1563,6 +1607,21 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.HasOne("RecruitOps.Domain.Entities.ApprovalChain", null)
                         .WithMany()
                         .HasForeignKey("ApprovalChainId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RecruitOps.Domain.Entities.DistinctCandidatePair", b =>
+                {
+                    b.HasOne("RecruitOps.Domain.Entities.Candidate", null)
+                        .WithMany()
+                        .HasForeignKey("FirstCandidateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RecruitOps.Domain.Entities.Candidate", null)
+                        .WithMany()
+                        .HasForeignKey("SecondCandidateId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

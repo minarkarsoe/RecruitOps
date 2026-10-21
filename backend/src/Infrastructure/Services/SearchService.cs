@@ -217,7 +217,8 @@ public class SearchService : ISearchService
             }
         }
 
-        IQueryable<Candidate> candQuery = _db.Candidates.AsNoTracking();
+        // A merged record is a pointer to the kept one, not a person to find (Module 2.7).
+        IQueryable<Candidate> candQuery = _db.Candidates.AsNoTracking().Where(c => c.MergedIntoCandidateId == null);
         if (reachableAppIds != null)
         {
             var allowedCandidateIds = await _db.JobApplications.AsNoTracking()

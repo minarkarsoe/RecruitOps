@@ -30,5 +30,11 @@ public class Candidate : BaseEntity, ITenantScoped
     /// so existing applications and interview history don't lose their subject.</summary>
     public Guid? MergedIntoCandidateId { get; set; }
 
+    /// <summary>Renewed on both records by every merge or "not the same person" decision that
+    /// touches them (Module 2.7). An optimistic concurrency token: two decisions about overlapping
+    /// records — A into B while C goes into A, or a merge racing "not the same person" — cannot both
+    /// commit; the second fails and its reviewer reloads.</summary>
+    public Guid MergeStamp { get; set; }
+
     // TODO (Module 2.3+): Skills, Experience, CvDocument — arrive with OCR/profiling.
 }

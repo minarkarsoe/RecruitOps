@@ -52,6 +52,7 @@ public static class DependencyInjection
         services.AddSingleton<UnknownSignInAuditGate>();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<ICandidateDuplicateService, CandidateDuplicateService>();
         services.AddScoped<IFeatureFlagService, FeatureFlagService>();
 
         // Singleton: the failure counters have to outlive the request that recorded them,

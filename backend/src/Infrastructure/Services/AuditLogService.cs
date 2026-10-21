@@ -126,6 +126,8 @@ public sealed class AuditLogService : IAuditLogService
         AuditAction.DepartmentUpdated => "Department renamed",
         AuditAction.DepartmentDeactivated => "Department deactivated",
         AuditAction.DepartmentReactivated => "Department reactivated",
+        AuditAction.CandidatesMerged => "Candidates merged",
+        AuditAction.CandidatesKeptSeparate => "Candidates marked as different people",
         AuditAction.RoleCreated => "Role created",
         AuditAction.RoleUpdated => "Role changed",
         AuditAction.RoleDeleted => "Role deleted",

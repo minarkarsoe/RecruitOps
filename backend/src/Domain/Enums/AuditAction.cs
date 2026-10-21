@@ -27,6 +27,14 @@ public enum AuditAction
     DepartmentDeactivated,
     DepartmentReactivated,
 
+    /// <summary>Two candidate records folded into one (Module 2.7). Not an access change, but not
+    /// reversible either — who merged which two has to be answerable. Ids only, never names.</summary>
+    CandidatesMerged,
+
+    /// <summary>Two candidate records marked "not the same person" (Module 2.7): it stops them being
+    /// merged for good, so it is answerable too. Ids only, never names.</summary>
+    CandidatesKeptSeparate,
+
     RoleCreated,
     RoleUpdated,
     RoleDeleted,
