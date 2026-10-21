@@ -49,6 +49,7 @@ graph TD
      `privkey.pem` in `TLS_CERT_DIR` (see `deployment-runbook.md`, section 0b). Never use
      "Flexible" — it sends sign-ins from Cloudflare to the server unencrypted.
 4. **Enable Web Application Firewall (WAF)**: Enable Bot Fight Mode & Automatic HTTPS Rewrites.
+5. **Set `EDGE_PROXY=cloudflare` in `.env`** and restart the proxy — see "The visitor's real IP" below.
 
 ---
 
@@ -60,52 +61,66 @@ Cloudflare Tunnel lets you close Port 80 and Port 443 on your VPS UFW Firewall c
    - Go to **Zero Trust** → **Networks** → **Tunnels** → **Create a Tunnel**.
    - Copy your Tunnel Token (`TUNNEL_TOKEN`).
 
-2. **Add `cloudflared` Service to `docker-compose.prod.yml`**:
-   ```yaml
-   services:
-     tunnel:
-       image: cloudflare/cloudflared:latest
-       restart: always
-       command: tunnel --no-autoupdate run
-       environment:
-         - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+2. **Turn on the bundled tunnel** — `docker-compose.prod.yml` already has it, as the
+   `cloudflare-tunnel` profile (`cloudflared`, pinned by digest). In `.env`:
+   ```env
+   EDGE_PROXY=cloudflare-tunnel
+   CLOUDFLARE_TUNNEL_TOKEN=<the token from step 1>
    ```
+   then `docker compose -f docker-compose.prod.yml --profile cloudflare-tunnel up -d`. Keep the
+   `--profile` on every later `up`: the tunnel shares the proxy's network namespace, and recreating
+   the proxy without it leaves the tunnel attached to a container that no longer exists.
 
 3. **Public Hostname Route**:
-   - Route `company.recruitops.com` → `https://proxy:443` inside the Docker network, with
-     **Origin Server Name** set to `company.recruitops.com` and a Cloudflare Origin Certificate in
-     `TLS_CERT_DIR` (the compose stack requires one either way).
-   - ⚠️ Not `http://proxy:80`: port 80 answers only certificate challenges and redirects
-     everything else to HTTPS (ADR-0029), so a tunnel pointed there loops. (This guide said
-     `http://nginx:80`; the service has always been called `proxy`.)
+   - Route `company.recruitops.com` → `https://localhost:443`, with **Origin Server Name** set to
+     `company.recruitops.com` and a Cloudflare Origin Certificate in `TLS_CERT_DIR` (the compose
+     stack requires one either way). `localhost`, because cloudflared runs inside the proxy's
+     network namespace — which is also what lets nginx trust it and nothing else (below).
+   - ⚠️ Not port 80: it answers only certificate challenges and redirects everything else to
+     HTTPS (ADR-0029), so a tunnel pointed there loops.
+4. **Close the ports.** With the tunnel up nothing needs 80/443 published; remove them with a
+   `docker-compose.override.yml` (`services: proxy: ports: !reset []`) or in the cloud provider's
+   firewall. **Docker-published ports bypass UFW** — `ufw deny 443` does not close them.
    - cloudflared verifies the origin's certificate. A Cloudflare Origin certificate is accepted
      as is (its `caPool` setting exists for certificates Cloudflare did not sign); keep **Origin
      Server Name** equal to the hostname the certificate covers. Do not reach for `noTLSVerify`.
 
 ---
 
-### ⚠️ Required for both methods: the visitor's real IP (not yet built — do before go-live)
+### Required for both methods: the visitor's real IP — `EDGE_PROXY`
 
-Behind Cloudflare, the TCP peer nginx sees is a Cloudflare edge server (Method A) or the
-`cloudflared` container (Method B), never the visitor. nginx passes that address on, so the API
-puts **every visitor in one login rate-limit bucket** — one attacker can lock everybody out of
-sign-in (ADR-0016) — and the audit log records Cloudflare's address for every sign-in (ADR-0027).
-`infra/nginx/nginx.conf` does not handle this yet (security review of ADR-0029, finding L6).
+Behind Cloudflare, the TCP peer nginx sees is a Cloudflare edge server (Method A) or `cloudflared`
+(Method B), never the visitor. Left alone, the API puts **every visitor in one login rate-limit
+bucket** — one attacker can lock everybody out of sign-in (ADR-0016) — and the audit log records
+Cloudflare's address for every sign-in (ADR-0027). Security review of ADR-0029, finding L6.
 
-The fix is nginx's `realip` module, in the 443 server block, above the `proxy_set_header` lines:
-```nginx
-real_ip_header CF-Connecting-IP;
-# Method A: every range at https://www.cloudflare.com/ips/ (they change — re-check yearly)
-set_real_ip_from 173.245.48.0/20;   # …and the rest of the list, IPv4 and IPv6
-# Method B: the Docker network cloudflared reaches the proxy from, e.g.
-# set_real_ip_from 172.16.0.0/12;
-```
-It is safe **only** if nothing but Cloudflare can reach the origin — otherwise anyone can send a
-forged `CF-Connecting-IP` straight to the server and choose their own address. Method A must
-restrict 443 to Cloudflare's ranges, and Method B must stop publishing 80/443 at all (remove the
-`ports:` from the proxy service). **Docker-published ports bypass UFW**: restrict them in the cloud
-provider's firewall or Docker's `DOCKER-USER` chain, not with `ufw deny`. None of this has been
-tested against Cloudflare yet; verify with a sign-in and check the IP the audit log records.
+**Built (2026-10-21).** `EDGE_PROXY` in `.env` picks what nginx includes from `infra/nginx/realip/`:
+
+| `EDGE_PROXY` | nginx takes the visitor from `CF-Connecting-IP` when the peer is… |
+|---|---|
+| `none` (default) | never — the peer is the visitor |
+| `cloudflare` (Method A) | one of Cloudflare's published ranges (`cloudflare.conf`) |
+| `cloudflare-tunnel` (Method B) | `127.0.0.1` — the bundled tunnel, inside the proxy's namespace |
+
+**A forged header gets nobody anywhere.** nginx honours `CF-Connecting-IP` only from the trusted
+peers above; a client connecting to the server directly is not one, so its own address is used
+whatever it sends. (This guide used to say the opposite — that the origin *had* to be firewalled
+for the address to be safe. Firewalling Method A's origin to Cloudflare's ranges, or closing
+Method B's ports, is still worth doing: it stops anyone **bypassing Cloudflare's WAF**. It is not
+what keeps the address honest.)
+
+**Before going live on Method A**, refresh the ranges — they were written from Cloudflare's list
+as known on 2026-10-21, not fetched live: run `infra/nginx/realip/update-cloudflare.sh` on a
+machine with internet access (it rewrites `cloudflare.conf` from
+`https://www.cloudflare.com/ips-v4` and `/ips-v6`), then `docker compose -f
+docker-compose.prod.yml restart proxy`. Again yearly, or when Cloudflare announces a change: an
+edge address missing from the file puts that edge's visitors back in one bucket.
+
+**Measured 2026-10-21** on the production stack, reading the address the audit log records for a
+failed sign-in sent with a forged `CF-Connecting-IP`: from outside, all three modes record the real
+peer; from loopback, only `cloudflare-tunnel` takes the header; from a peer inside a Cloudflare
+range (a test network numbered `104.16.5.0/24`), `cloudflare` records the visitor's address. Not
+measured against Cloudflare itself — after go-live, sign in and check the IP the audit log shows.
 
 ---
 

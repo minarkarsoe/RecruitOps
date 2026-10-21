@@ -139,6 +139,16 @@ expired certificate.
 
 ---
 
+## 0c. Behind Cloudflare? Set `EDGE_PROXY`
+
+If the domain is proxied through Cloudflare (orange cloud) or reached through a Cloudflare Tunnel,
+set `EDGE_PROXY=cloudflare` or `EDGE_PROXY=cloudflare-tunnel` in `.env` before going live —
+otherwise every visitor shares one login rate-limit bucket and the audit log records Cloudflare's
+addresses. For `cloudflare`, first run `infra/nginx/realip/update-cloudflare.sh` to refresh the
+ranges. Steps and the tunnel profile: `cloudflare-integration-guide.md`.
+
+---
+
 ## 1. Automated Database Migrations
 
 Automated, idempotent EF Core database migrations execute on backend application startup via `AppDbContext.Database.Migrate()`.

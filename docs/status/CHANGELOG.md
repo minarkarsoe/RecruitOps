@@ -3,7 +3,30 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-19 (latest) — panel decisions settled: access is kept; Hiring Manager / Approver see all rounds
+## 2026-10-21 (latest) — behind Cloudflare, the API sees the visitor
+
+ADR-0029 L6, the blocker for any Cloudflare install: behind Cloudflare the TCP peer is a Cloudflare
+server, so every visitor shared one login rate-limit bucket (one attacker could lock everyone out of
+sign-in) and the audit log recorded Cloudflare's addresses.
+
+- **`EDGE_PROXY`** in `.env` — `none` (default), `cloudflare` or `cloudflare-tunnel` — picks an
+  nginx `realip` include from `infra/nginx/realip/`. nginx takes the visitor from
+  `CF-Connecting-IP` only when the peer is trusted: Cloudflare's published ranges, or for the tunnel
+  exactly `127.0.0.1`.
+- **The tunnel is bundled**: a `cloudflare-tunnel` compose profile running `cloudflared` (pinned by
+  digest) inside the proxy's network namespace — no Docker subnet to pin, nothing else on loopback.
+- **The guide was wrong about forging**: it said the origin had to be firewalled or anyone could
+  choose their address. `set_real_ip_from` already ignores the header from untrusted peers;
+  firewalling still matters, but to stop WAF bypass. Corrected.
+- `update-cloudflare.sh` regenerates the range list from Cloudflare's URLs (refuses an odd answer);
+  the committed list is from Cloudflare's list as known today and could not be fetched live here —
+  run the script before going live.
+- **Measured on the production stack** via the audit log: a forged header from outside is ignored in
+  all three modes; from loopback only the tunnel mode takes it; from a peer inside a Cloudflare range
+  (a test network on `104.16.5.0/24`) `cloudflare` records the visitor. A typo in `EDGE_PROXY` stops
+  `up` instead of serving with a guessed config.
+
+## 2026-10-19 — panel decisions settled: access is kept; Hiring Manager / Approver see all rounds
 
 Product owner: **"Keep panel access; HM and Approver see all rounds."** No code change — today's
 behaviour is the decision. A seat outlives its round and the hire/reject decision; revocation is a

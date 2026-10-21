@@ -17,7 +17,7 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 > `IApplicationAccess.ResolveRoundAsync` (the only round resolver on the interface — the
 > application-level one is private) or check `ApplicationReach.OwnRoundsOnly`. **Settled by the product owner (2026-10-19):** panel
 > access is kept (no expiry), and Hiring Manager / Approver seats see every round of the application.
-> **Open threads:** the Cloudflare real-IP blocker (ADR-0029 L6), a least-privilege
+> **Open threads:** ~~the Cloudflare real-IP blocker~~ (built 2026-10-21 — `EDGE_PROXY`), a least-privilege
 > MinIO account, storage in the backup runbook, the candidate merge UI, and the `@mention`
 > local-part oracle (Low). Policies to know: `PanelAccess` (InternalUser + Interviewer) is for the
 > panel's own endpoints only; `CompanyWide` gates department and approval-chain administration.

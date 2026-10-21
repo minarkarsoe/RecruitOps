@@ -136,6 +136,8 @@ backend one on every push.
   every *new* location) with a warning against per-location headers, rather than an `include` in
   each location (which would protect against the other mistake); **L5** — redirects and the
   catch-all follow the `Host` header (needs a configured hostname; low risk in a one-company
-  install); **L6** — behind Cloudflare the API sees Cloudflare's address: documented as a
-  required, untested step in the Cloudflare guide; **L2** — the policy is enforced on `up`, not on
+  install); **L6** — behind Cloudflare the API sees Cloudflare's address: ✅ **built 2026-10-21**
+  (`EDGE_PROXY` = none | cloudflare | cloudflare-tunnel selects an nginx `realip` include; the
+  tunnel is a bundled compose profile that shares the proxy's network namespace, so nginx trusts
+  exactly 127.0.0.1; measured on the stack — see the Cloudflare guide); **L2** — the policy is enforced on `up`, not on
   `restart`; **L7** — no signature check or scanning of the pinned image yet.
