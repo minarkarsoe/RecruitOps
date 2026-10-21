@@ -1,43 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button, Card, StatusPill } from '@recruitops/ui';
-import type { ApprovalDecisionRequest, ApprovalStep, RequisitionDetail } from '@recruitops/types';
+import type { ApprovalDecisionRequest, RequisitionDetail } from '@recruitops/types';
 import { api } from '../lib/api';
 import { auth, hasPermission } from '../lib/auth';
-
-function decisionBadge(decision: ApprovalStep['decision']) {
-  const styles = {
-    Waiting: 'bg-warn-50 text-warn-700',
-    Approved: 'bg-positive-50 text-positive-700',
-    Rejected: 'bg-critical-50 text-critical-700',
-  };
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${styles[decision]}`}>
-      {decision}
-    </span>
-  );
-}
-
-/**
- * Names the approver who closed a step on someone else's behalf (ADR-0024).
- *
- * The API sends `decidedByUserId` as an id, not a name. Rather than a second round-trip, the
- * decider is resolved against the round's own steps: a senior can only skip ahead from a step
- * they were themselves named on, so their label is already on this page. Falls back to a
- * neutral phrase if it cannot be resolved — an unattributed approval is still a true statement,
- * whereas a guessed name would not be.
- */
-function deciderLabel(step: ApprovalStep, roundSteps: ApprovalStep[]): string {
-  const decider = roundSteps.find(s => s.approverUserId === step.decidedByUserId);
-  return decider ? decider.label : 'a later approver';
-}
+import { ApprovalDecisionCard, ApprovalTimeline } from '../components/ApprovalRail';
 
 export function RequisitionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [item, setItem] = useState<RequisitionDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [comment, setComment] = useState('');
   const session = auth.get();
 
   useEffect(() => {
@@ -52,7 +25,6 @@ export function RequisitionDetailPage() {
     setError(null);
     try {
       setItem(await run());
-      setComment('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Action failed.');
     } finally {
@@ -68,9 +40,9 @@ export function RequisitionDetailPage() {
     return act(() => api<RequisitionDetail>(`/requisitions/${id}/cancel`, { method: 'POST' }));
   };
 
-  const decide = (approve: boolean) =>
+  const decide = (approve: boolean, comment: string | null) =>
     act(() => {
-      const body: ApprovalDecisionRequest = { approve, comment: comment || null };
+      const body: ApprovalDecisionRequest = { approve, comment };
       return api<RequisitionDetail>(`/requisitions/${id}/decision`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -80,40 +52,10 @@ export function RequisitionDetailPage() {
   const revise = () =>
     act(() => api<RequisitionDetail>(`/requisitions/${id}/revise`, { method: 'POST' }));
 
-  // Only the latest round is live; earlier rounds are history (ADR-0023).
-  const currentRound = item?.approvals.reduce((max, a) => Math.max(max, a.round), 0) ?? 0;
-  const currentRoundSteps = item?.approvals.filter(a => a.round === currentRound) ?? [];
-
-  // Oldest round first, so the rejection reads above the revision it produced.
-  const rounds = [...new Set(item?.approvals.map(a => a.round) ?? [])]
-    .sort((a, b) => a - b)
-    .map(round => ({
-      round,
-      steps: (item?.approvals ?? [])
-        .filter(a => a.round === round)
-        .sort((a, b) => a.sequence - b.sequence),
-    }));
-
-  // The caller's OWN waiting step, which since ADR-0024 need not be the active one — a later
-  // step outranks an earlier one, so being further down the chain is enough to approve.
-  // The backend still enforces all of this; showing the form to others just results in 404.
-  const myStep = currentRoundSteps.find(
-    a => a.decision === 'Waiting' && a.approverUserId === session?.userId);
-  const activeStep = currentRoundSteps.find(a => a.decision === 'Waiting');
-
-  const canDecide = item?.status === 'PendingApproval' && myStep !== undefined &&
+  // The decision card shows itself only to someone holding a waiting step of the live round
+  // (ADR-0024); the backend enforces all of this — showing it to others would just 404.
+  const canDecide = item?.status === 'PendingApproval' &&
     hasPermission(session, 'permission:requisitions:requisitions:approve');
-
-  // Rejecting stays bound to the active step. A senior may approve on a junior's behalf, but
-  // rejecting for them would end the requisition before they ever saw it (ADR-0024).
-  const canRejectHere = canDecide && myStep?.sequence === activeStep?.sequence;
-
-  // Steps this action would close on someone else's behalf — named, so the approver knows
-  // what they are signing for rather than discovering it afterwards.
-  const stepsClosedOnBehalf = canDecide
-    ? currentRoundSteps.filter(
-        a => a.decision === 'Waiting' && a.sequence < (myStep?.sequence ?? 0))
-    : [];
 
   // Cancelling is the requester's own withdrawal, or a company-wide role overriding it.
   // Mirrors RequisitionService.CancelAsync — the backend is still the authority.
@@ -208,51 +150,7 @@ export function RequisitionDetailPage() {
             <h2 className="mb-4 text-base font-semibold">
               Approval timeline
             </h2>
-            {/* Grouped by round: a resubmission after a rejection opens a new round beside
-                the old one, and the rejection that caused it is the most useful thing on the
-                page (ADR-0023). Flattening them would interleave the two chains by sequence. */}
-            {rounds.map(({ round, steps }) => (
-              <section key={round} className={round === currentRound ? '' : 'opacity-70'}>
-                {rounds.length > 1 && (
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">
-                    Attempt {round}
-                    {round === currentRound ? ' — current' : ' — superseded'}
-                  </h3>
-                )}
-                <ol className="mb-5 space-y-3 last:mb-0">
-                  {steps.map((step) => (
-                    // Keyed on round AND sequence: sequences repeat across rounds, so
-                    // sequence alone collides once a requisition has been resubmitted.
-                    <li key={`${step.round}-${step.sequence}`} className="flex items-start gap-4">
-                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-canvas text-xs font-bold text-ink-600">
-                        {step.sequence}
-                      </span>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{step.label}</span>
-                          {decisionBadge(step.decision)}
-                        </div>
-                        {step.decidedByUserId && (
-                          <p className="mt-0.5 text-xs font-medium text-ink-600">
-                            Approved by {deciderLabel(step, steps)} on behalf of {step.label}
-                          </p>
-                        )}
-                        {step.decidedAt && (
-                          <p className="mt-0.5 text-xs text-ink-400">
-                            {new Date(step.decidedAt).toLocaleString()}
-                          </p>
-                        )}
-                        {step.comment && (
-                          <p className="mt-1 rounded-md bg-canvas p-2 text-sm italic text-ink-600">
-                            "{step.comment}"
-                          </p>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ))}
+            <ApprovalTimeline approvals={item.approvals} />
           </Card>
         )}
 
@@ -272,44 +170,10 @@ export function RequisitionDetailPage() {
         )}
 
         {canDecide && (
-          <Card>
-            <h2 className="mb-3 text-base font-semibold">
-              Decision — {myStep?.label ?? 'pending'}
-            </h2>
-            {stepsClosedOnBehalf.length > 0 ? (
-              <p className="mb-4 rounded-md bg-warn-50 p-3 text-sm text-ink-600">
-                This is not your turn yet — it is waiting on{' '}
-                <strong>{stepsClosedOnBehalf.map(s => s.label).join(', ')}</strong>. Approving
-                closes {stepsClosedOnBehalf.length === 1 ? 'that step' : 'those steps'} as well as
-                your own, and the timeline will record that you decided{' '}
-                {stepsClosedOnBehalf.length === 1 ? 'it' : 'them'}. To reject, wait for{' '}
-                {activeStep?.label} — rejecting on their behalf would end the requisition before
-                they ever saw it.
-              </p>
-            ) : (
-              <p className="mb-4 text-sm text-ink-600">
-                Only the named approver for this step, or a more senior one, may decide. The
-                backend enforces this.
-              </p>
-            )}
-            <label htmlFor="comment" className="mb-1 block text-sm font-semibold">
-              Comment <span className="font-normal text-ink-400">(optional)</span>
-            </label>
-            <textarea
-              id="comment" rows={3} value={comment} onChange={(e) => setComment(e.target.value)}
-              className="mb-4 w-full rounded-md border border-line p-3 focus:outline-none focus:ring-2 focus:ring-brand-700"
-            />
-            <div className="flex gap-3">
-              <Button onClick={() => decide(true)} disabled={busy}>
-                {stepsClosedOnBehalf.length > 0
-                  ? `Approve ${stepsClosedOnBehalf.length + 1} steps`
-                  : 'Approve'}
-              </Button>
-              {canRejectHere && (
-                <Button variant="danger" onClick={() => decide(false)} disabled={busy}>Reject</Button>
-              )}
-            </div>
-          </Card>
+          <ApprovalDecisionCard
+            approvals={item.approvals} userId={session?.userId} noun="requisition" busy={busy}
+            onDecide={(approve, comment) => void decide(approve, comment)}
+          />
         )}
 
         {canRevise && (
