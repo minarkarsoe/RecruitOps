@@ -192,10 +192,38 @@ services:
       - ${TLS_CERT_DIR:?Set TLS_CERT_DIR in .env - a directory holding fullchain.pem and privkey.pem}:/etc/nginx/certs:ro
       # Let's Encrypt renewals: `certbot renew --webroot -w $ACME_WEBROOT` writes challenges here.
       - ${ACME_WEBROOT:-./infra/acme}:/var/www/acme:ro
+      # What sits in front: none | cloudflare | cloudflare-tunnel (infra/nginx/realip/). Long form
+      # with create_host_path false, so a misspelt value stops `up` with "no such file" instead of
+      # Docker quietly creating a directory that nginx then refuses to include.
+      - type: bind
+        source: ./infra/nginx/realip/${EDGE_PROXY:-none}.conf
+        target: /etc/nginx/realip.conf
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       - backend
       - frontend-internal
       - frontend-public
+
+  # Cloudflare Tunnel (Method B of the Cloudflare guide). Off unless started with
+  # `--profile cloudflare-tunnel`, and then needs EDGE_PROXY=cloudflare-tunnel and
+  # CLOUDFLARE_TUNNEL_TOKEN. It shares the proxy's network namespace, so it reaches nginx on
+  # 127.0.0.1 — the one address realip/cloudflare-tunnel.conf trusts — and in the Cloudflare
+  # dashboard the route is https://localhost:443 (Origin Server Name = your hostname). With the
+  # tunnel up, drop the proxy's published ports in an override file: nothing needs them.
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
+    profiles: ["cloudflare-tunnel"]
+    restart: always
+    command: tunnel --no-autoupdate run
+    environment:
+      # Not `:?` — Compose interpolates every service, profile or not, so a required variable here
+      # would stop `up` for installs that never use the tunnel. cloudflared refuses an empty token.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    network_mode: "service:proxy"
+    depends_on:
+      - proxy
 
 volumes:
   pgdata:
