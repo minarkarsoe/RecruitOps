@@ -24,14 +24,15 @@ Company (tenant)
              ├─ Interview ─ InterviewParticipant
              │   └─ Scorecard ─ ScorecardResponse
              ├─ Note ─ NoteMention
-             └─ Offer
-                 ├─ OfferSignature
-                 └─ PreboardingRequest ─ PreboardingDocument
+             └─ Offer                     built 2026-10-21 (ADR-0030); one open per application
+                 ├─ OfferApproval         (ordered steps, per round — the same rail as requisitions)
+                 ├─ OfferSignature        ⬜ slice B
+                 └─ PreboardingRequest ─ PreboardingDocument   ⬜ slice C
 
 Candidate
  └─ CandidateDocument (CV file + OCR text + parse status)
 
-Cross-cutting: ApprovalChain/Step · IntegrationConfig · RetentionPolicy · AuditLogEntry (built, ADR-0027) · NotificationLog
+Cross-cutting: ApprovalChain/Step (with a `Purpose`: Requisition or Offer, ADR-0030) · OfferTemplate · IntegrationConfig · RetentionPolicy · AuditLogEntry (built, ADR-0027) · NotificationLog
 ```
 
 ## Entity inventory
@@ -68,7 +69,7 @@ Cross-cutting: ApprovalChain/Step · IntegrationConfig · RetentionPolicy · Aud
 `JdTemplate` · `ApplicationForm` · `ApplicationFormField` · `CandidateDocument` ·
 `CandidateMatch` · `ApplicationStageHistory` · `Interview` · `InterviewParticipant` ·
 `Scorecard` · `ScorecardCriterion` · `ScorecardResponse` · `Note` · `NoteMention` ·
-`OfferTemplate` · `Offer` · `OfferSignature` · `PreboardingRequest` · `PreboardingDocument` ·
+`OfferTemplate` · `Offer` · `OfferApproval` (these three built 2026-10-21 — ADR-0030; `Offer.Status` and `OfferApproval.Decision` are concurrency tokens) · `OfferSignature` · `PreboardingRequest` · `PreboardingDocument` ·
 `RecruitmentPlan` · `HeadcountPlan` · `BudgetLine` · `BudgetSpend` · `PlanApproval` ·
 `IntegrationConfig` · `RetentionPolicy` · `AuditLogEntry` (built 2026-10-15 — append-only, no foreign keys, names snapshotted; ADR-0027) · `NotificationLog`
 

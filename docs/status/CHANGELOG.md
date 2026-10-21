@@ -3,7 +3,38 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-21 (latest) — the landing page fits a phone; the `@mention` oracle stays open, on purpose
+## 2026-10-21 (latest) — Module 4 slice A: offers, the budget check, internal approval, the dashboard
+
+Module 4 starts ([ADR-0030](../decisions/ADR-0030-offer-management.md)). The product owner settled
+four questions first: a **typed name + consent** signature (no provider), a **link plus a 6-digit
+code emailed** to the candidate, **salary hidden from Hiring Managers** unless the company shows it,
+and approval when an offer is **over budget, or for every offer by company setting**. This slice
+builds everything up to "cleared to send"; sending and the candidate portal are slice B.
+
+- **Offers** (`/offers`, `/offers/:id`, from `offer-dashboard.html` and `offer-create.html`): a
+  recruiter creates one for a candidate at the Offer stage, sets base, allowances, joining date,
+  probation and expiry, and edits a per-offer letter copied from a template. The editor warns the
+  moment the typed package passes the requisition's budget (MMK / month per hire — the requisition
+  form now says so) and says what the base would have to be for no approval step.
+- **One approval mechanism, not two.** The rules — only the live round counts, a later step may
+  approve forward but not reject forward, who actually acted — moved into `ApprovalRail`, which
+  requisitions now use too (Module 1's tests passed unchanged). Chains gain a purpose
+  (requisition or offer); an approver's rejection sends the offer back to Draft. The SPA shares
+  the rail's timeline and decision card the same way.
+- **An approver never approves terms they did not see**: a decision names its round and is refused
+  if the offer was revised since; the offer's status and each step's decision are concurrency
+  tokens, and one open offer per application is a partial unique index.
+- **Reach:** recruitment staff manage offers; a person named on an offer's live round reads and
+  decides that offer only, never the candidate's file; a Hiring Manager reads their departments'
+  offers with no salary, budget, letter or approvers' comments unless the company says so — the
+  API omits them, the screen does not merely hide them. Changing that policy is audited.
+- Plain and flagged because `design/` does not draw them: the Create offer dialog, the offer
+  policy card (on Approval chains), and templates (API only).
+- Reviewed by `security-reviewer` and `db-schema-reviewer` before commit — no Critical or High;
+  every Medium fixed; the Lows are in FEATURE-STATUS. Migration `AddOffers` (runbook §3 has the
+  application-rollback step). Backend 999 (128 Domain + 871 Api) · frontend 536.
+
+## 2026-10-21 — the landing page fits a phone; the `@mention` oracle stays open, on purpose
 
 - **`marketing/landing.html` no longer scrolls sideways on a phone** — 602px at every phone width,
   now 0 overflow from 320 to 1280px, measured in Chromium. The tier table's sr-only labels escaped

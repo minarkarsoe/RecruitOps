@@ -33,6 +33,13 @@ is still not in the data model (see `settings-org.html`); it is not built here e
 An approver's **rejection returns the offer to Draft**, its round kept beside the next one. It is
 never the `Rejected` status, which belongs to the candidate (§3).
 
+**A decision names the round it was made on.** An offer's decide request carries the round the
+approver was shown, and is refused if the offer was revised and resubmitted since — an approver
+never approves terms they did not see. An offer's status and each step's decision are concurrency
+tokens, so a revise racing an approval, two submits, or a rejection racing an approve-forward cannot
+both commit; the second is told to reload. (Requisitions do not yet bind the round or carry the
+tokens; that gap is Module 1's and is recorded in FEATURE-STATUS.)
+
 ### 2. When an offer needs approval
 
 **Over budget, or by company setting** (product owner, 2026-10-21):
@@ -67,12 +74,19 @@ Draft, which voids the approval: the next submission opens a fresh round.
 |---|---|
 | Admin, HR Director, Recruiter (recruitment staff) | Every offer; create, edit, submit, revise, delete a draft |
 | Hiring Manager | View-only, offers in their own departments. **Salary hidden** unless `Company.ShowOfferSalaryToHiringManagers` (product owner, 2026-10-21: hidden by default, a company setting shows it) |
-| Anyone **named on an offer's approval step**, in any round | **That offer only**: candidate name, position, department and terms, and the decision. Never the candidate's application, CV, notes or scorecards |
+| Anyone **named on a step of the offer's live (latest) approval round** | **That offer only**: candidate name, position, department and terms, and the decision. Never the candidate's application, CV, notes or scorecards |
 | Approver role otherwise, Interviewer | Nothing |
 
 The named-step row is a narrow exception to ADR-0018, the same shape as the panel exception
-(ADR-0017 §4): being named is the grant, and it reaches the offer, not the candidate. An
-unreachable offer is a 404, never a 403 (ADR-0003).
+(ADR-0017 §4): being named is the grant, and it reaches the offer, not the candidate. It is the
+**live round only** (security review, 2026-10-21, M2): once a chain changes and a new round names
+someone else, an earlier approver stops reading the offer's salary — "any round, for good" would be
+standing salary access through a chain nobody remembers editing. A person named on a company-wide
+offer chain reaches every offer routed through it while they are on its live round; that is what
+naming them means. An unreachable offer is a 404, never a 403 (ADR-0003).
+
+**Approvers' comments follow the salary rule**: a viewer who may not see salaries sees each step's
+decision but not its comment, because "come down to 800,000" is the package in other words.
 
 ### 5. Signing and the candidate link (built in slice B, decided now)
 
@@ -85,7 +99,10 @@ unreachable offer is a 404, never a 403 (ADR-0003).
   (product owner, 2026-10-21). The link alone shows nothing sensitive; the code unlocks the offer
   and, after acceptance, the document uploads. A forwarded link is useless without the mailbox.
   SMS is the obvious upgrade once an SMS provider exists. The link stops working at the offer's
-  expiry date.
+  expiry date, which may be **at most 90 days** after the offer is submitted — the link reaches
+  salary and, after acceptance, identity documents.
+- **The candidate's name is rendered on one line** in the letter: it comes from an anonymous form,
+  and a line break in it would add paragraphs to the text the candidate signs.
 
 ### 6. Records and numbering
 
@@ -98,7 +115,10 @@ unreachable offer is a 404, never a 403 (ADR-0003).
   slice A ships the API only and says so.
 - Creating, submitting, deciding, revising and deleting an offer are not access changes, but an
   offer carries salary, so its decisions are on the approval rail itself (who, when, comment) as
-  for requisitions. Audit-log entries for offers are not part of slice A.
+  for requisitions. Audit-log entries for those are not part of slice A. **Changing the offer
+  policy is audited** (`OfferSettingsChanged`): showing salaries to Hiring Managers is an access
+  change, and dropping "approve every offer" removes a financial control.
+- One open offer per application is enforced by a partial unique index, not only by the service.
 
 ## Consequences
 

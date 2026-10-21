@@ -66,7 +66,7 @@
 | 1 | Job Requisition & Approval | ✅ API + UI | ⭐ MVP · full loop drivable from the browser: chain config → requisition → submit → sequential approve/reject → cancel. |
 | 2 | ATS & Sourcing | 🚧 API + UI | ⭐ MVP · **2.1, 2.2, 2.4, 2.5, 2.6, 2.7 built. 2.3 is text-only — no OCR, so image and scanned CVs yield nothing.** 2.4 Smart Match and 2.5's Kanban + 360° view were wired on 2026-08-29; both had been written and left unreachable. Posting → public page + custom form → application → pipeline; bulk CV ingestion with local extraction (`BulkResumeService` + `BulkResumeWorker`, `DocumentExtraction/`) — **rewritten 2026-08-21 onto ADR-0026's durable queue**, so a batch survives a restart and the uploaded bytes live in object storage rather than in process memory; AI profiling behind a key (`AiIntegrationService`); trigram search (`SearchService`, `AddPgTrgmAndSearchIndexes`). Remaining: file-upload field type (waits on ADR-0013), the rest of the Talent pool screen (candidate search, ranking, CV upload — only its possible-duplicates part is built, 2026-10-21), and **wiring the AI surface to a route** — see the AI row below. |
 | 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). **3.2 invitations built 2026-08-20** — scheduling and rescheduling queue a candidate email through the ADR-0026 outbox, sent by the worker over SMTP; cancelling suppresses a queued one. 3.1 calendar free/busy still deferred — no calendar client exists. **The delivery log landed 2026-08-25** (`GET /api/delivery`, `/delivery`), so a failed or suppressed invitation is now visible to the recruiter instead of only to the database. ⚠️ Three behaviours have never been eyeballed — see the warning below the table. |
-| 4 | Offer & Pre-boarding | ⬜ code · ✅ spec + design | Post-MVP. Scope rewritten 2026-08-18; 4 screens drawn. **No longer blocked** — `IEmailSender` and the outbox exist; 4.1/4.2/4.3 each need a handler and an enqueue call. |
+| 4 | Offer & Pre-boarding | 🚧 API + UI (slice A) | Post-MVP. **Slice A built 2026-10-21** ([ADR-0030](../decisions/ADR-0030-offer-management.md)): offers drafted from an application at the Offer stage, the budget check as the terms are typed, internal approval on Module 1's rail (rules shared, not copied — `ApprovalRail`), the dashboard (`/offers`), the company's offer policy. **Not yet:** sending, the candidate portal (link + emailed code, typed signature), reminders, expiry (slice B); pre-boarding documents and the IT/Admin handoff (slice C); HRMS export (add-on). |
 | 5 | Reporting & Analytics | ✅ API + UI | ⭐ MVP · `AnalyticsController` + `AnalyticsService` + `AnalyticsPage.tsx`, built on Module 2's stage history. ⚠️ The 2026-08-18 spec re-defines both Time-to-* clocks to end at *offer accepted*, so **the shipped metrics do not match the current spec** and neither is computable until Module 4 exists. Scheduled report *delivery* is unblocked — `IEmailSender` exists — but needs a `ScheduledReport` handler and attachment support, which `EmailMessage` does not have yet. |
 | 6 | Planning & Budgeting | ⬜ code · ✅ spec + design | Post-MVP. Needs `Requisition → HeadcountPlan` decided first, or its headline number is uncomputable. |
 | 7 | Settings & Integrations | 🚧 | 7.1 RBAC ✅ (authorization engine, roles & permissions, User Directory, Role Builder UI, permission-aware UX). 7.5 **Audit log** 🚧 first slice (2026-10-15, ADR-0027): sign-ins, user and role changes, department membership, startup seeding, grantor-ceiling refusals, stolen-token reuse; append-only (EF guard + Postgres triggers); `/audit-log` for `system:audit` holders. Not yet: exports, candidate-data reads. 7.2 HRMS / 7.3 mail & calendar / 7.4 retention ⬜ — all four screens drawn. |
@@ -277,6 +277,56 @@ Decisions: [ADR-0017](../decisions/ADR-0017-interview-and-assessment.md).
   `RecruitmentStaff`, returns id/name/role without email. Without it a Recruiter cannot name
   the panel the scheduling API requires. **11 tests** (`UserDirectoryTests.cs`), all passing in
   CI run #5, and the authorization change has been **human-reviewed** (2026-07-29)
+
+### 🚧 Module 4 — Offer & Pre-boarding (slice A: drafting, budget, approval, dashboard)
+
+Decisions: [ADR-0030](../decisions/ADR-0030-offer-management.md) (2026-10-21; four of them the
+product owner's). Migration `20261021164313_AddOffers` — 3 tables, 2 `Company` flags, a `Purpose`
+column on `ApprovalChains` (every existing chain becomes a requisition chain); sets
+`lock_timeout = 10s`, and its `Down` deletes offer chains before dropping the column.
+
+- Entities: `Offer`, `OfferApproval` (a step, like `RequisitionApproval`), `OfferTemplate`. Enums
+  `OfferStatus` (`Draft → PendingApproval → Approved → Sent → Viewed → Accepted / Rejected /
+  Expired` — `Approved` is ADR-0030's one addition) and `ApprovalChainPurpose`.
+- `GET /api/offers` (groups `awaiting` / `with-candidate` / `closed`, department, date range),
+  `GET /offers/eligible-applications`, `GET /offers/{id}`, `GET /offers/{id}/letter`,
+  `POST /offers`, `PUT /offers/{id}`, `POST /offers/{id}/submit`, `/decide`, `/revise`,
+  `DELETE /offers/{id}` (Draft with no approvals only); `GET/POST/PUT /api/offer-templates`;
+  `GET/PUT /api/settings/offers`.
+- **One approval mechanism.** `ApprovalRail` (Domain) holds the rules — the live round only
+  (ADR-0023), approve forward but never reject forward (ADR-0024), who actually acted — and
+  `RequisitionService.DecideAsync` now runs on it too; Module 1's tests passed unchanged. An
+  approver's rejection returns the offer to **Draft**, never `Rejected` (the candidate's word).
+- **Decisions are bound to a round.** The decide request carries the round the approver saw and
+  is refused (409) if the offer was revised since. `Offer.Status` and `OfferApproval.Decision`
+  are concurrency tokens; one open offer per application is a partial unique index.
+- **Reach (ADR-0030 §4):** recruitment staff manage every offer; anyone named on the **live**
+  round of an offer reads and decides that offer only — never its candidate's application; a
+  Hiring Manager reads their departments' offers **without salary, allowances, budget, letter or
+  approvers' comments** unless `Company.ShowOfferSalaryToHiringManagers` — the API omits them.
+  Everyone else: 404.
+- **Needs approval** when base + allowances exceed the requisition's salary budget (MMK / month
+  per hire — the requisition form now says so) or `Company.RequireOfferApproval`. Submitting
+  without an offer chain is refused with the reason; the editor says so first.
+- Submit also checks dates: expiry no later than 90 days out (the link will reach salary and
+  identity documents), not in the past; joining date not in the past.
+- **Letter:** per-offer text copied from a template (a built-in default until a company adds
+  one), merge fields rendered as plain text, the candidate's name collapsed to one line.
+- **Offer policy changes are audited** (`OfferSettingsChanged`, Users category): showing salaries
+  to Hiring Managers is an access change, and dropping "approve every offer" removes a control.
+- **UI:** `/offers` (`offer-dashboard.html`), `/offers/:id` (`offer-create.html` — terms with the
+  live budget warning and the base that would fit, letter + preview, the shared approval rail and
+  decision card, revise, delete draft), Offers in the sidebar and palette for every internal user
+  (not Interviewer); approval chains gain an "Approves" choice and the offer-policy card.
+  ⚠️ **Not drawn in `design/`, built plainly and flagged:** the Create offer dialog, the offer
+  policy card, and a template-management screen (API only — no screen).
+- Tests: `OfferTests` (15), `OfferPolicyTests` (5), `OfferLetterAndApprovalRailTests` (6, Domain);
+  `OffersPage.test.tsx` (8), `OfferDetailPage.test.tsx` (9), 5 in `ApprovalChainsPage.test.tsx`,
+  4 in `Sidebar.test.tsx`. Every new frontend assertion was mutation-checked (5/5 caught), as
+  were the backend's (16/16).
+- Reviewed by `security-reviewer` and `db-schema-reviewer` before commit: no Critical or High;
+  every Medium fixed (comments under the salary rule, live-round-only reach, round binding +
+  concurrency tokens, the partial unique index, a safe `Down`). The Lows left are in Known gaps.
 
 ### ✅ Foundation
 - .NET 8 Clean Architecture solution: `Domain` / `Application` / `Infrastructure` / `Api` + 2 test projects
@@ -525,6 +575,13 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 
 | Issue | Severity | Where |
 |---|---|---|
+| **Module 4 stops at "Approved"** | 🟡 Medium | Slice A only (2026-10-21). An approved offer cannot be sent: `Send to candidate` is shown disabled and says why. Slice B builds sending, the candidate portal (link + 6-digit code emailed, ADR-0030 §5), typed signature, decline, reminders and expiry. ⚠️ `design/public/offer-portal.html` draws the link but **no code step** — it needs drawing before slice B builds it. Module 5's spec-correct Time-to-* metrics wait on acceptance too |
+| Requisition decisions are not bound to a round | 🟢 Low | Offers carry the round and two concurrency tokens (ADR-0030 §1); requisitions do not yet, so a requisition revised and resubmitted while an approver has it open can take an approval made on the earlier screen, and a revise racing an approve can both commit. Same fix as offers |
+| One person can draft an offer and approve it | 🟢 Low | Offer security review L2. A Recruiter named on the offer chain can approve an offer they drafted; nothing enforces separation of duties (requisitions have the same property). A product decision |
+| A Hiring Manager can infer an offer's budget status | 🟢 Low | Offer review L6. With salaries hidden, an offer reaching `PendingApproval` still tells its department's manager it was over budget — unless the company approves every offer |
+| Offers are guarded by role policies, not permissions | 🟢 Low | Offer review L9. `RecruitmentStaff` / `InternalUser` like the rest of the hiring surface; there is no `offers:*` in the catalogue, so the Role Builder cannot narrow who drafts offers. Templates and the policy do use `settings:*` |
+| Offer numbers can repeat after a deletion | 🟢 Low | Deleting the highest-numbered draft frees its number for the next offer that year. The year is UTC's, so an offer made just after midnight on 1 January Myanmar time is numbered in the old year |
+| No screen for offer templates, the offer policy has no drawn home | 🟢 Low | `offer-create.html` draws picking a template, nothing draws managing them; the API exists (settings permissions). The policy card sits on Approval chains, plain, until `settings-org.html` draws it. The spec's "Position Title" dashboard filter is not drawn and not built |
 | ~~`marketing/landing.html` scrolled sideways on a phone~~ | ✅ **fixed 2026-10-21** | 602px wide at every phone width. Three causes, each measured in Chromium: the tier table's sr-only labels are absolutely positioned and escaped its scroll box (the box was not `relative`) — 602 → 449; the nine `lg:grid-cols-12` grids had no phone column, so each sized itself to its widest content — 449 → 359 at 320px; and a monospace permission code with no break opportunity — now `<wbr>` after each colon. **0 overflow from 320 to 1280px.** (The page loads Tailwind from its CDN, which is blocked in the sandbox; measured on a copy compiled with the repo's Tailwind 3.4 and the page's own config) |
 | ~~`/health` showed anyone the failing dependency's exception text~~ | ✅ **fixed 2026-10-21** | Found by the MinIO storage-account review, pre-existing. nginx proxies `/health` and `/healthz` unauthenticated, and a failing check's `details` carried `ex.Message` — hostnames, ports, driver text ("Connection refused (localhost:9000)" was seen). Now each check says which dependency is down in fixed words ("Database unavailable", "Object storage unavailable"); the exception goes to the API log at error level with the trace id, which the response now also carries. A database that answers "cannot connect" without throwing — the usual case — is logged too; it logged nothing before. Status codes unchanged (`HealthCheckDisclosureTests`) |
 | `/health` still shows process uptime and memory to anyone | 🟢 Low | Not exception text, but it tells an outsider when the API last restarted and roughly how loaded it is. Nothing reads these fields today; restricting them is a product call about who monitors installs |
@@ -545,7 +602,7 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | **Design-system tint pills fail WCAG AA** | ✅ **fixed 2026-08-17** | `-700` text-on-tint steps added to `packages/ui/tailwind-preset.js` (success `#146B43`, warning/accent `#8A5A08`, danger `#A63423`, info `#22528F`); `StatusPill` moved onto them and off `ink-400`. Pinned by 6 new cases in `signatureComponents.test.tsx`, **proved to fail first** by mutating two style entries |
 | **Design system doc never pivoted (agency-era)** | ✅ **fixed 2026-08-17** | `RecruitOps_Design_System.md` rewritten for the in-house product. `ClientPortalCard`, `ClientFeedbackBar` and `ExpiryAttentionCard` deleted with their exports; `ExtendedStatusVocabulary` removed from `StatusPill`; `PipelineStageRail` defaults corrected to the real funnel |
 | **No email sender and no job scheduler — now blocking 3 modules** | 🟠 High | Neither exists in the codebase. Already blocked Module 3 interview invitations; the 2026-08-18 scope revision adds Module 4 (`Remind Candidate`, `Send to Candidate`, IT/Admin handoff notifications) and Module 5 (`Schedule Email` for recurring reports). This is one shared capability, not four features — decide the provider and the job runner once, before any of the three modules starts |
-| **Module 4 & 5 scope revised, specs ahead of code** | 🟡 Medium | Rewritten 2026-08-18 from sales requirement PDFs. Module 4 gains a second approval chain, an `OfferStatus` enum whose `Rejected` collides with `PipelineStatus.Rejected`, and HRMS API sync (QHRM/BetterHR/GlobalTA/CityHR — treat as ADR-0007 extension point, not core). Module 5 re-defines both Time-to-* clocks to end at *offer accepted*, so **neither metric is computable until Module 4 ships**, and adds a Recruiter Leaderboard that ranks named staff. See the module docs for the open questions |
+| **Module 4 & 5 scope revised, specs ahead of code** | 🟡 Medium | Rewritten 2026-08-18 from sales requirement PDFs. Module 4 gains a second approval chain, an `OfferStatus` enum whose `Rejected` collides with `PipelineStatus.Rejected`, and HRMS API sync (QHRM/BetterHR/GlobalTA/CityHR — treat as ADR-0007 extension point, not core). Module 5 re-defines both Time-to-* clocks to end at *offer accepted*, so **neither metric is computable until Module 4 ships**, and adds a Recruiter Leaderboard that ranks named staff. See the module docs for the open questions  · **Module 4's half settled 2026-10-21 (ADR-0030):** the second chain is a `Purpose` on the same chains, and `OfferStatus.Rejected` (the candidate declined) is only ever shown in an Offer column |
 | **Two token systems are now written down** | 🟡 Medium | A "RecruitOps V1.0" spec (slate `#0F172A` / emerald `#10B981` / Plus Jakarta Sans) was supplied 2026-08-17 and captured as [ADR-0025](../decisions/ADR-0025-token-system-v1-proposal.md), **Proposed, not adopted — no code implements it**. It conflicts with the shipped Clear Pipeline preset on ink, primary, attention colour, alert, border, display face, radius and elevation, and it drops the amber reservation. Adopt it, reconcile it, or mark it Rejected — leaving two systems written down is the exact condition that produced the agency-era design-doc rot |
 | **The threshold-based extra approver is drawn but not modelled** | 🟠 High | Three design screens (`requisition-detail`, `requisition-new`, `offer-create`) show an approver *"added by threshold rule"*. `ApprovalChain` stores `Name`, `DepartmentId?` and `IsActive` — **no condition, no amount, no operator**, and `grep -i threshold` finds nothing in Domain, Application or Module 1's doc. Either the entity gains condition fields or those three screens are describing a feature that does not exist. Surfaced on `design/internal/settings-org.html`, where an admin would look for the switch |
 | **An approval step names a person, not a role** | 🟡 Medium | `ApprovalChainStep.ApproverUserId` is a user id. Disabling a user on the Users screen therefore stalls every requisition waiting at their step, indefinitely and silently — nothing in the data links the two actions. The disable flow needs to name the chains it breaks before the admin confirms. Drawn as the "broken chain" state on `design/internal/settings-org.html` |

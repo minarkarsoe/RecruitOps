@@ -273,6 +273,17 @@ the old one stops working at once. This is the only revocation — disabling the
 not one, because `create-buckets` re-enables it on the next start (measured), and the account name
 is fixed so there is never an old one left behind.
 
+**Upgrading past 2026-10-21 (offers, ADR-0030):** nothing to do — migration `AddOffers` marks every
+existing approval chain as a requisition chain. **Rolling back the application while keeping the
+database** needs one step first: an older release does not know a chain's purpose and would route
+new requisitions through an *offer* chain. Deactivate them before starting the old images, and
+reactivate them after upgrading again:
+```sql
+UPDATE "ApprovalChains" SET "IsActive" = false WHERE "Purpose" = 'Offer';
+```
+Rolling the **database** back past `AddOffers` deletes the offer chains and drops every offer — back
+up first (Section 2.1).
+
 ---
 
 ## 4. Feature Flag Add-on Gating (ADR-0007)

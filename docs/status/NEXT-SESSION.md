@@ -1,12 +1,34 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-21 · **Backend 973/973 (122 Domain + 851 Api) · Frontend 510/510 · public 31/31 · typecheck clean · builds clean**
+**Last updated:** 2026-10-21 · **Backend 999/999 (128 Domain + 871 Api) · Frontend 536/536 · public 31/31 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
 · All seven modules have a drawn UI (26 screens)
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
+
+> 💼 **2026-10-21 — Module 4 slice A built: offers up to "cleared to send"**
+> ([ADR-0030](../decisions/ADR-0030-offer-management.md)). **Pick up slice B next**: send, the
+> candidate portal, typed signature, decline, reminders, expiry — every decision it needs is in
+> ADR-0030 §5. ⚠️ **First get a code step drawn** in `design/public/offer-portal.html`: the design
+> shows the link only, and ADR-0030 requires a 6-digit code emailed to the candidate before the
+> offer is shown. Things to know:
+> - **`ApprovalRail` (Domain) is the one copy of the approval rules.** Requisitions and offers
+>   both call `Apply`; do not add a third mechanism for plan approval (Module 6) — give it a
+>   chain purpose and a step entity that implements `IApprovalStep`.
+> - **`OfferStatus.Rejected` means the candidate declined.** An approver's rejection returns the
+>   offer to Draft. Never map one onto `PipelineStatus.Rejected`.
+> - **Salary is omitted by the API for a Hiring Manager** (and approvers' comments with it) unless
+>   `Company.ShowOfferSalaryToHiringManagers`. Any new offer read — the portal's internal side, an
+>   export, analytics — must apply the same cut in `OfferService`, not in the screen.
+> - **Reach for an approver is the live round only.** Any new read keyed on "named on this offer"
+>   must use the live round, or an old chain becomes standing salary access.
+> - **Requisitions still lack round binding and concurrency tokens** (Low, FEATURE-STATUS) —
+>   offers have both; port them when Module 1 is next touched.
+> - Rolling back the app alone needs the offer chains deactivated first (runbook §3).
+> Lesson: **a refactor that moves rules into a shared helper is proved by the old tests passing
+> unchanged** — Module 1's approval tests were not touched, and that is the evidence.
 
 > 🧑‍🤝‍🧑 **2026-10-21 — candidate merge built (Module 2.7); the open-threads list is done but for
 > the `@mention` oracle (Low).** `/talent-pool` (recruitment staff) lists two records sharing a phone
@@ -233,12 +255,13 @@ Hiring Manager raises a requisition
   → Admin manages users, custom roles, feature flags, /api/version
 ```
 
-**How far along (2026-10-21), by the specs' 33 numbered features** (built 1, partly 0.5, built
-to a superseded definition 0.75): **about 47% of the whole product (15.5/33), about 78% of the MVP
-modules 1, 2, 3, 5 (14/18).** Module 1 4/4 · 2 5.5/7 · 3 2.5/4 · 4 0/3 · 5 2/3 · 6 0/3 · 7 1.5/5 ·
-8 0/4. The biggest unbuilt block that needs no product decision is **Module 4, Offer &
-Pre-boarding** (spec + 4 screens drawn; `IEmailSender` and the outbox exist) — and Module 5's
-metrics cannot match the current spec until it exists. Modules 6 and 8 wait on the decisions in
+**How far along (2026-10-21, after Module 4 slice A), by the specs' 33 numbered features** (built 1,
+partly 0.5, built to a superseded definition 0.75): **about 50% of the whole product (16.5/33), about
+78% of the MVP modules 1, 2, 3, 5 (14/18).** Module 1 4/4 · 2 5.5/7 · 3 2.5/4 · 4 1/3 (4.1 and 4.2
+half each — no sending or reminders yet) · 5 2/3 · 6 0/3 · 7 1.5/5 · 8 0/4. The biggest unbuilt
+block that needs no product decision is **the rest of Module 4** — slice B once the portal's code
+step is drawn — and Module 5's metrics cannot match the current spec until an offer can be
+accepted. Modules 6 and 8 wait on the decisions in
 backlog §4. Feature count is not effort: auth, RBAC, tenancy, delivery and the security reviews
 sit under 7.1 and the per-module rows.
 
@@ -255,7 +278,8 @@ suppressed message reaches the recruiter instead of only the database.
 | Module 2 — ATS & Sourcing | ✅ 2.1–2.7 all built. Postings, custom forms, pipeline, dedup, bulk CV ingestion (**rewritten 2026-08-21 onto the durable queue**), AI profiling behind a key, pg_trgm search |
 | Module 3 — Interview & Assessment | 🚧 3.3 scorecards + 3.4 notes ✅ API + UI + tests · security-reviewed (ADR-0018) · **3.2 invitations ✅ built 2026-08-20** (schedule and reschedule queue an email; cancel suppresses it) · **3.1 calendar free/busy still unbuilt** — no calendar client exists |
 | Module 5 — Reporting & Analytics | ✅ API + UI. ⚠️ Built to the *old* metric definitions — the 2026-08-18 spec moved both clocks |
-| Modules 4, 6, 8 | ⬜ code · ✅ spec + design (13 screens drawn 2026-08-18) |
+| Module 4 — Offer & Pre-boarding | 🚧 **slice A ✅ 2026-10-21** (offers, budget check, approval on the shared rail, dashboard, company policy) · slice B (send, portal, signature) ⬜ · slice C (pre-boarding, handoff) ⬜ |
+| Modules 6, 8 | ⬜ code · ✅ spec + design |
 | Module 7 — Settings | 🚧 RBAC ✅ · integrations ⬜ |
 | Auth | ✅ JWT, dynamic RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |
 | Multi-tenancy | ✅ Query filters + claim resolver, isolation-tested · **super-admin `X-Tenant-Id` switching (2026-08-26)** — honoured only for a token carrying `is_super_admin`; see the warning in SECURITY-REVIEW-ADR-0026.md before touching `CurrentTenant` |
