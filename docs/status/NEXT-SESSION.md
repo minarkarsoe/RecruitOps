@@ -40,7 +40,10 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 > access is kept (no expiry), and Hiring Manager / Approver seats see every round of the application.
 > **Open threads:** ~~the Cloudflare real-IP blocker~~ (built 2026-10-21 — `EDGE_PROXY`), ~~a least-privilege
 > MinIO account~~ (built 2026-10-21 — `recruitops-api`; upgrades must add `MINIO_APP_PASSWORD` to `.env`, then rotate `MINIO_PASSWORD`), ~~storage in the backup runbook~~ (`scripts/backup.sh` / `restore.sh`, drill passed 2026-10-21), ~~the candidate merge UI~~ (built 2026-10-21 — `/talent-pool`), and the `@mention`
-> local-part oracle (Low). Policies to know: `PanelAccess` (InternalUser + Interviewer) is for the
+> local-part oracle (Low) — **kept open on purpose (2026-10-21)**: gating local-parts on
+> `users:read` was built, reviewed and reverted, because handles are ASCII-only and most staff
+> would then have no way to mention a colleague with a Burmese display name. The real fix is a
+> mention picker, which needs drawing in `design/` first (FEATURE-STATUS row). Policies to know: `PanelAccess` (InternalUser + Interviewer) is for the
 > panel's own endpoints only; `CompanyWide` gates department and approval-chain administration.
 > Lessons from this round:
 > - **A review that closes a leak should go looking for the same data elsewhere.** The directory
@@ -229,6 +232,15 @@ Hiring Manager raises a requisition
   → Analytics renders time-to-hire, funnel and bottleneck metrics
   → Admin manages users, custom roles, feature flags, /api/version
 ```
+
+**How far along (2026-10-21), by the specs' 33 numbered features** (built 1, partly 0.5, built
+to a superseded definition 0.75): **about 47% of the whole product (15.5/33), about 78% of the MVP
+modules 1, 2, 3, 5 (14/18).** Module 1 4/4 · 2 5.5/7 · 3 2.5/4 · 4 0/3 · 5 2/3 · 6 0/3 · 7 1.5/5 ·
+8 0/4. The biggest unbuilt block that needs no product decision is **Module 4, Offer &
+Pre-boarding** (spec + 4 screens drawn; `IEmailSender` and the outbox exist) — and Module 5's
+metrics cannot match the current spec until it exists. Modules 6 and 8 wait on the decisions in
+backlog §4. Feature count is not effort: auth, RBAC, tenancy, delivery and the security reviews
+sit under 7.1 and the per-module rows.
 
 **Where it stops.** One message leaves the building — the interview invitation. Everything else a
 candidate should hear about (an offer, a reminder, a rejection) still has no handler. **Whether it
@@ -908,9 +920,10 @@ why someone wants a thing is not a sentence postponing it.
   > shape, which is why it survived. `DocumentType` is a closed set now and validated, because it
   > is interpolated into the model prompt.
   >
-  > **`matchCandidate` is STILL unchecked** and is the last one written in that style. Check it
-  > the way that worked twice: `curl` the running service's OpenAPI and diff it against
-  > `packages/types`, rather than reading either one on its own.
+  > ~~**`matchCandidate` is STILL unchecked**~~ — it was corrected on 2026-08-28 (the comment on
+  > `CandidateMatchAnalysis` in `packages/types` records the live capture), and re-compared
+  > field by field with `CandidateMatchAnalysisDto` on 2026-10-21: they agree. This line had
+  > outlived its truth by two months.
   >
   > 🇲🇲 Open question that came out of the sweep: `prepareDocument` has **no `language`
   > support at all** now. The Executive Summary got it on 2026-08-28; the same argument applies
@@ -927,7 +940,7 @@ why someone wants a thing is not a sentence postponing it.
   itself. Verified by extracting the script back out of `ci.yml` and running it against four logs
   (pass / failing / absent / no-log). ⚠️ `set -o pipefail` on the test step is load-bearing —
   without it `tee` masks a failing suite as green.
-- Build warning `CS8604` in `ApplicationFormSchema.cs:102`.
+- ~~Build warning `CS8604` in `ApplicationFormSchema.cs:102`~~ — fixed; 0 warnings (2026-10-21).
 - Write the **99.9% SLA ADR** before `marketing/landing.html` goes live — it is asserted
   publicly and recorded nowhere.
 - Application-form **file upload** field type — waits on the storage abstraction (ADR-0013).

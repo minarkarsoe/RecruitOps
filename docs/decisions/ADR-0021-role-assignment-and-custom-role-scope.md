@@ -184,6 +184,14 @@ application (for an Interviewer: only on a note pinned to its round), and no add
 shown a mention only of someone who reaches the candidate by department or sits on the note's own
 round — so a guessed handle cannot reveal who sits on another round (fourth review, L1).
 
+**Why the local-part residual stays (2026-10-21).** Resolving and marking local-parts only for
+holders of `users:read` closes it, and was built — then reverted after review. Mention handles are
+ASCII (`MentionParser`), display names are often Burmese, and only Admin and HR Director hold
+`users:read` by default: everyone else would have lost the one way to mention a colleague named in
+Burmese, and the only way to tell two "Ko Ko"s apart. The fix that closes the oracle without that
+cost is a **mention picker** that inserts the person rather than a guessed handle — it needs
+drawing first, and for an Interviewer its list must respect the own-rounds rule below.
+
 **What the own-rounds rule cannot hide** (fourth review, I3): an Interviewer's own round number
 says earlier rounds exist; notes pinned to its round are free text that colleagues may use to
 discuss other rounds; notes are not under the blind rule. The rule is enforced in one place:

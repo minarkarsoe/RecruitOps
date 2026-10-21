@@ -3,7 +3,25 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-21 (latest) — `/health` no longer shows anyone why a dependency is down
+## 2026-10-21 (latest) — the landing page fits a phone; the `@mention` oracle stays open, on purpose
+
+- **`marketing/landing.html` no longer scrolls sideways on a phone** — 602px at every phone width,
+  now 0 overflow from 320 to 1280px, measured in Chromium. The tier table's sr-only labels escaped
+  its scroll box (now `relative`); the nine twelve-column grids had no phone column (now
+  `grid-cols-1`); and a permission code had nowhere to break (`<wbr>` after each colon).
+- **The `@mention` local-part oracle was closed, reviewed, and reverted.** Resolving and marking an
+  email local-part only for holders of `users:read` worked (two mutation-proved tests, no
+  Critical/High in review) — but handles are ASCII-only and display names are often Burmese, so
+  Recruiters, Hiring Managers and Interviewers would have lost the only way to mention a colleague
+  named in Burmese, and to tell two "Ko Ko"s apart. A Low disclosure is not worth silently breaking
+  mentions for most staff. The fix that costs nothing is a **mention picker**, which needs drawing
+  first (ADR-0021, FEATURE-STATUS).
+- Two backlog lines were already true and are struck: `matchCandidate`'s contract was corrected on
+  2026-08-28 (re-compared today — it agrees), and `CS8604` was fixed (0 build warnings).
+- NEXT-SESSION now records how far along the product is: about 47% of the 33 specified features,
+  about 78% of the MVP modules.
+
+## 2026-10-21 — `/health` no longer shows anyone why a dependency is down
 
 nginx proxies `/health` and `/healthz` to the API unauthenticated, and a failing check's `details`
 was the raw exception message — hostnames, ports, driver text ("Connection refused
