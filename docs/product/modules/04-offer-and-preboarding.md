@@ -1,6 +1,8 @@
 # Module 4 — Offer Management & Pre-boarding
 
-**Status:** ⬜ Not started · **Priority:** Medium — after pipeline works end-to-end.
+**Status:** 🚧 Slice A in progress (2026-10-21) — offers, budget check, internal approval,
+dashboard. Slice B: sending + candidate portal. Slice C: pre-boarding documents. Decisions:
+[ADR-0030](../../decisions/ADR-0030-offer-management.md).
 **Scope last revised:** 2026-08-18, from a sales requirement document
 (`Module 4_Offer Management & Pre-boarding.pdf`). That document is the source for the
 sub-module structure, the status vocabulary, the offer approval workflow and the HRMS
@@ -44,11 +46,15 @@ Offer letters are written **in the system**, not in Word.
   - Joining Date
   - Probation Period (e.g. 3 months, 6 months)
   - Offer Expiry Date — **after this date the offer link stops working**
-- **Budget check:** if the entered salary exceeds the budget approved in Module 1, the
-  system raises a **warning** at entry time.
-- **Internal approval workflow:** when the offer is over budget, or when policy requires
-  it, `Send for Internal Approval` routes it to **HR Director / Finance** to approve or
-  reject before it can be sent.
+- **Budget check:** if the monthly package — base salary **plus allowances** — exceeds the
+  requisition's salary budget (**MMK per month per hire**), the system raises a **warning** at
+  entry time and says what the base must come down to. A requisition with no budget is never
+  over it.
+- **Internal approval workflow:** when the offer is over budget, or when the company setting
+  **"require approval for every offer"** is on, `Send for Internal Approval` routes it through
+  the department's **offer approval chain** (else the company-wide one) — Module 1's chains and
+  rules, with a purpose of *Offer* (ADR-0030 §1). An approver's rejection returns the offer to
+  Draft, its round kept on record; the next submission opens a new round.
 - **Send:** `Send to Candidate` emails a **secure link**.
 
 ### 4.3 Pre-boarding & E-Signature (candidate experience)
@@ -71,8 +77,8 @@ candidate submits.
 | Role | Can do |
 |---|---|
 | Recruiter | See the whole Offer Dashboard; create and delete offers; fill in and draft the offer letter; send to the candidate; review and approve uploaded documents, and email the candidate to re-submit when something is missing |
-| Hiring Manager | **View-only** offer status (Accepted/Rejected) for candidates in their own department. **Salary can be hidden from them** via a setting |
-| Approver (HR Director / Management) | Open, review and Approve/Reject offers that are over budget or otherwise require approval |
+| Hiring Manager | **View-only** offer status for candidates in their own department. **Salary is hidden** unless the company setting shows it (decided 2026-10-21) |
+| Approver (HR Director / Management) | Open, review and Approve/Reject the offers **they are named on** as an approval step — that offer only, never the candidate's file (ADR-0030 §4) |
 | Candidate (external) | Via the secure link only: accept or decline the offer, and upload documents |
 
 ## HRMS integration (final handoff)
@@ -93,7 +99,12 @@ Named target systems: **QHRM, BetterHR, GlobalTA, CityHR**.
 **Changed by the 2026-08-18 requirement.** The previous proposal was
 `Draft → Sent → Viewed → Signed / Declined / Expired`.
 
-`Draft` → `Pending Approval` → `Sent` → `Viewed` → `Accepted` / `Rejected` / `Expired`
+`Draft` → `Pending Approval` → `Approved` → `Sent` → `Viewed` → `Accepted` / `Rejected` / `Expired`
+
+**`Approved` was added on 2026-10-21** (ADR-0030 §3): cleared to send, not yet sent — approval and
+sending are separate acts by different people. An offer that needs no approval goes from `Draft`
+straight to `Sent`. Only a `Draft` can be edited; an `Approved` offer is *revised* back to `Draft`,
+which voids the approval.
 
 Three differences worth noting when implementing:
 
@@ -128,7 +139,18 @@ Three differences worth noting when implementing:
   but the requirement confirms declined offers keep their record rather than being purged
   at decline time.
 
-**Still open, and now more urgent:**
+**Answered 2026-10-21 by the product owner** (ADR-0030):
+
+- **E-signature:** typed full name + consent, recorded with time, IP, user agent and a SHA-256 of
+  the exact letter shown. No third-party provider. ⚠️ Legal sufficiency in Myanmar is for the
+  customer's counsel to confirm.
+- **Secure link:** unguessable token **plus a 6-digit code emailed** to the candidate's address on
+  file; the link alone shows nothing sensitive. SMS later, once a provider exists.
+- **Approval machinery:** reused — Module 1's rules, shared, and its chains with a purpose.
+- **Salary for Hiring Managers:** hidden by default; a company setting shows it.
+- **Email sending** exists since ADR-0026 (2026-08-20).
+
+**Previously open (kept for the record):**
 
 - **E-signature provider.** The requirement says "Digital Signature" but names no provider.
   Still a legally significant choice for Myanmar. In-house click-to-accept with a captured
