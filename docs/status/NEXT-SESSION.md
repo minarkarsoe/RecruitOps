@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-21 · **Backend 969/969 (122 Domain + 847 Api) · Frontend 510/510 · public 31/31 · typecheck clean · builds clean**
+**Last updated:** 2026-10-21 · **Backend 973/973 (122 Domain + 851 Api) · Frontend 510/510 · public 31/31 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))

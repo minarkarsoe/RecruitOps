@@ -3,7 +3,19 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-21 (latest) — merging two records of one person (Module 2.7), and a search leak fixed
+## 2026-10-21 (latest) — `/health` no longer shows anyone why a dependency is down
+
+nginx proxies `/health` and `/healthz` to the API unauthenticated, and a failing check's `details`
+was the raw exception message — hostnames, ports, driver text ("Connection refused
+(localhost:9000)" was seen on the production stack). Found by the MinIO storage-account review;
+pre-existing. Each check now says **which** dependency is down in fixed words ("Database
+unavailable", "Object storage unavailable"); **why** goes to the API log at error level with the
+trace id, which the response now carries so an operator can find the line. A database that answers
+"cannot connect" without throwing — the usual way it is down — is now logged too. Status codes and
+the response's other fields are unchanged. `HealthCheckDisclosureTests` forces both failures with
+realistic text and asserts on the raw body; with the old code put back, all four fail. Backend 973.
+
+## 2026-10-21 — merging two records of one person (Module 2.7), and a search leak fixed
 
 The public path reuses a matching candidate, but two records created **separately** stayed two
 people. Now the Talent pool (`/talent-pool`, recruitment staff; `design/internal/talent-pool.html`)
