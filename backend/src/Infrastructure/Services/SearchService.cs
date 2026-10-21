@@ -7,6 +7,7 @@ using RecruitOps.Application.DTOs.Search;
 using RecruitOps.Application.Interfaces;
 using RecruitOps.Domain;
 using RecruitOps.Domain.Entities;
+using RecruitOps.Domain.Enums;
 using RecruitOps.Infrastructure.Persistence;
 
 public class SearchService : ISearchService
@@ -174,63 +175,56 @@ public class SearchService : ISearchService
 
     private async Task<List<SearchResultItemDto>> SearchCandidatesAsync(ScopeContext scope, string searchTerm, CancellationToken ct)
     {
-        HashSet<Guid>? allowedCandidateIds = null;
+        // For a scoped role, the applications that make a candidate reachable — and the only ones
+        // whose CV, cover note and form answers it may match or quote. A candidate is one person
+        // across postings (the public path reuses a match; Module 2.7 merges move applications onto
+        // one record), so "reaches the candidate" must never widen to "reads every application".
+        // Null = company-wide: every application.
+        HashSet<Guid>? reachableAppIds = null;
 
-        if (scope.IsExcludedFromCandidateData)
+        if (scope.IsExcludedFromCandidateData || scope.IsDepartmentScoped)
         {
-            // Approver role (ADR-0018): Strictly excluded from candidate data
-            // Exception: Candidate has an application where user is an interview participant
-            var participantAppIds = await _db.InterviewParticipants
-                .AsNoTracking()
-                .Where(ip => ip.UserId == scope.UserId)
-                .Join(_db.Interviews.AsNoTracking(), ip => ip.InterviewId, i => i.Id, (ip, i) => i.JobApplicationId)
+            // The panel exception (ADR-0017 §4, ADR-0018): a seat on a round that is not cancelled —
+            // a cancelled round grants nothing, as in ApplicationAccess.
+            var participantAppIds = await (
+                    from ip in _db.InterviewParticipants.AsNoTracking()
+                    join i in _db.Interviews.AsNoTracking() on ip.InterviewId equals i.Id
+                    where ip.UserId == scope.UserId && i.Status != InterviewStatus.Cancelled
+                    select i.JobApplicationId)
                 .Distinct()
                 .ToListAsync(ct);
 
-            if (!participantAppIds.Any())
+            if (scope.IsExcludedFromCandidateData)
+            {
+                // Approver / Interviewer: strictly excluded from candidate data but for that exception.
+                reachableAppIds = participantAppIds.ToHashSet();
+            }
+            else
+            {
+                // Hiring Manager (ADR-0003): applications to its departments' postings, plus the panels.
+                var deptAppIds = await (
+                        from a in _db.JobApplications.AsNoTracking()
+                        join jp in _db.JobPostings.AsNoTracking() on a.JobPostingId equals jp.Id
+                        where scope.AllowedDepartmentIds.Contains(jp.DepartmentId)
+                        select a.Id)
+                    .ToListAsync(ct);
+                reachableAppIds = deptAppIds.Concat(participantAppIds).ToHashSet();
+            }
+
+            if (reachableAppIds.Count == 0)
             {
                 return new List<SearchResultItemDto>();
             }
-
-            var candIds = await _db.JobApplications
-                .AsNoTracking()
-                .Where(a => participantAppIds.Contains(a.Id))
-                .Select(a => a.CandidateId)
-                .Distinct()
-                .ToListAsync(ct);
-
-            allowedCandidateIds = candIds.ToHashSet();
-        }
-        else if (scope.IsDepartmentScoped)
-        {
-            // HiringManager role (ADR-0003 & ADR-0017 §4):
-            // Candidate reached if has application in allowed departments OR user is an interview participant
-            var participantAppIds = await _db.InterviewParticipants
-                .AsNoTracking()
-                .Where(ip => ip.UserId == scope.UserId)
-                .Join(_db.Interviews.AsNoTracking(), ip => ip.InterviewId, i => i.Id, (ip, i) => i.JobApplicationId)
-                .Distinct()
-                .ToListAsync(ct);
-
-            var deptPostingIds = await _db.JobPostings
-                .AsNoTracking()
-                .Where(p => scope.AllowedDepartmentIds.Contains(p.DepartmentId))
-                .Select(p => p.Id)
-                .ToListAsync(ct);
-
-            var candIds = await _db.JobApplications
-                .AsNoTracking()
-                .Where(a => deptPostingIds.Contains(a.JobPostingId) || participantAppIds.Contains(a.Id))
-                .Select(a => a.CandidateId)
-                .Distinct()
-                .ToListAsync(ct);
-
-            allowedCandidateIds = candIds.ToHashSet();
         }
 
         IQueryable<Candidate> candQuery = _db.Candidates.AsNoTracking();
-        if (allowedCandidateIds != null)
+        if (reachableAppIds != null)
         {
+            var allowedCandidateIds = await _db.JobApplications.AsNoTracking()
+                .Where(a => reachableAppIds.Contains(a.Id))
+                .Select(a => a.CandidateId)
+                .Distinct()
+                .ToListAsync(ct);
             candQuery = candQuery.Where(c => allowedCandidateIds.Contains(c.Id));
         }
 
@@ -240,9 +234,12 @@ public class SearchService : ISearchService
 
         var candIdsList = candidates.Select(c => c.Id).ToList();
 
-        var candidateApps = await _db.JobApplications
-            .AsNoTracking()
-            .Where(a => candIdsList.Contains(a.CandidateId))
+        var appQuery = _db.JobApplications.AsNoTracking().Where(a => candIdsList.Contains(a.CandidateId));
+        if (reachableAppIds != null)
+        {
+            appQuery = appQuery.Where(a => reachableAppIds.Contains(a.Id));
+        }
+        var candidateApps = await appQuery
             .Select(a => new AppTextData(a.CandidateId, a.ResumeExtractedText, a.CoverNote, a.CustomFieldsJson))
             .ToListAsync(ct);
 
