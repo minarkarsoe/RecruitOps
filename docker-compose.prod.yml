@@ -78,13 +78,16 @@ services:
     environment:
       MINIO_USER: ${MINIO_USER}
       MINIO_PASSWORD: ${MINIO_PASSWORD}
+      # The API's own account — see the end of the script.
+      MINIO_APP_USER: ${MINIO_APP_USER:?Set MINIO_APP_USER in .env - the API's storage account, not the root user}
+      MINIO_APP_PASSWORD: ${MINIO_APP_PASSWORD:?Set MINIO_APP_PASSWORD in .env - 12+ characters}
     entrypoint:
       - /bin/sh
       - -c
       - |
         set -eu
-        # The API uses these same credentials. The published default would make every CV readable
-        # by anything that can reach storage:9000, private bucket or not.
+        # The root account administers storage; the published default would hand it to anything
+        # that can reach storage:9000.
         case "$$MINIO_USER:$$MINIO_PASSWORD" in
           minioadmin:* | *:minioadmin) echo "MINIO_USER / MINIO_PASSWORD are the published default - set your own in .env" >&2; exit 1 ;;
         esac
@@ -112,6 +115,32 @@ services:
         [ -z "$$(mc anonymous list myminio/recruitops-cvs)" ] || fail "anonymous rules remain"
         if mc ls anonymous/recruitops-cvs > /dev/null 2>&1; then fail "listable without credentials"; fi
         echo "recruitops-cvs is private"
+
+        # The API's own account (ADR-0029 follow-up). The API used the root credentials, so a leaked
+        # API config was a storage admin key: every bucket, every user, the server's settings. This
+        # account reaches the CV bucket and the objects in it, nothing else — and like the policy
+        # above it is re-applied on every start, so a changed MINIO_APP_PASSWORD takes effect here.
+        # ListBucket: without it a missing CV answers 403, not 404, and the API cannot tell them apart.
+        [ "$$MINIO_APP_USER" != "$$MINIO_USER" ] || { echo "MINIO_APP_USER must not be the root user" >&2; exit 1; }
+        case "$$MINIO_APP_PASSWORD" in minioadmin | "$$MINIO_PASSWORD") echo "MINIO_APP_PASSWORD must be its own secret" >&2; exit 1 ;; esac
+        [ "$${#MINIO_APP_PASSWORD}" -ge 12 ] || { echo "MINIO_APP_PASSWORD needs 12+ characters" >&2; exit 1; }
+        printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetBucketLocation","s3:ListBucket"],"Resource":["arn:aws:s3:::recruitops-cvs"]},{"Effect":"Allow","Action":["s3:GetObject","s3:PutObject","s3:DeleteObject"],"Resource":["arn:aws:s3:::recruitops-cvs/*"]}]}' > /tmp/recruitops-api.json
+        mc admin policy create myminio recruitops-api /tmp/recruitops-api.json > /dev/null
+        mc admin user add myminio "$$MINIO_APP_USER" "$$MINIO_APP_PASSWORD" > /dev/null
+        mc admin policy attach myminio recruitops-api --user "$$MINIO_APP_USER" > /dev/null 2>&1 || true # "already in effect" on later runs; proven below either way
+        # Proven, not assumed: the account does the API's job, and nothing an admin could.
+        afail() { echo "the API's storage account is wrong ($$1) - stopping" >&2; exit 1; }
+        mc alias set api http://storage:9000 "$$MINIO_APP_USER" "$$MINIO_APP_PASSWORD" > /dev/null
+        echo probe | mc pipe api/recruitops-cvs/.create-buckets-probe > /dev/null || afail "cannot write a CV"
+        [ "$$(mc cat api/recruitops-cvs/.create-buckets-probe)" = probe ] || afail "cannot read a CV"
+        mc rm api/recruitops-cvs/.create-buckets-probe > /dev/null || afail "cannot delete a CV"
+        if mc admin info api > /dev/null 2>&1; then afail "it can administer the server"; fi
+        if mc mb api/recruitops-not-allowed > /dev/null 2>&1; then afail "it can create buckets"; fi
+        # Shell built-ins only: this image has no grep (a grep here once passed by failing to run).
+        mc ls api/ 2>/dev/null | while IFS= read -r bucket; do
+          case "$$bucket" in *" recruitops-cvs/") ;; *) exit 1 ;; esac
+        done || afail "it can see other buckets"
+        echo "the API's storage account reaches recruitops-cvs only"
 
   backend:
     build:
@@ -145,9 +174,13 @@ services:
       FileStorage__ServiceUrl: "http://storage:9000"
       FileStorage__PublicServiceUrl: "${STORAGE_PUBLIC_URL:-http://localhost:9000}"
       FileStorage__BucketName: "recruitops-cvs"
-      FileStorage__AccessKey: ${MINIO_USER}
-      FileStorage__SecretKey: ${MINIO_PASSWORD}
+      # Its own account, made and checked by create-buckets: the CV bucket and nothing else. Not the
+      # root user — a leaked API config used to be a storage admin key (ADR-0029 follow-up).
+      FileStorage__AccessKey: ${MINIO_APP_USER}
+      FileStorage__SecretKey: ${MINIO_APP_PASSWORD}
       FileStorage__ForcePathStyle: "true"
+      # create-buckets makes the bucket; the API's account may not, and should not try.
+      FileStorage__AutoCreateBucket: "false"
       FeatureFlags__EnableAiProfiling: "${FEATURE_AI_PROFILING:-true}"
       FeatureFlags__EnableAnalytics: "${FEATURE_ANALYTICS:-true}"
       FeatureFlags__EnableBulkCvUpload: "${FEATURE_BULK_CV_UPLOAD:-true}"
