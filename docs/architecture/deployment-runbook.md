@@ -160,28 +160,43 @@ Automated, idempotent EF Core database migrations execute on backend application
 
 ---
 
-## 2. Database Backup & Restore Runbook
+## 2. Backup & Restore — the database AND the CVs
 
-PostgreSQL database backup and restore operations must be executed directly against the `db` container.
+A backup is the database **and** the CV files. The database holds only each CV's storage key; a
+restore of the database alone gives every candidate a CV that no longer opens. (Until 2026-10-21
+this section backed up Postgres only — and its commands did not run as written on a production
+install: `-U postgres -d recruitops` instead of the `.env` user and database, no
+`-f docker-compose.prod.yml`, and a `docker cp` wildcard Docker does not expand.)
 
-### 2.1 Performing a Database Backup
+Two scripts do both halves. Run them from the install directory — where `docker-compose.prod.yml`
+and `.env` are. They read credentials inside the containers, never by sourcing `.env`.
+
+### 2.1 Back up
 ```bash
-# Export timestamped dump of the company database
-docker compose exec -T db pg_dump -U postgres -d recruitops -F c -b -v -f /tmp/backup_$(date +%Y%m%d_%H%M%S).dump
-
-# Copy backup file to host backup directory
-docker cp $(docker compose ps -q db):/tmp/backup_*.dump /var/backups/recruitops/
+scripts/backup.sh /var/backups/recruitops     # → /var/backups/recruitops/<UTC timestamp>/{db.dump,cvs/}
 ```
+Database first, then the CVs, copied as objects (`mc mirror`) with the root storage account.
+That order is safe because nothing in the product deletes a stored file, so every CV the dump
+names already exists when the copy runs. The directory is `700`: it holds every candidate's data.
+**Copy it off the server** — a backup on the install's own disk is lost with the disk. Schedule it
+with cron, e.g. `15 2 * * * cd /opt/recruitops && scripts/backup.sh /var/backups/recruitops`.
 
-### 2.2 Restoring a Database Backup
+### 2.2 Restore
 ```bash
-# Copy dump file into container
-docker cp /var/backups/recruitops/backup_TARGET.dump $(docker compose ps -q db):/tmp/restore.dump
-
-# Terminate existing connections and restore schema/data
-docker compose exec db psql -U postgres -d recruitops -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'recruitops' AND pid <> pg_backend_pid();"
-docker compose exec db pg_restore -U postgres -d recruitops --clean --if-exists --no-owner --no-acl /tmp/restore.dump
+scripts/restore.sh /var/backups/recruitops/<timestamp>
 ```
+⚠️ Replaces the current database. It stops the API, restores the database (`pg_restore --clean`),
+runs `create-buckets` so the bucket exists, is private and the API's account is valid, copies the
+CVs back, and starts the API. It works onto a fresh install too: `up -d` first, then restore.
+
+**Measured 2026-10-21 on the production stack:** back up → `docker compose down -v` (database and
+CV volumes deleted) → `up -d` on empty volumes → restore. Afterwards all 6 users and 3 CV objects
+were back, a user who existed only in the backup signed in, and their CV downloaded byte-for-byte
+identical to the one uploaded before the volumes were deleted.
+
+**Hosted installs on Cloudflare R2** keep CVs in R2, not in the `storage` service, so `cvs/` stays
+empty and the R2 bucket is backed up separately (R2 object versioning, or `mc mirror` against an
+R2 alias). Not yet measured.
 
 ---
 
@@ -193,7 +208,7 @@ docker compose exec db pg_restore -U postgres -d recruitops --clean --if-exists 
 
 ### Upgrade Procedure
 1. Inspect deployment version: `curl https://<customer>.recruitops.com/api/version`.
-2. Take a database dump using Section 2.1. Upgrading from before 2026-10-16? Section 0b first —
+2. Take a backup with `scripts/backup.sh` (Section 2.1 — database and CVs). Upgrading from before 2026-10-16? Section 0b first —
    the new compose file needs a certificate.
 3. Pull new release images: `docker compose -f docker-compose.prod.yml pull`.
 4. Rebuild **with `--pull`**, then restart:

@@ -3,7 +3,18 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-21 (latest) — the API has its own storage account
+## 2026-10-21 (latest) — backups include the CVs, and restoring one is a drill that passed
+
+Runbook §2 backed up Postgres only — a restore gave every candidate a CV that would not open — and
+its commands did not run as written on a production install (wrong user and database, no
+`-f docker-compose.prod.yml`, a `docker cp` wildcard). Now `scripts/backup.sh` writes
+`db.dump` + `cvs/` into one dated, `700` directory (database first, then CVs: nothing deletes a
+stored file, so every CV the dump names is in the copy), and `scripts/restore.sh` puts both back.
+Both read credentials inside the containers rather than sourcing `.env`. **Measured:** backup →
+`down -v` → fresh `up` → restore → a user who existed only in the backup signs in and downloads
+their CV byte-identical.
+
+## 2026-10-21 — the API has its own storage account
 
 The API used MinIO's root credentials, so a leaked API config was a storage admin key (ADR-0029
 follow-up). `create-buckets` now creates `MINIO_APP_USER` with access to the CV bucket only —
