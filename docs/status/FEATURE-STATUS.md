@@ -1,5 +1,14 @@
 # Feature Status
 
+> 🧑‍🤝‍🧑 **2026-10-21 — two records of one person can be merged, or kept apart, by a person**
+> (Module 2.7). The Talent pool (`/talent-pool`, recruitment staff) lists records sharing a phone or
+> email, and its review dialog — drawn in `design/internal/talent-pool.html` — merges, says "not the
+> same person" (remembered), or leaves it. Its security review (no Critical/High) also found and
+> fixed a **pre-existing department leak in search**: a Hiring Manager's candidate search matched
+> and quoted other departments' applications of a candidate it reached. Suites: **backend 969**
+> (122 domain + 847 api), **internal 510** (54 files), **public 31**. Migration
+> `AddDistinctCandidatePairs` applies on startup and was measured on PostgreSQL 16.
+
 > 🔐 **2026-10-19 — governance reach reviewed twice and fixed; the Interviewer role works.** No
 > colleague's email reaches anyone without `users:read` (the audit log is the stated exception);
 > only Admin, HR Director and Recruiter reach administer departments and approval chains; an
@@ -55,7 +64,7 @@
 | — | Foundation (scaffold, layering, CI-less tooling) | ✅ | Structure per CLAUDE.md |
 | — | Multi-tenancy | ✅ | Query filters + claim-based resolver, isolation-tested |
 | 1 | Job Requisition & Approval | ✅ API + UI | ⭐ MVP · full loop drivable from the browser: chain config → requisition → submit → sequential approve/reject → cancel. |
-| 2 | ATS & Sourcing | 🚧 API + UI | ⭐ MVP · **2.1, 2.2, 2.4, 2.5, 2.6, 2.7 built. 2.3 is text-only — no OCR, so image and scanned CVs yield nothing.** 2.4 Smart Match and 2.5's Kanban + 360° view were wired on 2026-08-29; both had been written and left unreachable. Posting → public page + custom form → application → pipeline; bulk CV ingestion with local extraction (`BulkResumeService` + `BulkResumeWorker`, `DocumentExtraction/`) — **rewritten 2026-08-21 onto ADR-0026's durable queue**, so a batch survives a restart and the uploaded bytes live in object storage rather than in process memory; AI profiling behind a key (`AiIntegrationService`); trigram search (`SearchService`, `AddPgTrgmAndSearchIndexes`). Remaining: file-upload field type (waits on ADR-0013), the merge-two-existing-candidates UI, and **wiring the AI surface to a route** — see the AI row below. |
+| 2 | ATS & Sourcing | 🚧 API + UI | ⭐ MVP · **2.1, 2.2, 2.4, 2.5, 2.6, 2.7 built. 2.3 is text-only — no OCR, so image and scanned CVs yield nothing.** 2.4 Smart Match and 2.5's Kanban + 360° view were wired on 2026-08-29; both had been written and left unreachable. Posting → public page + custom form → application → pipeline; bulk CV ingestion with local extraction (`BulkResumeService` + `BulkResumeWorker`, `DocumentExtraction/`) — **rewritten 2026-08-21 onto ADR-0026's durable queue**, so a batch survives a restart and the uploaded bytes live in object storage rather than in process memory; AI profiling behind a key (`AiIntegrationService`); trigram search (`SearchService`, `AddPgTrgmAndSearchIndexes`). Remaining: file-upload field type (waits on ADR-0013), the rest of the Talent pool screen (candidate search, ranking, CV upload — only its possible-duplicates part is built, 2026-10-21), and **wiring the AI surface to a route** — see the AI row below. |
 | 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). **3.2 invitations built 2026-08-20** — scheduling and rescheduling queue a candidate email through the ADR-0026 outbox, sent by the worker over SMTP; cancelling suppresses a queued one. 3.1 calendar free/busy still deferred — no calendar client exists. **The delivery log landed 2026-08-25** (`GET /api/delivery`, `/delivery`), so a failed or suppressed invitation is now visible to the recruiter instead of only to the database. ⚠️ Three behaviours have never been eyeballed — see the warning below the table. |
 | 4 | Offer & Pre-boarding | ⬜ code · ✅ spec + design | Post-MVP. Scope rewritten 2026-08-18; 4 screens drawn. **No longer blocked** — `IEmailSender` and the outbox exist; 4.1/4.2/4.3 each need a handler and an enqueue call. |
 | 5 | Reporting & Analytics | ✅ API + UI | ⭐ MVP · `AnalyticsController` + `AnalyticsService` + `AnalyticsPage.tsx`, built on Module 2's stage history. ⚠️ The 2026-08-18 spec re-defines both Time-to-* clocks to end at *offer accepted*, so **the shipped metrics do not match the current spec** and neither is computable until Module 4 exists. Scheduled report *delivery* is unblocked — `IEmailSender` exists — but needs a `ScheduledReport` handler and attachment support, which `EmailMessage` does not have yet. |
@@ -194,6 +203,14 @@ meant two job mechanisms, which is the outcome the ADR exists to prevent.
 - Rate limited (`RateLimit:PublicApply`) — the only anonymous endpoint that writes
 - **Duplicate detection** via `Domain/ContactNormalizer` (shared so future CV import
   produces identical keys); matches reuse the candidate and fill blanks without overwriting
+- **Merging two existing records (2.7, 2026-10-21)** — `CandidateDuplicateService`,
+  `GET /api/candidates/duplicates`, `POST /api/candidates/merge`, `POST /api/candidates/keep-separate`
+  (`Policies.RecruitmentStaff`); `TalentPoolPage` at `/talent-pool`. A merge moves the applications,
+  fills blanks, leaves a one-step pointer, carries "not the same person" answers to the kept record,
+  and is audited by id. `DistinctCandidatePair` remembers "not the same person" (ordered pair, CHECK
+  + unique index). `Candidate.MergeStamp` is a concurrency token renewed by every decision, so two
+  decisions touching a common record cannot both commit — measured with concurrent requests on
+  PostgreSQL: no loops, no chains, no 500s. A value on more than 10 records is not listed
 - **`ApplicationStageHistory` is written from the first moment**, anonymous arrival included.
   Hired/Rejected are terminal — reopening would silently corrupt Module 5's figures
 - **Custom application fields (2.2)** — `Domain/ApplicationFormSchema` validates the schema
@@ -508,6 +525,11 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 
 | Issue | Severity | Where |
 |---|---|---|
+| ~~A Hiring Manager's candidate search matched and quoted other departments' applications~~ | ✅ **fixed 2026-10-21** | Found by the merge's security review (M1), pre-existing: search reached a candidate by department, then matched the search term against — and returned a snippet of — **every** application that candidate held, so a Sales manager could read a Finance cover note. Search now matches only the applications that make the candidate reachable, and a **cancelled** round no longer counts as the panel exception there either (`SearchApplicationScopeTests`) |
+| An application can land on a record merged that same instant | 🟢 Low | Merge review L2. The public form and the bulk CV worker read an unmerged match, then insert the application; a merge committing in between leaves it on the merged record (and if the submission also filled a blank, the applicant gets a 500 and a retry lands correctly). A window of milliseconds against a human-paced merge. Repair if it ever happens: move applications whose candidate has `MergedIntoCandidateId` to that id. `BulkUploadFile.CandidateId` is not re-pointed by a merge either |
+| Merging is gated by role, not a permission | 🟢 Low | Merge review L7 — product decision. Any role with an Admin / HR Director / Recruiter base can merge; there is no `candidates:*` permission in the catalogue to narrow it. "Not the same person" has no undo in the product |
+| Merge decisions have no audit category | 🟢 Low | `CandidatesMerged` and `CandidatesKeptSeparate` appear under **All** and the action filter only (ADR-0027 amendment, 2026-10-21) |
+| No `favicon.ico` in the internal SPA | 🟢 Low | Every page load logs one 404 in the browser console (seen in the 2026-10-21 browser check) |
 | Custom-role holders carried the `Recruiter` enum | ✅ **fixed 2026-10-15** (ADR-0021 option A) | A custom role has a required **base role** (HR Director / Recruiter / Hiring Manager / Approver / Interviewer), chosen in the Role Builder; holders carry it, and `Interviewer` (no role-policy reach) while the role is inactive. Existing roles migrated to a Recruiter base — no change until an Admin picks. Migration `AddRoleBaseRole` |
 | No grantor ceiling | ✅ **fixed 2026-10-15** (ADR-0021 option A) | Creating/editing/assigning a role or reactivating a user requires holding every permission granted and covering the reach given (`Admin ⊇ HR Director ⊇ Recruiter ⊇ {Hiring Manager, Approver} ⊇ Interviewer`); a non-Admin can never create an Admin. 403 on refusal |
 | SuperAdmin minting via the user directory | ✅ **fixed 2026-10-15** | Never assignable; exact names; custom codes never parsed (ADR-0021) |

@@ -3,7 +3,42 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-21 (latest) — security reviews of the Cloudflare and storage-account changes, fixed
+## 2026-10-21 (latest) — merging two records of one person (Module 2.7), and a search leak fixed
+
+The public path reuses a matching candidate, but two records created **separately** stayed two
+people. Now the Talent pool (`/talent-pool`, recruitment staff; `design/internal/talent-pool.html`)
+lists records sharing a normalised phone or email, and its review dialog gives the three answers
+the design draws: **Merge** (pick the record to keep; applications move with their history,
+interviews, scorecards and CVs; blanks filled, nothing overwritten; a one-step pointer left behind;
+not reversible), **Not the same person** (remembered — `DistinctCandidatePair` — and the pair stops
+being flagged), **Decide later**. Search no longer returns merged records. Spec first:
+`02-ats-and-sourcing.md` §2.7.
+
+Security review (no Critical/High) and schema review, both acted on:
+- **M1 — fixed, and pre-existing:** a Hiring Manager's candidate search matched and quoted **every**
+  application of a candidate it reached, so a Sales manager could read a Finance cover note. Search
+  now matches only the applications that make the candidate reachable; a cancelled round no longer
+  counts as the panel exception there either.
+- **M2:** audit entries for merges and for "not the same person" (new, `CandidatesKeptSeparate`)
+  carry record ids, never names — the log is permanent and readers may not hold candidate access
+  (ADR-0027 amendment).
+- **M3:** a phone or email on more than 10 records is a shared line, not listed pair by pair (it was
+  quadratic, and anonymous applicants can grow a group).
+- **Races:** `Candidate.MergeStamp`, a concurrency token renewed by every decision, means two
+  decisions touching a common record cannot both commit — opposite merges, A-into-B racing
+  C-into-A, a merge racing "not the same person". A double-clicked "not the same person" answers
+  204 twice and writes one row. **Measured with concurrent requests on PostgreSQL:** no loops, no
+  chains, no 500s.
+- "Not the same person" answers carry to the kept record when a merge happens.
+- Migration `AddDistinctCandidatePairs`: ordered-pair CHECK, pinned index name, `lock_timeout` 10 s
+  (measured: behind a held lock it gave up and applied nothing; without one it applied).
+- Left as Lows (FEATURE-STATUS): an application arriving the instant its record is merged; merging
+  gated by role rather than a permission; no audit category for the two actions.
+
+Browser-checked at 1360 px and 390 px (the dialog first broke emails mid-word and the table's
+hidden header widened the phone layout — both fixed). Suites: backend 969, internal 510, public 31.
+
+## 2026-10-21 — security reviews of the Cloudflare and storage-account changes, fixed
 
 No Critical or High in either. Fixed, each measured on the stack:
 - **Storage account:** the name is fixed (`recruitops-api`) — a configurable one could be changed

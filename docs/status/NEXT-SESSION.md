@@ -1,12 +1,33 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-19 · **Backend 955/955 (122 Domain + 833 Api) · Frontend 489/489 · public 31/31 · typecheck clean · builds clean**
+**Last updated:** 2026-10-21 · **Backend 969/969 (122 Domain + 847 Api) · Frontend 510/510 · public 31/31 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
 · All seven modules have a drawn UI (26 screens)
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
+
+> 🧑‍🤝‍🧑 **2026-10-21 — candidate merge built (Module 2.7); the open-threads list is done but for
+> the `@mention` oracle (Low).** `/talent-pool` (recruitment staff) lists two records sharing a phone
+> or email; its dialog merges, says "not the same person", or leaves it. Things to know:
+> - **`Candidate.MergeStamp` is a concurrency token.** Any code that updates a candidate can now
+>   meet `DbUpdateConcurrencyException` if a merge decision touched that record meanwhile. The
+>   public form and the bulk worker do not catch it (Low, FEATURE-STATUS) — a new writer should.
+> - **Search now matches only the applications that make a candidate reachable** for scoped roles
+>   (the review's M1, pre-existing). Any new read of application text for a Hiring Manager,
+>   Interviewer or Approver needs the same cut: reaching the person is not reading every
+>   application — one person spans departments.
+> - **Candidate audit entries carry ids, never names** (ADR-0027 amendment).
+> - **Migration `AddDistinctCandidatePairs` sets `lock_timeout = 10s`** — it adds a column to
+>   `Candidates`. If startup fails with `55P03`, something held a long transaction on candidates;
+>   restart and it retries. Measured both ways on PostgreSQL 16.
+> - **Still open:** the rest of the Talent pool screen (search, ranking, CV upload — no API yet);
+>   no `/candidates/:id` page, so search results for candidates link nowhere (pre-existing).
+> Lessons: **re-read a reviewer's "pre-existing" finding as a live bug** — the search leak had
+> nothing to do with merging and was real the day the public path started reusing candidates.
+> And **a race fix needs a race**: the stamp was proven with concurrent requests on Postgres, not
+> only the in-memory provider, which runs none of the locking.
 
 > 🔐 **2026-10-19 — governance reach reviewed twice and fixed; the Interviewer role works**
 > (CHANGELOG, ADR-0021 amendment). Every role now has a working first screen. Before upgrading an
@@ -18,7 +39,7 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 > application-level one is private) or check `ApplicationReach.OwnRoundsOnly`. **Settled by the product owner (2026-10-19):** panel
 > access is kept (no expiry), and Hiring Manager / Approver seats see every round of the application.
 > **Open threads:** ~~the Cloudflare real-IP blocker~~ (built 2026-10-21 — `EDGE_PROXY`), ~~a least-privilege
-> MinIO account~~ (built 2026-10-21 — `recruitops-api`; upgrades must add `MINIO_APP_PASSWORD` to `.env`, then rotate `MINIO_PASSWORD`), ~~storage in the backup runbook~~ (`scripts/backup.sh` / `restore.sh`, drill passed 2026-10-21), the candidate merge UI, and the `@mention`
+> MinIO account~~ (built 2026-10-21 — `recruitops-api`; upgrades must add `MINIO_APP_PASSWORD` to `.env`, then rotate `MINIO_PASSWORD`), ~~storage in the backup runbook~~ (`scripts/backup.sh` / `restore.sh`, drill passed 2026-10-21), ~~the candidate merge UI~~ (built 2026-10-21 — `/talent-pool`), and the `@mention`
 > local-part oracle (Low). Policies to know: `PanelAccess` (InternalUser + Interviewer) is for the
 > panel's own endpoints only; `CompanyWide` gates department and approval-chain administration.
 > Lessons from this round:
@@ -64,7 +85,7 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 >   record 4xx/5xx, page errors and `[role=alert]`.
 > - **Phones typed in Burmese digits now match** (2026-10-17, migration
 >   `NormalizeBurmeseDigitPhones`). People it had already split into two candidates stay split
->   until a person merges them (the merge UI is still unbuilt). Before deploying to a large install,
+>   until a person merges them (in the Talent pool since 2026-10-21). Before deploying to a large install,
 >   count what it will rewrite — `SELECT count(*) FROM "Candidates" WHERE "Phone" ~ '[^0-9]'` — and if
 >   that is past ~100k rows, set `Database__AutoMigrateOnStartup=false` and apply it by hand with no
 >   statement timeout; afterwards the same count is 0. Then list the pairs it had already split:
@@ -910,8 +931,8 @@ why someone wants a thing is not a sentence postponing it.
 - Write the **99.9% SLA ADR** before `marketing/landing.html` goes live — it is asserted
   publicly and recorded nowhere.
 - Application-form **file upload** field type — waits on the storage abstraction (ADR-0013).
-- The **merge-two-existing-candidates** UI — drawn in `design/internal/talent-pool.html`,
-  not built.
+- ~~The **merge-two-existing-candidates** UI~~ — built 2026-10-21 (`/talent-pool`). The rest of
+  that screen — candidate search, ranking, CV upload — is drawn but has no API.
 - Verify trigram search against a corpus of **real Burmese CVs**. It runs; nobody has measured
   whether its results are good.
 

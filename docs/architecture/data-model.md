@@ -42,7 +42,8 @@ Cross-cutting: ApprovalChain/Step · IntegrationConfig · RetentionPolicy · Aud
 |---|---|---|
 | `Tenant` → **`Company`** | ✅→⬜ rename | Tenant is now a *company*, not an agency. |
 | `User` | ✅ | Fields built (email, hash, role, active). **Role enum must change** — see auth doc. |
-| `Candidate` | ✅ | Name, email, phone (both normalised for dedup), source, merge ref. Skills/experience arrive with OCR (2.3). |
+| `Candidate` | ✅ | Name, email, phone (both normalised for dedup), source, merge ref (`MergedIntoCandidateId`, always one step) and `MergeStamp` (concurrency token for merge decisions). Skills/experience arrive with OCR (2.3). |
+| `DistinctCandidatePair` | ✅ 2026-10-21 | "Not the same person" for two candidates (Module 2.7): smaller id first (CHECK), unique per pair, who decided. Stops the pair being flagged or merged. |
 | `Application` → **`JobApplication`** | ✅ renamed | Renamed to avoid colliding with the `RecruitOps.Application` namespace (caught by the first compile). Needs stage + **`ApplicationStageHistory`**. `ClientFeedback` dropped. |
 | `Job` → **`JobPosting`** | ✅ | Derives from an approved `Requisition` — **required, unique**. Title/description/location/salary/`ShowSalary`/JSONB form schema. |
 | `JobChannelPost` | 🚧 stub | Repurpose: career page + standalone shareable job page + social. Still unused — the shareable link lives on `PortalLink`. |

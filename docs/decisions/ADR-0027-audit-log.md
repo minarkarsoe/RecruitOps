@@ -95,3 +95,23 @@ not per company, and not readable by the people asking.
 
 Exports, reads of candidate data, requisition decisions (already permanent in the approval
 chain), `[HasPermission]` denials in general, and reads of the audit log itself.
+
+## Amendment, 2026-10-21 — candidate decisions are recorded by id, never by name
+
+Module 2.7 added the first entries about **candidates** rather than colleagues: two records merged
+(`CandidatesMerged`) and two records marked "not the same person" (`CandidatesKeptSeparate`). Both
+are permanent decisions, so both are recorded — but **by record id alone**. The target has no
+name; the summary names no one ("Merged one candidate record into another: 2 applications
+moved."); the details hold the two ids, the applications moved and which blank fields were filled.
+
+Why §4's "snapshot the target's name" does not apply here, from the merge's security review (M2):
+- **A candidate's name is their own data, not a colleague's.** This log is kept forever and cannot
+  be redacted (§1, Consequences), so a name written here outlives any erasure request.
+- **Readers of the log are not all allowed candidate data.** `system:audit` is a permission, and a
+  custom role built on a Hiring Manager, Approver or Interviewer base can hold it; ADR-0003 and
+  ADR-0018 keep those roles away from candidates outside their reach.
+- **Names come from an anonymous form.** A name containing quotes or line breaks could forge the
+  sentence an auditor reads.
+
+To identify the people, an auditor with candidate access looks the ids up. Neither action has a
+category of its own yet; both appear under **All** and the action filter.
