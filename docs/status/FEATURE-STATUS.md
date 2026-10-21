@@ -327,6 +327,10 @@ column on `ApprovalChains` (every existing chain becomes a requisition chain); s
 - Reviewed by `security-reviewer` and `db-schema-reviewer` before commit: no Critical or High;
   every Medium fixed (comments under the salary rule, live-round-only reach, round binding +
   concurrency tokens, the partial unique index, a safe `Down`). The Lows left are in Known gaps.
+- **Browser-checked 2026-10-21** in Chromium on PostgreSQL 16, as all four readers (recruiter,
+  approver, Hiring Manager, Admin). One bug found and fixed there — the editor claimed no offer
+  chain existed while an unsaved raise was on screen (`ApprovalPreview` now comes with every
+  draft).
 
 ### ✅ Foundation
 - .NET 8 Clean Architecture solution: `Domain` / `Application` / `Infrastructure` / `Api` + 2 test projects

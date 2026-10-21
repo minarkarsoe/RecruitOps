@@ -33,6 +33,12 @@ builds everything up to "cleared to send"; sending and the candidate portal are 
 - Reviewed by `security-reviewer` and `db-schema-reviewer` before commit — no Critical or High;
   every Medium fixed; the Lows are in FEATURE-STATUS. Migration `AddOffers` (runbook §3 has the
   application-rollback step). Backend 999 (128 Domain + 871 Api) · frontend 536.
+- **Driven in Chromium against PostgreSQL 16** as recruiter, approver, Hiring Manager and Admin —
+  the migration applied cleanly; create, warn, preview, submit, approve, the hidden salary, and the
+  policy switch both ways all held; 0px sideways scroll at 390px. It found one real bug: with an
+  unsaved raise, the editor said **"No offer approval chain is set up"** while one was — the server
+  only listed the chain when the *saved* terms needed it. It now lists it for every draft. Also
+  fixed: the top bar showed the offer's raw id as a breadcrumb.
 
 ## 2026-10-21 — the landing page fits a phone; the `@mention` oracle stays open, on purpose
 
