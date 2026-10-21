@@ -130,6 +130,14 @@ public class OfferTests : IClassFixture<CustomWebAppFactory>
     public async Task Within_Budget_Needs_No_Approval_And_Over_Budget_Says_So_At_Entry()
     {
         var offer = await DraftAsync(_scenario, Recruiter(), "Offer Budget");
+        await EnsureOfferChainAsync();
+
+        // The editor decides "needs approval" from the terms being typed, before they are saved — so
+        // a Draft within budget still names the chain an unsaved raise would go to. Without it, the
+        // editor told a recruiter there was no offer chain (seen in the browser, 2026-10-21).
+        var draft = await Recruiter().GetFromJsonAsync<OfferDetailDto>($"/api/offers/{offer.Id}");
+        Assert.False(draft!.NeedsApproval);
+        Assert.Equal(new[] { OfferStepLabel }, draft.ApprovalPreview);
 
         var within = await Recruiter().PostAsync($"/api/offers/{offer.Id}/submit", null);
         Assert.Equal(HttpStatusCode.Conflict, within.StatusCode);
@@ -140,7 +148,6 @@ public class OfferTests : IClassFixture<CustomWebAppFactory>
         Assert.True(over.NeedsApproval);
 
         // "Approval this will need", before anything is submitted.
-        await EnsureOfferChainAsync();
         var preview = await Recruiter().GetFromJsonAsync<OfferDetailDto>($"/api/offers/{offer.Id}");
         Assert.Equal(new[] { OfferStepLabel }, preview!.ApprovalPreview);
     }

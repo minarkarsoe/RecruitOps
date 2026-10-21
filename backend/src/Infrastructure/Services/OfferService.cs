@@ -272,8 +272,10 @@ public class OfferService : IOfferService
         if (!show) approvals = approvals.Select(a => a with { Comment = null }).ToList();
 
         // "Approval this will need" — for the people who can submit it, while it can be submitted.
+        // Sent whether or not the saved terms need it: the editor decides that from what is being
+        // typed, and an unsaved raise must not read as "no offer chain is set up".
         IReadOnlyList<string>? preview = null;
-        if (reach.Access == Access.Manage && o.Status == OfferStatus.Draft && needs
+        if (reach.Access == Access.Manage && o.Status == OfferStatus.Draft
             && await OfferChainStepsAsync(row.DepartmentId, ct) is { Count: > 0 } steps)
             preview = steps.Select(s => s.Label).ToList();
 

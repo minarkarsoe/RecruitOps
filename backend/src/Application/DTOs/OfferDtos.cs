@@ -35,8 +35,9 @@ public record OfferListItemDto(
 /// can tell, while terms are being typed, whether bringing the package within budget is enough.</param>
 /// <param name="CanManage">The viewer may edit, submit, revise and delete (recruitment staff). A
 /// display hint; the API re-checks every action.</param>
-/// <param name="ApprovalPreview">For a Draft that needs approval, seen by recruitment staff: the step
-/// labels the offer chain would use if submitted now ("Approval this will need"). Null when not
+/// <param name="ApprovalPreview">For a Draft, seen by recruitment staff: the step labels the offer
+/// chain would use if submitted now ("Approval this will need") — sent even while the saved terms
+/// need no approval, because the editor decides that from the terms being typed. Null when not
 /// applicable — or when no offer chain is configured, which the editor then says.</param>
 public record OfferDetailDto(
     Guid Id,
