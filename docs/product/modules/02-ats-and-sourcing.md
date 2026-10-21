@@ -99,6 +99,40 @@ brackets are ignored, a leading `+95` / `0095` is read as the national `0`, and 
 (၀–၉) are read as 0–9** — a Myanmar keyboard types `၀၉ ၇၆၅ ၄၃၂ ၁၀၀`, and that is the same
 number as `09 765 432 100`. It is stored in that normalised ASCII form, so search finds it too.
 
+#### Merging two records of one person — human-confirmed (2026-10-21)
+
+The public path reuses a matching candidate automatically. Two candidates created **separately**
+(a CV uploaded before the person applied, a match missed before normalisation) are not merged by
+the system — they are **flagged** and a person decides. Drawn in `design/internal/talent-pool.html`
+("Review" → the merge nobody should do blind).
+
+- **Flagged pair:** two candidates, neither already merged, with the same normalised phone or
+  email — and not already marked "not the same person". Shown in the Talent pool with a
+  *Possible duplicate* badge and **Review**. A phone or email on **more than 10** records is a
+  shared line or a placeholder (an office number, a family's one phone), not one person filed ten
+  times, and is not listed pair by pair — fifty records would be 1,225 pairs.
+- **Who:** recruitment staff (Admin, HR Director, Recruiter) — company-wide roles.
+- **Three answers**, because there are three:
+  - **Merge** — the reviewer picks the record to keep. The other's applications move to it, each
+    with its own stage history, interviews, scorecards, notes and CV (a second CV is a second
+    document, not a replacement). The kept record's fields win; a blank there is filled from the
+    other, never the reverse. The merged record keeps a pointer to the kept one, so an old link
+    still resolves. A "not the same person" answer about the merged record carries to the kept one
+    (if A is not C and A is B, B is not C), so nobody is asked twice. **Not reversible**, so it is
+    recorded in the audit log.
+  - **Not the same person** — remembered for that pair, which stops being flagged and can no
+    longer be merged; recorded in the audit log too. Common Burmese names collide and families
+    share a phone; this is the frequent answer, not the edge case.
+  - **Decide later** — nothing changes.
+- **Refused:** merging two records that share no phone or email (the API checks, not just the
+  screen), a record already merged, or a pair marked "not the same person". Two applications to
+  the same posting end up on one candidate — as they already do when a known applicant applies
+  twice through the public path.
+- **Two reviewers at once:** two decisions touching a common record cannot both stand — the second
+  is refused with "changed by someone else a moment ago", and that reviewer reloads.
+- **Audit entries name no one:** both answers are recorded by record id. The log is permanent and
+  cannot be erased, and a candidate's name is their own data, not a colleague's.
+
 ## Entities
 
 - `Candidate`, `CandidateDocument` (raw file + OCR text + parse status)
