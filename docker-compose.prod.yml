@@ -271,8 +271,8 @@ services:
   # CLOUDFLARE_TUNNEL_TOKEN. It shares the proxy's network namespace, so it reaches nginx on
   # 127.0.0.1 — the one address realip/cloudflare-tunnel.conf trusts — and in the Cloudflare
   # dashboard the route is https://127.0.0.1:443 (Origin Server Name = your hostname; not
-  # `localhost`, which may resolve to ::1). With the tunnel up, drop the proxy's published ports in
-  # an override file: nothing needs them.
+  # `localhost`, which may resolve to ::1). With the tunnel up, close 80/443 in the cloud firewall:
+  # nothing needs them. (docker-compose.override.yml is not read alongside `-f` — see the guide.)
   tunnel:
     image: cloudflare/cloudflared:2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
     profiles: ["cloudflare-tunnel"]

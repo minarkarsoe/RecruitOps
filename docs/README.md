@@ -16,7 +16,7 @@ Every change to the product or codebase should leave a trace here.
 > reached by subdomain, hosted on AWS or on the customer's own server
 > ([ADR-0004](decisions/ADR-0004-single-tenant-deployment.md)).
 >
-> **Stack:** .NET 10 LTS modular monolith · PostgreSQL/RDS · Cloudflare R2 · two frontends
+> **Stack:** .NET 10 LTS modular monolith · PostgreSQL/RDS · S3-compatible storage (MinIO; Cloudflare R2 planned for hosted installs, optional) · two frontends
 > (Vite SPA internal + Next.js SSR public).
 >
 > **MVP = Modules 1, 2, 3, 5** ([ADR-0006](decisions/ADR-0006-mvp-scope.md)).

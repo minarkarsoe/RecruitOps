@@ -2,6 +2,14 @@
 
 > **Scope**: Integrating Cloudflare Free Tier services (CDN, DDoS Protection, SSL, Cloudflare Tunnels, and R2 Object Storage) with RecruitOps.
 
+> **Optional — nothing in RecruitOps needs Cloudflare, and nothing in this repo uses it unless an
+> install is configured to.** Nobody has to buy or sign up for anything. Cloudflare entered the project as a plan, not a purchase: ADR-0013 (2026-07-27) chose
+> R2 for *hosted* installs' CV storage because it charges nothing for downloads, and this guide
+> (2026-08-15) describes putting a server behind Cloudflare's free proxy or tunnel. Out of the box
+> every stack in this repo stores CVs in its own MinIO, `EDGE_PROXY` is `none`, and the tunnel
+> container does not start — so an install that never touches Cloudflare is the default, and
+> complete. Everything below applies only to an install whose owner chooses Cloudflare.
+
 ---
 
 ## 1. Why Use Cloudflare with RecruitOps?
@@ -84,9 +92,19 @@ Cloudflare Tunnel lets you close Port 80 and Port 443 on your VPS UFW Firewall c
      Compose restarts it on its own for a `docker compose restart proxy` (measured).
    - ⚠️ Not port 80: it answers only certificate challenges and redirects everything else to
      HTTPS (ADR-0029), so a tunnel pointed there loops.
-4. **Close the ports.** With the tunnel up nothing needs 80/443 published; remove them with a
-   `docker-compose.override.yml` (`services: proxy: ports: !reset []`) or in the cloud provider's
-   firewall. **Docker-published ports bypass UFW** — `ufw deny 443` does not close them.
+4. **Close the ports.** With the tunnel up nothing needs 80/443 published. **Close them in the
+   cloud provider's firewall** — it holds whatever command is typed later.
+   **Docker-published ports bypass UFW** — `ufw deny 443` does not close them.
+   - ⚠️ Not with `docker-compose.override.yml` alone. Compose reads that file only when no `-f` is
+     given, and every command here passes `-f docker-compose.prod.yml` — so the ports stayed open
+     (measured 2026-10-23, Compose v5.6: `config` still listed 80 and 443). This step used to say
+     an override file was enough. If you do use a file, name it and pass it every time:
+     `services: proxy: ports: !reset []` in `docker-compose.no-ports.yml`, then
+     `docker compose -f docker-compose.prod.yml -f docker-compose.no-ports.yml --profile
+     cloudflare-tunnel up -d`. One later `up` without the second `-f` publishes them again.
+     Check: `docker compose -f docker-compose.prod.yml -f docker-compose.no-ports.yml config
+     --format json | grep -o '"published": *"[0-9]*"'` prints nothing (without the second file it
+     prints 80 and 443), and `curl -k https://<server's public IP>` from outside fails.
    - cloudflared verifies the origin's certificate. A Cloudflare Origin certificate is accepted
      as is (its `caPool` setting exists for certificates Cloudflare did not sign); keep **Origin
      Server Name** equal to the hostname the certificate covers. Do not reach for `noTLSVerify`.
@@ -139,21 +157,39 @@ edge address missing from the file puts that edge's visitors back in one bucket.
 failed sign-in sent with a forged `CF-Connecting-IP`: from outside, all three modes record the real
 peer; from loopback, only `cloudflare-tunnel` takes the header; from a peer inside a Cloudflare
 range (a test network numbered `104.16.5.0/24`), `cloudflare` records the visitor's address. Not
-measured against Cloudflare itself. **Go-live check:** from a machine whose public address you
+measured against Cloudflare itself. **Re-measured 2026-10-23** with nginx and the repo's three
+`realip` files: a direct client forging `CF-Connecting-IP` and `X-Forwarded-For` kept its own
+address in every mode; a peer at `173.245.48.7` (inside a published Cloudflare range) was replaced
+by the visitor only under `cloudflare`; loopback only under `cloudflare-tunnel`. **Go-live check:** from a machine whose public address you
 know, sign in once with a wrong password, and confirm Users & Roles → Audit log shows that address.
 nginx's access log records each request's TCP peer (`peer=`) and the header it sent (`cf=`), so a
 forged header from an untrusted peer is visible there too.
 
 ---
 
-### Method C: Cloudflare R2 Object Storage Configuration ([ADR-0013](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docs/decisions/ADR-0013-infrastructure-and-storage.md))
+### Method C: Cloudflare R2 Object Storage Configuration ([ADR-0013](../decisions/ADR-0013-infrastructure-and-storage.md))
 
-Configure `appsettings.json` or `.env` to store uploaded CV resumes in Cloudflare R2:
+⚠️ **Never tried end to end** — no R2 account has been used with RecruitOps. The settings below are
+the ones the code reads (`FileStorageOptions`, section `FileStorage`); this section used to list
+`Storage__*` names, including a `Storage__Provider` that does not exist, which configured nothing.
 
-```env
-Storage__Provider=R2
-Storage__ServiceUrl=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-Storage__AccessKey=<R2_ACCESS_KEY>
-Storage__SecretKey=<R2_SECRET_KEY>
-Storage__BucketName=recruitops-cvs
+They cannot go in `.env`: `docker-compose.prod.yml` sets the API's `FileStorage__*` itself (to the
+bundled MinIO), and `.env` only fills `${…}` placeholders. Put them in a second compose file and
+pass it on every command, as in Method B step 4:
+
+```yaml
+# docker-compose.r2.yml — docker compose -f docker-compose.prod.yml -f docker-compose.r2.yml up -d
+services:
+  backend:
+    environment:
+      FileStorage__ServiceUrl: "https://<ACCOUNT_ID>.r2.cloudflarestorage.com"
+      FileStorage__PublicServiceUrl: "https://<ACCOUNT_ID>.r2.cloudflarestorage.com"
+      FileStorage__Region: "auto"
+      FileStorage__AccessKey: "${R2_ACCESS_KEY}"
+      FileStorage__SecretKey: "${R2_SECRET_KEY}"
+      FileStorage__BucketName: "recruitops-cvs"
 ```
+
+Create the bucket in the Cloudflare dashboard first (the API does not create it), with an API
+token scoped to that bucket only. Backups: see `deployment-runbook.md` §2 — R2 is not covered by
+`scripts/backup.sh`.

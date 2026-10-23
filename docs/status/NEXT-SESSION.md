@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-21 · **Backend 999/999 (128 Domain + 871 Api) · Frontend 536/536 · public 31/31 · typecheck clean · builds clean**
+**Last updated:** 2026-10-23 · **Backend 999/999 (128 Domain + 871 Api) · Frontend 536/536 · public 31/31 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
@@ -89,8 +89,9 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 > variables passed through. **Before deploying to an existing install:** put a certificate in
 > place first — `up` refuses without one. Its security review (no Critical/High) then fixed a
 > renewal procedure that would have failed silently, published secrets the API accepted, and a
-> bucket job that missed prefix-scoped rules — all re-measured. **Open, and a blocker for any
-> Cloudflare install:** the API sees Cloudflare's IP (review L6; the Cloudflare guide says how).
+> bucket job that missed prefix-scoped rules — all re-measured. ~~**Open, and a blocker for any
+> Cloudflare install:** the API sees Cloudflare's IP~~ — **fixed 2026-10-21** (`EDGE_PROXY`,
+> runbook §0c), re-measured 2026-10-23.
 > Lessons, for anyone running the stack:
 > - **Run it, do not read it.** Every one of those five defects was invisible in review and
 >   obvious within minutes of `up`. The prod file had sat "done" since ADR-0015.

@@ -10,8 +10,8 @@ This doc explains the shape; CLAUDE.md states the rules.
   ([ADR-0010](../decisions/ADR-0010-dotnet-10-lts.md))
 - **Database:** **PostgreSQL on AWS RDS** (Npgsql), JSONB for customer-defined fields
   ([ADR-0013](../decisions/ADR-0013-infrastructure-and-storage.md))
-- **Object storage:** **Cloudflare R2** (zero egress) behind an S3-compatible abstraction,
-  so on-premise installs can use MinIO
+- **Object storage:** an S3-compatible abstraction. Every stack in this repo runs **MinIO**;
+  **Cloudflare R2** (zero egress) is ADR-0013's plan for hosted installs — optional, not yet used
 - **Frontend:** **two apps** ([ADR-0012](../decisions/ADR-0012-frontend-split.md)) —
   Vite + React SPA for internal dashboards, Next.js SSR for public job pages (Open Graph
   previews for social sharing) — sharing a design-system package

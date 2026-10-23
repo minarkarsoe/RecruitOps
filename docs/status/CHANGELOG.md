@@ -3,7 +3,29 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-21 (latest) — Module 4 slice A: offers, the budget check, internal approval, the dashboard
+## 2026-10-23 (latest) — Cloudflare: real IP re-measured; the guide stops leaving ports open; Cloudflare is optional
+
+- **The real-IP fix (2026-10-21, `EDGE_PROXY`) still holds**, re-measured with nginx against the
+  repo's three `realip` files: a client forging `CF-Connecting-IP` and `X-Forwarded-For` keeps its
+  own address in every mode; a Cloudflare-range peer is replaced by the visitor only under
+  `cloudflare`, loopback only under `cloudflare-tunnel`. The Cloudflare address list still needs
+  refreshing with `update-cloudflare.sh` before an install goes live behind Cloudflare —
+  cloudflare.com cannot be reached from here.
+- **The tunnel setup left ports 80 and 443 open.** The guide said a `docker-compose.override.yml`
+  closes them, but Compose reads that file only when no `-f` is given, and every command passes
+  `-f docker-compose.prod.yml` (measured). It now says to close them in the cloud firewall, or to
+  pass a named second file on every command, and how to check. The compose comment said the same
+  and is corrected.
+- **Its R2 section configured nothing**: `Storage__*` names (and a `Storage__Provider`) the code
+  never reads, put in `.env`, which does not reach the API's settings. Now `FileStorage__*` in a
+  second compose file (checked with `docker compose config`), marked as never tried end to end.
+- **Cloudflare is optional, and the docs now say so.** It entered as a plan — ADR-0013 chose R2
+  for hosted installs' CVs (no download fees), and the 2026-08-15 guide describes Cloudflare's free
+  proxy and tunnel — never as a purchase. Every stack in the repo runs MinIO, `EDGE_PROXY` defaults
+  to `none`, and the tunnel does not start unless asked. CLAUDE.md, the docs index and the
+  architecture overview listed "Cloudflare R2" as the storage, which read as if it were in use.
+
+## 2026-10-21 — Module 4 slice A: offers, the budget check, internal approval, the dashboard
 
 Module 4 starts ([ADR-0030](../decisions/ADR-0030-offer-management.md)). The product owner settled
 four questions first: a **typed name + consent** signature (no provider), a **link plus a 6-digit
