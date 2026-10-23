@@ -298,21 +298,38 @@ cannot read: `DELETE FROM "OutboundMessages" WHERE "Kind" IN ('OfferAccessCode',
 acceptance is recorded: archive `OfferSignatures` (e.g. `pg_dump -t '"OfferSignatures"'`), delete
 its rows, then run `dotnet ef database update AddOffers` by hand — startup never runs a `Down`.
 
-**Upgrading past 2026-10-23 (pre-boarding documents, ADR-0030 §5b):** nothing to set before the
-upgrade. Afterwards an Admin sets the **IT and Admin handoff addresses** under Approval chains →
-Pre-boarding — until then nobody is told when a new starter's documents are approved, and the
-pre-boarding screen says "Not set up". Candidates' files go to the existing private bucket under
-`preboarding/`, so **they are in the storage backup** (`scripts/backup.sh`) with the CVs: NRC scans
-and bank books — treat the backup accordingly. The SPA's CSP gains `blob:` images and frames and two
-hashed inline styles for the document viewer (`frontend/internal/nginx.conf`); a proxy that sets its
-own CSP in front of the SPA must carry the same. **Rolling back past `AddPreboarding`:** an
-application-only rollback needs nothing (the new columns are nullable or defaulted), but clear the
-new outbox kinds first: `DELETE FROM "OutboundMessages" WHERE "Kind" IN ('PreboardingHandoff',
-'PreboardingSubmitted', 'PreboardingReturned', 'PreboardingReminder') AND "Status" = 'Pending';`.
-Rolling the **database** back refuses while any document is recorded: those rows name every NRC
-scan in storage. Delete the objects under `preboarding/` and the rows of `PreboardingFiles` and
-`PreboardingDocuments` (after archiving them if the documents must be kept), then run `dotnet ef
-database update AddOfferPortal` by hand.
+**Upgrading past 2026-10-23 (pre-boarding documents, ADR-0030 §5b):** PostgreSQL 13 or later
+(the migration's backfill uses `gen_random_uuid()`; the bundled stack runs 16). Nothing to set before
+the upgrade. Afterwards:
+- an Admin sets the **IT and Admin handoff addresses** under Approval chains → Pre-boarding — until
+  then nobody is told when a new starter's documents are approved, and the review screen says "Not set
+  up";
+- **custom roles hold none of the three new permissions** (`permission:offers:preboarding:read`,
+  `:review`, `:reveal`); the system Admin, HR Director and Recruiter roles get them at startup. Grant
+  them in the Role Builder to any custom role that should see joining documents;
+- candidates' files go to the existing private bucket under `preboarding/`, so **they are in the
+  storage backup** (`scripts/backup.sh`) with the CVs — NRC scans and bank books: treat the backup
+  accordingly;
+- the SPA's CSP gains `blob:` images and frames and two hashed inline styles for the document viewer
+  (`frontend/internal/nginx.conf`); a proxy that sets its own CSP in front of the SPA must carry the same.
+
+**Rolling back past `AddPreboarding`** — prefer rolling forward; the older release cannot read what
+this one wrote:
+- *Application only:* stop the new API first. Then delete the new outbox kinds, **every status** — one
+  pending row stalls the older worker's claim and any row breaks its delivery log:
+  `DELETE FROM "OutboundMessages" WHERE "Kind" IN ('PreboardingHandoff', 'PreboardingSubmitted',
+  'PreboardingReturned', 'PreboardingReminder');`. The audit log keeps any `PreboardingDocumentOpened`,
+  `PreboardingBankNumberRevealed` or `PreboardingSettingsChanged` entries — it is append-only by
+  trigger, and they must stay — so the older release's audit-log pages that include them will fail.
+  Do not disable the trigger; roll forward. Offers accepted while the older release ran get their
+  pre-boarding record on first use after re-upgrading.
+- *Database:* stop the API and take a `pg_dump`. `Down` refuses while any document is recorded — those
+  rows name every NRC scan in storage. Copy the objects under `preboarding/` if the documents must be
+  kept, delete them from the bucket, delete the rows of `PreboardingFiles` then `PreboardingDocuments`,
+  and run `dotnet ef database update AddOfferPortal` against that company's own database. `Down` also
+  drops the requests and the company's pre-boarding settings (the IT/Admin addresses and the required
+  set) — re-enter them after re-upgrading; the backfill rebuilds the requests from the company's
+  default.
 
 ---
 

@@ -373,6 +373,48 @@ first** (2026-10-23) and the product owner chose a printable web letter over a P
   without its email). Driven end to end through the production nginx config on PostgreSQL 16:
   send → emailed link → code → letter → sign → copy and notice; decline with a reason; the races.
 
+### ✅ Module 4 — slice C: joining documents, their review, the IT/Admin handoff (2026-10-23)
+
+Decisions: ADR-0030 §5b (written before the code, then corrected by both reviews). Screens drawn first
+(2026-10-23): `offer-portal.html` `#documents` redrawn and `#documents-sent` added,
+`preboarding-review.html` updated, a Pre-boarding section in `settings-integrations.html` — sent to the
+product owner for review. Migration `AddPreboarding` — three columns on `Companies`, tables
+`PreboardingRequests`, `PreboardingDocuments`, `PreboardingFiles`; backfills accepted offers; its `Down`
+refuses while any document exists.
+
+- **Candidate** (`frontend/public/app/offer/[token]/Documents.tsx`): signing leads straight on to NRC
+  front and back, typed bank details plus a bank-book photo, education certificates (up to 5), a
+  staff-card photo — saved as each uploads; a document sent back shows the recruiter's words; "Send for
+  checking". Open until the joining date, at most 90 days after accepting. `GET/POST/PUT/DELETE
+  /api/public/offers/{token}/documents…` — session-gated, and an upload is refused before its body is
+  read without one. Files typed by their first bytes (JPEG/PNG/PDF; the photo no PDF), 10 MB, stored
+  as `preboarding/{offer}/{file}`, deleted when replaced; nothing is ever served back.
+- **Recruiter** (`/offers/{id}/preboarding`, from the dashboard's accepted rows): each document opens
+  in a viewer dialog from an object URL — **audited before it is sent**; the account number masked
+  until an audited Reveal; Approve or Reject-with-a-message, bound to the revision shown; Remind once a
+  day; the handoff — what goes to IT and Admin, to which address, held until every required document
+  is approved. `permission:offers:preboarding:read` / `:review` / `:reveal` on top of the
+  RecruitmentStaff policy. Settings (required items, the two addresses) beside Offer policy, audited.
+- **Handoff:** queued in the same transaction as the last required approval (the request's version
+  serialises approvals); IT gets name, position, date; Admin also department and the approved photo,
+  attached (`EmailMessage` attachments, `System.Net.Mail`). No salary, NRC or bank details.
+- **Emails:** documents sent (to the creating recruiter, at most hourly), a document sent back and a
+  reminder (to `SentToEmail`, with the link), the two handoffs. The delivery log shows department-scoped
+  viewers "The recruiter who made the offer" / "The IT or Admin team", not addresses.
+- Tests: `PreboardingTests` (21), `PreboardingRulesTests` (Domain, 40), `Documents.test.tsx` (public,
+  8), `PreboardingPage.test.tsx` (12), `PreboardingSettingsCard.test.tsx` (3), `upload()` (2).
+- Reviewed by `security-reviewer` and `db-schema-reviewer`: no Critical or High, no blockers. Fixed:
+  the handoff could be lost between two commits (M3/M1 — now one transaction); the Role Builder could
+  not withhold documents from a Recruiter-based custom role (M1 — three permissions); the accepted link
+  had no upper bound (M2 — 90 days after accepting); accepted offers without a request row (M2 — created
+  on first use); the rollback runbook (M3); unauthenticated upload buffering, orphaned objects and a
+  surrogate-splitting file name, recruiter-inbox flooding, handoff addresses in the delivery log, a
+  viewer race, an unindexed lookup, Down's guard lock, the model-side default.
+- Driven end to end through the production nginx config on PostgreSQL 16 and MinIO: settings, sign →
+  documents (a disguised SVG refused), send for checking, the viewer (image and PDF, no CSP reports),
+  reveal, send back in Burmese and English, fix, approve, handoff emails with the photo attached; a
+  Hiring Manager's 403; parallel uploads (one live file, one object) and simultaneous last approvals.
+
 ### ✅ Foundation
 - .NET 8 Clean Architecture solution: `Domain` / `Application` / `Infrastructure` / `Api` + 2 test projects
 - Next.js App Router frontend; Tailwind theme encoding the full "Clear Pipeline" token set
@@ -626,6 +668,9 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | **A candidate's documents cannot be deleted from the product** | 🟡 Medium | NRC scans and bank books stay in the bucket and the database until someone removes them by hand; the portal tells candidates they can ask. Needs the retention screen (Module 7.4, `settings-integrations.html`) or at least a staff "delete documents" action — not drawn. Runbook §3 says how by hand |
 | Bank account numbers are stored as typed | 🟢 Low | Masked in every response and revealed only through an audited action, but plain in the database and its backups (ADR-0030 §5b, accepted risk): column encryption needs a key that survives rotating `Jwt:Key`, which does not exist |
 | Uploaded photos keep their metadata | 🟢 Low | A phone photo of an NRC may carry the location it was taken at. Stripping it needs image processing (and loses orientation); not done |
+| PDFs are shown in a frame on the SPA's own origin | 🟢 Low | Chrome's PDF viewer is isolated from the page; Firefox's PDF.js runs as the page, so a PDF.js flaw in an out-of-date Firefox could reach the session token (security review, L5). Serving documents from a separate, token-less origin is the stronger fix |
+| Uploaded images are not decoded on upload | 🟢 Low | Typed by their first bytes only; an image declaring enormous dimensions could stall the reviewing recruiter's tab (security review, L7). Checking the header's dimensions needs no package |
+| Approving and sending back a document are not in the audit log | 🟢 Low | Who and when are on the document itself (`ReviewedBy`, `ReviewedAt`) and the emails in the delivery log; opening and revealing are audited |
 | The staff-card photo travels only if approved before the handoff | 🟢 Low | The Admin email reads the photo when it is sent; a photo approved afterwards never reaches Admin. The review screen warns while that is still avoidable |
 | A link holder can spend the day's codes | 🟢 Low | Security review M2 residual, accepted (ADR-0030 §5a): five code requests a day per offer, and a forwarded link's holder can use them up — every code still reaches the candidate, who may then wait until the 24-hour window rolls. No staff action clears it yet |
 | A sent offer cannot be withdrawn | 🟢 Low | Not in slice B. A wrong offer sent can only be left to expire; it cannot be pulled back or corrected |

@@ -73,13 +73,14 @@ candidate submits.
   **NRC (front and back), bank account details, education certificates, profile photo** (for
   the employee card). Which fields are **required is configurable in System Settings**.
   As built (ADR-0030 §5b): signing leads straight to the documents; the link takes them until the
-  end of the joining date; bank details are **typed** (bank, name on the account, number) with a
+  end of the joining date (at most 90 days after accepting); bank details are **typed** (bank, name on the account, number) with a
   photo of the bank book to check them against; files are JPG, PNG or PDF up to 10 MB, saved as
   they upload; "Send for checking" tells the recruiter. Required or optional is set per company and
   fixed on the offer when it is accepted. Screens: `offer-portal.html` `#documents`,
   `#documents-sent` (redrawn 2026-10-23).
 - **Recruiter review** (`design/internal/preboarding-review.html`): recruitment staff only — Hiring
-  Managers do not see documents at all. Each document is opened one at a time, and opening it is
+  Managers do not see documents at all — with three permissions the Role Builder can withhold:
+  `offers:preboarding:read`, `:review` and `:reveal`. Each document is opened one at a time, and opening it is
   recorded in the audit log; the account number is masked until revealed, and revealing is recorded.
   Each document is approved or **sent back with a message the recruiter writes** to the candidate
   (emailed, and shown on the portal); "Remind" emails what is still missing, once a day.

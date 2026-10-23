@@ -193,17 +193,24 @@ point to, and is cheap to change.
   first page; the recruiter checks one against the other and payroll gets the number exactly. The number
   is **masked to its last four digits in every response**, the candidate's own included; the one way to
   read it whole is **Reveal**, which is written to the audit log first.
-- **The window: from acceptance to the end of the joining date** in the company's time zone. An accepted
-  offer's link now stays open until the later of its reply-by date and its joining date (§5a closed it at
-  the reply-by date). **Accepting no longer ends the session**: signing leads straight to the documents,
-  inside the same 30-minute session; declining still ends it. After the joining date nothing can be
-  uploaded or changed.
+- **The window: from acceptance to the end of the joining date — or 90 days after accepting, whichever
+  comes first** — in the company's time zone. An accepted offer's link stays open until the later of its
+  reply-by date and that last day (§5a closed it at the reply-by date). The 90-day cap is the security
+  review's (M2): the joining date has no upper bound, and the link's life is what a guesser holding a
+  forwarded link has to work with — at most 90 days unanswered plus 90 accepted, 25 guesses a day, a
+  0.45% chance. **Accepting no longer ends the session**: signing leads straight to the documents, inside
+  the same 30-minute session; declining still ends it. After the last day nothing can be uploaded or
+  changed. An offer accepted before this release — or by an older release still running — gets its
+  request on first use, from the company's current choice.
 - **Files.** JPEG, PNG or PDF, decided by the file's **first bytes**, never its name or declared type;
   the staff-card photo JPEG or PNG only; **10 MB** each. Stored in the existing private bucket under
   `preboarding/{offer}/{file}` — no name the candidate chose is in the key — with the content type the
   server detected. The candidate's file name is kept for display only (one line, 200 characters). A
   replaced or removed file's object is deleted and its row kept, marked removed. Nothing is ever served
   back to the candidate, and no storage URL is ever issued.
+- **An upload is refused before its body is read** unless the request carries a live session (a resource
+  filter, ahead of model binding) — otherwise anyone could make the server take in 10 MB per request
+  (security review, L1). An object whose row fails to save, for any reason, is deleted again.
 - **Every change to a document is compare-and-set** on its `Revision`: an upload, a removal, saving bank
   details, an approval, a return. The recruiter's approve or return carries the revision they were shown,
   so **nobody approves a file they did not see**; two uploads to one document at once — one wins, the
@@ -211,13 +218,19 @@ point to, and is cheap to change.
   no un-approve.
 - **"Send for checking"** needs every required item complete and none sent back unchanged, and something
   changed since the last time. It emails the recruiter who created the offer, if they are still active
-  recruitment staff (as for the answer notice, §5a) — once per change, so a candidate cannot flood them.
+  recruitment staff (as for the answer notice, §5a) — **at most once an hour**, however often the button
+  is pressed (security review, L4); the review screen shows the rest.
 - **Documents open in a viewer, never as a download** — no copy lands in the recruiter's Downloads
   folder. The SPA fetches the file with the recruiter's token and shows it from an object URL, so its CSP
   allows `blob:` images and frames, and — because a blob document inherits that policy — exactly the two
   inline style values Chrome's PDF viewer wrapper uses, by hash (`frontend/internal/nginx.conf`).
-- **Review is recruitment staff only.** A Hiring Manager, an approver or an interviewer gets a 404 — the
-  design's "the correct variant is absence". **Opening a file and revealing the account number are
+- **Review is recruitment staff only, and a permission per action.** A Hiring Manager, an approver or an
+  interviewer is refused at the role policy (403) — the design's "the correct variant is absence". On top,
+  `permission:offers:preboarding:read` (see and open), `:review` (approve, send back, remind) and
+  `:reveal` (the whole account number), granted to Admin, HR Director and Recruiter by default — so the
+  Role Builder can withhold NRC scans and bank numbers from a trimmed custom role whose base is Recruiter
+  (security review, M1). A custom role made before this release holds none of them until an Admin grants
+  them. **Opening a file and revealing the account number are
   written to the audit log before the data leaves** (`PreboardingDocumentOpened`,
   `PreboardingBankNumberRevealed`; the candidate by id, ADR-0027): if the entry cannot be written, nothing
   is sent. Files are sent with the detected type, `nosniff` and `no-store`, as attachments.
@@ -228,9 +241,13 @@ point to, and is cheap to change.
   the document on the portal until the candidate changes it.
 - **Remind** emails the candidate the required items still missing or sent back, at most once per 24
   hours (a compare-and-set on `PreboardingRequest.RemindedAt`, as offer reminders).
-- **The handoff fires once, when the last required document is approved** — checked after each approval
-  commits, so two recruiters approving the last two documents at the same moment cannot both miss it, and
-  claimed with a compare-and-set on `PreboardingRequest.HandoffAt` so it cannot fire twice. One email per
+- **The handoff fires once, with the approval of the last required document, in the same transaction.**
+  Every approval bumps `PreboardingRequest.Version` (the request's one concurrency token), so of two
+  approvals of the last two documents at the same moment one commits and the other is refused and
+  retried — and the retry sees both. The first version decided it in a second step after the approval
+  committed; a crash or a dropped connection between the two lost the handoff for good (security and
+  database reviews, M3/M1). A company must require at least one document, or there would be nothing for
+  the handoff to wait for. One email per
   team **with an address set** (`Company.ItHandoffEmail`, `AdminHandoffEmail`): **IT** gets the name,
   position and joining date; **Admin** gets the name, department and joining date, and the staff-card
   photo **attached, if one was approved** by the time the email is sent (`EmailMessage` gains
@@ -242,7 +259,17 @@ point to, and is cheap to change.
   the offer policy. **Changing them is audited** (`PreboardingSettingsChanged`): the addresses decide where
   a new employee's photo goes. In the app the card sits on Approval chains beside Offer policy until
   System Settings is built.
-- **Accepted risks and what is not built, reviewed 2026-10-23:**
+- **Accepted risks and what is not built, reviewed 2026-10-23** (security and database reviews; their
+  Mediums and the cheap Lows are fixed above):
+  - The session kept after accepting lasts its 30 minutes: someone at the same browser in that time can
+    replace an unapproved document or the typed bank details. Nothing is ever shown back, the number is
+    masked, and the recruiter checks the typed details against the bank-book photo and the name against
+    the NRC before approving.
+  - PDFs are shown in a frame on the SPA's origin. Chrome's viewer is isolated from the page; Firefox's
+    runs as the page, so a PDF.js flaw in an out-of-date Firefox could reach the session token. Keep
+    browsers current; a separate document origin is the stronger fix, not built.
+  - Images are checked by their first bytes, not decoded: one declaring enormous dimensions could stall
+    the reviewing tab.
   - The account number is stored as typed, protected like the rest of the database and its backups;
     there is no column encryption, because no key exists that survives rotating the install's JWT key.
   - Photos keep their metadata, including a location if the phone recorded one; stripping it would also

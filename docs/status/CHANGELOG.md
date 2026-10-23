@@ -42,6 +42,15 @@ the two addresses, are set by an Admin beside Offer policy.
 - **Not built (FEATURE-STATUS):** deleting a candidate's documents (retention, Module 7.4 — the
   portal's promise is kept by hand until then), HRMS export (add-on), moving the application to
   Hired, photo metadata stripping.
+- **Reviewed** by `security-reviewer` and `db-schema-reviewer` — no Critical, High or blocker — and
+  fixed the same day: the handoff is now decided **in the approval's own transaction** (a second step
+  after the commit could be lost to a crash); **three permissions** (`offers:preboarding:read`,
+  `:review`, `:reveal`) so the Role Builder can withhold documents from a Recruiter-based custom role;
+  documents close **90 days after accepting** at the latest (the joining date has no upper bound); an
+  upload is refused **before its body is read** without a live session; any object whose row fails to
+  save is deleted; the recruiter is emailed at most hourly; handoff addresses are hidden from
+  department-scoped viewers of the delivery log; accepted offers without a request row get one on
+  first use; the rollback runbook rewritten. Re-measured end to end on PostgreSQL 16 and MinIO.
 
 ## 2026-10-23 — Module 4 slice B: offers reach the candidate, who unlocks, signs or declines
 

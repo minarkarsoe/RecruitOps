@@ -1,12 +1,43 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-23 · **Backend 1043/1043 (147 Domain + 896 Api) · Frontend 547/547 · public 43/43 · typecheck clean · builds clean**
+**Last updated:** 2026-10-23 · **Backend 1104/1104 (187 Domain + 917 Api) · Frontend 562/562 · public 53/53 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
 · All seven modules have a drawn UI (26 screens)
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
+
+> 📎 **2026-10-23 — Module 4 slice C built: joining documents, their review, the IT/Admin handoff**
+> (ADR-0030 §5b). **Module 4's core is done.** After signing, the candidate uploads NRC, typed bank
+> details plus a bank-book photo, certificates and a staff-card photo on the same link; recruiters
+> review them at `/offers/{id}/preboarding`; the last required approval emails IT and Admin once.
+> ⚠️ **The product owner has not yet confirmed** the drawings or the three "to confirm" points in §5b
+> (bank details typed + photo; no translation of the recruiter's message; email only) — screenshots
+> were sent 2026-10-23. Things to know:
+> - **The handoff is decided in the approval's own transaction.** `PreboardingRequest.Version` is bumped
+>   by every approval, so approvals of one offer serialise; the loser is told to reload. Do not move the
+>   handoff into a second step after the commit — that was the first version, and a crash between the
+>   two lost it for good (both reviews).
+> - **Three permissions** (`permission:offers:preboarding:read` / `:review` / `:reveal`) sit on top of
+>   the RecruitmentStaff policy. Custom roles made before 2026-10-23 hold none of them (runbook §3).
+> - **Documents open in a viewer from an object URL**, so the SPA's CSP allows `blob:` images and
+>   frames, and two hashed inline styles for Chrome's PDF viewer — a blob document inherits the page's
+>   CSP, and without them a PDF shrinks to a 150px strip. Measured on Chromium 141.
+> - **Anonymous uploads are refused before the body is read** (`PortalSessionFilter`, a resource
+>   filter). A non-multipart body never reaches that action at all (its inferred `Consumes`), so a
+>   test that posts plain text gets the fallback policy's 401, not the filter's — test with a
+>   multipart body that lacks the file.
+> - **Still open:** deleting a candidate's documents (retention, 7.4 — the portal promises it; done by
+>   hand per runbook §3); PDFs on the SPA origin (Firefox PDF.js, Low); image dimensions not checked
+>   (Low). Next for Module 4: the HRMS export (add-on, ADR-0007) or withdrawing a sent offer.
+> Lessons:
+> - **`beforeEach(() => mock.mockReset())` returns the mock, and Vitest runs a returned function as a
+>   teardown** — a rejecting mock then fails the test after it passed. Use a block body.
+> - **A test clock that never ticks makes "changed since" comparisons lie**: a send and the next
+>   upload at the same instant. Tick it, as the slice B tests do between codes.
+> - **Run the viewer through the real CSP.** Unit tests and the dev server have none; only the SPA's
+>   nginx config showed the PDF wrapper's inline styles being blocked.
 
 > ✉️ **2026-10-23 — Module 4 slice B built: offers reach the candidate** (ADR-0030 §5a). Send →
 > emailed link → 6-digit emailed code → letter → typed-name signature or decline → copy and recruiter
