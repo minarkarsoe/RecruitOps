@@ -71,7 +71,7 @@ sequenceDiagram
 
 ## 2. Requisition Revise & Resubmit Workflow
 
-When a requisition is rejected by any approver in the sequential chain, it follows a strict non-destructive revision workflow ([PROJECT.md](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/PROJECT.md)):
+When a requisition is rejected by any approver in the sequential chain, it follows a strict non-destructive revision workflow ([PROJECT.md](../../PROJECT.md)):
 
 ```mermaid
 flowchart TD
@@ -120,7 +120,7 @@ flowchart LR
 
 ## 4. Production Container Infrastructure Topology
 
-The production container infrastructure ([docker-compose.prod.yml](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docker-compose.prod.yml)) enforces reverse proxy traffic routing and dropped direct host ports for zero-trust security:
+The production container infrastructure ([docker-compose.prod.yml](../../docker-compose.prod.yml)) enforces reverse proxy traffic routing and dropped direct host ports for zero-trust security:
 
 ```mermaid
 graph TD

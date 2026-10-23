@@ -8,7 +8,7 @@
 
 ## 1. VPS Recommended Hardware Sizing
 
-Select the appropriate VPS plan based on company headcount and expected resume upload volume ([server-sizing-guide.md](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docs/architecture/server-sizing-guide.md)):
+Select the appropriate VPS plan based on company headcount and expected resume upload volume ([server-sizing-guide.md](server-sizing-guide.md)):
 
 | Company Size Tier | Employee Count | Recommended vCPU | Recommended RAM | NVMe SSD Storage | Est. Monthly VPS Cost |
 |---|---|---|---|---|---|
@@ -103,7 +103,7 @@ FeatureFlags__EnableFullTextSearch=true
 
 ### Step 4: Launch Production Docker Stack
 
-Execute Docker Compose using the production profile ([docker-compose.prod.yml](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docker-compose.prod.yml)):
+Execute Docker Compose using the production profile ([docker-compose.prod.yml](../../docker-compose.prod.yml)):
 
 ```bash
 # Launch containers in background

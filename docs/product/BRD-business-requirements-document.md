@@ -2,8 +2,8 @@
 
 > **Document Version**: 1.0.0  
 > **Target Release**: v1.0 Production Readiness  
-> **Architecture Standard**: Single-Tenant Per-Company Deployment ([ADR-0004](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docs/decisions/ADR-0004-single-tenant-deployment.md))  
-> **Licensing & Feature Gating**: Add-on & Tier Gating Engine ([ADR-0007](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docs/decisions/ADR-0007-productization-and-addons.md))
+> **Architecture Standard**: Single-Tenant Per-Company Deployment ([ADR-0004](../decisions/ADR-0004-single-tenant-deployment.md))  
+> **Licensing & Feature Gating**: Add-on & Tier Gating Engine ([ADR-0007](../decisions/ADR-0007-productization-and-addons.md))
 
 ---
 
@@ -35,7 +35,7 @@ Unlike generic ATS tools built exclusively for HR recruiters, RecruitOps treats 
 
 ## 3. SaaS Commercial Licensing & Tiering Model
 
-RecruitOps operates on a **Modular Add-on Licensing Model** ([ADR-0007](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docs/decisions/ADR-0007-productization-and-addons.md)). Every customer receives the Core Platform, while advanced features are dynamically gated via Feature Flags.
+RecruitOps operates on a **Modular Add-on Licensing Model** ([ADR-0007](../decisions/ADR-0007-productization-and-addons.md)). Every customer receives the Core Platform, while advanced features are dynamically gated via Feature Flags.
 
 ```mermaid
 graph TD
@@ -71,12 +71,12 @@ graph TD
 ## 4. Multi-Tenancy & Data Security Governance
 
 > [!IMPORTANT]
-> **Single-Tenant Infrastructure Mandate ([ADR-0004](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docs/decisions/ADR-0004-single-tenant-deployment.md))**  
+> **Single-Tenant Infrastructure Mandate ([ADR-0004](../decisions/ADR-0004-single-tenant-deployment.md))**  
 > To satisfy enterprise security requirements and eliminate cross-tenant data leaks, each company client is deployed in a physically isolated application container and PostgreSQL database instance. Subdomain routing (e.g., `company-a.recruitops.com`) enforces tenant identity.
 
 ### Security & Compliance Architecture:
 1. **Tenant Data Isolation**: Database-level separation preventing any shared schema vulnerabilities.
-2. **Department Scoping ([ADR-0003](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docs/decisions/ADR-0003-department-scoping.md))**: Department Hiring Managers are strictly restricted to requisitions, candidates, and scorecards associated with their assigned department.
+2. **Department Scoping ([ADR-0003](../decisions/ADR-0003-department-scoping.md))**: Department Hiring Managers are strictly restricted to requisitions, candidates, and scorecards associated with their assigned department.
 3. **Data Retention & PDPA/GDPR Compliance**:
    - **Automated Retention**: Candidate profiles and resumes are retained for a maximum of 2 years (configurable per company policy).
    - **Right-to-be-Forgotten**: Candidates can request profile deletion via public application link; recruiters can execute hard deletion purging database records and MinIO/R2 stored documents.
@@ -88,9 +88,9 @@ graph TD
 
 | Requirement Area | Production Standard / Metric | Verification Status |
 |---|---|---|
-| **Service Level Agreement (SLA)** | 99.9% Uptime Guarantee | Enforced via Docker Compose Production Topology ([docker-compose.prod.yml](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docker-compose.prod.yml)) |
+| **Service Level Agreement (SLA)** | 99.9% Uptime Guarantee | Enforced via Docker Compose Production Topology ([docker-compose.prod.yml](../../docker-compose.prod.yml)) |
 | **Database Migration Safety** | Idempotent EF Core startup auto-migration | Verified (`InitialCreate` through `AddCvIngestionAndAiProfileFields`) |
-| **Backup & Disaster Recovery** | Daily automated PostgreSQL `pg_dump` backups with 30-day retention | Documented in [deployment-runbook.md](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docs/architecture/deployment-runbook.md) |
-| **API Health & Version Metadata** | Public `/health` and `/api/version` endpoints | Built & Tested ([VersionController.cs](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/backend/src/Api/Controllers/VersionController.cs)) |
-| **Hardware Sizing** | Small (<50 staff), Medium (50-500 staff), Enterprise (>500 staff) | Documented in [server-sizing-guide.md](file:///c:/Users/Min%20Arkar%20Soe/Desktop/Freelance_Project/RecruitOps/docs/architecture/server-sizing-guide.md) |
+| **Backup & Disaster Recovery** | Daily automated PostgreSQL `pg_dump` backups with 30-day retention | Documented in [deployment-runbook.md](../architecture/deployment-runbook.md) |
+| **API Health & Version Metadata** | Public `/health` and `/api/version` endpoints | Built & Tested ([VersionController.cs](../../backend/src/Api/Controllers/VersionController.cs)) |
+| **Hardware Sizing** | Small (<50 staff), Medium (50-500 staff), Enterprise (>500 staff) | Documented in [server-sizing-guide.md](../architecture/server-sizing-guide.md) |
 | **Automated Test Inventory** | 100% Backend & Frontend Test Suite Execution | **510 Backend Tests Passed**, **318 Frontend Tests Passed**, **0 TypeScript Errors** |

@@ -3,7 +3,14 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-23 (latest) — Cloudflare: real IP re-measured; the guide stops leaving ports open; Cloudflare is optional
+## 2026-10-23 (latest) — dead `file:///` links in the docs now point inside the repo
+
+14 links in the BRD, the end-to-end workflow, the VPS guide and the Cloudflare guide pointed at a
+folder on one Windows PC (`file:///c:/Users/…/RecruitOps/…`), so they opened nothing on GitHub or
+any other machine. Each is now a relative link to the same file, and every link in those four files
+was checked to resolve. The `file:///` lines left in NEXT-SESSION are a Chrome command, not links.
+
+## 2026-10-23 — Cloudflare: real IP re-measured; the guide stops leaving ports open; Cloudflare is optional
 
 - **The real-IP fix (2026-10-21, `EDGE_PROXY`) still holds**, re-measured with nginx against the
   repo's three `realip` files: a client forging `CF-Connecting-IP` and `X-Forwarded-For` keeps its
