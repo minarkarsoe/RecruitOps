@@ -38,6 +38,15 @@ public static class Preboarding
     /// <summary>The shortest gap between two reminders.</summary>
     public static readonly TimeSpan ReminderInterval = TimeSpan.FromHours(24);
 
+    /// <summary>The shortest gap between two "documents sent" emails to the recruiter: a candidate pressing
+    /// "Send for checking" after every change cannot fill their inbox (security review, 2026-10-23, L4).</summary>
+    public static readonly TimeSpan NotifyInterval = TimeSpan.FromHours(1);
+
+    /// <summary>However far off the joining date, documents can be sent for at most this long after
+    /// accepting: the link reaches identity documents, and its life is what a guesser holding a forwarded
+    /// link has to work with (security review, 2026-10-23, M2).</summary>
+    public const int MaxDaysAfterAcceptance = 90;
+
     public static PreboardingItems ItemOf(PreboardingDocumentKind kind) => kind switch
     {
         PreboardingDocumentKind.NrcFront or PreboardingDocumentKind.NrcBack => PreboardingItems.Nrc,
@@ -97,7 +106,13 @@ public static class Preboarding
         var bare = (name ?? string.Empty).Replace('\\', '/');
         bare = bare[(bare.LastIndexOf('/') + 1)..];
         var clean = new string(OfferLetter.OneLine(bare).Where(c => !char.IsControl(c) && CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.Format).ToArray()).Trim();
-        if (clean.Length > MaxFileNameLength) clean = clean[..MaxFileNameLength];
+        if (clean.Length > MaxFileNameLength)
+        {
+            // Never between the two halves of a surrogate pair: a lone half is not valid UTF-8, and the
+            // database refuses it after the file is already in storage.
+            var cut = char.IsHighSurrogate(clean[MaxFileNameLength - 1]) ? MaxFileNameLength - 1 : MaxFileNameLength;
+            clean = clean[..cut];
+        }
         return clean.Length == 0 ? "file" : clean;
     }
 
@@ -144,13 +159,21 @@ public static class Preboarding
 
     private static bool IsBidiControl(char c) => c is (>= '\u202A' and <= '\u202E') or (>= '\u2066' and <= '\u2069');
 
-    /// <summary>Documents can be sent and changed until the end of the joining date, in the company's time
-    /// zone.</summary>
-    public static bool IsWindowOpen(DateOnly joiningDate, DateTimeOffset now, string? timeZoneId) =>
-        OfferPortal.Today(now, timeZoneId) <= joiningDate;
+    /// <summary>The last day documents can be sent or changed: the joining date, or
+    /// <see cref="MaxDaysAfterAcceptance"/> days after accepting if that comes first.</summary>
+    public static DateOnly DocumentsOpenUntil(DateOnly joiningDate, DateOnly acceptedOn)
+    {
+        var cap = acceptedOn.AddDays(MaxDaysAfterAcceptance);
+        return joiningDate < cap ? joiningDate : cap;
+    }
 
-    /// <summary>An accepted offer's link works until the later of its reply-by and joining dates (§5b);
-    /// an unanswered one, until its reply-by date (§5a).</summary>
-    public static DateOnly LinkOpenUntil(DateOnly expiresOn, DateOnly joiningDate) =>
-        joiningDate > expiresOn ? joiningDate : expiresOn;
+    /// <summary>Documents can be sent and changed to the end of <paramref name="openUntil"/>, in the company's
+    /// time zone.</summary>
+    public static bool IsWindowOpen(DateOnly openUntil, DateTimeOffset now, string? timeZoneId) =>
+        OfferPortal.Today(now, timeZoneId) <= openUntil;
+
+    /// <summary>An accepted offer's link works until the later of its reply-by date and the documents'
+    /// last day (§5b); an unanswered one, until its reply-by date (§5a).</summary>
+    public static DateOnly LinkOpenUntil(DateOnly expiresOn, DateOnly documentsOpenUntil) =>
+        documentsOpenUntil > expiresOn ? documentsOpenUntil : expiresOn;
 }

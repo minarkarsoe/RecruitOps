@@ -34,8 +34,7 @@ namespace RecruitOps.Infrastructure.Migrations
                 table: "Companies",
                 type: "integer",
                 nullable: false,
-                // Existing companies get the default (Preboarding.DefaultRequired: NRC, bank, education).
-                // Deliberately not in the model: see AppDbContext.
+                // Existing companies get Preboarding.DefaultRequired (NRC, bank, education).
                 defaultValue: 7);
 
             migrationBuilder.CreateTable(
@@ -77,7 +76,9 @@ namespace RecruitOps.Infrastructure.Migrations
                     TenantId = table.Column<Guid>(type: "uuid", nullable: false),
                     OfferId = table.Column<Guid>(type: "uuid", nullable: false),
                     Required = table.Column<int>(type: "integer", nullable: false),
+                    Version = table.Column<int>(type: "integer", nullable: false),
                     SubmittedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    NotifiedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     RemindedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     ReminderCount = table.Column<int>(type: "integer", nullable: false),
                     HandoffAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
@@ -140,11 +141,12 @@ namespace RecruitOps.Infrastructure.Migrations
                 column: "OfferId",
                 unique: true);
 
-            // Offers accepted before this release are asked for their company's default set, as a newly
-            // accepted one is (ADR-0030 §5b).
+            // Offers accepted before this release are asked for their company's set, as a newly accepted one
+            // is (ADR-0030 §5b). gen_random_uuid() is built in from PostgreSQL 13. An offer accepted later by
+            // an older release still running gets its row on first use (OfferPortalService, PreboardingService).
             migrationBuilder.Sql("""
-                INSERT INTO "PreboardingRequests" ("Id", "TenantId", "OfferId", "Required", "ReminderCount", "CreatedAt")
-                SELECT gen_random_uuid(), o."TenantId", o."Id", c."PreboardingRequired", 0, now()
+                INSERT INTO "PreboardingRequests" ("Id", "TenantId", "OfferId", "Required", "Version", "ReminderCount", "CreatedAt")
+                SELECT gen_random_uuid(), o."TenantId", o."Id", c."PreboardingRequired", 0, 0, now()
                 FROM "Offers" o
                 JOIN "Companies" c ON c."Id" = o."TenantId"
                 WHERE o."Status" = 'Accepted'
@@ -158,9 +160,11 @@ namespace RecruitOps.Infrastructure.Migrations
             migrationBuilder.Sql("SET LOCAL lock_timeout = '10s';");
 
             // ⚠️ Down drops candidates' joining documents — the rows that name every NRC scan and bank book in
-            // object storage, and typed bank details. It refuses while any exist: delete the objects under
-            // preboarding/ and these rows first (deployment-runbook.md §3, "Rolling back past AddPreboarding").
+            // object storage, and typed bank details. It refuses while any exist: stop the API, delete the
+            // objects under preboarding/ and these rows first (deployment-runbook.md §3, "Rolling back past
+            // AddPreboarding"). The lock keeps an upload from landing between the check and the drop.
             migrationBuilder.Sql("""
+                LOCK TABLE "PreboardingDocuments" IN SHARE ROW EXCLUSIVE MODE;
                 DO $$
                 BEGIN
                     IF EXISTS (SELECT 1 FROM "PreboardingDocuments") THEN
@@ -169,7 +173,8 @@ namespace RecruitOps.Infrastructure.Migrations
                 END $$;
                 """);
 
-            // The older release has no handler for these kinds; a pending one would sit in its outbox retrying.
+            // The older release cannot read these kinds: one pending row stalls its outbox worker's claim, and
+            // any row breaks its delivery log. Every status goes.
             migrationBuilder.Sql(
                 "DELETE FROM \"OutboundMessages\" WHERE \"Kind\" IN ('PreboardingHandoff', 'PreboardingSubmitted', 'PreboardingReturned', 'PreboardingReminder');");
 

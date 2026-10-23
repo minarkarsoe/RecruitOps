@@ -60,6 +60,11 @@ public static class RbacSeedData
         new Permission { Module = "roles", Feature = "roles", Action = "delete", Name = "Delete Roles", Description = "Delete custom RBAC roles", Code = "permission:roles:roles:delete" },
 
         // 8. Settings
+        // Module 4.3 pre-boarding (ADR-0030 §5b): NRC scans and bank details, so the Role Builder can withhold
+        // them from a custom role whose base is Recruiter (security review, 2026-10-23, M1).
+        new Permission { Module = "offers", Feature = "preboarding", Action = "read", Name = "Read Joining Documents", Description = "See a new starter's joining documents and open them (each opening is audited)", Code = "permission:offers:preboarding:read" },
+        new Permission { Module = "offers", Feature = "preboarding", Action = "review", Name = "Review Joining Documents", Description = "Approve or send back joining documents, and remind the candidate", Code = "permission:offers:preboarding:review" },
+        new Permission { Module = "offers", Feature = "preboarding", Action = "reveal", Name = "Reveal Bank Account Numbers", Description = "Read a new starter's bank account number in full (audited)", Code = "permission:offers:preboarding:reveal" },
         new Permission { Module = "settings", Feature = "settings", Action = "read", Name = "Read Settings", Description = "View organization settings", Code = "permission:settings:settings:read" },
         new Permission { Module = "settings", Feature = "settings", Action = "update", Name = "Update Settings", Description = "Update organization settings", Code = "permission:settings:settings:update" },
 
@@ -107,6 +112,7 @@ public static class RbacSeedData
                 "permission:interviews:interviews:read", "permission:interviews:interviews:create", "permission:interviews:interviews:update", "permission:interviews:interviews:cancel",
                 "permission:scorecards:scorecards:read", "permission:scorecards:scorecards:submit", "permission:scorecards:scorecards:manage_templates",
                 "permission:users:users:read", "permission:roles:roles:read", "permission:settings:settings:read", "permission:system:system:audit",
+                "permission:offers:preboarding:read", "permission:offers:preboarding:review", "permission:offers:preboarding:reveal",
                 "permission:ai:resume:parse", "permission:ai:matching:analyze", "permission:ai:summary:generate", "permission:ai:document:prepare", "permission:ai:localization:translate"
             }
         },
@@ -133,6 +139,7 @@ public static class RbacSeedData
                 // No users:read (removed 2026-10-17): it let a Recruiter read any user's full record —
                 // every email in the company, via the ids the picker hands out. A Recruiter names a
                 // panel through GET /api/users/selectable, which carries no email (ADR-0019).
+                "permission:offers:preboarding:read", "permission:offers:preboarding:review", "permission:offers:preboarding:reveal",
                 "permission:ai:resume:parse", "permission:ai:matching:analyze", "permission:ai:summary:generate", "permission:ai:document:prepare", "permission:ai:localization:translate"
             }
         },

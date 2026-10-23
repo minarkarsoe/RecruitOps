@@ -74,21 +74,23 @@ public abstract class PreboardingCandidateHandler : PreboardingMessageHandler
     protected override async Task<Built> BuildAsync(OutboundMessage message, OfferContext context, PreboardingRequest request, CancellationToken ct)
     {
         var offer = context.Offer;
-        if (!Preboarding.IsWindowOpen(offer.JoiningDate, Clock.GetUtcNow(), context.TimeZoneId))
+        var openUntil = Preboarding.DocumentsOpenUntil(
+            offer.JoiningDate, OfferPortal.Today(offer.RespondedAt ?? offer.UpdatedAt ?? offer.CreatedAt, context.TimeZoneId));
+        if (!Preboarding.IsWindowOpen(openUntil, Clock.GetUtcNow(), context.TimeZoneId))
             return Built.Instead(DeliveryOutcome.Suppressed("The joining date passed before this email went out, so the candidate was not emailed."));
         if (offer.PortalToken is null || _site.Value.Normalized() is not { } site)
             return Built.Instead(DeliveryOutcome.Failed(
                 "The candidate's link could not be built: the public site's address (PublicSite:BaseUrl) is not configured."));
-        return await BuildAsync(message, context, request, $"{site}/offer/{offer.PortalToken}", ct);
+        return await BuildAsync(message, context, request, $"{site}/offer/{offer.PortalToken}", openUntil, ct);
     }
 
     protected abstract Task<Built> BuildAsync(
-        OutboundMessage message, OfferContext context, PreboardingRequest request, string link, CancellationToken ct);
+        OutboundMessage message, OfferContext context, PreboardingRequest request, string link, DateOnly openUntil, CancellationToken ct);
 
-    protected static string Footer(OfferContext context, string link) =>
+    protected static string Footer(string link, DateOnly openUntil) =>
         "Open your link to do it:\n" + link + "\n\n"
         + "The page will ask for a 6-digit code, which we will email to this address when you ask for it. "
-        + $"Documents can be sent until {Long(context.Offer.JoiningDate)}.\n\n"
+        + $"Documents can be sent until {Long(openUntil)}.\n\n"
         + "This link is personal to you. Please do not forward it.\n";
 }
 
@@ -101,7 +103,7 @@ public sealed class PreboardingReturnedHandler : PreboardingCandidateHandler
     public override OutboundMessageKind Kind => OutboundMessageKind.PreboardingReturned;
 
     protected override async Task<Built> BuildAsync(
-        OutboundMessage message, OfferContext context, PreboardingRequest request, string link, CancellationToken ct)
+        OutboundMessage message, OfferContext context, PreboardingRequest request, string link, DateOnly openUntil, CancellationToken ct)
     {
         PreboardingDocumentKind? kind = null;
         try
@@ -126,7 +128,7 @@ public sealed class PreboardingReturnedHandler : PreboardingCandidateHandler
         // Quoted line by line, so the recruiter's words read as theirs and not as the rest of the email.
         foreach (var line in document.ReturnMessage.ReplaceLineEndings("\n").Split('\n'))
             body.Append("> ").Append(line).Append('\n');
-        body.Append('\n').Append(Footer(context, link));
+        body.Append('\n').Append(Footer(link, openUntil));
 
         return Built.Send(new EmailMessage(message.Recipient, $"Please send a document again — {context.CompanyName}", body.ToString()));
     }
@@ -141,7 +143,7 @@ public sealed class PreboardingReminderHandler : PreboardingCandidateHandler
     public override OutboundMessageKind Kind => OutboundMessageKind.PreboardingReminder;
 
     protected override async Task<Built> BuildAsync(
-        OutboundMessage message, OfferContext context, PreboardingRequest request, string link, CancellationToken ct)
+        OutboundMessage message, OfferContext context, PreboardingRequest request, string link, DateOnly openUntil, CancellationToken ct)
     {
         var outstanding = await OutstandingAsync(context.Offer.Id, request.Required, ct);
         if (outstanding.Count == 0)
@@ -152,7 +154,7 @@ public sealed class PreboardingReminderHandler : PreboardingCandidateHandler
             .Append("Before you join ").Append(context.CompanyName).Append(" as ").Append(context.Position)
             .Append(" on ").Append(Long(context.Offer.JoiningDate)).Append(", we still need:\n\n");
         foreach (var item in outstanding) body.Append("- ").Append(item).Append('\n');
-        body.Append('\n').Append(Footer(context, link));
+        body.Append('\n').Append(Footer(link, openUntil));
 
         return Built.Send(new EmailMessage(message.Recipient, $"Documents needed before your first day — {context.CompanyName}", body.ToString()));
     }

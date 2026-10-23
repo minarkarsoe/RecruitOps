@@ -41,14 +41,38 @@ public partial class OfferPortalService
             throw new PortalRefusalException("Documents are asked for once the offer is accepted.");
 
         var request = await _db.PreboardingRequests.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(r => r.TenantId == offer.TenantId && r.OfferId == offer.Id, ct)
-            ?? throw new PortalRefusalException("No documents are needed here. Please contact the recruitment team if you were asked for any.");
+                          .FirstOrDefaultAsync(r => r.TenantId == offer.TenantId && r.OfferId == offer.Id, ct)
+                      ?? await CreateRequestAsync(offer, context, ct);
 
-        if (change && !Preboarding.IsWindowOpen(offer.JoiningDate, _clock.GetUtcNow(), context.TimeZoneId))
+        var openUntil = DocumentsOpenUntil(offer, context);
+        if (change && !Preboarding.IsWindowOpen(openUntil, _clock.GetUtcNow(), context.TimeZoneId))
             throw new PortalRefusalException(
-                $"Documents could be sent here until {Long(offer.JoiningDate)}. Please contact the recruitment team.");
+                $"Documents could be sent here until {Long(openUntil)}. Please contact the recruitment team.");
 
         return (offer, context, request);
+    }
+
+    /// <summary>For an offer accepted while an older release ran: its request is created on first use from
+    /// the company's current choice, as the migration's backfill would have (database review, M2). Of two
+    /// first uses at once, the unique index keeps one and the other reads it.</summary>
+    private async Task<PreboardingRequest> CreateRequestAsync(Offer offer, Context context, CancellationToken ct)
+    {
+        var request = new PreboardingRequest
+        {
+            TenantId = offer.TenantId, OfferId = offer.Id, Required = context.PreboardingRequired, CreatedAt = _clock.GetUtcNow(),
+        };
+        _db.PreboardingRequests.Add(request);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+            return request;
+        }
+        catch (DbUpdateException)
+        {
+            _db.Entry(request).State = EntityState.Detached;
+            return await _db.PreboardingRequests.IgnoreQueryFilters()
+                .FirstAsync(r => r.TenantId == offer.TenantId && r.OfferId == offer.Id, ct);
+        }
     }
 
     private async Task<List<PreboardingDocument>> DocumentRowsAsync(Offer offer, CancellationToken ct) =>
@@ -122,6 +146,18 @@ public partial class OfferPortalService
         }
     }
 
+    public async Task<bool> HasSessionAsync(string token, string? session, CancellationToken ct = default)
+    {
+        if (!OfferPortal.LooksLikeToken(token) || !OfferPortal.LooksLikeToken(session)) return false;
+        var offer = await _db.Offers.IgnoreQueryFilters().AsNoTracking()
+            .Where(o => o.PortalToken == token).Select(o => new { o.Id, o.TenantId }).FirstOrDefaultAsync(ct);
+        if (offer is null) return false;
+        var hash = OfferPortal.Sha256Hex(session!); // LooksLikeToken is false for null
+        var now = _clock.GetUtcNow();
+        return await _db.OfferPortalAccesses.IgnoreQueryFilters().AnyAsync(a =>
+            a.TenantId == offer.TenantId && a.OfferId == offer.Id && a.SessionHash == hash && a.SessionExpiresAt > now, ct);
+    }
+
     // ── Reading ─────────────────────────────────────────────────────────────
 
     public async Task<PortalDocumentsDto?> GetDocumentsAsync(string token, string? session, CancellationToken ct = default)
@@ -173,10 +209,11 @@ public partial class OfferPortalService
 
         var changedSince = rows.Any(r => r.ChangedAt > request.SubmittedAt) || request.SubmittedAt is null;
         var anyReturned = rows.Any(r => r.Status == PreboardingDocumentStatus.Returned);
-        var open = Preboarding.IsWindowOpen(offer.JoiningDate, _clock.GetUtcNow(), context.TimeZoneId);
+        var openUntil = DocumentsOpenUntil(offer, context);
+        var open = Preboarding.IsWindowOpen(openUntil, _clock.GetUtcNow(), context.TimeZoneId);
 
         var dto = new PortalDocumentsDto(
-            offer.JoiningDate,
+            openUntil,
             signedAt,
             string.IsNullOrWhiteSpace(offer.SentToEmail) ? null : OfferPortal.MaskEmail(offer.SentToEmail),
             documents,
@@ -264,8 +301,11 @@ public partial class OfferPortalService
         {
             await SaveDocumentChangeAsync(ct);
         }
-        catch (PortalRefusalException)
+        catch
         {
+            // Whatever stopped the row — a lost race, a database error, a cancelled request — the object it
+            // would have named goes too: an object nothing names is an identity scan nobody can find to
+            // delete (security review, 2026-10-23, L2).
             await DeleteObjectsAsync(new[] { file.StorageKey });
             throw;
         }
@@ -331,27 +371,34 @@ public partial class OfferPortalService
         if (!view.Dto.CanSend)
             throw new PortalRefusalException("Nothing has changed since you last sent them. The recruitment team has them.");
 
-        // Once per change: SubmittedAt is a concurrency token, so two presses at once send one notice.
+        // Once per change, and the recruiter is emailed at most once an hour however often the button is
+        // pressed (security review, L4) — the screen shows the rest. The request's version makes two
+        // presses at once one.
         var now = _clock.GetUtcNow();
         request.SubmittedAt = now;
-        _db.OutboundMessages.Add(new OutboundMessage
+        request.Version++;
+        if (request.NotifiedAt is null || now - request.NotifiedAt >= Preboarding.NotifyInterval)
         {
-            TenantId = offer.TenantId,
-            Kind = OutboundMessageKind.PreboardingSubmitted,
-            Recipient = await RecruiterEmailAsync(offer, ct) ?? string.Empty,
-            SubjectType = nameof(Offer),
-            SubjectId = offer.Id,
-            Status = OutboundMessageStatus.Pending,
-            NextAttemptAt = now,
-            CreatedAt = now,
-        });
+            request.NotifiedAt = now;
+            _db.OutboundMessages.Add(new OutboundMessage
+            {
+                TenantId = offer.TenantId,
+                Kind = OutboundMessageKind.PreboardingSubmitted,
+                Recipient = await RecruiterEmailAsync(offer, ct) ?? string.Empty,
+                SubjectType = nameof(Offer),
+                SubjectId = offer.Id,
+                Status = OutboundMessageStatus.Pending,
+                NextAttemptAt = now,
+                CreatedAt = now,
+            });
+        }
         try
         {
             await _db.SaveChangesAsync(ct);
         }
         catch (DbUpdateConcurrencyException)
         {
-            throw new PortalRefusalException("They were sent a moment ago. Reload the page.");
+            throw new PortalRefusalException("Something changed a moment ago. Reload the page and try again.");
         }
 
         return await MapDocumentsAsync(offer, context, request, ct);

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.RateLimiting;
 using RecruitOps.Api.Auth;
 using RecruitOps.Application.Common;
@@ -92,9 +93,10 @@ public class PublicOffersController : ControllerBase
         Guarded(async () => Found(await _portal.GetDocumentsAsync(token, Session(), ct)));
 
     /// <summary>One file, multipart, field <c>file</c>. The only large body this controller takes: 10 MB
-    /// of file plus the multipart framing. The type is decided by the service from the file's first
-    /// bytes.</summary>
+    /// of file plus the multipart framing — read only once <see cref="PortalSessionFilter"/> has found a live
+    /// session. The type is decided by the service from the file's first bytes.</summary>
     [HttpPost("documents/{kind}/files")]
+    [ServiceFilter(typeof(PortalSessionFilter))]
     [RequestSizeLimit(UploadLimit)]
     [RequestFormLimits(MultipartBodyLengthLimit = UploadLimit)]
     public Task<IActionResult> Upload(string token, string kind, IFormFile? file, CancellationToken ct) => Guarded(async () =>
@@ -143,5 +145,28 @@ public class PublicOffersController : ControllerBase
         {
             return Conflict(new ProblemDetails { Title = "Cannot continue", Detail = ex.Message });
         }
+    }
+}
+
+/// <summary>Refuses an upload with a 401 before its body is read unless the request carries a live session
+/// for the offer in its route. A resource filter runs before model binding, which is what reads (and
+/// buffers) the multipart body: without this, anyone could make the server take in 10 MB per request,
+/// limited only by the per-address rate limit (security review, 2026-10-23, L1).</summary>
+public sealed class PortalSessionFilter : IAsyncResourceFilter
+{
+    private readonly IOfferPortalService _portal;
+
+    public PortalSessionFilter(IOfferPortalService portal) => _portal = portal;
+
+    public async Task OnResourceExecutionAsync(ResourceExecutingContext context, ResourceExecutionDelegate next)
+    {
+        var token = context.RouteData.Values["token"] as string ?? string.Empty;
+        context.HttpContext.Request.Cookies.TryGetValue(PublicOffersController.SessionCookie, out var session);
+        if (!await _portal.HasSessionAsync(token, session, context.HttpContext.RequestAborted))
+        {
+            context.Result = new UnauthorizedResult();
+            return;
+        }
+        await next();
     }
 }

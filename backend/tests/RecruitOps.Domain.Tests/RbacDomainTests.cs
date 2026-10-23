@@ -283,7 +283,7 @@ public class RbacDomainTests
     }
 
     [Fact]
-    public async Task DbInitializer_SeedPermissionsAndRolesAsync_Verifies_Exact_39_Permissions_And_7_System_Roles()
+    public async Task DbInitializer_SeedPermissionsAndRolesAsync_Verifies_Exact_42_Permissions_And_7_System_Roles()
     {
         using var db = CreateDbContext();
 
@@ -293,8 +293,9 @@ public class RbacDomainTests
         var roles = await db.Roles.IgnoreQueryFilters().Include(r => r.RolePermissions).ThenInclude(rp => rp.Permission).ToListAsync();
 
         // Verification of requirement R2 & milestone scope:
-        // Canonical permission count: 39 permissions total across 10 modules (exceeds the 29 requirement threshold)
-        Assert.Equal(39, permissions.Count);
+        // Canonical permission count: 42 permissions total across 11 modules (exceeds the 29 requirement threshold).
+        // 39 until 2026-10-23, when pre-boarding's read / review / reveal were added (ADR-0030 §5b).
+        Assert.Equal(42, permissions.Count);
         Assert.True(permissions.Count >= 29);
 
         // Canonical system roles: 7 default roles
@@ -302,17 +303,17 @@ public class RbacDomainTests
 
         var roleMap = roles.ToDictionary(r => r.Code);
 
-        // SuperAdmin: Has all 39 permissions
+        // SuperAdmin: Has all 42 permissions
         Assert.True(roleMap["SuperAdmin"].IsSuperAdmin);
-        Assert.Equal(39, roleMap["SuperAdmin"].RolePermissions.Count);
+        Assert.Equal(42, roleMap["SuperAdmin"].RolePermissions.Count);
 
-        // Admin: Has 38 permissions (all except permission:system:system:manage)
+        // Admin: Has 41 permissions (all except permission:system:system:manage)
         Assert.False(roleMap["Admin"].IsSuperAdmin);
-        Assert.Equal(38, roleMap["Admin"].RolePermissions.Count);
+        Assert.Equal(41, roleMap["Admin"].RolePermissions.Count);
         Assert.DoesNotContain(roleMap["Admin"].RolePermissions, rp => rp.Permission.Code == "permission:system:system:manage");
 
-        // HrDirector: 31 permissions
-        Assert.Equal(31, roleMap["HrDirector"].RolePermissions.Count);
+        // HrDirector: 34 permissions (31 + pre-boarding's three, 2026-10-23)
+        Assert.Equal(34, roleMap["HrDirector"].RolePermissions.Count);
 
         // Recruiter: 25 permissions — was 23 until ADR-0022 added
         // requisitions:create and requisitions:update. Under the old role literal
@@ -320,7 +321,8 @@ public class RbacDomainTests
         // did not say so; making permissions authoritative forced that gap to be closed
         // deliberately rather than silently removing the capability.
         // 24 since 2026-10-17: users:read removed — it exposed every user's email (ADR-0019 amendment).
-        Assert.Equal(24, roleMap["Recruiter"].RolePermissions.Count);
+        // 27 since 2026-10-23: pre-boarding's read / review / reveal (ADR-0030 §5b).
+        Assert.Equal(27, roleMap["Recruiter"].RolePermissions.Count);
         Assert.DoesNotContain(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:users:users:read");
         Assert.Contains(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:requisitions:requisitions:create");
         Assert.Contains(roleMap["Recruiter"].RolePermissions, rp => rp.Permission.Code == "permission:requisitions:requisitions:update");

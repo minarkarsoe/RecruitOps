@@ -29,6 +29,11 @@ public interface IOfferPortalService
 
     // ── Joining documents, after accepting (ADR-0030 §5b) ──
 
+    /// <summary>Whether <paramref name="session"/> is a live session for the offer <paramref name="token"/>
+    /// names — checked before an upload's body is read, so a stranger cannot make the server take in 10 MB
+    /// (security review, 2026-10-23, L1). The methods below check it again.</summary>
+    Task<bool> HasSessionAsync(string token, string? session, CancellationToken ct = default);
+
     Task<PortalDocumentsDto?> GetDocumentsAsync(string token, string? session, CancellationToken ct = default);
 
     /// <summary>Adds a file to a document — or, for a one-file document, replaces it.</summary>

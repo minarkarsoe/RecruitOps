@@ -26,9 +26,11 @@ namespace RecruitOps.Infrastructure.Services;
 /// <para><b>Decisions name the revision they were made on.</b> A document the candidate changed after the
 /// page was loaded is not approved or sent back on the strength of the old one.</para>
 ///
-/// <para><b>The handoff fires once, when the last required document is approved</b> — checked after each
-/// approval has committed (so two approvals at the same moment cannot both miss it) and claimed with a
-/// compare-and-set on <see cref="PreboardingRequest.HandoffAt"/> (so it cannot fire twice).</para></summary>
+/// <para><b>The handoff fires once, with the approval of the last required document, in the same
+/// transaction.</b> Every approval bumps <see cref="PreboardingRequest.Version"/>, so of two approvals of
+/// the last two documents at the same moment one commits and the other is refused and retried — and the
+/// retry sees both approved. There is no second step that a crash or a lost connection could skip
+/// (security and database reviews, 2026-10-23, M3/M1).</para></summary>
 public class PreboardingService : IPreboardingService
 {
     private const string ChangedMeanwhile = "Someone changed this a moment ago. Reload and try again.";
@@ -74,6 +76,10 @@ public class PreboardingService : IPreboardingService
     {
         public Offer Offer => Row.Offer;
         public string Reference => $"OFR-{Offer.Year}-{Offer.Number:D4}";
+
+        /// <summary>The last day the candidate can send documents (§5b).</summary>
+        public DateOnly OpenUntil => Preboarding.DocumentsOpenUntil(
+            Offer.JoiningDate, OfferPortal.Today(Offer.RespondedAt ?? Offer.UpdatedAt ?? Offer.CreatedAt, TimeZoneId));
     }
 
     /// <summary>An accepted offer with its pre-boarding, for recruitment staff — or null. The offer and the
@@ -93,15 +99,35 @@ public class PreboardingService : IPreboardingService
         ).FirstOrDefaultAsync(ct);
         if (row is null) return null;
 
-        var request = await _db.PreboardingRequests.FirstOrDefaultAsync(r => r.OfferId == offerId, ct);
-        if (request is null) return null;
+        var company = await _db.Companies.Where(c => c.Id == _tenant.TenantId)
+            .Select(c => new { c.TimeZoneId, c.PreboardingRequired }).FirstAsync(ct);
+        var request = await _db.PreboardingRequests.FirstOrDefaultAsync(r => r.OfferId == offerId, ct)
+                      ?? await CreateRequestAsync(row.Offer, company.PreboardingRequired, ct);
+        return new Loaded(row, request, company.TimeZoneId);
+    }
 
-        var zone = await _db.Companies.Where(c => c.Id == _tenant.TenantId).Select(c => c.TimeZoneId).FirstOrDefaultAsync(ct);
-        return new Loaded(row, request, zone);
+    /// <summary>For an offer accepted while an older release ran (a rolling deploy, or a rollback and
+    /// re-upgrade): its request is created on first use, from the company's current choice, as the
+    /// migration's backfill would have (database review, 2026-10-23, M2). Of two first uses at once, the
+    /// unique index keeps one and the other reads it.</summary>
+    private async Task<PreboardingRequest> CreateRequestAsync(Offer offer, PreboardingItems required, CancellationToken ct)
+    {
+        var request = new PreboardingRequest { TenantId = offer.TenantId, OfferId = offer.Id, Required = required, CreatedAt = _clock.GetUtcNow() };
+        _db.PreboardingRequests.Add(request);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+            return request;
+        }
+        catch (DbUpdateException)
+        {
+            _db.Entry(request).State = EntityState.Detached;
+            return await _db.PreboardingRequests.FirstAsync(r => r.OfferId == offer.Id, ct);
+        }
     }
 
     private bool WindowOpen(Loaded loaded) =>
-        Preboarding.IsWindowOpen(loaded.Offer.JoiningDate, _clock.GetUtcNow(), loaded.TimeZoneId);
+        Preboarding.IsWindowOpen(loaded.OpenUntil, _clock.GetUtcNow(), loaded.TimeZoneId);
 
     private Task<List<PreboardingDocument>> DocumentsAsync(Guid offerId, CancellationToken ct) =>
         _db.PreboardingDocuments.Where(d => d.OfferId == offerId).ToListAsync(ct);
@@ -182,8 +208,9 @@ public class PreboardingService : IPreboardingService
             .Select(c => new { c.ItHandoffEmail, c.AdminHandoffEmail }).FirstOrDefaultAsync(ct);
         var messages = request.HandoffAt is null
             ? new List<OutboundMessage>()
+            // SubjectType too: the outbox's index is (TenantId, SubjectType, SubjectId) (database review, L1).
             : await _db.OutboundMessages.AsNoTracking()
-                .Where(m => m.Kind == OutboundMessageKind.PreboardingHandoff && m.SubjectId == offer.Id)
+                .Where(m => m.SubjectType == nameof(Offer) && m.SubjectId == offer.Id && m.Kind == OutboundMessageKind.PreboardingHandoff)
                 .ToListAsync(ct);
 
         PreboardingHandoffTeamDto Team(string team, string? address)
@@ -300,66 +327,61 @@ public class PreboardingService : IPreboardingService
                 ? "The bank details need both the typed details and the bank book photo before they can be approved."
                 : "There is no file to approve.");
 
+        var now = _clock.GetUtcNow();
         document.Status = PreboardingDocumentStatus.Approved;
-        document.ReviewedAt = _clock.GetUtcNow();
+        document.ReviewedAt = now;
         document.ReviewedByUserId = _user.UserId;
         document.Revision++;
+
+        // The request's version is bumped by every approval, so approvals of one offer cannot commit side by
+        // side unseen: the handoff is decided here, with what is now approved, and saved with the approval.
+        var request = loaded.Request;
+        request.Version++;
+        if (request.HandoffAt is null && await AllRequiredApprovedAsync(offerId, request.Required, document.Kind, ct))
+            await QueueHandoffAsync(request, offerId, now, ct);
         await SaveDecisionAsync(ct);
 
-        await HandOffIfCompleteAsync(offerId, ct);
-        return await GetAsync(offerId, ct);
+        return await ReloadAsync(offerId, ct);
     }
 
-    /// <summary>Queues the IT and Admin emails if every required document is now approved and nobody has
-    /// yet. Runs after the approval has committed, re-reading everything: of two approvals of the last two
-    /// documents at once, the later to commit sees both. A lost claim is retried — the other change may have
-    /// been a reminder, not the handoff.</summary>
-    private async Task HandOffIfCompleteAsync(Guid offerId, CancellationToken ct)
+    private async Task<bool> AllRequiredApprovedAsync(Guid offerId, PreboardingItems required, PreboardingDocumentKind approvingNow, CancellationToken ct)
     {
-        for (var attempt = 0; attempt < 3; attempt++)
+        var approved = await _db.PreboardingDocuments
+            .Where(d => d.OfferId == offerId && d.Status == PreboardingDocumentStatus.Approved)
+            .Select(d => d.Kind).ToListAsync(ct);
+        approved.Add(approvingNow);
+        return Preboarding.Kinds.All(k => !Preboarding.IsRequired(required, k) || approved.Contains(k));
+    }
+
+    /// <summary>One email per team with an address set (tracked; saved with the approval).</summary>
+    private async Task QueueHandoffAsync(PreboardingRequest request, Guid offerId, DateTimeOffset now, CancellationToken ct)
+    {
+        var company = await _db.Companies.Where(c => c.Id == _tenant.TenantId)
+            .Select(c => new { c.ItHandoffEmail, c.AdminHandoffEmail }).FirstAsync(ct);
+        request.HandoffAt = now;
+        foreach (var (team, address) in new[] { (HandoffPayload.It, company.ItHandoffEmail), (HandoffPayload.Admin, company.AdminHandoffEmail) })
         {
-            _db.ChangeTracker.Clear();
-            var request = await _db.PreboardingRequests.FirstAsync(r => r.OfferId == offerId, ct);
-            if (request.HandoffAt is not null) return;
-
-            var approved = await _db.PreboardingDocuments
-                .Where(d => d.OfferId == offerId && d.Status == PreboardingDocumentStatus.Approved)
-                .Select(d => d.Kind).ToListAsync(ct);
-            if (Preboarding.Kinds.Any(k => Preboarding.IsRequired(request.Required, k) && !approved.Contains(k))) return;
-
-            var company = await _db.Companies.Where(c => c.Id == _tenant.TenantId)
-                .Select(c => new { c.ItHandoffEmail, c.AdminHandoffEmail }).FirstAsync(ct);
-            var now = _clock.GetUtcNow();
-            request.HandoffAt = now;
-            foreach (var (team, address) in new[] { (HandoffPayload.It, company.ItHandoffEmail), (HandoffPayload.Admin, company.AdminHandoffEmail) })
+            // A team with no address is not sent anything; the screen said so beforehand.
+            if (string.IsNullOrWhiteSpace(address)) continue;
+            _db.OutboundMessages.Add(new OutboundMessage
             {
-                // A team with no address is not sent anything; the screen said so beforehand.
-                if (string.IsNullOrWhiteSpace(address)) continue;
-                _db.OutboundMessages.Add(new OutboundMessage
-                {
-                    TenantId = _tenant.TenantId,
-                    Kind = OutboundMessageKind.PreboardingHandoff,
-                    Recipient = address,
-                    SubjectType = nameof(Offer),
-                    SubjectId = offerId,
-                    PayloadJson = HandoffPayload.For(team),
-                    Status = OutboundMessageStatus.Pending,
-                    NextAttemptAt = now,
-                    CreatedAt = now,
-                });
-            }
-
-            try
-            {
-                await _db.SaveChangesAsync(ct);
-                return;
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                // Someone else touched the request: re-read and decide again.
-            }
+                TenantId = _tenant.TenantId,
+                Kind = OutboundMessageKind.PreboardingHandoff,
+                Recipient = address,
+                SubjectType = nameof(Offer),
+                SubjectId = offerId,
+                PayloadJson = HandoffPayload.For(team),
+                Status = OutboundMessageStatus.Pending,
+                NextAttemptAt = now,
+                CreatedAt = now,
+            });
         }
-        _logger.LogWarning("The pre-boarding handoff for offer {OfferId} lost its claim three times; the next approval or read will not retry it.", offerId);
+    }
+
+    private async Task<PreboardingDto?> ReloadAsync(Guid offerId, CancellationToken ct)
+    {
+        _db.ChangeTracker.Clear();
+        return await GetAsync(offerId, ct);
     }
 
     public async Task<PreboardingDto?> ReturnAsync(Guid offerId, string kind, int revision, string message, CancellationToken ct = default)
@@ -381,7 +403,7 @@ public class PreboardingService : IPreboardingService
         document.Revision++;
         Enqueue(loaded.Offer, OutboundMessageKind.PreboardingReturned, JsonSerializer.Serialize(new PreboardingReturnedPayload(document.Kind.ToString())), now);
         await SaveDecisionAsync(ct);
-        return await GetAsync(offerId, ct);
+        return await ReloadAsync(offerId, ct);
     }
 
     public async Task<PreboardingDto?> RemindAsync(Guid offerId, CancellationToken ct = default)
@@ -402,6 +424,7 @@ public class PreboardingService : IPreboardingService
         var now = _clock.GetUtcNow();
         loaded.Request.RemindedAt = now;
         loaded.Request.ReminderCount++;
+        loaded.Request.Version++;
         Enqueue(loaded.Offer, OutboundMessageKind.PreboardingReminder, null, now);
         try
         {
@@ -409,9 +432,9 @@ public class PreboardingService : IPreboardingService
         }
         catch (DbUpdateConcurrencyException)
         {
-            throw new InvalidOperationException("The candidate was reminded a moment ago.");
+            throw new InvalidOperationException(ChangedMeanwhile);
         }
-        return await GetAsync(offerId, ct);
+        return await ReloadAsync(offerId, ct);
     }
 
     /// <summary>To the address the offer was sent to, and nowhere else (§5a).</summary>
@@ -458,6 +481,10 @@ public class PreboardingService : IPreboardingService
         if (request.BankAccountRequired!.Value) required |= PreboardingItems.BankAccount;
         if (request.EducationRequired!.Value) required |= PreboardingItems.Education;
         if (request.PhotoRequired!.Value) required |= PreboardingItems.Photo;
+        // With nothing required there would be nothing to wait for: the handoff would go with the first
+        // approval of anything.
+        if (required == PreboardingItems.None)
+            throw new InvalidOperationException("Make at least one document required: the handoff waits for the required ones.");
         company.PreboardingRequired = required;
         company.ItHandoffEmail = it;
         company.AdminHandoffEmail = admin;

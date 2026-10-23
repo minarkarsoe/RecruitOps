@@ -37,6 +37,9 @@ public class PreboardingTests : IClassFixture<OfferPortalWebAppFactory>
         return await read(scope.ServiceProvider.GetRequiredService<AppDbContext>());
     }
 
+    /// <summary>Today in the fixture company's zone.</summary>
+    private DateOnly Today() => RecruitOps.Domain.OfferPortal.Today(_factory.Clock.Now, "Asia/Yangon");
+
     private InMemoryFileStorage Storage => (InMemoryFileStorage)_factory.Services.GetRequiredService<IFileStorage>();
 
     private async Task DrainOutboxAsync()
@@ -57,9 +60,17 @@ public class PreboardingTests : IClassFixture<OfferPortalWebAppFactory>
     }
 
     /// <summary>A within-budget offer, sent, unlocked and accepted — the browser still holding its session.</summary>
-    private async Task<Accepted> AcceptedAsync(string title)
+    private async Task<Accepted> AcceptedAsync(string title, int? joiningInDays = null)
     {
         var draft = await OfferTests.DraftAsync(_scenario, Recruiter(), title);
+        if (joiningInDays is { } days)
+        {
+            (await Recruiter().PutAsJsonAsync($"/api/offers/{draft.Id}", new UpdateOfferRequest
+            {
+                BaseSalary = draft.BaseSalary ?? 0, Allowances = draft.Allowances ?? 0, ProbationMonths = draft.ProbationMonths,
+                ExpiresOn = draft.ExpiresOn, LetterBody = draft.LetterBody!, JoiningDate = Today().AddDays(days),
+            })).EnsureSuccessStatusCode();
+        }
         (await Recruiter().PostAsync($"/api/offers/{draft.Id}/send", null)).EnsureSuccessStatusCode();
         var token = await InDbAsync(db => db.Offers.IgnoreQueryFilters().Where(o => o.Id == draft.Id)
             .Select(o => o.PortalToken!).SingleAsync());
@@ -607,5 +618,125 @@ public class PreboardingTests : IClassFixture<OfferPortalWebAppFactory>
         await SettingsAsync(photoRequired: true, it: "it@alpha.test", admin: "admin@alpha.test");
         Assert.Equal(before + 1, await InDbAsync(db => db.AuditLogEntries.IgnoreQueryFilters().CountAsync(e => e.Action == AuditAction.PreboardingSettingsChanged)));
         await SettingsAsync(photoRequired: false, it: null, admin: null);
+    }
+
+    // ── Fixes from the security and database reviews (2026-10-23) ─────────
+
+    [Fact]
+    public async Task The_Role_Builder_Can_Withhold_Documents_And_The_Account_Number_From_A_Recruiter_Based_Role()
+    {
+        var a = await AcceptedAsync("Pre Custom Role");
+        await UploadedAsync(a, "NrcFront", Jpeg());
+        (await SaveBankAsync(a)).EnsureSuccessStatusCode();
+        var fileId = (await ReviewAsync(a)).Documents.Single(d => d.Kind == "NrcFront").Files.Single().Id;
+
+        async Task<HttpClient> HolderOfAsync(params string[] permissions)
+        {
+            var role = await Admin().PostAsJsonAsync("/api/roles", new CreateRoleRequest(
+                Name: $"Coordinator {Guid.NewGuid():N}", Code: null, Description: "A Recruiter-based role, trimmed.",
+                PermissionCodes: permissions, BaseRole: "Recruiter"));
+            role.EnsureSuccessStatusCode();
+            var roleId = (await role.Content.ReadFromJsonAsync<RoleDetailDto>())!.Id;
+            var user = await Admin().PostAsJsonAsync("/api/users", new CreateUserRequest(
+                Email: $"coordinator.{Guid.NewGuid():N}@alpha.test", DisplayName: "Coordinator",
+                Password: "P@ssw0rd-Test-123", RoleId: roleId, Role: null));
+            user.EnsureSuccessStatusCode();
+            var holder = (await user.Content.ReadFromJsonAsync<UserDetailDto>())!;
+            Assert.Equal("Recruiter", holder.Role); // passes the RecruitmentStaff policy — the permission is what stops it
+            return _scenario.Client(holder.Role, holder.Id);
+        }
+
+        var none = await HolderOfAsync("permission:requisitions:requisitions:read");
+        Assert.Equal(HttpStatusCode.Forbidden, (await none.GetAsync(a.Review)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await none.GetAsync($"{a.Review}/files/{fileId}")).StatusCode);
+
+        var reader = await HolderOfAsync("permission:offers:preboarding:read");
+        Assert.Equal(HttpStatusCode.OK, (await reader.GetAsync(a.Review)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await reader.PostAsync($"{a.Review}/bank/reveal", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await reader.PostAsJsonAsync($"{a.Review}/NrcFront/approve",
+            new ReviewPreboardingDocumentRequest { Revision = 1 })).StatusCode);
+    }
+
+    [Fact]
+    public async Task An_Upload_Without_A_Live_Session_Is_Refused_Before_Its_Body_Is_Read()
+    {
+        var a = await AcceptedAsync("Pre Upload Gate");
+        // A multipart body with no file in it: had the body been bound first, the answer would be the 400
+        // for the missing file. (A non-multipart body never reaches the action — it consumes multipart.)
+        static MultipartFormDataContent NoFile() => new() { { new StringContent("x"), "other" } };
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().PostAsync($"{a.Documents}/NrcFront/files", NoFile())).StatusCode);
+        var forged = new HttpRequestMessage(HttpMethod.Post, $"{a.Documents}/NrcFront/files") { Content = NoFile() };
+        forged.Headers.Add("Cookie", $"offer_session={new string('A', 43)}");
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().SendAsync(forged)).StatusCode);
+
+        // With the session, the same request reaches the binder, and is refused for what it is.
+        var withSession = await a.Browser.PostAsync($"{a.Documents}/NrcFront/files", NoFile());
+        Assert.Equal(HttpStatusCode.BadRequest, withSession.StatusCode);
+        Assert.Contains("Choose a file", await DetailOf(withSession));
+    }
+
+    [Fact]
+    public async Task Documents_Close_90_Days_After_Accepting_However_Far_Off_The_Joining_Date()
+    {
+        var a = await AcceptedAsync("Pre Far Joining", joiningInDays: 200);
+        var docs = (await a.Browser.GetFromJsonAsync<PortalDocumentsDto>(a.Documents))!;
+        Assert.Equal(Today().AddDays(90), docs.OpenUntil);
+
+        // Past that day the link is closed, though the joining date is months away.
+        _factory.Clock.Now += TimeSpan.FromDays(91);
+        Assert.Equal(HttpStatusCode.NotFound, (await _factory.CreateClient().GetAsync($"/api/public/offers/{a.Token}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task The_Recruiter_Is_Emailed_At_Most_Once_An_Hour_However_Often_Documents_Are_Sent()
+    {
+        var a = await AcceptedAsync("Pre Notify Once");
+        await CompleteAsync(a);
+        (await a.Browser.PostAsync($"{a.Documents}/send", null)).EnsureSuccessStatusCode();
+        for (var i = 0; i < 3; i++)
+        {
+            _factory.Clock.Now += TimeSpan.FromMinutes(5);
+            await UploadedAsync(a, "Photo", Png(), $"me-{i}.png");
+            (await a.Browser.PostAsync($"{a.Documents}/send", null)).EnsureSuccessStatusCode();
+        }
+        int Notices() => InDbAsync(db => db.OutboundMessages.IgnoreQueryFilters()
+            .CountAsync(m => m.Kind == OutboundMessageKind.PreboardingSubmitted && m.SubjectId == a.Offer.Id)).Result;
+        Assert.Equal(1, Notices());
+
+        _factory.Clock.Now += TimeSpan.FromMinutes(61);
+        var browser = await UnlockedAsync(a.Offer.Id, a.Token); // the 30-minute session has ended
+        var later = a with { Browser = browser };
+        await UploadedAsync(later, "Photo", Png(), "me-later.png");
+        (await browser.PostAsync($"{a.Documents}/send", null)).EnsureSuccessStatusCode();
+        Assert.Equal(2, Notices());
+    }
+
+    [Fact]
+    public async Task An_Offer_Accepted_Without_A_Request_Row_Gets_One_On_First_Use()
+    {
+        // An offer accepted while an older release ran (a rolling deploy, a rollback and re-upgrade).
+        var a = await AcceptedAsync("Pre Lazy Request");
+        await InDbAsync(async db =>
+        {
+            db.PreboardingRequests.RemoveRange(db.PreboardingRequests.IgnoreQueryFilters().Where(r => r.OfferId == a.Offer.Id));
+            return await db.SaveChangesAsync();
+        });
+
+        Assert.Equal(HttpStatusCode.OK, (await Recruiter().GetAsync(a.Review)).StatusCode);
+        var docs = (await a.Browser.GetFromJsonAsync<PortalDocumentsDto>(a.Documents))!;
+        Assert.Equal(3, docs.RequiredItems);
+        Assert.Equal(1, await InDbAsync(db => db.PreboardingRequests.IgnoreQueryFilters().CountAsync(r => r.OfferId == a.Offer.Id)));
+    }
+
+    [Fact]
+    public async Task A_Company_Cannot_Require_Nothing()
+    {
+        var res = await Admin().PutAsJsonAsync("/api/settings/preboarding", new UpdatePreboardingSettingsRequest
+        {
+            NrcRequired = false, BankAccountRequired = false, EducationRequired = false, PhotoRequired = false,
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        Assert.Contains("at least one document required", await DetailOf(res));
     }
 }

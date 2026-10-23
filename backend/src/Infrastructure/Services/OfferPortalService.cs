@@ -96,7 +96,7 @@ public partial class OfferPortalService : IOfferPortalService
         var context = await ContextAsync(offer, ct);
         if (offer.Status == OfferStatus.Accepted)
         {
-            var openUntil = Preboarding.LinkOpenUntil(offer.ExpiresOn, offer.JoiningDate);
+            var openUntil = Preboarding.LinkOpenUntil(offer.ExpiresOn, DocumentsOpenUntil(offer, context));
             return OfferPortal.IsPastExpiry(openUntil, _clock.GetUtcNow(), context.TimeZoneId) ? null : (offer, context);
         }
         if (OfferPortal.IsPastExpiry(offer.ExpiresOn, _clock.GetUtcNow(), context.TimeZoneId))
@@ -141,6 +141,12 @@ public partial class OfferPortalService : IOfferPortalService
             company?.Name ?? string.Empty, company?.TimeZoneId, row.FullName, row.Title, row.DepartmentName,
             company?.PreboardingRequired ?? Preboarding.DefaultRequired);
     }
+
+    /// <summary>The last day an accepted offer's documents can be sent: the joining date, or 90 days after
+    /// accepting if sooner (§5b).</summary>
+    private static DateOnly DocumentsOpenUntil(Offer offer, Context context) =>
+        Preboarding.DocumentsOpenUntil(
+            offer.JoiningDate, OfferPortal.Today(offer.RespondedAt ?? offer.UpdatedAt ?? offer.CreatedAt, context.TimeZoneId));
 
     private string? ContactEmail()
     {
@@ -378,7 +384,7 @@ public partial class OfferPortalService : IOfferPortalService
             offer.RespondedAt,
             ContactEmail(),
             offer.Status == OfferStatus.Accepted
-                && Preboarding.IsWindowOpen(offer.JoiningDate, _clock.GetUtcNow(), context.TimeZoneId));
+                && Preboarding.IsWindowOpen(DocumentsOpenUntil(offer, context), _clock.GetUtcNow(), context.TimeZoneId));
     }
 
     // ── The answer ──────────────────────────────────────────────────────────

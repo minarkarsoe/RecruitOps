@@ -159,8 +159,14 @@ public class DeliveryLogService : IDeliveryLogService
             // A colleague's email is users:read (ADR-0019). A department-scoped viewer sees that the
             // recruiter was told, not their address (security review, 2026-10-23).
             allowedDepartmentIds is not null
-                && r.Kind is OutboundMessageKind.OfferAnswerNotice or OutboundMessageKind.PreboardingSubmitted
-                ? "The recruiter who made the offer"
+                ? r.Kind switch
+                {
+                    OutboundMessageKind.OfferAnswerNotice or OutboundMessageKind.PreboardingSubmitted => "The recruiter who made the offer",
+                    // The IT and Admin addresses are colleagues' mailboxes as often as team ones (security
+                    // review, 2026-10-23, L6).
+                    OutboundMessageKind.PreboardingHandoff => "The IT or Admin team",
+                    _ => r.Recipient,
+                }
                 : r.Recipient,
             r.CandidateName,
             r.SubjectType,
@@ -168,7 +174,9 @@ public class DeliveryLogService : IDeliveryLogService
             r.Status,
             r.Attempts,
             r.Status == OutboundMessageStatus.Pending ? r.NextAttemptAt : null,
-            r.LastError,
+            allowedDepartmentIds is not null && r.Kind == OutboundMessageKind.PreboardingHandoff && r.LastError is not null
+                ? "Not delivered."
+                : r.LastError,
             r.SentAt,
             r.CreatedAt)).ToList();
 

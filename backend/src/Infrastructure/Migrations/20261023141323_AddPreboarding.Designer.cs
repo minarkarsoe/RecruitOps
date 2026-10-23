@@ -12,7 +12,7 @@ using RecruitOps.Infrastructure.Persistence;
 namespace RecruitOps.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261023132327_AddPreboarding")]
+    [Migration("20261023141323_AddPreboarding")]
     partial class AddPreboarding
     {
         /// <inheritdoc />
@@ -386,7 +386,8 @@ namespace RecruitOps.Infrastructure.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<int>("PreboardingRequired")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasDefaultValue(7);
 
                     b.Property<bool>("RequireOfferApproval")
                         .HasColumnType("boolean");
@@ -1496,14 +1497,15 @@ namespace RecruitOps.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset?>("HandoffAt")
-                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("NotifiedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("OfferId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("RemindedAt")
-                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("ReminderCount")
@@ -1513,7 +1515,6 @@ namespace RecruitOps.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<DateTimeOffset?>("SubmittedAt")
-                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("TenantId")
@@ -1521,6 +1522,10 @@ namespace RecruitOps.Infrastructure.Migrations
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 

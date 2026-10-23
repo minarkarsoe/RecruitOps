@@ -176,6 +176,8 @@ builder.Services.Configure<LoginRateLimitOptions>(builder.Configuration.GetSecti
 builder.Services.Configure<PublicApplyRateLimitOptions>(builder.Configuration.GetSection("RateLimit:PublicApply"));
 builder.Services.Configure<RefreshRateLimitOptions>(builder.Configuration.GetSection("RateLimit:Refresh"));
 builder.Services.Configure<OfferPortalRateLimitOptions>(builder.Configuration.GetSection("RateLimit:OfferPortal"));
+// Checks the candidate's session before an upload's body is read (ADR-0030 §5b).
+builder.Services.AddScoped<RecruitOps.Api.Controllers.PortalSessionFilter>();
 
 builder.Services.AddRateLimiter(options =>
 {

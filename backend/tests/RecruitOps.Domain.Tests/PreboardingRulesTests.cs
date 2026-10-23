@@ -48,6 +48,16 @@ public class PreboardingRulesTests
     public void A_Long_File_Name_Is_Cut_To_200_Characters() =>
         Assert.Equal(Preboarding.MaxFileNameLength, Preboarding.CleanFileName(new string('a', 500) + ".jpg").Length);
 
+    [Fact]
+    public void A_Long_File_Name_Is_Never_Cut_Between_The_Halves_Of_A_Character()
+    {
+        // An emoji straddling the 200th position: cutting there left half a character, which the database
+        // refuses after the file is already in storage (security review, L2).
+        var name = Preboarding.CleanFileName(new string('a', 199) + "😀" + "tail.jpg");
+        Assert.Equal(199, name.Length);
+        Assert.False(char.IsSurrogate(name[^1]));
+    }
+
     [Theory]
     [InlineData("  Please retake it.  ", "Please retake it.")]
     [InlineData("ဓာတ်ပုံ\u200Bမှုန်ဝါး\r\nRetake it.", "ဓာတ်ပုံ\u200Bမှုန်ဝါး\nRetake it.")] // Burmese word breaks kept
@@ -83,12 +93,21 @@ public class PreboardingRulesTests
     }
 
     [Fact]
-    public void An_Accepted_Link_Lasts_To_The_Later_Of_Reply_By_And_Joining()
+    public void Documents_Close_At_The_Joining_Date_Or_90_Days_After_Accepting_Whichever_Is_First()
+    {
+        var accepted = new DateOnly(2026, 8, 20);
+        Assert.Equal(new DateOnly(2026, 10, 1), Preboarding.DocumentsOpenUntil(new DateOnly(2026, 10, 1), accepted));
+        // A joining date a year out — or a typo — does not keep identity documents open that long.
+        Assert.Equal(new DateOnly(2026, 11, 18), Preboarding.DocumentsOpenUntil(new DateOnly(2027, 8, 20), accepted));
+    }
+
+    [Fact]
+    public void An_Accepted_Link_Lasts_To_The_Later_Of_Reply_By_And_The_Documents_Last_Day()
     {
         var replyBy = new DateOnly(2026, 8, 25);
-        var joining = new DateOnly(2026, 10, 1);
-        Assert.Equal(joining, Preboarding.LinkOpenUntil(replyBy, joining));
-        Assert.Equal(new DateOnly(2026, 10, 5), Preboarding.LinkOpenUntil(new DateOnly(2026, 10, 5), joining));
+        var documentsUntil = new DateOnly(2026, 10, 1);
+        Assert.Equal(documentsUntil, Preboarding.LinkOpenUntil(replyBy, documentsUntil));
+        Assert.Equal(new DateOnly(2026, 10, 5), Preboarding.LinkOpenUntil(new DateOnly(2026, 10, 5), documentsUntil));
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RecruitOps.Application.Common;
+using RecruitOps.Domain;
 using RecruitOps.Domain.Common;
 using RecruitOps.Domain.Entities;
 using RecruitOps.Domain.Enums;
@@ -123,10 +124,11 @@ public class AppDbContext : DbContext
             e.Property(x => x.LogoUrl).HasMaxLength(500);
             // IANA zone id, e.g. "Asia/Yangon". 100 is well past the longest one there is.
             e.Property(x => x.TimeZoneId).HasMaxLength(100);
-            // A number (flags). No database default in the model: with one, EF would treat "nothing
-            // required" (0) on insert as unset and write the default instead. The migration gives
-            // existing rows the default once.
-            e.Property(x => x.PreboardingRequired);
+            // A number (flags). The default backfills existing companies; ValueGeneratedNever means the value
+            // written on insert is always the one meant — without it, EF would read 0 as "unset" and write
+            // the default instead (the same pairing as ApprovalChain.Purpose).
+            e.Property(x => x.PreboardingRequired)
+                .HasDefaultValue(Preboarding.DefaultRequired).ValueGeneratedNever();
             e.Property(x => x.ItHandoffEmail).HasMaxLength(320);
             e.Property(x => x.AdminHandoffEmail).HasMaxLength(320);
         });
@@ -461,10 +463,9 @@ public class AppDbContext : DbContext
         {
             // One per accepted offer.
             e.HasIndex(x => x.OfferId).IsUnique();
-            // Each a "once": once per change, once a day, once ever (ADR-0030 §5b).
-            e.Property(x => x.SubmittedAt).IsConcurrencyToken();
-            e.Property(x => x.RemindedAt).IsConcurrencyToken();
-            e.Property(x => x.HandoffAt).IsConcurrencyToken();
+            // The one token: every change bumps it, so "once" holds for sending, reminding and the
+            // handoff, and two approvals cannot both commit without one seeing the other (ADR-0030 §5b).
+            e.Property(x => x.Version).IsConcurrencyToken();
             e.HasOne<Offer>().WithMany().HasForeignKey(x => x.OfferId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
