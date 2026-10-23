@@ -409,6 +409,12 @@ export function OfferDetailPage() {
                 <p className="text-sm text-ink-600">The candidate accepted on {offer.respondedAt ? day(offer.respondedAt) : '—'}.</p>
               )}
               <p className="mt-3 text-sm text-ink-600">Joining {calendarDate(offer.joiningDate)}.</p>
+              {/* Documents are recruitment staff's alone (ADR-0030 §5b): no link for anyone else. */}
+              {offer.canManage && (
+                <Link to={`/offers/${offer.id}/preboarding`} className="mt-3 inline-block text-sm font-medium text-brand-700 hover:text-brand-800">
+                  Pre-boarding — joining documents
+                </Link>
+              )}
             </Card>
           )}
 

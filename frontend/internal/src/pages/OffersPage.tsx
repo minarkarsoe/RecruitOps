@@ -202,6 +202,12 @@ export function OffersPage() {
                       >
                         Remind
                       </Button>
+                    ) : staff && o.status === 'Accepted' ? (
+                      // An accepted offer's next work is its joining documents (the design's link); the
+                      // offer itself is one click on from there.
+                      <Link to={`/offers/${o.id}/preboarding`} className="text-sm font-medium text-brand-700 hover:text-brand-800">
+                        Pre-boarding
+                      </Link>
                     ) : (
                       <Link to={`/offers/${o.id}`} className="text-sm font-medium text-brand-700 hover:text-brand-800">
                         {o.awaitingMe ? 'Review' : 'Open'}

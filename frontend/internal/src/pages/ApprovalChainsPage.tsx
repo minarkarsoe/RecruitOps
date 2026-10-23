@@ -6,6 +6,7 @@ import type {
 } from '@recruitops/types';
 import { api } from '../lib/api';
 import { auth, hasPermission } from '../lib/auth';
+import { PreboardingSettingsCard } from './PreboardingSettingsCard';
 
 type StepDraft = { label: string; approverUserId: string };
 
@@ -127,6 +128,7 @@ export function ApprovalChainsPage() {
       {error && <p role="alert" className="mb-4 text-sm text-critical-700">{error}</p>}
 
       <OfferPolicyCard />
+      <PreboardingSettingsCard />
 
       {/* ── Create form ── */}
       {showForm && (

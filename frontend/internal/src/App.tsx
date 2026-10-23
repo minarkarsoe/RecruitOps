@@ -23,6 +23,7 @@ import { AuditLogPage } from './pages/AuditLogPage';
 import { TalentPoolPage } from './pages/TalentPoolPage';
 import { OffersPage } from './pages/OffersPage';
 import { OfferDetailPage } from './pages/OfferDetailPage';
+import { PreboardingPage } from './pages/PreboardingPage';
 import { auth, homePath } from './lib/auth';
 
 /** Read at render time, inside the signed-in layout — the session does not exist when App
@@ -71,6 +72,9 @@ export function App() {
               their departments' without salary, a named approver the offers they decide. */}
           <Route path="/offers" element={<OffersPage />} />
           <Route path="/offers/:id" element={<OfferDetailPage />} />
+          {/* Module 4.3 pre-boarding (ADR-0030 §5b) — recruitment staff only; anyone else gets the
+              API's 403 and the page says so. */}
+          <Route path="/offers/:id/preboarding" element={<PreboardingPage />} />
           {/* Readable by any internal user — an interviewer should be able to see what they
               will be asked before the day; the page hides its editing affordances itself. */}
           <Route path="/scorecardtemplates" element={<ScorecardTemplatesPage />} />

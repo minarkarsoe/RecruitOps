@@ -57,6 +57,8 @@ function serve(routes: Route) {
     if (path === '/departments') return resolve(routes.departments ?? []);
     if (path === '/users/selectable') return resolve(routes.users ?? []);
     if (path === '/settings/offers') return Promise.resolve({ requireOfferApproval: false, showOfferSalaryToHiringManagers: false });
+    // The pre-boarding card has its own tests; refused here, it draws nothing, so the lists on this page are the chains'.
+    if (path === '/settings/preboarding') return Promise.reject(new Error('not under test'));
     throw new Error(`unexpected call: ${path}`);
   });
 }

@@ -1146,7 +1146,10 @@ export type OutboundMessageKind =
   | 'ChannelNotification'
   | 'OfferAccessCode'
   | 'OfferAnswered'
-  | 'OfferAnswerNotice';
+  | 'OfferAnswerNotice'
+  | 'PreboardingSubmitted'
+  | 'PreboardingReturned'
+  | 'PreboardingReminder';
 
 /** `Suppressed` is a **correct outcome, not an error** — an opt-out honoured, or a message that
  *  became irrelevant before it was sent. The UI must not colour it red: rendering an honoured
@@ -1416,6 +1419,8 @@ export interface PortalOffer {
   signedName: string | null;
   answeredAt: string | null;
   contactEmail: string | null;
+  /** Accepted, and joining documents can still be sent (ADR-0030 §5b): the page goes on to them. */
+  documentsOpen: boolean;
 }
 
 export interface VerifyOfferCodeRequest {
@@ -1431,3 +1436,143 @@ export interface AcceptOfferRequest {
 export interface DeclineOfferRequest {
   reason: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Pre-boarding (Module 4.3, ADR-0030 §5b). Mirrors backend/src/Application/DTOs/PreboardingDtos.cs.
+// Neither side ever carries a whole account number — only the recruiter's audited reveal does.
+// ---------------------------------------------------------------------------
+
+export type PreboardingDocumentKind = 'NrcFront' | 'NrcBack' | 'BankAccount' | 'Education' | 'Photo';
+
+/** `Submitted` — changed since anyone reviewed it; `Returned` — sent back, not changed since. */
+export type PreboardingDocumentStatus = 'Missing' | 'Submitted' | 'Approved' | 'Returned';
+
+/** The candidate's own file — the id is only for removing it. */
+export interface PortalFile {
+  id: string;
+  fileName: string;
+  sizeBytes: number;
+}
+
+export interface PortalBank {
+  bankName: string | null;
+  accountName: string | null;
+  /** `•••• 4471`, even to the candidate: retyped to change. */
+  accountNumberMasked: string | null;
+}
+
+export interface PortalDocument {
+  kind: PreboardingDocumentKind;
+  required: boolean;
+  status: PreboardingDocumentStatus;
+  complete: boolean;
+  /** The recruiter's words, only while the document is returned. */
+  message: string | null;
+  files: PortalFile[];
+  bank: PortalBank | null;
+}
+
+export interface PortalDocuments {
+  /** `YYYY-MM-DD` — the joining date, the last day anything can be sent or changed. */
+  openUntil: string;
+  signedAt: string | null;
+  maskedEmail: string | null;
+  documents: PortalDocument[];
+  requiredItems: number;
+  requiredItemsReady: number;
+  /** Sent for checking, with nothing changed or sent back since. */
+  sent: boolean;
+  canSend: boolean;
+}
+
+export interface SaveBankDetailsRequest {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+}
+
+export interface PreboardingFile {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
+export interface PreboardingBank {
+  bankName: string | null;
+  accountName: string | null;
+  accountNumberMasked: string | null;
+}
+
+export interface PreboardingDocument {
+  kind: PreboardingDocumentKind;
+  label: string;
+  required: boolean;
+  status: PreboardingDocumentStatus;
+  complete: boolean;
+  /** Sent back with Approve or Send back — refused if the candidate changed it since. */
+  revision: number;
+  changedAt: string | null;
+  reviewedAt: string | null;
+  reviewedByName: string | null;
+  returnMessage: string | null;
+  files: PreboardingFile[];
+  bank: PreboardingBank | null;
+}
+
+export type PreboardingHandoffStatus = 'Held' | 'NotSetUp' | 'Queued' | 'Sent' | 'Failed' | 'NotSent';
+
+export interface PreboardingHandoffTeam {
+  team: 'IT' | 'Admin';
+  address: string | null;
+  status: PreboardingHandoffStatus;
+  sentAt: string | null;
+  detail: string | null;
+}
+
+export interface Preboarding {
+  offerId: string;
+  reference: string;
+  candidateId: string;
+  candidateName: string;
+  position: string;
+  departmentName: string;
+  /** `YYYY-MM-DD`. */
+  joiningDate: string;
+  signedAt: string | null;
+  windowOpen: boolean;
+  documents: PreboardingDocument[];
+  requiredDocuments: number;
+  requiredApproved: number;
+  submittedAt: string | null;
+  remindedAt: string | null;
+  canRemind: boolean;
+  handoffAt: string | null;
+  handoff: PreboardingHandoffTeam[];
+}
+
+export interface ReviewPreboardingDocumentRequest {
+  revision: number;
+}
+
+export interface ReturnPreboardingDocumentRequest {
+  revision: number;
+  message: string;
+}
+
+export interface RevealedBankNumber {
+  accountNumber: string;
+}
+
+export interface PreboardingSettings {
+  nrcRequired: boolean;
+  bankAccountRequired: boolean;
+  educationRequired: boolean;
+  photoRequired: boolean;
+  itHandoffEmail: string | null;
+  adminHandoffEmail: string | null;
+}
+
+/** Every flag, always — the API refuses an omitted one rather than treating it as optional. */
+export type UpdatePreboardingSettingsRequest = PreboardingSettings;

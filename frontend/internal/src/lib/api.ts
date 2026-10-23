@@ -249,6 +249,26 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+/**
+ * A file from the API, as a Blob — a pre-boarding document opened in its viewer (ADR-0030 §5b). The
+ * same session handling as an upload: one renewal on a 401, then the error the API wrote.
+ */
+export async function apiBlob(path: string): Promise<Blob> {
+  const session = auth.get();
+  const get = (token: string | undefined, tenant: Parameters<typeof tenantHeader>[0]) => fetch(`${BASE}${path}`, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...tenantHeader(tenant) },
+  });
+
+  let res = await get(session?.accessToken, session);
+  if (res.status === 401 && session?.refreshToken) {
+    const renewed = await renewSession(session);
+    if (renewed.kind !== 'ok') failedRenewal(renewed);
+    res = await get(renewed.accessToken, renewed.tenantSource?.activeTenantId ? renewed.tenantSource : session);
+  }
+  if (!res.ok) throw new ApiError(res.status, await readError(res));
+  return await res.blob();
+}
+
 async function readError(res: Response): Promise<string> {
   try {
     const problem = await res.json();

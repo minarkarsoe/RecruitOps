@@ -27,6 +27,7 @@ function serveRealShapes() {
     if (path === '/departments') return Promise.resolve([{ id: 'dept-eng', name: 'Engineering', code: 'ENG' }]);
     if (path === '/users/selectable') return Promise.resolve([{ id: 'usr-aung', displayName: 'Aung Approver', role: 'Approver' }]);
     if (path === '/settings/offers') return Promise.resolve({ requireOfferApproval: false, showOfferSalaryToHiringManagers: false });
+    if (path === '/settings/preboarding') return Promise.resolve({ nrcRequired: true, bankAccountRequired: true, educationRequired: true, photoRequired: false, itHandoffEmail: null, adminHandoffEmail: null });
     if (path.startsWith('/users')) return Promise.resolve({
       items: [{ id: 'usr-aung', email: 'aung@x.test', displayName: 'Aung Approver', role: 'Approver', isActive: true }],
       page: 1, pageSize: 20, totalCount: 1, totalPages: 1,

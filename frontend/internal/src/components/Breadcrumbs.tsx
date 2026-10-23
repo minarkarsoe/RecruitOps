@@ -21,6 +21,7 @@ const ROUTE_LABELS: Record<string, string> = {
   // The fallback would capitalise this to "Delivery", which is not what the screen is called.
   delivery: 'Delivery Log',
   edit: 'Edit',
+  preboarding: 'Pre-boarding',
 };
 
 export function getBreadcrumbsForPath(pathname: string): BreadcrumbItem[] {
