@@ -20,6 +20,24 @@
   Same tokens as the internal app (ds.js) so the company reads as one product.
   Note: 44px targets and the single column apply from the smallest width up; this is the
   one surface in the set that is designed phone-first rather than desk-first.
+
+  STATES (open this file with #<state> to see one; the default is #link). Added 2026-10-23 for
+  Module 4 slice B — ADR-0030 §5 requires a code step and a typed signature, and neither was drawn:
+    #link      what the emailed link opens to: who it is from, and "email me a code". Nothing else —
+               the link alone must show nothing sensitive (no position, no salary, no name).
+    #code      the 6-digit code, with its error and "send a new one".
+    #offer     the offer (drawn 2026-08-18). The letter is a web page, not a PDF (product owner,
+               2026-10-23): it can be printed or saved as a PDF from the browser.
+    #letter    the full letter, as the candidate will sign it.
+    #sign      typed full name + consent. Says what is recorded, and does NOT claim legal
+               equivalence to paper — ADR-0030 §5 leaves that to the customer's counsel.
+    #decline   confirm, with an optional reason.
+    #accepted  after signing, until slice C turns on document collection (#documents).
+    #declined  after declining.
+    #expired   past the reply-by date.
+    #invalid   an unknown, superseded or withdrawn link — one message for all, so a link cannot be
+               probed for which of those it is.
+    #documents slice C (drawn 2026-08-18, unchanged).
 -->
 
 <div class="min-h-screen flex flex-col">
@@ -40,8 +58,60 @@
   <main class="flex-1">
     <div class="max-w-[560px] mx-auto px-5 py-8">
 
-      <!-- ============ STEP 1: the offer ============ -->
-      <section id="step1">
+      <!-- ============ #link: what the email opens to ============ -->
+      <section data-state="link">
+        <p class="text-sm text-ink-600">Offer of employment</p>
+        <h1 class="mt-1.5 text-3xl font-bold tracking-tight">You have an offer from Yoma Commercial Bank</h1>
+        <p class="mt-3 text-lg text-ink-700">
+          To keep it private, we'll email a 6-digit code to the address you applied with:
+        </p>
+        <p class="mt-3 rounded-lg border border-line bg-white px-5 py-3.5 text-lg font-medium font-mono">k•••••@gmail.com</p>
+
+        <a href="#code" class="mt-7 flex w-full h-12 items-center justify-center rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-semibold transition-colors">
+          Email me a code
+        </a>
+        <p class="mt-4 text-sm text-ink-600">
+          No longer use that address? Contact
+          <a href="#" class="font-medium text-brand-700">recruitment@ymb.com.mm</a> — the code can only go
+          to the address on your application.
+        </p>
+      </section>
+
+      <!-- ============ #code: enter the code ============ -->
+      <section data-state="code" class="hidden">
+        <p class="text-sm text-ink-600">Offer of employment</p>
+        <h1 class="mt-1.5 text-3xl font-bold tracking-tight">Enter the code we emailed you</h1>
+        <p class="mt-3 text-lg text-ink-700">
+          Sent to <span class="font-mono font-medium">k•••••@gmail.com</span>. It works for 10 minutes.
+        </p>
+
+        <form class="mt-6" onsubmit="location.hash='offer'; return false;">
+          <label for="otp" class="block text-base font-medium">6-digit code</label>
+          <!-- One field, not six boxes: paste and the phone's one-time-code autofill both just work. -->
+          <input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000"
+            aria-describedby="otpError"
+            class="mt-2 w-full h-14 rounded-md border border-critical-500 bg-white px-4 text-center text-3xl font-mono tracking-[0.5em] tnum focus:outline-none" value="4815">
+          <!-- Shown only after a wrong code. The count is honest: after 5 wrong tries the code stops
+               working and a new one has to be sent. -->
+          <p id="otpError" class="mt-2 text-base text-critical-700">That code isn't right. 3 tries left.</p>
+
+          <button class="mt-6 w-full h-12 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-semibold transition-colors">
+            Continue
+          </button>
+        </form>
+
+        <div class="mt-6 rounded-lg border border-line bg-white p-4">
+          <p class="text-base font-medium">Didn't get it?</p>
+          <p class="mt-1 text-sm text-ink-600">
+            It can take a minute. Check spam or promotions, then
+            <button class="font-medium text-brand-700">send a new code</button>.
+            A new code replaces this one.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============ STEP 1 (#offer): the offer ============ -->
+      <section id="step1" data-state="offer" class="hidden">
         <p class="text-sm text-ink-600">Offer of employment</p>
         <h1 class="mt-1.5 text-3xl font-bold tracking-tight">Senior Credit Analyst</h1>
         <p class="mt-2 text-lg text-ink-700">Credit Risk Department</p>
@@ -66,11 +136,11 @@
           </div>
         </dl>
 
-        <a href="#" class="mt-4 flex items-center gap-3 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
+        <a href="#letter" class="mt-4 flex items-center gap-3 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors">
           <svg class="w-5 h-5 text-critical-500 shrink-0" viewBox="0 0 20 20" fill="none"><path d="M5 2.5h6l4 4v11H5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M11 2.5v4h4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
           <span class="min-w-0 flex-1">
             <span class="block text-base font-medium">Read the full offer letter</span>
-            <span class="block text-sm text-ink-600">PDF · 2 pages</span>
+            <span class="block text-sm text-ink-600">Opens here — print it or save it as a PDF</span>
           </span>
           <svg class="w-4 h-4 text-ink-600 shrink-0" viewBox="0 0 16 16" fill="none"><path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
@@ -83,16 +153,16 @@
         </p>
 
         <div class="mt-7 space-y-2.5">
-          <button id="acceptBtn" class="w-full h-12 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-semibold transition-colors">
+          <a href="#sign" class="flex w-full h-12 items-center justify-center rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-semibold transition-colors">
             Accept &amp; sign
-          </button>
-          <button class="w-full h-12 rounded-md bg-white border border-line hover:border-line-strong text-ink-900 text-base font-medium transition-colors">
+          </a>
+          <a href="#decline" class="flex w-full h-12 items-center justify-center rounded-md bg-white border border-line hover:border-line-strong text-ink-900 text-base font-medium transition-colors">
             Decline this offer
-          </button>
+          </a>
         </div>
 
         <p class="mt-4 text-sm text-ink-600">
-          Signing here is legally equivalent to signing on paper. A copy is emailed to you immediately.
+          You sign by typing your full name. A copy of what you signed is emailed to you straight away.
         </p>
 
         <div class="mt-6 rounded-lg border border-line bg-white p-4">
@@ -108,8 +178,143 @@
         </p>
       </section>
 
-      <!-- ============ STEP 2: documents (after accepting) ============ -->
-      <section id="step2" class="hidden">
+      <!-- ============ #letter: the full letter ============ -->
+      <section data-state="letter" class="hidden">
+        <a href="#offer" class="no-print inline-flex h-11 items-center gap-1.5 text-base font-medium text-brand-700">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M10 3.5L5.5 8 10 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back to the offer
+        </a>
+        <!-- Plain text from the server, line breaks kept. It is exactly what the candidate signs:
+             the same text is hashed when they accept (ADR-0030 §5). -->
+        <article class="mt-2 rounded-lg border border-line bg-white px-5 py-6 text-md leading-relaxed whitespace-pre-wrap">Dear Ko Aung Kyaw Moe,
+
+We are pleased to offer you the position of Senior Credit Analyst in the Credit Risk department at Yoma Commercial Bank.
+
+Your base salary will be MMK 480,000 a month, with allowances of MMK 45,000 (MMK 525,000 a month in total). Your joining date is 1 October 2026, and your employment begins with a probation period of 6 months.
+
+This offer is open until 25 August 2026. To accept it, please sign through the secure link in the email that came with this letter.
+
+We look forward to welcoming you.</article>
+        <button onclick="window.print()" class="no-print mt-4 w-full h-12 rounded-md bg-white border border-line hover:border-line-strong text-base font-medium transition-colors">
+          Print or save as PDF
+        </button>
+      </section>
+
+      <!-- ============ #sign: typed name + consent ============ -->
+      <section data-state="sign" class="hidden">
+        <a href="#offer" class="inline-flex h-11 items-center gap-1.5 text-base font-medium text-brand-700">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M10 3.5L5.5 8 10 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back to the offer
+        </a>
+        <h1 class="mt-2 text-3xl font-bold tracking-tight">Accept and sign</h1>
+        <p class="mt-2 text-lg text-ink-700">Senior Credit Analyst · MMK 525,000 a month · from 1 October 2026</p>
+
+        <form class="mt-6 space-y-5" onsubmit="location.hash='accepted'; return false;">
+          <div>
+            <label for="sigName" class="block text-base font-medium">Your full name</label>
+            <p class="mt-0.5 text-sm text-ink-600">Typed as you would sign it. This is your signature.</p>
+            <input id="sigName" autocomplete="name" value="Aung Kyaw Moe"
+              class="mt-2 w-full h-12 rounded-md border border-line bg-white px-4 text-lg focus:outline-none focus:ring-2 focus:ring-brand-700">
+          </div>
+
+          <label class="flex items-start gap-3 rounded-lg border border-line bg-white p-4">
+            <!-- 20px box inside a full-width label: the whole card is the 44px target. -->
+            <input type="checkbox" checked class="mt-0.5 h-5 w-5 shrink-0 accent-brand-700">
+            <span class="text-base">I have read the <a href="#letter" class="font-medium text-brand-700">offer letter</a> and I accept this offer of employment.</span>
+          </label>
+
+          <p class="text-sm text-ink-600">
+            We keep a record of your typed name, the date and time, the device and network you signed from,
+            and a fingerprint of the exact letter you accepted — so either side can show later what was agreed.
+          </p>
+
+          <!-- Disabled until both the name and the box are filled. -->
+          <button class="w-full h-12 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-base font-semibold transition-colors">
+            Accept &amp; sign
+          </button>
+        </form>
+      </section>
+
+      <!-- ============ #decline: confirm ============ -->
+      <section data-state="decline" class="hidden">
+        <a href="#offer" class="inline-flex h-11 items-center gap-1.5 text-base font-medium text-brand-700">
+          <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><path d="M10 3.5L5.5 8 10 12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Back to the offer
+        </a>
+        <h1 class="mt-2 text-3xl font-bold tracking-tight">Decline this offer?</h1>
+        <p class="mt-2 text-lg text-ink-700">
+          We'll let the recruitment team know. Once declined, the offer cannot be accepted from this link.
+        </p>
+
+        <form class="mt-6 space-y-5" onsubmit="location.hash='declined'; return false;">
+          <div>
+            <label for="reason" class="block text-base font-medium">
+              Anything you'd like to tell us? <span class="font-normal text-ink-600">(optional)</span>
+            </label>
+            <textarea id="reason" rows="4"
+              class="mt-2 w-full rounded-md border border-line bg-white p-4 text-base focus:outline-none focus:ring-2 focus:ring-brand-700"
+              placeholder="For example, you have accepted another offer"></textarea>
+          </div>
+          <button class="w-full h-12 rounded-md bg-white border border-critical-500 text-critical-700 hover:bg-critical-50 text-base font-semibold transition-colors">
+            Decline the offer
+          </button>
+        </form>
+      </section>
+
+      <!-- ============ #accepted: signed, before document collection exists (slice C) ============ -->
+      <section data-state="accepted" class="hidden">
+        <div class="rounded-lg border border-positive-500/30 bg-positive-50 px-5 py-4">
+          <p class="text-base font-semibold text-positive-700">Offer accepted — welcome</p>
+          <p class="mt-1 text-sm text-positive-700/90">
+            Signed by Aung Kyaw Moe on 18 August 2026. A copy has been emailed to you.
+          </p>
+        </div>
+        <h2 class="mt-7 text-2xl font-semibold tracking-tight">What happens next</h2>
+        <p class="mt-2 text-base text-ink-600">
+          The recruitment team will be in touch about your first day, 1 October 2026. You can come back to
+          this link to read the letter you signed.
+        </p>
+        <a href="#letter" class="mt-6 flex w-full h-12 items-center justify-center rounded-md bg-white border border-line hover:border-line-strong text-base font-medium transition-colors">
+          Read the signed letter
+        </a>
+      </section>
+
+      <!-- ============ #declined ============ -->
+      <section data-state="declined" class="hidden">
+        <div class="rounded-lg border border-line bg-white px-5 py-4">
+          <p class="text-base font-semibold">You declined this offer</p>
+          <p class="mt-1 text-sm text-ink-600">On 18 August 2026. The recruitment team has been told.</p>
+        </div>
+        <p class="mt-6 text-base text-ink-600">
+          Thank you for letting us know, and for the time you gave to the process.
+          If you change your mind, contact <a href="#" class="font-medium text-brand-700">recruitment@ymb.com.mm</a>.
+        </p>
+      </section>
+
+      <!-- ============ #expired ============ -->
+      <section data-state="expired" class="hidden">
+        <p class="text-sm text-ink-600">Offer of employment</p>
+        <h1 class="mt-1.5 text-3xl font-bold tracking-tight">This offer has expired</h1>
+        <p class="mt-3 text-lg text-ink-700">
+          It was open until 25 August 2026, so this link no longer works.
+        </p>
+        <p class="mt-6 text-base text-ink-600">
+          If you still want to talk about it, contact
+          <a href="#" class="font-medium text-brand-700">recruitment@ymb.com.mm</a>.
+        </p>
+      </section>
+
+      <!-- ============ #invalid: unknown, superseded or withdrawn — one message for all ============ -->
+      <section data-state="invalid" class="hidden">
+        <h1 class="text-3xl font-bold tracking-tight">This link doesn't work</h1>
+        <p class="mt-3 text-lg text-ink-700">
+          Check that you opened the most recent email about your offer. If it still doesn't work, reply to
+          that email and the recruitment team will help.
+        </p>
+      </section>
+
+      <!-- ============ STEP 2 (#documents, slice C): documents (after accepting) ============ -->
+      <section id="step2" data-state="documents" class="hidden">
         <div class="rounded-lg border border-positive-500/30 bg-positive-50 px-5 py-4">
           <p class="text-base font-semibold text-positive-700">Offer accepted — welcome</p>
           <p class="mt-1 text-sm text-positive-700/90">
@@ -209,12 +414,18 @@
 </div>
 
 <script>
-  // Accepting is irreversible in the product; this demo just advances the step.
-  document.getElementById('acceptBtn').addEventListener('click', function () {
-    document.getElementById('step1').classList.add('hidden');
-    document.getElementById('step2').classList.remove('hidden');
+  // Review aid only: show the state named in the URL hash (#link, #code, …; see the list at the
+  // top). In the product each state is a server-decided step, not a link the candidate can pick.
+  function show() {
+    var state = (location.hash || '#link').slice(1);
+    document.querySelectorAll('[data-state]').forEach(function (el) {
+      el.classList.toggle('hidden', el.getAttribute('data-state') !== state);
+    });
     window.scrollTo(0, 0);
-  });
+  }
+  window.addEventListener('hashchange', show);
+  show();
 </script>
+<style>@media print { header, footer, .no-print { display: none !important; } }</style>
 </body>
 </html>

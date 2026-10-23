@@ -1,8 +1,9 @@
 # Module 4 — Offer Management & Pre-boarding
 
-**Status:** 🚧 Slice A in progress (2026-10-21) — offers, budget check, internal approval,
-dashboard. Slice B: sending + candidate portal. Slice C: pre-boarding documents. Decisions:
-[ADR-0030](../../decisions/ADR-0030-offer-management.md).
+**Status:** 🚧 Slice A built (2026-10-21) — offers, budget check, internal approval, dashboard.
+Slice B in progress (2026-10-23) — sending, the candidate portal, signing, declining, reminders,
+expiry. Slice C: pre-boarding documents. Decisions:
+[ADR-0030](../../decisions/ADR-0030-offer-management.md) (§5a for slice B).
 **Scope last revised:** 2026-08-18, from a sales requirement document
 (`Module 4_Offer Management & Pre-boarding.pdf`). That document is the source for the
 sub-module structure, the status vocabulary, the offer approval workflow and the HRMS
@@ -62,9 +63,12 @@ Offer letters are written **in the system**, not in Word.
 A candidate-facing web portal reached by secure link. Recruiters can review everything the
 candidate submits.
 
-- **E-signature:** the candidate opens the link, reads the full offer letter as a PDF, then
-  `Accept & Sign` or `Decline`. Accepting captures a digital signature and flips the status
-  to `Accepted` immediately.
+- **E-signature:** the candidate opens the link, unlocks it with a 6-digit code emailed to the
+  address on their application, reads the full offer letter (a printable web page — the
+  browser saves it as a PDF; product owner, 2026-10-23), then `Accept & Sign` (typed full name +
+  consent) or `Decline` (optional reason). Accepting records the signature evidence and flips the
+  status to `Accepted` immediately. Screens: `design/public/offer-portal.html` (`#link` …
+  `#invalid`, drawn 2026-10-23).
 - **Document collection:** after acceptance, a second step collects joining documents —
   **NRC (front and back), bank account details, education certificates, profile photo** (for
   the employee card). Which fields are **required is configurable in System Settings**.

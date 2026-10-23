@@ -88,7 +88,7 @@ naming them means. An unreachable offer is a 404, never a 403 (ADR-0003).
 **Approvers' comments follow the salary rule**: a viewer who may not see salaries sees each step's
 decision but not its comment, because "come down to 800,000" is the package in other words.
 
-### 5. Signing and the candidate link (built in slice B, decided now)
+### 5. Signing and the candidate link (decided 2026-10-21; built in slice B — see §5a)
 
 - **Signature: typed full name + consent** (product owner, 2026-10-21). On acceptance the system
   records the typed name, the time, the client IP and user agent, and a **SHA-256 of the exact
@@ -103,6 +103,52 @@ decision but not its comment, because "come down to 800,000" is the package in o
   salary and, after acceptance, identity documents.
 - **The candidate's name is rendered on one line** in the letter: it comes from an anonymous form,
   and a line break in it would add paragraphs to the text the candidate signs.
+
+### 5a. How slice B builds §5 (amendment, 2026-10-23)
+
+Decided while building, before code; the portal screens were drawn first
+(`design/public/offer-portal.html`, states `#link` … `#invalid`) and the product owner chose a
+**printable web page over a PDF** for the letter (no new package; the browser saves it as a PDF).
+
+- **The link is an address, not a credential.** `/offer/{token}` on the public site, the token 32
+  random bytes, stored as is so a reminder can repeat it. What protects the offer is the code: the
+  link alone shows the company's name and the candidate's email address masked (`k•••••@gmail.com`)
+  — no name, position or terms. The public site's address is `PublicSite:BaseUrl`; without it,
+  sending is refused rather than mailing a link that goes nowhere.
+- **The code.** Six digits from a cryptographic generator, emailed through the outbox to the
+  address on the application and to nowhere else; stored only as a hash; valid **10 minutes**;
+  **5 wrong tries** end it; a new code replaces the old; at most **5 codes per offer per 24 hours**.
+  Worst case, someone holding a forwarded link guesses 25 times a day — over an offer's longest
+  life (90 days) a 0.2% chance, while the candidate receives every code they trigger. The code is
+  in the outbox row's payload until it is sent; the delivery log never shows payloads.
+- **The session.** A correct code sets an `HttpOnly`, `SameSite=Strict` cookie scoped to that
+  offer's API path, valid **2 hours**, stored only as a hash. Every read of terms, letter or
+  answer requires it. A new code means a new session.
+- **`Viewed` means the candidate unlocked it** — the first correct code. Opening the link is not
+  viewing it: the link shows nothing to view.
+- **Accepting** takes the typed full name (1–200 characters, one line) and a consent tick, and
+  the SHA-256 of the letter the page showed. The server re-renders the letter; if the hash differs
+  it refuses and the page reloads, so what is recorded is what was read. Recorded in
+  `OfferSignature`: the name as typed, the time, the client IP (the real one — ADR-0029 L6), the
+  user agent, **the letter text itself** and its hash. Declining takes an optional reason (up to
+  1,000 characters). Either answer is final from the link, emails the candidate's copy or
+  acknowledgement, and tells the recruiter who created the offer.
+- **Expiry.** The link works to the end of the expiry date **in the company's time zone** (UTC if
+  none is set). A Sent or Viewed offer past it becomes `Expired` when anything reads it — the
+  dashboard, the offer, the portal. There is no sweep job; anything that counts offers (Module 5)
+  must read them through `OfferService` or expire them the same way first.
+- **Sending** is allowed from `Approved`, or from `Draft` when the offer needs no approval —
+  re-checked at send, not trusted from submit. It re-checks the expiry window (not past, at most
+  90 days ahead) and that the candidate has an email address.
+- **Reminders** (`Remind candidate`): for `Sent` or `Viewed`, at most once per 24 hours, the same
+  link again.
+- **What candidates are told to contact** is the outbound mail's From address (`Smtp:FromAddress`)
+  — set it to a monitored mailbox.
+- **Who sees the evidence:** recruitment staff see the typed name, time, IP, user agent and hash;
+  everyone else sees only the answer and its date. Signing is not an access change, so it is not in
+  the audit log; `OfferSignature` is the record.
+- **Not in slice B:** withdrawing a sent offer, moving the application to `Hired` on acceptance,
+  and document collection (slice C).
 
 ### 6. Records and numbering
 
