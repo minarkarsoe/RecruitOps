@@ -38,6 +38,9 @@ public class AppDbContext : DbContext
     public DbSet<Offer> Offers => Set<Offer>();
     public DbSet<OfferApproval> OfferApprovals => Set<OfferApproval>();
     public DbSet<OfferTemplate> OfferTemplates => Set<OfferTemplate>();
+    public DbSet<OfferSignature> OfferSignatures => Set<OfferSignature>();
+    public DbSet<OfferPortalAccess> OfferPortalAccesses => Set<OfferPortalAccess>();
+    public DbSet<OfferPortalAttempt> OfferPortalAttempts => Set<OfferPortalAttempt>();
 
     // Module 3 — Interview & Assessment
     public DbSet<Interview> Interviews => Set<Interview>();
@@ -399,6 +402,50 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
             e.HasOne<OfferTemplate>().WithMany().HasForeignKey(x => x.OfferTemplateId)
                 .OnDelete(DeleteBehavior.SetNull);
+            // The candidate's link resolves an offer — and with it the company — from this alone, so it
+            // is unique across every company in the database, not per tenant (ADR-0030 §5a).
+            e.Property(x => x.PortalToken).HasMaxLength(64);
+            e.HasIndex(x => x.PortalToken).IsUnique().HasFilter("\"PortalToken\" IS NOT NULL");
+            e.Property(x => x.DeclineReason).HasMaxLength(1000);
+            e.Property(x => x.SentToEmail).HasMaxLength(320);
+            // Two "Remind" clicks at once cannot both pass the once-a-day check and both send.
+            e.Property(x => x.LastRemindedAt).IsConcurrencyToken();
+        });
+
+        builder.Entity<OfferSignature>(e =>
+        {
+            e.Property(x => x.TypedName).IsRequired().HasMaxLength(200);
+            e.Property(x => x.IpAddress).HasMaxLength(64);
+            e.Property(x => x.UserAgent).HasMaxLength(512);
+            e.Property(x => x.SentToEmail).HasMaxLength(320);
+            e.Property(x => x.LetterText).IsRequired();
+            e.Property(x => x.LetterSha256).IsRequired().HasMaxLength(64);
+            // Accepted once: two Accept clicks at the same moment cannot both record a signature.
+            e.HasIndex(x => x.OfferId).IsUnique();
+            // Evidence is not deleted with anything.
+            e.HasOne<Offer>().WithMany().HasForeignKey(x => x.OfferId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<OfferPortalAttempt>(e =>
+        {
+            e.HasIndex(x => x.OfferPortalAccessId);
+            e.HasOne<OfferPortalAccess>().WithMany().HasForeignKey(x => x.OfferPortalAccessId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<OfferPortalAccess>(e =>
+        {
+            // varchar, not char(64): no storage gain, and a text-typed comparison against char plans as a
+            // cast and a sequential scan (database review, 2026-10-23).
+            e.Property(x => x.CodeHash).IsRequired().HasMaxLength(64);
+            e.Property(x => x.SessionHash).HasMaxLength(64);
+            // A code is claimed once: two correct entries at the same moment cannot both open a session.
+            e.Property(x => x.VerifiedAt).IsConcurrencyToken();
+            e.HasIndex(x => new { x.OfferId, x.CreatedAt });
+            e.HasIndex(x => x.SessionHash).IsUnique().HasFilter("\"SessionHash\" IS NOT NULL");
+            e.HasOne<Offer>().WithMany().HasForeignKey(x => x.OfferId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<OfferApproval>(e =>
@@ -665,6 +712,9 @@ public class AppDbContext : DbContext
         builder.Entity<Offer>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<OfferApproval>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<OfferTemplate>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<OfferSignature>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<OfferPortalAccess>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<OfferPortalAttempt>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<Interview>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<InterviewParticipant>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<ScorecardTemplate>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);

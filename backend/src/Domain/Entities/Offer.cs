@@ -49,4 +49,28 @@ public class Offer : BaseEntity, ITenantScoped
     public DateTimeOffset? ApprovedAt { get; set; }
 
     public DateTimeOffset? SentAt { get; set; }
+
+    /// <summary>The candidate's link: <c>/offer/{PortalToken}</c> on the public site. Set when the offer
+    /// is sent. <b>An address, not a credential</b> (ADR-0030 §5a) — it shows nothing sensitive on its
+    /// own, and is stored as is so a reminder can repeat it. The emailed code is the credential.</summary>
+    public string? PortalToken { get; set; }
+
+    /// <summary>The address the offer was sent to, fixed at sending. Every later email — reminders, codes,
+    /// the signed copy — goes here and nowhere else: read live, a candidate record whose email was filled
+    /// in afterwards by a stranger's application could redirect the codes (security review, 2026-10-23).</summary>
+    public string? SentToEmail { get; set; }
+
+    /// <summary>When the candidate first unlocked the offer with a code — not when the link was opened,
+    /// which shows nothing to view.</summary>
+    public DateTimeOffset? ViewedAt { get; set; }
+
+    /// <summary>When the candidate accepted or declined.</summary>
+    public DateTimeOffset? RespondedAt { get; set; }
+
+    /// <summary>The candidate's own words when declining, if any.</summary>
+    public string? DeclineReason { get; set; }
+
+    public DateTimeOffset? LastRemindedAt { get; set; }
+
+    public int ReminderCount { get; set; }
 }

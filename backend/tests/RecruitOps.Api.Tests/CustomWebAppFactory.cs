@@ -82,6 +82,8 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 ["Logging:LogLevel:Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware"] = "Warning",
                 ["RateLimit:PublicApply:PermitLimit"] = "10000",
                 ["RateLimit:Refresh:PermitLimit"] = "10000",
+                ["RateLimit:OfferPortal:PermitLimit"] = "10000",
+                ["PublicSite:BaseUrl"] = "https://careers.test",
                 // No AI keys in tests, so the endpoints answer from the development stubs. That
                 // mirrors appsettings.Development.json, NOT the shipped default — which is
                 // EnableFallback: false, i.e. 402. NoAiFallbackWebAppFactory flips this back to

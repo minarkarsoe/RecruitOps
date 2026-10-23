@@ -30,6 +30,13 @@ public interface IOfferService
 
     Task<OfferDetailDto?> ReviseAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>Emails the candidate their link (ADR-0030 §5a). From Approved, or from Draft when the
+    /// offer needs no approval.</summary>
+    Task<OfferDetailDto?> SendAsync(Guid id, string? expectedEmail = null, CancellationToken ct = default);
+
+    /// <summary>Emails the link again; at most once per 24 hours, while the candidate has not answered.</summary>
+    Task<OfferDetailDto?> RemindAsync(Guid id, CancellationToken ct = default);
+
     /// <returns>False when not found or out of reach.</returns>
     Task<bool> DeleteAsync(Guid id, CancellationToken ct = default);
 

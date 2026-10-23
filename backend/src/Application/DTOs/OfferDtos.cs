@@ -8,6 +8,8 @@ namespace RecruitOps.Application.DTOs;
 /// Manager, unless the company shows them — ADR-0030 §4).</param>
 /// <param name="AwaitingMe">The viewer holds a waiting step of the live approval round.</param>
 /// <param name="WaitingOn">While pending approval, the label of the step whose turn it is.</param>
+/// <param name="ViewedAt">When the candidate unlocked it — the design's "Opened 17 Aug · not signed".</param>
+/// <param name="RespondedAt">When the candidate answered — "Signed 13 Aug · joining 1 Oct".</param>
 public record OfferListItemDto(
     Guid Id,
     string Reference,
@@ -21,7 +23,11 @@ public record OfferListItemDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? SentAt,
     bool AwaitingMe,
-    string? WaitingOn);
+    string? WaitingOn,
+    DateTimeOffset? ViewedAt,
+    DateTimeOffset? RespondedAt,
+    DateOnly JoiningDate,
+    DateTimeOffset? LastRemindedAt);
 
 /// <summary>One offer (Module 4.2, <c>design/internal/offer-create.html</c>).
 /// <para>Every money field — and the letter, which quotes them — is null when
@@ -39,6 +45,14 @@ public record OfferListItemDto(
 /// chain would use if submitted now ("Approval this will need") — sent even while the saved terms
 /// need no approval, because the editor decides that from the terms being typed. Null when not
 /// applicable — or when no offer chain is configured, which the editor then says.</param>
+/// <param name="ViewedAt">When the candidate first unlocked the offer with a code (ADR-0030 §5a).</param>
+/// <param name="RespondedAt">When the candidate accepted or declined.</param>
+/// <param name="DeclineReason">The candidate's own words, if they gave any. Follows the salary rule —
+/// "the salary is too low" is the package in other words.</param>
+/// <param name="Signature">The acceptance evidence — recruitment staff only.</param>
+/// <param name="LastRemindedAt">When the candidate was last reminded; one reminder per 24 hours.</param>
+/// <param name="CandidateEmail">Where the offer goes — or, once sent, went and still goes: every code and
+/// reminder uses the address fixed at sending. Recruitment staff only, so they can check it before sending.</param>
 public record OfferDetailDto(
     Guid Id,
     string Reference,
@@ -67,7 +81,31 @@ public record OfferDetailDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? SubmittedAt,
     DateTimeOffset? ApprovedAt,
-    DateTimeOffset? SentAt);
+    DateTimeOffset? SentAt,
+    DateTimeOffset? ViewedAt,
+    DateTimeOffset? RespondedAt,
+    string? DeclineReason,
+    OfferSignatureDto? Signature,
+    DateTimeOffset? LastRemindedAt,
+    string? CandidateEmail);
+
+/// <summary>Sending an offer. <see cref="ExpectedEmail"/> is the address the recruiter was shown and
+/// confirmed; if the candidate's address has changed since, sending is refused rather than going somewhere
+/// they did not check (security re-review, 2026-10-23).</summary>
+public record SendOfferRequest
+{
+    [StringLength(320)]
+    public string? ExpectedEmail { get; init; }
+}
+
+/// <summary>What was recorded when the candidate accepted (ADR-0030 §5a).</summary>
+public record OfferSignatureDto(
+    string TypedName,
+    DateTimeOffset SignedAt,
+    string? IpAddress,
+    string? UserAgent,
+    string LetterSha256,
+    string? SentToEmail);
 
 /// <summary>An application at the Offer stage with no open offer — what "Create offer" can start from.</summary>
 public record OfferEligibleApplicationDto(

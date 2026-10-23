@@ -175,6 +175,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.Configure<LoginRateLimitOptions>(builder.Configuration.GetSection("RateLimit:Login"));
 builder.Services.Configure<PublicApplyRateLimitOptions>(builder.Configuration.GetSection("RateLimit:PublicApply"));
 builder.Services.Configure<RefreshRateLimitOptions>(builder.Configuration.GetSection("RateLimit:Refresh"));
+builder.Services.Configure<OfferPortalRateLimitOptions>(builder.Configuration.GetSection("RateLimit:OfferPortal"));
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -226,6 +227,22 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = limits.PermitLimit > 0 ? limits.PermitLimit : 60,
+                Window = TimeSpan.FromSeconds(limits.WindowSeconds > 0 ? limits.WindowSeconds : 60),
+                QueueLimit = 0,
+            });
+    });
+
+    // ADR-0030 §5a — the candidate's offer link. Anonymous, and its code step guesses at a credential.
+    options.AddPolicy(RateLimitPolicies.OfferPortal, httpContext =>
+    {
+        var limits = httpContext.RequestServices
+            .GetRequiredService<IOptions<OfferPortalRateLimitOptions>>().Value;
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ClientPartitionKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limits.PermitLimit > 0 ? limits.PermitLimit : 30,
                 Window = TimeSpan.FromSeconds(limits.WindowSeconds > 0 ? limits.WindowSeconds : 60),
                 QueueLimit = 0,
             });

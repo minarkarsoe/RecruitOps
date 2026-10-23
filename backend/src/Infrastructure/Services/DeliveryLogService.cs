@@ -65,10 +65,10 @@ public class DeliveryLogService : IDeliveryLogService
         if (query.SubjectId is { } subjectId)
             messages = messages.Where(m => m.SubjectId == subjectId);
 
-        // Every interview, with the department it belongs to and the candidate it is about. This
-        // is the only subject type resolved today, because InterviewInvitation is the only kind
-        // anything enqueues. **Adding a kind means adding its resolution here**, and the
-        // fail-closed rule below is what makes forgetting to loud rather than dangerous.
+        // Every interview, with the department it belongs to and the candidate it is about — and below,
+        // every offer. Those are the two subject types anything enqueues today. **Adding a kind with a
+        // new subject means adding its resolution here**, and the fail-closed rule below is what makes
+        // forgetting to loud rather than dangerous.
         var interviewSubjects =
             from i in _db.Interviews.AsNoTracking()
             join a in _db.JobApplications.AsNoTracking() on i.JobApplicationId equals a.Id
@@ -76,20 +76,32 @@ public class DeliveryLogService : IDeliveryLogService
             join c in _db.Candidates.AsNoTracking() on a.CandidateId equals c.Id
             select new { InterviewId = i.Id, p.DepartmentId, CandidateName = c.FullName };
 
+        // Offers (Module 4) resolve the same way, through their application.
+        var offerSubjects =
+            from o in _db.Offers.AsNoTracking()
+            join a in _db.JobApplications.AsNoTracking() on o.JobApplicationId equals a.Id
+            join p in _db.JobPostings.AsNoTracking() on a.JobPostingId equals p.Id
+            join c in _db.Candidates.AsNoTracking() on a.CandidateId equals c.Id
+            select new { OfferId = o.Id, p.DepartmentId, CandidateName = c.FullName };
+
         // Left join: a message whose subject we do not resolve still produces a row, and the
         // scoping decision below — not the join — decides who may see it.
         var rows =
             from m in messages
             join s in interviewSubjects on m.SubjectId equals (Guid?)s.InterviewId into subjects
             from s in subjects.DefaultIfEmpty()
+            join o in offerSubjects on m.SubjectId equals (Guid?)o.OfferId into offers
+            from o in offers.DefaultIfEmpty()
             select new
             {
                 Message = m,
                 // The SubjectType guard is redundant against random Guids and deliberate anyway:
                 // "this department came from an Interview" should be readable, not inferred from
                 // the fact that two tables happened not to collide.
-                DepartmentId = m.SubjectType == "Interview" ? (Guid?)s.DepartmentId : null,
-                CandidateName = m.SubjectType == "Interview" ? s.CandidateName : null,
+                DepartmentId = m.SubjectType == "Interview" ? (Guid?)s.DepartmentId
+                    : m.SubjectType == "Offer" ? (Guid?)o.DepartmentId : null,
+                CandidateName = m.SubjectType == "Interview" ? s.CandidateName
+                    : m.SubjectType == "Offer" ? o.CandidateName : null,
             };
 
         if (allowedDepartmentIds is not null)
@@ -97,7 +109,7 @@ public class DeliveryLogService : IDeliveryLogService
             // ⚠️ FAIL CLOSED, and this is the line worth arguing about.
             //
             // `DepartmentId == null` means one of: a kind whose subject we do not resolve yet
-            // (OfferSent, ScheduledReport, ChannelNotification), or a subject row that has been
+            // (ScheduledReport, ChannelNotification), or a subject row that has been
             // deleted. A scoped user sees none of them. The alternative — showing unresolvable
             // rows to everyone — reads as harmless right up to the first kind whose subject IS
             // departmental and whose join nobody remembered to add here, at which point every
@@ -144,7 +156,11 @@ public class DeliveryLogService : IDeliveryLogService
             r.Kind,
             LabelFor(r.Kind),
             ChannelFor(r.Kind),
-            r.Recipient,
+            // A colleague's email is users:read (ADR-0019). A department-scoped viewer sees that the
+            // recruiter was told, not their address (security review, 2026-10-23).
+            allowedDepartmentIds is not null && r.Kind == OutboundMessageKind.OfferAnswerNotice
+                ? "The recruiter who made the offer"
+                : r.Recipient,
             r.CandidateName,
             r.SubjectType,
             r.SubjectId,
@@ -172,6 +188,9 @@ public class DeliveryLogService : IDeliveryLogService
         OutboundMessageKind.PreboardingHandoff => "Pre-boarding handoff",
         OutboundMessageKind.ScheduledReport => "Scheduled report",
         OutboundMessageKind.ChannelNotification => "Channel notification",
+        OutboundMessageKind.OfferAccessCode => "Offer code",
+        OutboundMessageKind.OfferAnswered => "Offer answer (to candidate)",
+        OutboundMessageKind.OfferAnswerNotice => "Offer answer (to recruiter)",
         _ => kind.ToString(),
     };
 

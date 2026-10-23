@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using RecruitOps.Api.Auth;
 using RecruitOps.Api.Authorization;
 using RecruitOps.Application.DTOs;
@@ -75,6 +76,19 @@ public class OffersController : ControllerBase
     [Authorize(Policy = Policies.RecruitmentStaff)]
     public Task<ActionResult<OfferDetailDto>> Revise(Guid id, CancellationToken ct)
         => Guarded(() => _offers.ReviseAsync(id, ct));
+
+    /// <summary>Emails the candidate their link (ADR-0030 §5a).</summary>
+    [HttpPost("offers/{id:guid}/send")]
+    [Authorize(Policy = Policies.RecruitmentStaff)]
+    public Task<ActionResult<OfferDetailDto>> Send(
+        Guid id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] SendOfferRequest? request, CancellationToken ct)
+        => Guarded(() => _offers.SendAsync(id, request?.ExpectedEmail, ct));
+
+    /// <summary>"Remind candidate": the same link again, at most once a day.</summary>
+    [HttpPost("offers/{id:guid}/remind")]
+    [Authorize(Policy = Policies.RecruitmentStaff)]
+    public Task<ActionResult<OfferDetailDto>> Remind(Guid id, CancellationToken ct)
+        => Guarded(() => _offers.RemindAsync(id, ct));
 
     [HttpDelete("offers/{id:guid}")]
     [Authorize(Policy = Policies.RecruitmentStaff)]

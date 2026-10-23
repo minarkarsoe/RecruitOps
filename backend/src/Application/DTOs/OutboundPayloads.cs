@@ -24,3 +24,8 @@ namespace RecruitOps.Application.DTOs;
 public sealed record InterviewInvitationPayload(
     string TimeZoneId,
     bool IsReschedule = false);
+
+/// <summary>What an <see cref="Domain.Enums.OutboundMessageKind.OfferAccessCode"/> row carries: the
+/// code itself, because only its hash is stored anywhere else (ADR-0030 §5a). It lives here for the
+/// code's ten minutes of use; the delivery log never shows payloads.</summary>
+public sealed record OfferAccessCodePayload(string Code);

@@ -23,6 +23,15 @@ public enum OutboundMessageKind
 
     /// <summary>Module 8 — a status notification over Viber / Telegram / Facebook.</summary>
     ChannelNotification,
+
+    /// <summary>Module 4.3 — the 6-digit code that unlocks an offer's link (ADR-0030 §5a).</summary>
+    OfferAccessCode,
+
+    /// <summary>Module 4.3 — the candidate's copy of what they signed, or the acknowledgement of a decline.</summary>
+    OfferAnswered,
+
+    /// <summary>Module 4.3 — tells the recruiter who created an offer that the candidate answered.</summary>
+    OfferAnswerNotice,
 }
 
 /// <summary>Where a message is in its life (ADR-0026).

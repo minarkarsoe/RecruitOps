@@ -1,0 +1,109 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using RecruitOps.Api.Auth;
+using RecruitOps.Application.Common;
+using RecruitOps.Application.DTOs;
+using RecruitOps.Application.Interfaces;
+
+namespace RecruitOps.Api.Controllers;
+
+/// <summary>Module 4.3 — the candidate's offer link (ADR-0030 §5a), drawn in
+/// <c>design/public/offer-portal.html</c>.
+///
+/// <para>⚠️ Anonymous, rate limited, and uninformative in the same way as the job pages: an unknown,
+/// malformed or never-sent token is one 404. Beyond the token, the session cookie a correct code sets is
+/// what reads the offer and answers it — a missing or expired one is a 401, and the page goes back to
+/// the code step.</para>
+///
+/// <para>The cookie is <c>HttpOnly</c> (the page's script never holds it), <c>SameSite=Strict</c>, scoped
+/// to this offer's path, <c>Secure</c> everywhere but local development, and a browser-session cookie: it
+/// has no expiry of its own, so closing the browser ends it — the server ends it after 30 minutes or at
+/// an answer, whichever is first (security review M4, 2026-10-23).</para></summary>
+[ApiController]
+[Route("api/public/offers/{token}")]
+[AllowAnonymous]
+[EnableRateLimiting(RateLimitPolicies.OfferPortal)]
+[RequestSizeLimit(16 * 1024)] // the largest legitimate body is a 1,000-character reason
+public class PublicOffersController : ControllerBase
+{
+    public const string SessionCookie = "offer_session";
+
+    private readonly IOfferPortalService _portal;
+    private readonly IRequestOrigin _origin;
+    private readonly IWebHostEnvironment _env;
+
+    public PublicOffersController(IOfferPortalService portal, IRequestOrigin origin, IWebHostEnvironment env)
+    {
+        _portal = portal;
+        _origin = origin;
+        _env = env;
+    }
+
+    /// <summary>What the link alone shows: the company, where a code would go, and whether it has expired.</summary>
+    [HttpGet]
+    public async Task<ActionResult<PortalOfferLinkDto>> Open(string token, CancellationToken ct)
+    {
+        var link = await _portal.OpenAsync(token, ct);
+        return link is null ? NotFound() : Ok(link);
+    }
+
+    [HttpPost("code")]
+    public Task<IActionResult> SendCode(string token, CancellationToken ct) => Guarded(async () =>
+        await _portal.SendCodeAsync(token, ct) ? Accepted() : NotFound());
+
+    [HttpPost("verify")]
+    public Task<IActionResult> Verify(string token, VerifyOfferCodeRequest request, CancellationToken ct) => Guarded(async () =>
+    {
+        if (await _portal.VerifyAsync(token, request.Code, ct) is not { } session) return NotFound();
+
+        Response.Cookies.Append(SessionCookie, session.Token, new CookieOptions
+        {
+            HttpOnly = true,
+            // Not only when the request says HTTPS: an install whose proxy does not forward the scheme
+            // would otherwise fail open. Plain HTTP is for a developer's machine only.
+            Secure = Request.IsHttps || !_env.IsDevelopment(),
+            SameSite = SameSiteMode.Strict,
+            Path = $"/api/public/offers/{token}",
+            IsEssential = true,
+        });
+        return NoContent();
+    });
+
+    [HttpGet("offer")]
+    public Task<IActionResult> GetOffer(string token, CancellationToken ct) =>
+        Guarded(async () => Found(await _portal.GetOfferAsync(token, Session(), ct)));
+
+    [HttpPost("accept")]
+    public Task<IActionResult> Accept(string token, AcceptOfferRequest request, CancellationToken ct) =>
+        Guarded(async () => Found(await _portal.AcceptAsync(
+            token, Session(), request, _origin.IpAddress, Request.Headers.UserAgent.ToString(), ct)));
+
+    [HttpPost("decline")]
+    public Task<IActionResult> Decline(string token, DeclineOfferRequest request, CancellationToken ct) =>
+        Guarded(async () => Found(await _portal.DeclineAsync(token, Session(), request, ct)));
+
+    private string? Session() => Request.Cookies.TryGetValue(SessionCookie, out var value) ? value : null;
+
+    private IActionResult Found(PortalOfferDto? offer) => offer is null ? NotFound() : Ok(offer);
+
+    /// <summary>The service's refusals, as the candidate should read them: its messages are written for
+    /// them (409), and a missing session sends the page back to the code step (401). Only
+    /// <see cref="PortalRefusalException"/> carries text to a stranger; anything else is a 500 with
+    /// nothing in it.</summary>
+    private async Task<IActionResult> Guarded(Func<Task<IActionResult>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized();
+        }
+        catch (PortalRefusalException ex)
+        {
+            return Conflict(new ProblemDetails { Title = "Cannot continue", Detail = ex.Message });
+        }
+    }
+}

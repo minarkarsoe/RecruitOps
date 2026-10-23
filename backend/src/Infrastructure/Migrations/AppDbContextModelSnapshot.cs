@@ -885,6 +885,10 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("DeclineReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<DateOnly>("ExpiresOn")
                         .HasColumnType("date");
 
@@ -893,6 +897,10 @@ namespace RecruitOps.Infrastructure.Migrations
 
                     b.Property<DateOnly>("JoiningDate")
                         .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("LastRemindedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("LetterBody")
                         .IsRequired()
@@ -904,11 +912,25 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.Property<Guid?>("OfferTemplateId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("PortalToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<int>("ProbationMonths")
                         .HasColumnType("integer");
 
+                    b.Property<int>("ReminderCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset?>("SentAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SentToEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
 
                     b.Property<string>("Status")
                         .IsConcurrencyToken()
@@ -925,6 +947,9 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset?>("ViewedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("Year")
                         .HasColumnType("integer");
 
@@ -933,6 +958,10 @@ namespace RecruitOps.Infrastructure.Migrations
                     b.HasIndex("JobApplicationId");
 
                     b.HasIndex("OfferTemplateId");
+
+                    b.HasIndex("PortalToken")
+                        .IsUnique()
+                        .HasFilter("\"PortalToken\" IS NOT NULL");
 
                     b.HasIndex("TenantId", "Status");
 
@@ -1002,6 +1031,134 @@ namespace RecruitOps.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("OfferApprovals");
+                });
+
+            modelBuilder.Entity("RecruitOps.Domain.Entities.OfferPortalAccess", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CodeExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OfferId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("SessionExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SessionHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionHash")
+                        .IsUnique()
+                        .HasFilter("\"SessionHash\" IS NOT NULL");
+
+                    b.HasIndex("OfferId", "CreatedAt");
+
+                    b.ToTable("OfferPortalAccesses");
+                });
+
+            modelBuilder.Entity("RecruitOps.Domain.Entities.OfferPortalAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OfferPortalAccessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OfferPortalAccessId");
+
+                    b.ToTable("OfferPortalAttempts");
+                });
+
+            modelBuilder.Entity("RecruitOps.Domain.Entities.OfferSignature", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("LetterSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("LetterText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OfferId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SentToEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<DateTimeOffset>("SignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TypedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OfferId")
+                        .IsUnique();
+
+                    b.ToTable("OfferSignatures");
                 });
 
             modelBuilder.Entity("RecruitOps.Domain.Entities.OfferTemplate", b =>
@@ -1937,6 +2094,33 @@ namespace RecruitOps.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("OfferId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RecruitOps.Domain.Entities.OfferPortalAccess", b =>
+                {
+                    b.HasOne("RecruitOps.Domain.Entities.Offer", null)
+                        .WithMany()
+                        .HasForeignKey("OfferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RecruitOps.Domain.Entities.OfferPortalAttempt", b =>
+                {
+                    b.HasOne("RecruitOps.Domain.Entities.OfferPortalAccess", null)
+                        .WithMany()
+                        .HasForeignKey("OfferPortalAccessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RecruitOps.Domain.Entities.OfferSignature", b =>
+                {
+                    b.HasOne("RecruitOps.Domain.Entities.Offer", null)
+                        .WithMany()
+                        .HasForeignKey("OfferId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

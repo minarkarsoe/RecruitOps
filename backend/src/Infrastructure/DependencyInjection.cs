@@ -53,6 +53,10 @@ public static class DependencyInjection
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IOfferService, OfferService>();
+        // The candidate's side of an offer — anonymous, like IPublicJobService: the link's token
+        // establishes the tenant (ADR-0030 §5a).
+        services.AddScoped<IOfferPortalService, OfferPortalService>();
+        services.AddSingleton<OfferPortalSecret>();
         services.AddScoped<ICandidateDuplicateService, CandidateDuplicateService>();
         services.AddScoped<IFeatureFlagService, FeatureFlagService>();
 
@@ -83,6 +87,12 @@ public static class DependencyInjection
         // tenant scope. Registered as IOutboundMessageHandler (plural resolution) — a Kind with no
         // handler retries rather than failing, so a missing line here is loud but not destructive.
         services.AddScoped<IOutboundMessageHandler, InterviewInvitationHandler>();
+        services.AddScoped<IOutboundMessageHandler, OfferSentHandler>();
+        services.AddScoped<IOutboundMessageHandler, OfferReminderHandler>();
+        services.AddScoped<IOutboundMessageHandler, OfferAccessCodeHandler>();
+        services.AddScoped<IOutboundMessageHandler, OfferAnsweredHandler>();
+        services.AddScoped<IOutboundMessageHandler, OfferAnswerNoticeHandler>();
+        services.Configure<PublicSiteOptions>(config.GetSection(PublicSiteOptions.SectionName));
 
         // Module 1 + department scoping (ADR-0003)
         services.AddScoped<IDepartmentAccess, DepartmentAccess>();

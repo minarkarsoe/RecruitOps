@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using RecruitOps.Application.Common;
 using RecruitOps.Application.DTOs;
@@ -6,16 +7,17 @@ using RecruitOps.Application.Interfaces;
 using RecruitOps.Domain;
 using RecruitOps.Domain.Entities;
 using RecruitOps.Domain.Enums;
+using RecruitOps.Infrastructure.Options;
 using RecruitOps.Infrastructure.Persistence;
 
 namespace RecruitOps.Infrastructure.Services;
 
-/// <summary>Module 4 offers, slice A: drafting from an application, the budget check, internal
-/// approval and the dashboard (ADR-0030). Sending, the candidate portal and pre-boarding are later
-/// slices.
+/// <summary>Module 4 offers, the internal side: drafting from an application, the budget check,
+/// internal approval, the dashboard (slice A), and sending and reminding (slice B) — ADR-0030. The
+/// candidate's side is <see cref="OfferPortalService"/>; pre-boarding is slice C.
 ///
 /// <para><b>Reach</b> (ADR-0030 §4) is decided per offer, in one place (<see cref="ReachAsync"/>):
-/// recruitment staff manage every offer; anyone named on an offer's approval step — in any round —
+/// recruitment staff manage every offer; anyone named on a step of an offer's live approval round
 /// sees and decides that offer, never the candidate's file; a Hiring Manager sees their departments'
 /// offers read-only, without salary unless the company shows it. Everyone else: null, which the
 /// controller turns into a 404.</para></summary>
@@ -41,6 +43,7 @@ public class OfferService : IOfferService
     private readonly IDepartmentAccess _departments;
     private readonly IAuditTrail _audit;
     private readonly TimeProvider _clock;
+    private readonly IOptions<PublicSiteOptions> _site;
 
     /// <summary>How far ahead an offer may expire. The candidate's link lives until then, and the link
     /// reaches salary and, after acceptance, identity documents (ADR-0030 §5).</summary>
@@ -48,7 +51,7 @@ public class OfferService : IOfferService
 
     public OfferService(
         AppDbContext db, ICurrentUser user, ICurrentTenant tenant, IDepartmentAccess departments,
-        IAuditTrail audit, TimeProvider clock)
+        IAuditTrail audit, TimeProvider clock, IOptions<PublicSiteOptions> site)
     {
         _db = db;
         _user = user;
@@ -56,6 +59,7 @@ public class OfferService : IOfferService
         _departments = departments;
         _audit = audit;
         _clock = clock;
+        _site = site;
     }
 
     // ── Reach ───────────────────────────────────────────────────────────────
@@ -134,6 +138,7 @@ public class OfferService : IOfferService
     public async Task<IReadOnlyList<OfferListItemDto>> ListAsync(
         string? group, Guid? departmentId, DateOnly? from, DateOnly? to, CancellationToken ct = default)
     {
+        await ExpireDueAsync(null, ct);
         var query = Rows();
         var staff = IsRecruitmentStaff;
         var named = new HashSet<Guid>();
@@ -182,7 +187,8 @@ public class OfferService : IOfferService
             x.DepartmentId, x.DepartmentName,
             staff || named.Contains(x.Offer.Id) || showToManagers ? x.Offer.BaseSalary : null,
             x.Offer.Status.ToString(), x.Offer.CreatedAt, x.Offer.SentAt,
-            awaiting.Contains(x.Offer.Id), waitingOn.GetValueOrDefault(x.Offer.Id))).ToList();
+            awaiting.Contains(x.Offer.Id), waitingOn.GetValueOrDefault(x.Offer.Id),
+            x.Offer.ViewedAt, x.Offer.RespondedAt, x.Offer.JoiningDate, x.Offer.LastRemindedAt)).ToList();
     }
 
     /// <summary>For offers pending approval: those whose live round holds a waiting step of the
@@ -223,6 +229,7 @@ public class OfferService : IOfferService
 
     public async Task<OfferDetailDto?> GetAsync(Guid id, CancellationToken ct = default)
     {
+        await ExpireDueAsync(id, ct);
         var row = await Rows().AsNoTracking().FirstOrDefaultAsync(x => x.Offer.Id == id, ct);
         if (row is null) return null;
         var reach = await ReachAsync(id, row.DepartmentId, ct);
@@ -237,6 +244,15 @@ public class OfferService : IOfferService
         // The letter quotes the salary, so it follows the salary rule.
         var reach = await ReachAsync(id, row.DepartmentId, ct);
         if (reach is null || !reach.SalaryVisible) return null;
+
+        // Once accepted, the letter is the one signed, exactly — not a fresh render that a corrected name
+        // or company would change.
+        if (row.Offer.Status == OfferStatus.Accepted
+            && await _db.OfferSignatures.AsNoTracking().Where(s => s.OfferId == id).Select(s => s.LetterText)
+                .FirstOrDefaultAsync(ct) is { } signed)
+        {
+            return new OfferLetterDto(signed);
+        }
 
         return new OfferLetterDto(await RenderAsync(row, ct));
     }
@@ -279,6 +295,15 @@ public class OfferService : IOfferService
             && await OfferChainStepsAsync(row.DepartmentId, ct) is { Count: > 0 } steps)
             preview = steps.Select(s => s.Label).ToList();
 
+        // The evidence names a device and a network: recruitment staff, who own the offer, only.
+        OfferSignatureDto? signature = null;
+        if (reach.Access == Access.Manage && o.Status == OfferStatus.Accepted)
+        {
+            signature = await _db.OfferSignatures.AsNoTracking().Where(x => x.OfferId == o.Id)
+                .Select(x => new OfferSignatureDto(x.TypedName, x.SignedAt, x.IpAddress, x.UserAgent, x.LetterSha256, x.SentToEmail))
+                .FirstOrDefaultAsync(ct);
+        }
+
         return new OfferDetailDto(
             o.Id, Reference(o), o.Status.ToString(), o.JobApplicationId, row.RequisitionId,
             row.CandidateName, row.Position, row.DepartmentId, row.DepartmentName,
@@ -294,7 +319,12 @@ public class OfferService : IOfferService
             reach.Access == Access.Manage,
             preview,
             approvals,
-            o.CreatedAt, o.SubmittedAt, o.ApprovedAt, o.SentAt);
+            o.CreatedAt, o.SubmittedAt, o.ApprovedAt, o.SentAt,
+            o.ViewedAt, o.RespondedAt,
+            show ? o.DeclineReason : null,
+            signature,
+            o.LastRemindedAt,
+            reach.Access == Access.Manage ? o.SentToEmail ?? await CandidateEmailAsync(o, ct) : null);
     }
 
     /// <summary>The department's offer chain, else the company-wide one — the way a requisition finds
@@ -318,6 +348,56 @@ public class OfferService : IOfferService
         _db.Companies.Where(c => c.Id == _tenant.TenantId).Select(c => c.RequireOfferApproval).FirstOrDefaultAsync(ct);
 
     private static string Reference(Offer o) => $"OFR-{o.Year}-{o.Number:D4}";
+
+    /// <summary>Today in the company's time zone — the day an expiry date is measured against.</summary>
+    private async Task<DateOnly> CompanyTodayAsync(CancellationToken ct)
+    {
+        var zone = await _db.Companies.Where(c => c.Id == _tenant.TenantId).Select(c => c.TimeZoneId).FirstOrDefaultAsync(ct);
+        return OfferPortal.Today(_clock.GetUtcNow(), zone);
+    }
+
+    /// <summary>Offers with the candidate past their expiry date become Expired when anything reads them;
+    /// there is no sweep job (ADR-0030 §5a). <paramref name="offerId"/> narrows it to one offer.</summary>
+    private async Task ExpireDueAsync(Guid? offerId, CancellationToken ct)
+    {
+        var today = await CompanyTodayAsync(ct);
+        var due = await _db.Offers
+            .Where(o => (o.Status == OfferStatus.Sent || o.Status == OfferStatus.Viewed) && o.ExpiresOn < today
+                        && (offerId == null || o.Id == offerId))
+            .ToListAsync(ct);
+        if (due.Count == 0) return;
+
+        foreach (var offer in due) offer.Status = OfferStatus.Expired;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The candidate answered one of them a moment ago, or another read expired it first. Either
+            // way the read that follows sees whichever won; the rest expire on the next read.
+        }
+        _db.ChangeTracker.Clear();
+    }
+
+    /// <summary>The candidate's email address on file, or null.</summary>
+    private Task<string?> CandidateEmailAsync(Offer offer, CancellationToken ct) =>
+        (from a in _db.JobApplications
+         join c in _db.Candidates on a.CandidateId equals c.Id
+         where a.Id == offer.JobApplicationId
+         select c.Email).FirstOrDefaultAsync(ct);
+
+    private void Enqueue(Offer offer, OutboundMessageKind kind, string recipient) =>
+        _db.OutboundMessages.Add(new OutboundMessage
+        {
+            TenantId = offer.TenantId,
+            Kind = kind,
+            Recipient = recipient,
+            SubjectType = nameof(Offer),
+            SubjectId = offer.Id,
+            Status = OutboundMessageStatus.Pending,
+            NextAttemptAt = _clock.GetUtcNow(),
+        });
 
     // ── Writes ──────────────────────────────────────────────────────────────
 
@@ -535,6 +615,80 @@ public class OfferService : IOfferService
 
         offer.Status = OfferStatus.Draft;
         offer.ApprovedAt = null;
+
+        await SaveAsync(ct);
+        return await ReloadAsync(id, ct);
+    }
+
+    public async Task<OfferDetailDto?> SendAsync(Guid id, string? expectedEmail = null, CancellationToken ct = default)
+    {
+        if (await LoadAsync(id, Access.Manage, ct) is not { } loaded) return null;
+        var (offer, row) = loaded;
+
+        // Re-checked here, not trusted from submit: a draft brought within budget goes straight out,
+        // and one over it — or any offer while the company approves every offer — needs its approval.
+        var cleared = offer.Status == OfferStatus.Approved
+                      || (offer.Status == OfferStatus.Draft && !OverBudget(offer, row.Budget) && !await RequireApprovalAsync(ct));
+        if (!cleared)
+        {
+            throw new InvalidOperationException(offer.Status == OfferStatus.Draft
+                ? "This offer needs internal approval before it can be sent."
+                : $"Only an approved offer, or a draft that needs no approval, can be sent; this offer is {offer.Status}.");
+        }
+
+        // The window is measured again at send: time has passed since the terms were set.
+        var today = await CompanyTodayAsync(ct);
+        if (offer.ExpiresOn < today)
+            throw new InvalidOperationException("The offer's expiry date has passed. Set a new one before sending.");
+        if (offer.ExpiresOn > today.AddDays(MaxDaysToExpiry))
+            throw new InvalidOperationException($"An offer can expire at most {MaxDaysToExpiry} days ahead: the candidate's link lives until then.");
+        if (offer.JoiningDate < today)
+            throw new InvalidOperationException("The joining date is in the past.");
+
+        // The code that opens the offer goes to this address and nowhere else (ADR-0030 §5a).
+        var email = await CandidateEmailAsync(offer, ct);
+        if (string.IsNullOrWhiteSpace(email))
+            throw new InvalidOperationException(
+                "The candidate has no email address on file, so the code that opens the offer could not reach them.");
+        // The address is fixed from here on; it must be the one the recruiter was shown.
+        if (expectedEmail is not null && !string.Equals(expectedEmail.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"The candidate's email address is now {email.Trim()}, not the one you were shown. Check it before sending.");
+        if (_site.Value.Normalized() is null)
+            throw new InvalidOperationException(
+                "The public site's address is not configured (PublicSite:BaseUrl), so the candidate's link would go nowhere. "
+                + "Ask whoever runs this installation to set it.");
+
+        offer.PortalToken = OfferPortal.NewToken();
+        offer.SentToEmail = email.Trim();
+        offer.Status = OfferStatus.Sent;
+        offer.SentAt = _clock.GetUtcNow();
+        Enqueue(offer, OutboundMessageKind.OfferSent, offer.SentToEmail);
+
+        await SaveAsync(ct);
+        return await ReloadAsync(id, ct);
+    }
+
+    public async Task<OfferDetailDto?> RemindAsync(Guid id, CancellationToken ct = default)
+    {
+        await ExpireDueAsync(id, ct);
+        if (await LoadAsync(id, Access.Manage, ct) is not { } loaded) return null;
+        var offer = loaded.Offer;
+
+        if (offer.Status is not (OfferStatus.Sent or OfferStatus.Viewed))
+            throw new InvalidOperationException($"Only an offer waiting for the candidate's answer can be reminded; this offer is {offer.Status}.");
+
+        var now = _clock.GetUtcNow();
+        if (offer.LastRemindedAt is { } last && now - last < OfferPortal.ReminderInterval)
+            throw new InvalidOperationException("The candidate was reminded less than a day ago. One reminder a day is enough.");
+
+        // To the address the offer was sent to, never a later one (ADR-0030 §5a).
+        if (string.IsNullOrWhiteSpace(offer.SentToEmail))
+            throw new InvalidOperationException("This offer has no address it was sent to, so it cannot be reminded.");
+
+        offer.LastRemindedAt = now;
+        offer.ReminderCount++;
+        Enqueue(offer, OutboundMessageKind.OfferReminder, offer.SentToEmail);
 
         await SaveAsync(ct);
         return await ReloadAsync(id, ct);

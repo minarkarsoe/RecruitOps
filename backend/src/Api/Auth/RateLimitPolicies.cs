@@ -17,4 +17,9 @@ public static class RateLimitPolicies
     /// <summary><c>/api/auth/refresh</c> and <c>/api/auth/revoke</c>: anonymous, and each call is a
     /// guess at a session if the token is not the caller's (ADR-0028).</summary>
     public const string Refresh = "refresh";
+
+    /// <summary>The candidate's offer link (ADR-0030 §5a). Anonymous, and the code step is a guess
+    /// at a credential; the per-offer limits on codes and tries are the service's, this is the
+    /// per-address one in front of them.</summary>
+    public const string OfferPortal = "offer-portal";
 }

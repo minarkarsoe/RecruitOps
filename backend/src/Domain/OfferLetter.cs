@@ -62,7 +62,9 @@ public static class OfferLetter
 
     private static readonly Regex Breaks = new(@"[\s\p{Cc}\p{Zl}\p{Zp}]+", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(200));
 
-    private static string OneLine(string text) => Breaks.Replace(text, " ").Trim();
+    /// <summary>The text on one line: every run of whitespace, control or separator characters becomes one
+    /// space. Shared with the typed signature, which must not carry line breaks into the record either.</summary>
+    public static string OneLine(string text) => Breaks.Replace(text, " ").Trim();
 
     private static string Money(decimal amount) => amount.ToString("#,##0.##", CultureInfo.InvariantCulture);
 
