@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button, Card, StatusPill } from '@recruitops/ui';
 import type { ApprovalDecisionRequest, OfferDetail, OfferLetter, SendOfferRequest, UpdateOfferRequest } from '@recruitops/types';
 import { api } from '../lib/api';
-import { auth } from '../lib/auth';
+import { auth, hasPermission } from '../lib/auth';
 import { ApprovalDecisionCard, ApprovalTimeline, approvalState } from '../components/ApprovalRail';
 import { calendarDate, day, money, remindedRecently } from './offerFormat';
 
@@ -410,7 +410,7 @@ export function OfferDetailPage() {
               )}
               <p className="mt-3 text-sm text-ink-600">Joining {calendarDate(offer.joiningDate)}.</p>
               {/* Documents are recruitment staff's alone (ADR-0030 §5b): no link for anyone else. */}
-              {offer.canManage && (
+              {offer.canManage && hasPermission(session, 'permission:offers:preboarding:read') && (
                 <Link to={`/offers/${offer.id}/preboarding`} className="mt-3 inline-block text-sm font-medium text-brand-700 hover:text-brand-800">
                   Pre-boarding — joining documents
                 </Link>

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button, Card, Dialog } from '@recruitops/ui';
 import type {
   Preboarding, PreboardingDocument, PreboardingFile, PreboardingHandoffTeam, RevealedBankNumber,
 } from '@recruitops/types';
 import { api, apiBlob } from '../lib/api';
+import { auth, hasPermission } from '../lib/auth';
 import { calendarDate, day } from './offerFormat';
 
 /**
@@ -92,14 +93,26 @@ export function PreboardingPage() {
   const [viewing, setViewing] = useState<{ file: PreboardingFile; label: string; url: string | null; error: string | null } | null>(null);
 
   const base = `/offers/${id}/preboarding`;
+  const session = auth.get();
+  const canReview = hasPermission(session, 'permission:offers:preboarding:review');
+  const canReveal = hasPermission(session, 'permission:offers:preboarding:reveal');
+  // Which opening is current: a response for a viewer already closed, or replaced, is thrown away and its
+  // object URL revoked at once — never left holding an NRC image in memory (security review, L8).
+  const opening = useRef(0);
 
   useEffect(() => {
     if (!id) return;
     api<Preboarding>(base).then(setData).catch((e) => setError(e instanceof Error ? e.message : 'Could not load pre-boarding.'));
   }, [id, base]);
 
-  // A viewer's object URL lives only while the viewer is open.
+  // A viewer's object URL lives only while the viewer is open — and not past the page.
   useEffect(() => () => { if (viewing?.url) URL.revokeObjectURL(viewing.url); }, [viewing?.url]);
+  useEffect(() => () => { opening.current += 1; }, []);
+
+  function closeViewer() {
+    opening.current += 1;
+    setViewing(null);
+  }
 
   async function act(key: string, run: () => Promise<Preboarding>) {
     setBusy(key);
@@ -140,11 +153,14 @@ export function PreboardingPage() {
   }
 
   async function open(file: PreboardingFile, label: string) {
+    const mine = ++opening.current;
     setViewing({ file, label, url: null, error: null });
     try {
       const blob = await apiBlob(`${base}/files/${file.id}`);
+      if (mine !== opening.current) return; // closed or replaced meanwhile: never shown, nothing to revoke
       setViewing({ file, label, url: URL.createObjectURL(blob), error: null });
     } catch (e) {
+      if (mine !== opening.current) return;
       setViewing({ file, label, url: null, error: e instanceof Error ? e.message : 'The document could not be opened.' });
     }
   }
@@ -270,7 +286,7 @@ export function PreboardingPage() {
                             <dt className="text-sm text-ink-600">Account number</dt>
                             <dd className="flex items-center gap-2.5">
                               <span className="tnum font-mono text-base" data-testid="account-number">{revealed ?? d.bank.accountNumberMasked}</span>
-                              {revealed === null ? (
+                              {!canReveal ? null : revealed === null ? (
                                 <button type="button" onClick={() => void reveal()} disabled={busy !== null}
                                   className="text-sm font-medium text-brand-700 hover:text-brand-800 disabled:opacity-60">
                                   {busy === 'reveal' ? 'Revealing…' : 'Reveal'}
@@ -281,7 +297,7 @@ export function PreboardingPage() {
                             </dd>
                           </div>
                         </dl>
-                        <p className="mt-2 text-sm text-ink-600">Revealing is recorded in the audit log with your name and the time.</p>
+                        {canReveal && <p className="mt-2 text-sm text-ink-600">Revealing is recorded in the audit log with your name and the time.</p>}
                       </>
                     )}
 
@@ -316,7 +332,7 @@ export function PreboardingPage() {
                         </Button>
                         <Button variant="ghost" onClick={() => { setReturning(null); setMessage(''); }}>Cancel</Button>
                       </>
-                    ) : (
+                    ) : canReview && (
                       <div className="flex items-center gap-2">
                         {d.complete && (d.status === 'Submitted' || d.status === 'Returned') && (
                           <Button onClick={() => void approve(d)} disabled={busy !== null} aria-label={`Approve ${d.label}`}>
@@ -437,7 +453,7 @@ export function PreboardingPage() {
         </Card>
       </div>
 
-      <Dialog isOpen={viewing !== null} onClose={() => setViewing(null)} size="xl" title={viewing?.label} description="Opening this was recorded in the audit log.">
+      <Dialog isOpen={viewing !== null} onClose={closeViewer} size="xl" title={viewing?.label} description="Opening this was recorded in the audit log.">
         {viewing && (
           <div className="min-h-[200px]">
             {viewing.error && <p role="alert" className="text-md text-critical-700">{viewing.error}</p>}

@@ -5,7 +5,7 @@ import type {
   CreateOfferRequest, DepartmentListItem, OfferDetail, OfferEligibleApplication, OfferListItem, OfferTemplate,
 } from '@recruitops/types';
 import { api } from '../lib/api';
-import { auth, isRecruitmentStaff } from '../lib/auth';
+import { auth, hasPermission, isRecruitmentStaff } from '../lib/auth';
 import { calendarDate, money, remindedRecently } from './offerFormat';
 
 /**
@@ -57,6 +57,8 @@ function statusNote(o: OfferListItem): string | null {
 export function OffersPage() {
   const session = auth.get();
   const staff = session !== null && isRecruitmentStaff(session.role);
+  // Joining documents are their own permission (ADR-0030 §5b): a trimmed custom role may not hold it.
+  const canPreboard = staff && hasPermission(session, 'permission:offers:preboarding:read');
 
   const [group, setGroup] = useState<Group>('');
   const [departmentId, setDepartmentId] = useState('');
@@ -202,7 +204,7 @@ export function OffersPage() {
                       >
                         Remind
                       </Button>
-                    ) : staff && o.status === 'Accepted' ? (
+                    ) : canPreboard && o.status === 'Accepted' ? (
                       // An accepted offer's next work is its joining documents (the design's link); the
                       // offer itself is one click on from there.
                       <Link to={`/offers/${o.id}/preboarding`} className="text-sm font-medium text-brand-700 hover:text-brand-800">

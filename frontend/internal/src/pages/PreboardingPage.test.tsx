@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { Preboarding, PreboardingDocument } from '@recruitops/types';
 import { ApiError } from '../lib/api';
+import { auth } from '../lib/auth';
 import { PreboardingPage } from './PreboardingPage';
 
 /*
@@ -72,7 +73,17 @@ function renderPage() {
   );
 }
 
+const ALL = ['permission:offers:preboarding:read', 'permission:offers:preboarding:review', 'permission:offers:preboarding:reveal'];
+
+function signIn(permissions = ALL) {
+  auth.set({
+    accessToken: 'token', expiresAtUtc: '2099-01-01T00:00:00Z', role: 'Recruiter',
+    displayName: 'U Thura Win', userId: 'usr-me', isSuperAdmin: false, permissions,
+  });
+}
+
 beforeEach(() => {
+  signIn();
   apiMock.mockReset();
   blobMock.mockReset();
   URL.createObjectURL = vi.fn(() => 'blob:doc-1');
@@ -202,6 +213,34 @@ describe('PreboardingPage', () => {
     expect(reminded).toBe(true);
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Remind' })).not.toBeInTheDocument());
     expect(screen.getByText(/reminded/)).toBeInTheDocument();
+  });
+
+  it('offers Reveal only to holders of reveal, and decisions only to holders of review', async () => {
+    signIn(['permission:offers:preboarding:read']);
+    serve(preboarding([doc('BankAccount', {
+      status: 'Submitted', complete: true, revision: 3, files: [file('b1')],
+      bank: { bankName: 'KBZ Bank', accountName: 'NWAY NWAY OO', accountNumberMasked: '•••• 4471' },
+    })]));
+    renderPage();
+    expect(await screen.findByTestId('account-number')).toHaveTextContent('•••• 4471');
+    expect(screen.queryByRole('button', { name: 'Reveal' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Approve/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Reject/ })).not.toBeInTheDocument();
+    // Opening is reading: still offered.
+    expect(screen.getByRole('button', { name: 'Open document: Bank account details' })).toBeInTheDocument();
+  });
+
+  it('a viewer closed before its document arrives stays closed, and never holds the file', async () => {
+    let deliver: (b: Blob) => void = () => undefined;
+    blobMock.mockImplementation(() => new Promise<Blob>((r) => { deliver = r; }));
+    serve(preboarding([doc('NrcFront', { status: 'Submitted', complete: true, revision: 1, files: [file('f1')] })]));
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Open document: NRC — front' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /close/i }));
+    deliver(new Blob(['x'], { type: 'image/jpeg' }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 
   it('says so when the API refuses a non-recruiter', async () => {
