@@ -149,6 +149,7 @@ services:
       # minimum, and the API accepts the example JWT key. Not a production install.
       Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-}
       Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
+      PublicSite__BaseUrl: "http://localhost:${WEB_PORT:-3000}"
       FileStorage__ServiceUrl: "http://storage:9000"
       FileStorage__PublicServiceUrl: "http://localhost:9000"
       FileStorage__BucketName: "recruitops-cvs"

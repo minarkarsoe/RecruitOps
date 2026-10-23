@@ -198,6 +198,9 @@ services:
       # ADR-0016: Crucial for production security. Rate limiter trusts X-Forwarded-For because
       # backend port is not published to the host.
       ReverseProxy__TrustForwardedHeaders: "true"
+      # Where candidates' offer links point (ADR-0030 §5a): this install's own address, e.g.
+      # https://careers.example.com. Empty: sending an offer is refused rather than mailing a dead link.
+      PublicSite__BaseUrl: "${PUBLIC_BASE_URL:-}"
       FileStorage__ServiceUrl: "http://storage:9000"
       FileStorage__PublicServiceUrl: "${STORAGE_PUBLIC_URL:-http://localhost:9000}"
       FileStorage__BucketName: "recruitops-cvs"
