@@ -14,8 +14,9 @@ function baseUrl(): string {
 /**
  * A non-2xx answer. `message` never carries server text — `app/error.tsx` renders it to strangers
  * — so the ProblemDetails `detail` travels separately, and each caller decides whether that
- * status's wording is fit to show. Only the apply endpoint's 409s are written for the public
- * (`PublicJobsController`); everything else stays behind a message the caller writes itself.
+ * status's wording is fit to show. Only two endpoints write their 409s for the public: the apply
+ * endpoint (`PublicJobsController`) and the offer link (`PublicOffersController`); everything else
+ * stays behind a message the caller writes itself.
  */
 export class ApiError extends Error {
   constructor(
@@ -54,5 +55,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });
   if (!res.ok) throw new ApiError(res.status, res.statusText, await problemDetail(res));
+  // Accepted / No Content carry no body (the offer link's "send a code" and "verify"), and
+  // parsing one would throw on a call that succeeded.
+  if (res.status === 202 || res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }

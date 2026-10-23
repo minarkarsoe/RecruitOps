@@ -177,3 +177,14 @@ describe('api() failures', () => {
     expect((err as ApiError).detail).toBeNull();
   });
 });
+
+describe('api() with no body', () => {
+  it('returns undefined for 202 and 204 rather than parsing nothing', async () => {
+    for (const status of [202, 204]) {
+      const json = vi.fn(async () => { throw new SyntaxError('Unexpected end of JSON input'); });
+      globalThis.fetch = vi.fn(async () => ({ ok: true, status, statusText: '', json })) as unknown as typeof fetch;
+      await expect(api('/public/offers/t/code', { method: 'POST' })).resolves.toBeUndefined();
+      expect(json).not.toHaveBeenCalled();
+    }
+  });
+});
