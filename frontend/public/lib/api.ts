@@ -60,3 +60,13 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 202 || res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
+
+/**
+ * A multipart POST (a file from the offer link's documents step). No `Content-Type` of ours: the
+ * browser writes `multipart/form-data` with its boundary, and a JSON header would break the body.
+ */
+export async function upload<T>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(`${baseUrl()}${path}`, { method: 'POST', body: form, cache: 'no-store' });
+  if (!res.ok) throw new ApiError(res.status, res.statusText, await problemDetail(res));
+  return res.json() as Promise<T>;
+}

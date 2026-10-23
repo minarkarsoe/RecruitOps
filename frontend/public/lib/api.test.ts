@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { api, ApiError } from './api';
+import { api, ApiError, upload } from './api';
 
 /**
  * `api()` picks a different base URL depending on whether it is running in Node (a Server
@@ -186,5 +186,24 @@ describe('api() with no body', () => {
       await expect(api('/public/offers/t/code', { method: 'POST' })).resolves.toBeUndefined();
       expect(json).not.toHaveBeenCalled();
     }
+  });
+});
+
+describe('upload()', () => {
+  it('posts the form as is — no JSON content type to break the multipart boundary — and reads the answer', async () => {
+    const fn = mockFetch({ sent: false });
+    const form = new FormData();
+    form.append('file', new Blob(['x']), 'a.jpg');
+    await expect(upload('/public/offers/t/documents/NrcFront/files', form)).resolves.toEqual({ sent: false });
+    expect(fn.mock.calls[0][1]?.method).toBe('POST');
+    expect(fn.mock.calls[0][1]?.body).toBe(form);
+    expect(fn.mock.calls[0][1]?.headers).toBeUndefined();
+  });
+
+  it('throws an ApiError carrying the detail, as api() does', async () => {
+    mockFetch({ detail: 'That file is over 10 MB.' }, { ok: false, status: 409, statusText: 'Conflict' });
+    const err = await upload('/public/offers/t/documents/NrcFront/files', new FormData()).catch((e: unknown) => e);
+    expect((err as ApiError).status).toBe(409);
+    expect((err as ApiError).detail).toBe('That file is over 10 MB.');
   });
 });

@@ -1,13 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AcceptOfferRequest, DeclineOfferRequest, PortalOffer, PortalOfferLink } from '@recruitops/types';
+import type { AcceptOfferRequest, DeclineOfferRequest, PortalDocuments, PortalOffer, PortalOfferLink } from '@recruitops/types';
 import { api, ApiError } from '../../../lib/api';
+import { Documents, DocumentsSent } from './Documents';
 
 /**
  * The candidate's offer link (Module 4.3, ADR-0030 §5a), built from `design/public/offer-portal.html`
  * — its states #link, #code, #offer, #letter, #sign, #decline, #accepted, #declined, #expired and
- * #invalid. Phone-first: one column, 44px targets, no navigation and no internal vocabulary.
+ * #invalid — and, after accepting, #documents and #documents-sent (slice C, ADR-0030 §5b; `Documents.tsx`).
+ * Phone-first: one column, 44px targets, no navigation and no internal vocabulary.
  *
  * The server decides everything. The link alone gets the company and a masked address; a code the
  * candidate receives by email opens a session (an HttpOnly cookie this script never sees); only that
@@ -15,7 +17,9 @@ import { api, ApiError } from '../../../lib/api';
  * as written; a 401 means the session ended, and the page goes back to asking for a code.
  */
 
-type Step = 'loading' | 'invalid' | 'expired' | 'link' | 'code' | 'offer' | 'letter' | 'sign' | 'decline' | 'answered';
+type Step =
+  | 'loading' | 'invalid' | 'expired' | 'link' | 'code' | 'offer' | 'letter' | 'sign' | 'decline' | 'answered'
+  | 'documents' | 'documents-sent';
 
 function longDate(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -47,6 +51,7 @@ export function OfferPortal({ token }: { token: string }) {
   const [step, setStep] = useState<Step>('loading');
   const [link, setLink] = useState<PortalOfferLink | null>(null);
   const [offer, setOffer] = useState<PortalOffer | null>(null);
+  const [docs, setDocs] = useState<PortalDocuments | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -71,11 +76,6 @@ export function OfferPortal({ token }: { token: string }) {
     window.scrollTo(0, 0);
   }, [step]);
 
-  const showOffer = useCallback((o: PortalOffer) => {
-    setOffer(o);
-    go(o.state === 'Open' ? 'offer' : 'answered');
-  }, [go]);
-
   /** Anything that refused because the session ended goes back to the code; an expiry, to its page. */
   const fail = useCallback((e: unknown, fallback: string) => {
     if (e instanceof ApiError && e.status === 401) {
@@ -95,6 +95,31 @@ export function OfferPortal({ token }: { token: string }) {
     setError(message);
   }, [go]);
 
+  /** The offer, or — once accepted, while documents can still be sent — the documents (§5b). */
+  const showOffer = useCallback(async (o: PortalOffer) => {
+    setOffer(o);
+    if (o.state === 'Accepted' && o.documentsOpen) {
+      try {
+        const d = await api<PortalDocuments>(`${base}/documents`);
+        setDocs(d);
+        go(d.sent ? 'documents-sent' : 'documents');
+        return;
+      } catch {
+        // The answer stands whatever happened here; the accepted page is still true.
+      }
+    }
+    go(o.state === 'Open' ? 'offer' : 'answered');
+  }, [base, go]);
+
+  /** For the documents step: a 401 or 404 is the page's to handle; anything else, the card's. */
+  const pageLevel = useCallback((e: unknown) => {
+    if (e instanceof ApiError && (e.status === 401 || e.status === 404)) {
+      fail(e, '');
+      return true;
+    }
+    return false;
+  }, [fail]);
+
   useEffect(() => {
     let live = true;
     (async () => {
@@ -109,7 +134,7 @@ export function OfferPortal({ token }: { token: string }) {
         // A session from earlier in the last two hours still opens it, without a new code.
         try {
           const o = await api<PortalOffer>(`${base}/offer`);
-          if (live) showOffer(o);
+          if (live) await showOffer(o);
         } catch {
           if (live) setStep('link');
         }
@@ -143,7 +168,7 @@ export function OfferPortal({ token }: { token: string }) {
     setError(null);
     try {
       await api(`${base}/verify`, { method: 'POST', body: JSON.stringify({ code }) });
-      showOffer(await api<PortalOffer>(`${base}/offer`));
+      await showOffer(await api<PortalOffer>(`${base}/offer`));
     } catch (err) {
       fail(err, 'That did not work. Please check the code and try again.');
     } finally {
@@ -158,7 +183,7 @@ export function OfferPortal({ token }: { token: string }) {
     setError(null);
     try {
       const body: AcceptOfferRequest = { typedName: name, consent, letterSha256: offer.letterSha256 };
-      showOffer(await api<PortalOffer>(`${base}/accept`, { method: 'POST', body: JSON.stringify(body) }));
+      await showOffer(await api<PortalOffer>(`${base}/accept`, { method: 'POST', body: JSON.stringify(body) }));
     } catch (err) {
       // The letter changed since it was read: show the new one rather than sign blind.
       if (err instanceof ApiError && err.status === 409 && /changed since you opened it/.test(err.detail ?? '')) {
@@ -180,7 +205,7 @@ export function OfferPortal({ token }: { token: string }) {
     setError(null);
     try {
       const body: DeclineOfferRequest = { reason: reason.trim() || null };
-      showOffer(await api<PortalOffer>(`${base}/decline`, { method: 'POST', body: JSON.stringify(body) }));
+      await showOffer(await api<PortalOffer>(`${base}/decline`, { method: 'POST', body: JSON.stringify(body) }));
     } catch (err) {
       fail(err, 'Your answer could not be recorded. Please try again.');
     } finally {
@@ -371,7 +396,7 @@ export function OfferPortal({ token }: { token: string }) {
 
           {step === 'letter' && offer && (
             <section>
-              {back(letterFrom, letterFrom === 'answered' ? 'Back' : 'Back to the offer')}
+              {back(letterFrom, letterFrom === 'offer' ? 'Back to the offer' : 'Back')}
               <h1 ref={heading} tabIndex={-1} className="sr-only">Offer letter</h1>
               {/* Plain text from the server, rendered as text: exactly what is (or was) signed. */}
               <article className="mt-2 whitespace-pre-wrap rounded-lg border border-line bg-white px-5 py-6 text-md leading-relaxed" data-testid="letter">
@@ -455,6 +480,19 @@ export function OfferPortal({ token }: { token: string }) {
               </p>
               <button type="button" onClick={() => readLetter('answered')} className={`mt-6 ${secondary}`}>Read the signed letter</button>
             </section>
+          )}
+
+          {step === 'documents' && docs && (
+            <Documents
+              base={base} docs={docs} companyName={company} headingRef={heading}
+              onChange={setDocs} onFail={pageLevel}
+              onSent={(d) => { setDocs(d); go('documents-sent'); }}
+              onReadLetter={() => readLetter('documents')}
+            />
+          )}
+
+          {step === 'documents-sent' && docs && (
+            <DocumentsSent docs={docs} headingRef={heading} onChangeDocument={() => go('documents')} />
           )}
 
           {step === 'answered' && offer?.state === 'Declined' && (

@@ -26,7 +26,7 @@ function offer(overrides: Partial<PortalOffer> = {}): PortalOffer {
     companyName: 'Yoma Commercial Bank', position: 'Senior Credit Analyst', departmentName: 'Credit Risk',
     baseSalary: 480000, allowances: 45000, joiningDate: '2026-11-20', probationMonths: 6, expiresOn: '2026-10-30',
     state: 'Open', letterText: 'Dear Ko Aung Kyaw Moe,\n\nWe are pleased to offer you…', letterSha256: 'ab'.repeat(32),
-    signedName: null, answeredAt: null, contactEmail: 'recruitment@ymb.test',
+    signedName: null, answeredAt: null, contactEmail: 'recruitment@ymb.test', documentsOpen: false,
     ...overrides,
   };
 }
