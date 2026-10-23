@@ -57,6 +57,8 @@ public static class DependencyInjection
         // establishes the tenant (ADR-0030 §5a).
         services.AddScoped<IOfferPortalService, OfferPortalService>();
         services.AddSingleton<OfferPortalSecret>();
+        // The recruiter's side of pre-boarding: recruitment staff only (ADR-0030 §5b).
+        services.AddScoped<IPreboardingService, PreboardingService>();
         services.AddScoped<ICandidateDuplicateService, CandidateDuplicateService>();
         services.AddScoped<IFeatureFlagService, FeatureFlagService>();
 
@@ -92,6 +94,10 @@ public static class DependencyInjection
         services.AddScoped<IOutboundMessageHandler, OfferAccessCodeHandler>();
         services.AddScoped<IOutboundMessageHandler, OfferAnsweredHandler>();
         services.AddScoped<IOutboundMessageHandler, OfferAnswerNoticeHandler>();
+        services.AddScoped<IOutboundMessageHandler, PreboardingSubmittedHandler>();
+        services.AddScoped<IOutboundMessageHandler, PreboardingReturnedHandler>();
+        services.AddScoped<IOutboundMessageHandler, PreboardingReminderHandler>();
+        services.AddScoped<IOutboundMessageHandler, PreboardingHandoffHandler>();
         services.Configure<PublicSiteOptions>(config.GetSection(PublicSiteOptions.SectionName));
 
         // Module 1 + department scoping (ADR-0003)

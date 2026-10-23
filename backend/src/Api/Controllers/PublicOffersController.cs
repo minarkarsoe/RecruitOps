@@ -16,6 +16,8 @@ namespace RecruitOps.Api.Controllers;
 /// what reads the offer and answers it — a missing or expired one is a 401, and the page goes back to
 /// the code step.</para>
 ///
+/// <para>After accepting, the same session sends joining documents (§5b) until the joining date.</para>
+///
 /// <para>The cookie is <c>HttpOnly</c> (the page's script never holds it), <c>SameSite=Strict</c>, scoped
 /// to this offer's path, <c>Secure</c> everywhere but local development, and a browser-session cookie: it
 /// has no expiry of its own, so closing the browser ends it — the server ends it after 30 minutes or at
@@ -24,7 +26,7 @@ namespace RecruitOps.Api.Controllers;
 [Route("api/public/offers/{token}")]
 [AllowAnonymous]
 [EnableRateLimiting(RateLimitPolicies.OfferPortal)]
-[RequestSizeLimit(16 * 1024)] // the largest legitimate body is a 1,000-character reason
+[RequestSizeLimit(16 * 1024)] // the largest legitimate body is a 1,000-character reason — but for an upload, below
 public class PublicOffersController : ControllerBase
 {
     public const string SessionCookie = "offer_session";
@@ -83,9 +85,45 @@ public class PublicOffersController : ControllerBase
     public Task<IActionResult> Decline(string token, DeclineOfferRequest request, CancellationToken ct) =>
         Guarded(async () => Found(await _portal.DeclineAsync(token, Session(), request, ct)));
 
+    // ---------- joining documents, after accepting (ADR-0030 §5b) ----------
+
+    [HttpGet("documents")]
+    public Task<IActionResult> Documents(string token, CancellationToken ct) =>
+        Guarded(async () => Found(await _portal.GetDocumentsAsync(token, Session(), ct)));
+
+    /// <summary>One file, multipart, field <c>file</c>. The only large body this controller takes: 10 MB
+    /// of file plus the multipart framing. The type is decided by the service from the file's first
+    /// bytes.</summary>
+    [HttpPost("documents/{kind}/files")]
+    [RequestSizeLimit(UploadLimit)]
+    [RequestFormLimits(MultipartBodyLengthLimit = UploadLimit)]
+    public Task<IActionResult> Upload(string token, string kind, IFormFile? file, CancellationToken ct) => Guarded(async () =>
+    {
+        if (file is null) return BadRequest(new ProblemDetails { Title = "Cannot continue", Detail = "Choose a file to upload." });
+        await using var content = file.OpenReadStream();
+        return Found(await _portal.UploadAsync(token, Session(), kind, file.FileName, file.Length, content, ct));
+    });
+
+    [HttpDelete("documents/files/{fileId:guid}")]
+    public Task<IActionResult> RemoveFile(string token, Guid fileId, CancellationToken ct) =>
+        Guarded(async () => Found(await _portal.RemoveFileAsync(token, Session(), fileId, ct)));
+
+    [HttpPut("documents/bank")]
+    public Task<IActionResult> SaveBankDetails(string token, SaveBankDetailsRequest request, CancellationToken ct) =>
+        Guarded(async () => Found(await _portal.SaveBankDetailsAsync(token, Session(), request, ct)));
+
+    [HttpPost("documents/send")]
+    public Task<IActionResult> SendForChecking(string token, CancellationToken ct) =>
+        Guarded(async () => Found(await _portal.SendForCheckingAsync(token, Session(), ct)));
+
+    /// <summary>10 MB of file (<c>Preboarding.MaxFileBytes</c>) and room for the multipart framing.</summary>
+    private const long UploadLimit = 10 * 1024 * 1024 + 64 * 1024;
+
     private string? Session() => Request.Cookies.TryGetValue(SessionCookie, out var value) ? value : null;
 
     private IActionResult Found(PortalOfferDto? offer) => offer is null ? NotFound() : Ok(offer);
+
+    private IActionResult Found(PortalDocumentsDto? documents) => documents is null ? NotFound() : Ok(documents);
 
     /// <summary>The service's refusals, as the candidate should read them: its messages are written for
     /// them (409), and a missing session sends the page back to the code step (401). Only

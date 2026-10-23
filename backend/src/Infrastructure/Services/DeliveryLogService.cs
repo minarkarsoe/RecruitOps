@@ -158,7 +158,8 @@ public class DeliveryLogService : IDeliveryLogService
             ChannelFor(r.Kind),
             // A colleague's email is users:read (ADR-0019). A department-scoped viewer sees that the
             // recruiter was told, not their address (security review, 2026-10-23).
-            allowedDepartmentIds is not null && r.Kind == OutboundMessageKind.OfferAnswerNotice
+            allowedDepartmentIds is not null
+                && r.Kind is OutboundMessageKind.OfferAnswerNotice or OutboundMessageKind.PreboardingSubmitted
                 ? "The recruiter who made the offer"
                 : r.Recipient,
             r.CandidateName,
@@ -191,6 +192,9 @@ public class DeliveryLogService : IDeliveryLogService
         OutboundMessageKind.OfferAccessCode => "Offer code",
         OutboundMessageKind.OfferAnswered => "Offer answer (to candidate)",
         OutboundMessageKind.OfferAnswerNotice => "Offer answer (to recruiter)",
+        OutboundMessageKind.PreboardingSubmitted => "Documents sent for checking (to recruiter)",
+        OutboundMessageKind.PreboardingReturned => "Document sent back (to candidate)",
+        OutboundMessageKind.PreboardingReminder => "Documents reminder (to candidate)",
         _ => kind.ToString(),
     };
 

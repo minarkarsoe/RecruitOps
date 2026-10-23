@@ -492,8 +492,11 @@ public class OfferPortalTests : IClassFixture<OfferPortalWebAppFactory>
         Assert.Equal("Accepted", manager.Status);
         Assert.Null(manager.Signature);
 
-        // Answering ended the session; and with a new one, the answer is final from the link.
-        Assert.Equal(HttpStatusCode.Unauthorized, (await candidate.GetAsync($"/api/public/offers/{token}/offer")).StatusCode);
+        // Accepting keeps the session — the documents follow at once (ADR-0030 §5b) — and the answer is
+        // final from the link, in this session or a new one.
+        var after = (await candidate.GetFromJsonAsync<PortalOfferDto>($"/api/public/offers/{token}/offer"))!;
+        Assert.Equal("Accepted", after.State);
+        Assert.True(after.DocumentsOpen);
         var reopened = await UnlockedAsync(offer.Id, token);
         Assert.Equal("Accepted", (await reopened.GetFromJsonAsync<PortalOfferDto>($"/api/public/offers/{token}/offer"))!.State);
         var again = await reopened.PostAsJsonAsync($"/api/public/offers/{token}/decline", new DeclineOfferRequest());
@@ -529,6 +532,8 @@ public class OfferPortalTests : IClassFixture<OfferPortalWebAppFactory>
             new DeclineOfferRequest { Reason = "The salary is below what I earn now." });
         res.EnsureSuccessStatusCode();
         Assert.Equal("Declined", (await res.Content.ReadFromJsonAsync<PortalOfferDto>())!.State);
+        // Declining ends the session: a declined offer on a shared computer does not stay open.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await candidate.GetAsync($"/api/public/offers/{token}/offer")).StatusCode);
 
         var staff = (await Recruiter().GetFromJsonAsync<OfferDetailDto>($"/api/offers/{offer.Id}"))!;
         Assert.Equal("Rejected", staff.Status);

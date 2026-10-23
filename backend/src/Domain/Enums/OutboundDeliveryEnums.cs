@@ -32,6 +32,15 @@ public enum OutboundMessageKind
 
     /// <summary>Module 4.3 — tells the recruiter who created an offer that the candidate answered.</summary>
     OfferAnswerNotice,
+
+    /// <summary>Module 4.3 — tells that recruiter the candidate sent their joining documents for checking.</summary>
+    PreboardingSubmitted,
+
+    /// <summary>Module 4.3 — to the candidate: a document was sent back, with the recruiter's message.</summary>
+    PreboardingReturned,
+
+    /// <summary>Module 4.3 — to the candidate: required documents still missing.</summary>
+    PreboardingReminder,
 }
 
 /// <summary>Where a message is in its life (ADR-0026).

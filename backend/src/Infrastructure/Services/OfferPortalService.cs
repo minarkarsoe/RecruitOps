@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using RecruitOps.Application.Common;
@@ -33,8 +34,10 @@ namespace RecruitOps.Infrastructure.Services;
 /// 2026-10-23). So a try at a code, and a request for one, is written first and then counted.</para>
 ///
 /// <para>Refusals written for the candidate are <see cref="PortalRefusalException"/>s; a missing or
-/// expired session is an <see cref="UnauthorizedAccessException"/>.</para></summary>
-public class OfferPortalService : IOfferPortalService
+/// expired session is an <see cref="UnauthorizedAccessException"/>.</para>
+///
+/// <para>Joining documents, after accepting (ADR-0030 §5b), are in <c>OfferPortalService.Documents.cs</c>.</para></summary>
+public partial class OfferPortalService : IOfferPortalService
 {
     private const string AnsweredMeanwhile = "This offer was answered a moment ago. Reload the page to see it.";
 
@@ -46,13 +49,19 @@ public class OfferPortalService : IOfferPortalService
     private readonly TimeProvider _clock;
     private readonly IOptions<SmtpOptions> _smtp;
     private readonly OfferPortalSecret _secret;
+    private readonly IFileStorage _storage;
+    private readonly ILogger<OfferPortalService> _logger;
 
-    public OfferPortalService(AppDbContext db, TimeProvider clock, IOptions<SmtpOptions> smtp, OfferPortalSecret secret)
+    public OfferPortalService(
+        AppDbContext db, TimeProvider clock, IOptions<SmtpOptions> smtp, OfferPortalSecret secret,
+        IFileStorage storage, ILogger<OfferPortalService> logger)
     {
         _db = db;
         _clock = clock;
         _smtp = smtp;
         _secret = secret;
+        _storage = storage;
+        _logger = logger;
     }
 
     /// <summary>What the offer is read through, in the offer's own company.</summary>
@@ -61,14 +70,16 @@ public class OfferPortalService : IOfferPortalService
         string? TimeZoneId,
         string CandidateName,
         string Position,
-        string DepartmentName);
+        string DepartmentName,
+        PreboardingItems PreboardingRequired);
 
     // ── Finding the offer ───────────────────────────────────────────────────
 
     /// <summary>The sent offer a token names, tracked, with what it is read through — or null: for an
     /// unknown, malformed or never-sent token alike, and for an answered offer past its reply-by date.
     /// The link closes on that date whatever the answer was; the candidate's copy was emailed (security
-    /// review M1, 2026-10-23). An unanswered offer past it becomes Expired here — there is no sweep job.</summary>
+    /// review M1, 2026-10-23) — except that an accepted offer's stays open to the joining date, for the
+    /// documents (§5b). An unanswered offer past it becomes Expired here — there is no sweep job.</summary>
     private async Task<(Offer Offer, Context Context)?> LoadAsync(string token, CancellationToken ct)
     {
         if (!OfferPortal.LooksLikeToken(token)) return null;
@@ -83,6 +94,11 @@ public class OfferPortalService : IOfferPortalService
         }
 
         var context = await ContextAsync(offer, ct);
+        if (offer.Status == OfferStatus.Accepted)
+        {
+            var openUntil = Preboarding.LinkOpenUntil(offer.ExpiresOn, offer.JoiningDate);
+            return OfferPortal.IsPastExpiry(openUntil, _clock.GetUtcNow(), context.TimeZoneId) ? null : (offer, context);
+        }
         if (OfferPortal.IsPastExpiry(offer.ExpiresOn, _clock.GetUtcNow(), context.TimeZoneId))
         {
             if (offer.Status is OfferStatus.Accepted or OfferStatus.Rejected) return null;
@@ -119,9 +135,11 @@ public class OfferPortalService : IOfferPortalService
 
         // Not ITenantScoped — one row per company, fetched by id.
         var company = await _db.Companies.AsNoTracking().Where(c => c.Id == tenantId)
-            .Select(c => new { c.Name, c.TimeZoneId }).FirstOrDefaultAsync(ct);
+            .Select(c => new { c.Name, c.TimeZoneId, c.PreboardingRequired }).FirstOrDefaultAsync(ct);
 
-        return new Context(company?.Name ?? string.Empty, company?.TimeZoneId, row.FullName, row.Title, row.DepartmentName);
+        return new Context(
+            company?.Name ?? string.Empty, company?.TimeZoneId, row.FullName, row.Title, row.DepartmentName,
+            company?.PreboardingRequired ?? Preboarding.DefaultRequired);
     }
 
     private string? ContactEmail()
@@ -358,7 +376,9 @@ public class OfferPortalService : IOfferPortalService
             signature?.LetterSha256 ?? OfferPortal.Sha256Hex(letter),
             signature?.TypedName,
             offer.RespondedAt,
-            ContactEmail());
+            ContactEmail(),
+            offer.Status == OfferStatus.Accepted
+                && Preboarding.IsWindowOpen(offer.JoiningDate, _clock.GetUtcNow(), context.TimeZoneId));
     }
 
     // ── The answer ──────────────────────────────────────────────────────────
@@ -414,7 +434,18 @@ public class OfferPortalService : IOfferPortalService
         offer.Status = OfferStatus.Accepted;
         offer.RespondedAt = now;
         offer.ViewedAt ??= now;
-        await FinishAnswerAsync(offer, now, ct);
+
+        // What the candidate is asked for is fixed now (§5b): the company's choice today, kept.
+        _db.PreboardingRequests.Add(new PreboardingRequest
+        {
+            TenantId = offer.TenantId,
+            OfferId = offer.Id,
+            Required = context.PreboardingRequired,
+            CreatedAt = now,
+        });
+
+        // The session stays: signing leads straight on to the documents (§5b).
+        await FinishAnswerAsync(offer, now, endSessions: false, ct);
         return await MapAsync(offer, context, ct);
     }
 
@@ -430,23 +461,19 @@ public class OfferPortalService : IOfferPortalService
         offer.Status = OfferStatus.Rejected; // the candidate's answer — ADR-0030 §3
         offer.RespondedAt = now;
         offer.DeclineReason = reason;
-        await FinishAnswerAsync(offer, now, ct);
+        await FinishAnswerAsync(offer, now, endSessions: true, ct);
         return await MapAsync(offer, context, ct);
     }
 
     /// <summary>Everything an answer does besides changing the offer, saved with it: the candidate's copy
-    /// (or acknowledgement), a notice to the recruiter who created the offer, and the end of every session
-    /// — an answered offer on a shared computer does not stay open to the next person.
+    /// (or acknowledgement), a notice to the recruiter who created the offer, and — on declining — the end
+    /// of every session: a declined offer on a shared computer does not stay open to the next person. An
+    /// acceptance keeps the session for the documents, which follow at once (§5b).
     /// <para>Two answers at once — two tabs, a double tap — cannot both commit: the offer's status is a
     /// concurrency token and a signature is unique per offer.</para></summary>
-    private async Task FinishAnswerAsync(Offer offer, DateTimeOffset now, CancellationToken ct)
+    private async Task FinishAnswerAsync(Offer offer, DateTimeOffset now, bool endSessions, CancellationToken ct)
     {
-        // Only to a recruiter who still is one: a deactivated or demoted creator is not sent the answer,
-        // which may quote the salary. The empty row then says so in the delivery log.
-        var staff = new[] { UserRole.Admin, UserRole.HrDirector, UserRole.Recruiter };
-        var recruiter = await _db.Users.IgnoreQueryFilters().AsNoTracking()
-            .Where(u => u.Id == offer.CreatedByUserId && u.TenantId == offer.TenantId && u.IsActive && staff.Contains(u.Role))
-            .Select(u => u.Email).FirstOrDefaultAsync(ct);
+        var recruiter = await RecruiterEmailAsync(offer, ct);
 
         foreach (var (kind, recipient) in new[]
                  {
@@ -466,7 +493,7 @@ public class OfferPortalService : IOfferPortalService
             });
         }
 
-        await EndSessionsAsync(offer, now, except: null, ct);
+        if (endSessions) await EndSessionsAsync(offer, now, except: null, ct);
 
         try
         {
@@ -480,6 +507,17 @@ public class OfferPortalService : IOfferPortalService
         {
             throw new PortalRefusalException(AnsweredMeanwhile);
         }
+    }
+
+    /// <summary>The recruiter who created the offer — only while they still are one: a deactivated or demoted
+    /// creator is not sent news of the offer, which may quote the salary. Null then, and the empty row says
+    /// so in the delivery log.</summary>
+    private Task<string?> RecruiterEmailAsync(Offer offer, CancellationToken ct)
+    {
+        var staff = new[] { UserRole.Admin, UserRole.HrDirector, UserRole.Recruiter };
+        return _db.Users.IgnoreQueryFilters().AsNoTracking()
+            .Where(u => u.Id == offer.CreatedByUserId && u.TenantId == offer.TenantId && u.IsActive && staff.Contains(u.Role))
+            .Select(u => u.Email).FirstOrDefaultAsync(ct);
     }
 
     private static string? Truncate(string? value, int max) =>

@@ -39,6 +39,18 @@ public enum AuditAction
     /// salaries — an access change — and whether every offer needs approval — a financial control.</summary>
     OfferSettingsChanged,
 
+    /// <summary>A recruiter opened a candidate's joining document — an NRC scan, a bank book
+    /// (ADR-0030 §5b). Written before the file is sent. The candidate by id.</summary>
+    PreboardingDocumentOpened,
+
+    /// <summary>A recruiter read a candidate's bank account number in full (ADR-0030 §5b). Written
+    /// before the number is sent.</summary>
+    PreboardingBankNumberRevealed,
+
+    /// <summary>Which joining documents are required, or where the IT and Admin handoffs go — the
+    /// second decides where a new employee's name and photo are sent.</summary>
+    PreboardingSettingsChanged,
+
     RoleCreated,
     RoleUpdated,
     RoleDeleted,

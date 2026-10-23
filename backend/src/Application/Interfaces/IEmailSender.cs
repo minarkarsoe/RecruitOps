@@ -42,11 +42,18 @@ public interface IEmailSender
 /// candidate-supplied name cannot inject markup into it.</param>
 /// <param name="HtmlBody">Optional, for internal mail that wants formatting. <b>Whoever sets this
 /// owns escaping every value interpolated into it.</b></param>
+/// <param name="Attachments">Optional. Today only the pre-boarding handoff to Admin carries one — the
+/// approved staff-card photo (ADR-0030 §5b).</param>
 public sealed record EmailMessage(
     string To,
     string Subject,
     string PlainTextBody,
-    string? HtmlBody = null);
+    string? HtmlBody = null,
+    IReadOnlyList<EmailAttachment>? Attachments = null);
+
+/// <summary>A file sent with an email. <paramref name="FileName"/> is the sender's to choose — never a
+/// name a stranger typed.</summary>
+public sealed record EmailAttachment(string FileName, string ContentType, byte[] Content);
 
 /// <summary>A send that did not happen, and whether trying again could change that.
 ///

@@ -1,4 +1,5 @@
 using RecruitOps.Domain.Common;
+using RecruitOps.Domain.Enums;
 
 namespace RecruitOps.Domain.Entities;
 
@@ -34,4 +35,14 @@ public class Company : BaseEntity
     /// <summary>Module 4: Hiring Managers see offered salaries on their departments' offers. Off by
     /// default — the API then omits salary fields for them (ADR-0030 §4).</summary>
     public bool ShowOfferSalaryToHiringManagers { get; set; }
+
+    /// <summary>Module 4.3: the joining documents a candidate must provide; the rest are optional
+    /// (ADR-0030 §5b). Copied onto each offer when it is accepted.</summary>
+    public PreboardingItems PreboardingRequired { get; set; } = Preboarding.DefaultRequired;
+
+    /// <summary>Module 4.3: where the IT handoff goes. Null: IT is not told.</summary>
+    public string? ItHandoffEmail { get; set; }
+
+    /// <summary>Module 4.3: where the Admin handoff — with the staff-card photo — goes. Null: Admin is not told.</summary>
+    public string? AdminHandoffEmail { get; set; }
 }

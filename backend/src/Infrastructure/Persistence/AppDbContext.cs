@@ -41,6 +41,9 @@ public class AppDbContext : DbContext
     public DbSet<OfferSignature> OfferSignatures => Set<OfferSignature>();
     public DbSet<OfferPortalAccess> OfferPortalAccesses => Set<OfferPortalAccess>();
     public DbSet<OfferPortalAttempt> OfferPortalAttempts => Set<OfferPortalAttempt>();
+    public DbSet<PreboardingRequest> PreboardingRequests => Set<PreboardingRequest>();
+    public DbSet<PreboardingDocument> PreboardingDocuments => Set<PreboardingDocument>();
+    public DbSet<PreboardingFile> PreboardingFiles => Set<PreboardingFile>();
 
     // Module 3 — Interview & Assessment
     public DbSet<Interview> Interviews => Set<Interview>();
@@ -120,6 +123,12 @@ public class AppDbContext : DbContext
             e.Property(x => x.LogoUrl).HasMaxLength(500);
             // IANA zone id, e.g. "Asia/Yangon". 100 is well past the longest one there is.
             e.Property(x => x.TimeZoneId).HasMaxLength(100);
+            // A number (flags). No database default in the model: with one, EF would treat "nothing
+            // required" (0) on insert as unset and write the default instead. The migration gives
+            // existing rows the default once.
+            e.Property(x => x.PreboardingRequired);
+            e.Property(x => x.ItHandoffEmail).HasMaxLength(320);
+            e.Property(x => x.AdminHandoffEmail).HasMaxLength(320);
         });
 
         // ---------- Department ----------
@@ -448,6 +457,46 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<PreboardingRequest>(e =>
+        {
+            // One per accepted offer.
+            e.HasIndex(x => x.OfferId).IsUnique();
+            // Each a "once": once per change, once a day, once ever (ADR-0030 §5b).
+            e.Property(x => x.SubmittedAt).IsConcurrencyToken();
+            e.Property(x => x.RemindedAt).IsConcurrencyToken();
+            e.Property(x => x.HandoffAt).IsConcurrencyToken();
+            e.HasOne<Offer>().WithMany().HasForeignKey(x => x.OfferId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<PreboardingDocument>(e =>
+        {
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            // Every change bumps it: an approval names the revision it saw, and two uploads at once cannot
+            // both commit.
+            e.Property(x => x.Revision).IsConcurrencyToken();
+            e.Property(x => x.ReturnMessage).HasMaxLength(1000);
+            e.Property(x => x.BankName).HasMaxLength(100);
+            e.Property(x => x.BankAccountName).HasMaxLength(200);
+            e.Property(x => x.BankAccountNumber).HasMaxLength(30);
+            // One per offer and kind: two first uploads at once cannot create two.
+            e.HasIndex(x => new { x.OfferId, x.Kind }).IsUnique();
+            e.HasOne<Offer>().WithMany().HasForeignKey(x => x.OfferId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<PreboardingFile>(e =>
+        {
+            e.Property(x => x.StorageKey).IsRequired().HasMaxLength(300);
+            e.Property(x => x.FileName).IsRequired().HasMaxLength(200);
+            e.Property(x => x.ContentType).IsRequired().HasMaxLength(50);
+            e.Property(x => x.Sha256).IsRequired().HasMaxLength(64);
+            e.HasIndex(x => x.PreboardingDocumentId);
+            e.HasOne<PreboardingDocument>().WithMany().HasForeignKey(x => x.PreboardingDocumentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         builder.Entity<OfferApproval>(e =>
         {
             e.Property(x => x.Label).IsRequired().HasMaxLength(100);
@@ -715,6 +764,9 @@ public class AppDbContext : DbContext
         builder.Entity<OfferSignature>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<OfferPortalAccess>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<OfferPortalAttempt>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<PreboardingRequest>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<PreboardingDocument>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
+        builder.Entity<PreboardingFile>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<Interview>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<InterviewParticipant>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);
         builder.Entity<ScorecardTemplate>().HasQueryFilter(e => e.TenantId == _tenant.TenantId);

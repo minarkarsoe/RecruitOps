@@ -22,6 +22,8 @@ public record PortalOfferLinkDto(
 /// <param name="LetterText">The letter as it will be signed — or, once accepted, exactly as it was.</param>
 /// <param name="LetterSha256">Sent back on accepting, so the server can refuse if the letter changed in
 /// between: what is recorded is what was read.</param>
+/// <param name="DocumentsOpen">Accepted, and joining documents can still be sent (ADR-0030 §5b): the page
+/// goes on to them.</param>
 public record PortalOfferDto(
     string CompanyName,
     string Position,
@@ -36,7 +38,8 @@ public record PortalOfferDto(
     string LetterSha256,
     string? SignedName,
     DateTimeOffset? AnsweredAt,
-    string? ContactEmail);
+    string? ContactEmail,
+    bool DocumentsOpen = false);
 
 public record VerifyOfferCodeRequest
 {

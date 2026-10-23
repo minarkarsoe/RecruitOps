@@ -26,4 +26,19 @@ public interface IOfferPortalService
         CancellationToken ct = default);
 
     Task<PortalOfferDto?> DeclineAsync(string token, string? session, DeclineOfferRequest request, CancellationToken ct = default);
+
+    // ── Joining documents, after accepting (ADR-0030 §5b) ──
+
+    Task<PortalDocumentsDto?> GetDocumentsAsync(string token, string? session, CancellationToken ct = default);
+
+    /// <summary>Adds a file to a document — or, for a one-file document, replaces it.</summary>
+    Task<PortalDocumentsDto?> UploadAsync(
+        string token, string? session, string kind, string? fileName, long length, Stream content, CancellationToken ct = default);
+
+    Task<PortalDocumentsDto?> RemoveFileAsync(string token, string? session, Guid fileId, CancellationToken ct = default);
+
+    Task<PortalDocumentsDto?> SaveBankDetailsAsync(string token, string? session, SaveBankDetailsRequest request, CancellationToken ct = default);
+
+    /// <summary>"Send for checking": tells the recruiter.</summary>
+    Task<PortalDocumentsDto?> SendForCheckingAsync(string token, string? session, CancellationToken ct = default);
 }

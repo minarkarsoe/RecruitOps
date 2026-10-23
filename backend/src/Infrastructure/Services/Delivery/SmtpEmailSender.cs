@@ -133,6 +133,12 @@ public sealed class SmtpEmailSender : IEmailSender
                 message.HtmlBody, Encoding.UTF8, "text/html"));
         }
 
+        // Disposed with the message (MailMessage disposes its attachments and their streams).
+        foreach (var file in message.Attachments ?? [])
+        {
+            mail.Attachments.Add(new Attachment(new MemoryStream(file.Content, writable: false), file.FileName, file.ContentType));
+        }
+
         return mail;
     }
 
