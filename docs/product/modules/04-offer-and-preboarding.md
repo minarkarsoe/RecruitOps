@@ -2,8 +2,8 @@
 
 **Status:** 🚧 Slice A built (2026-10-21) — offers, budget check, internal approval, dashboard.
 Slice B built (2026-10-23) — sending, the candidate portal, signing, declining, reminders, expiry.
-Slice C: pre-boarding documents and the IT/Admin handoff. Decisions:
-[ADR-0030](../../decisions/ADR-0030-offer-management.md) (§5a for slice B).
+Slice C built (2026-10-23) — pre-boarding documents, their review, the IT/Admin handoff. Decisions:
+[ADR-0030](../../decisions/ADR-0030-offer-management.md) (§5a for slice B, §5b for slice C).
 **Scope last revised:** 2026-08-18, from a sales requirement document
 (`Module 4_Offer Management & Pre-boarding.pdf`). That document is the source for the
 sub-module structure, the status vocabulary, the offer approval workflow and the HRMS
@@ -72,9 +72,23 @@ candidate submits.
 - **Document collection:** after acceptance, a second step collects joining documents —
   **NRC (front and back), bank account details, education certificates, profile photo** (for
   the employee card). Which fields are **required is configurable in System Settings**.
+  As built (ADR-0030 §5b): signing leads straight to the documents; the link takes them until the
+  end of the joining date; bank details are **typed** (bank, name on the account, number) with a
+  photo of the bank book to check them against; files are JPG, PNG or PDF up to 10 MB, saved as
+  they upload; "Send for checking" tells the recruiter. Required or optional is set per company and
+  fixed on the offer when it is accepted. Screens: `offer-portal.html` `#documents`,
+  `#documents-sent` (redrawn 2026-10-23).
+- **Recruiter review** (`design/internal/preboarding-review.html`): recruitment staff only — Hiring
+  Managers do not see documents at all. Each document is opened one at a time, and opening it is
+  recorded in the audit log; the account number is masked until revealed, and revealing is recorded.
+  Each document is approved or **sent back with a message the recruiter writes** to the candidate
+  (emailed, and shown on the portal); "Remind" emails what is still missing, once a day.
 - **Automated IT/Admin handoff:** once pre-boarding is complete, `Notify Departments` fires
   automatically — **IT** ("create the new email account, prepare a laptop") and **Admin**
   ("prepare a desk and employee card"), by system notification and email.
+  As built: **by email** (there is no in-app notification), once, when the last required document is
+  approved, to the IT and Admin addresses set in Settings. IT gets name, position and start date;
+  Admin also gets the approved staff-card photo. No salary, NRC or bank details.
 
 ## Permissions
 
@@ -129,8 +143,10 @@ Three differences worth noting when implementing:
   expiry date
 - `OfferApproval` — the internal approval step(s) for over-budget offers
 - `OfferSignature` — signature evidence, signed-at, audit trail
-- `PreboardingRequest`, `PreboardingDocument` — secure link, required-document checklist
-- `DepartmentNotification` — which internal teams to alert, and whether the alert was sent
+- `PreboardingRequest`, `PreboardingDocument`, `PreboardingFile` — the required set fixed at
+  acceptance, each document's state and review, its files (built 2026-10-23)
+- ~~`DepartmentNotification`~~ — not needed: the handoff emails are outbox rows
+  (`PreboardingHandoff`), which already record whether each was sent
 - `HrmsSyncRecord` — what was pushed, when, and the remote employee id
 
 ## Open questions

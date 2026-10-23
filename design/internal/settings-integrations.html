@@ -13,8 +13,9 @@
 <!--
   MODULE 7.2 / 7.3 / 7.4 — INTEGRATIONS AND DATA POLICY.
 
-  NOTHING ON THIS SCREEN IS BUILT. Module 7 records RBAC as built and integrations
-  as not started, so every card here carries a real status and none of them says
+  NOTHING ON THIS SCREEN IS BUILT — except "Pre-boarding" (Module 4 slice C, 2026-10-23),
+  which is built as a card on the Approval chains page. Module 7 records RBAC as built and
+  integrations as not started, so every card here carries a real status and none of them says
   "Connected" without saying it is a mock.
 
   Two things this screen must not do, both of which a normal integrations page does
@@ -225,6 +226,90 @@
               payload before the first live write — neither of which is drawn, because the direction
               is not settled.
             </p>
+          </div>
+        </div>
+
+        <!-- ===================================== MODULE 4.3 PRE-BOARDING
+             Drawn 2026-10-23 for Module 4 slice C (ADR-0030 §5b), and BUILT — unlike the rest of
+             this screen. Until System Settings exists in the app, this card sits on the Approval
+             chains page beside "Offer policy", where the other offer settings already are. -->
+        <h2 class="mt-10 text-2xl font-semibold tracking-tight">Pre-boarding</h2>
+        <p class="mt-1.5 text-base text-ink-600 max-w-[74ch]">
+          What a candidate is asked for after accepting, and who is told when they are ready. Applies
+          to offers accepted from now on — a candidate already collecting documents keeps the list they
+          were given.
+        </p>
+
+        <div class="mt-4 rounded-lg border border-line bg-white overflow-hidden">
+          <div class="px-5 py-4 border-b border-line">
+            <p class="text-base font-semibold">Joining documents</p>
+            <p class="mt-1 text-sm text-ink-600">Every item is offered. A required one has to be approved before the departments are told.</p>
+          </div>
+          <ul class="divide-y divide-line">
+            <li class="px-5 py-3.5 flex items-center gap-4 flex-wrap">
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">NRC — front and back</p>
+              </div>
+              <div role="radiogroup" aria-label="NRC" class="inline-flex rounded-md border border-line p-0.5 bg-canvas shrink-0">
+                <button role="radio" aria-checked="true" class="h-8 px-3 rounded bg-white shadow-sm text-sm font-medium">Required</button>
+                <button role="radio" aria-checked="false" class="h-8 px-3 rounded text-sm text-ink-600">Optional</button>
+              </div>
+            </li>
+            <li class="px-5 py-3.5 flex items-center gap-4 flex-wrap">
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Bank account details</p>
+                <p class="text-sm text-ink-600">Typed, with a photo of the bank book to check them against.</p>
+              </div>
+              <div role="radiogroup" aria-label="Bank account details" class="inline-flex rounded-md border border-line p-0.5 bg-canvas shrink-0">
+                <button role="radio" aria-checked="true" class="h-8 px-3 rounded bg-white shadow-sm text-sm font-medium">Required</button>
+                <button role="radio" aria-checked="false" class="h-8 px-3 rounded text-sm text-ink-600">Optional</button>
+              </div>
+            </li>
+            <li class="px-5 py-3.5 flex items-center gap-4 flex-wrap">
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Education certificates</p>
+                <p class="text-sm text-ink-600">Up to 5 files.</p>
+              </div>
+              <div role="radiogroup" aria-label="Education certificates" class="inline-flex rounded-md border border-line p-0.5 bg-canvas shrink-0">
+                <button role="radio" aria-checked="true" class="h-8 px-3 rounded bg-white shadow-sm text-sm font-medium">Required</button>
+                <button role="radio" aria-checked="false" class="h-8 px-3 rounded text-sm text-ink-600">Optional</button>
+              </div>
+            </li>
+            <li class="px-5 py-3.5 flex items-center gap-4 flex-wrap">
+              <div class="min-w-0 flex-1">
+                <p class="text-base font-medium">Photo for the staff card</p>
+                <p class="text-sm text-ink-600">Goes to Admin with the handoff, once approved.</p>
+              </div>
+              <div role="radiogroup" aria-label="Photo for the staff card" class="inline-flex rounded-md border border-line p-0.5 bg-canvas shrink-0">
+                <button role="radio" aria-checked="false" class="h-8 px-3 rounded text-sm text-ink-600">Required</button>
+                <button role="radio" aria-checked="true" class="h-8 px-3 rounded bg-white shadow-sm text-sm font-medium">Optional</button>
+              </div>
+            </li>
+          </ul>
+
+          <div class="px-5 py-4 border-t border-line">
+            <p class="text-base font-semibold">Department handoff</p>
+            <p class="mt-1 text-sm text-ink-600 max-w-[74ch]">
+              Emailed once every required document is approved. A team with no address is not sent
+              anything, and the pre-boarding screen says so.
+            </p>
+            <div class="mt-3 grid sm:grid-cols-2 gap-4">
+              <div>
+                <label for="itEmail" class="block text-sm font-medium text-ink-700">IT — email account and laptop</label>
+                <input id="itEmail" type="email" value="it-helpdesk@ymb.com.mm" class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-white text-base outline-none focus:border-brand-700 transition-colors" />
+                <p class="mt-1.5 text-sm text-ink-600">Name, position and start date. Nothing else.</p>
+              </div>
+              <div>
+                <label for="adminEmail" class="block text-sm font-medium text-ink-700">Admin — desk and staff card</label>
+                <input id="adminEmail" type="email" placeholder="admin@company.com" class="mt-1.5 w-full h-10 px-3 rounded-md border border-line bg-white text-base placeholder:text-ink-400 outline-none focus:border-brand-700 transition-colors" />
+                <p class="mt-1.5 text-sm text-ink-600">Name, department, start date and the approved photo.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-5 py-3.5 border-t border-line bg-canvas flex items-center justify-between gap-3 flex-wrap">
+            <p class="text-sm text-ink-600">Changes are recorded in the audit log: they decide where a new employee's photo is sent.</p>
+            <button class="h-9 px-3.5 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium transition-colors">Save</button>
           </div>
         </div>
 

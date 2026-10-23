@@ -33,10 +33,12 @@
      against a document; they do not need them sitting on screen for the rest of the
      day.
 
-  ⚠️ "Request re-submission" and the IT/Admin handoff both need an email sender and a
-  job runner, neither of which exists in the codebase. That is logged as a High gap
-  blocking three modules; it is marked on the buttons here rather than drawn as if
-  it works.
+  Updated 2026-10-23 for Module 4 slice C (ADR-0030 §5b). The email sender and job runner
+  this drawing waited for exist since ADR-0026, so the "needs an email sender" marks are
+  gone. Also drawn: the bank book photo the typed details are checked against, the message
+  a recruiter writes when sending a document back, and a handoff team with no address set.
+  In the app the settings it links to sit on Approval chains, beside Offer policy, until
+  System Settings is built (settings-integrations.html, "Pre-boarding").
 -->
 
 <div class="flex h-screen">
@@ -190,6 +192,10 @@
                     </div>
                   </dl>
                   <p class="mt-2 text-sm text-ink-600">Revealing is recorded in the audit log with your name and the time.</p>
+                  <div class="mt-2.5 flex items-center gap-3 flex-wrap max-w-[420px]">
+                    <p class="min-w-0 flex-1 text-sm text-ink-600">Bank book, first page · JPG, 1.2 MB</p>
+                    <button class="h-9 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Open document</button>
+                  </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
                   <button class="h-9 px-3 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium transition-colors">Approve</button>
@@ -198,7 +204,7 @@
               </div>
             </li>
 
-            <!-- Rejected -->
+            <!-- Being sent back: the recruiter writes what the candidate is told -->
             <li class="px-5 py-4">
               <div class="flex items-start gap-3.5 flex-wrap">
                 <span class="w-8 h-8 rounded-full bg-critical-100 text-critical-700 grid place-items-center shrink-0">
@@ -209,17 +215,18 @@
                     <p class="text-base font-medium">Education certificate</p>
                     <span class="inline-flex items-center h-5 px-2 rounded-full bg-critical-50 text-critical-700 text-2xs font-medium">Re-submission needed</span>
                   </div>
-                  <div class="mt-2 rounded-md border border-critical-100 bg-critical-50 px-3.5 py-3 max-w-[540px]">
-                    <p class="text-sm font-medium text-critical-700">What she will be told, in her own words</p>
-                    <p class="mt-1.5 text-base text-critical-700 mm">
-                      ဘွဲ့လက်မှတ် ဓာတ်ပုံသည် မှုန်ဝါးနေပါသည်။ စာသားများ ဖတ်ရှုနိုင်စေရန် ပြန်လည် ရိုက်ကူးပေးပါ။
-                    </p>
-                    <p class="mt-2 text-sm text-critical-700">The photo is blurred — please retake it so the text is readable.</p>
+                  <div class="mt-2 flex items-center gap-3 flex-wrap max-w-[540px]">
+                    <p class="min-w-0 flex-1 text-sm text-ink-600">degree.jpg · JPG, 2.4 MB · uploaded 15 Aug</p>
+                    <button class="h-9 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Open document</button>
                   </div>
+                  <label for="resubmit" class="mt-3 block text-sm font-medium">What she will be told, in your words</label>
+                  <textarea id="resubmit" rows="4" class="mt-1.5 w-full max-w-[540px] rounded-md border border-line bg-white px-3 py-2 text-base mm focus:outline-none focus:border-brand-700">ဘွဲ့လက်မှတ် ဓာတ်ပုံသည် မှုန်ဝါးနေပါသည်။ စာသားများ ဖတ်ရှုနိုင်စေရန် ပြန်လည် ရိုက်ကူးပေးပါ။
+The photo is blurred — please retake it so the text is readable.</textarea>
+                  <p class="mt-1.5 text-sm text-ink-600 max-w-[540px]">Emailed to her with her link, and shown beside the document there. Up to 1,000 characters.</p>
                 </div>
                 <div class="flex flex-col items-end gap-1.5 shrink-0">
                   <button class="h-9 px-3 rounded-md bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium transition-colors">Send request</button>
-                  <span class="text-xs text-warn-700">Needs an email sender</span>
+                  <button class="h-9 px-3 text-sm font-medium text-ink-600 hover:text-ink-900 transition-colors">Cancel</button>
                 </div>
               </div>
             </li>
@@ -248,8 +255,8 @@
             <p class="text-sm text-ink-700 max-w-[80ch]">
               <span class="font-medium text-ink-900">Rejections are written to the candidate, not to the file.</span>
               “Illegible” is a note to yourself; “retake it so the text is readable” is an instruction
-              someone can act on. It is drafted in the language she applied in, with the English kept
-              beside it so the recruiter can check what they are sending.
+              someone can act on. Write it in the language she reads — Burmese, English or both, as
+              above. Nothing translates it for you, so what you check is exactly what she gets.
             </p>
           </div>
         </div>
@@ -271,8 +278,9 @@
                 <p class="text-base font-medium">IT</p>
                 <p class="mt-0.5 text-base text-ink-700">Create the email account and prepare a laptop for Daw Nway Nway Oo, Treasury Dealer, starting 1 October.</p>
                 <p class="mt-1 text-sm text-ink-600">No salary, no NRC, no bank details. IT needs a name, a role and a date.</p>
+                <p class="mt-1 text-sm text-ink-600">To <span class="font-medium text-ink-900">it-helpdesk@ymb.com.mm</span></p>
               </div>
-              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Queued</span>
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Held</span>
             </li>
             <li class="px-5 py-4 flex items-start gap-3.5 flex-wrap">
               <span class="w-8 h-8 rounded-md bg-info-50 text-info-700 grid place-items-center shrink-0">
@@ -282,8 +290,10 @@
                 <p class="text-base font-medium">Admin</p>
                 <p class="mt-0.5 text-base text-ink-700">Prepare a desk and an employee card for Daw Nway Nway Oo, Finance, starting 1 October.</p>
                 <p class="mt-1 text-sm text-ink-600">The profile photo travels with this one, because the card needs it. Nothing else does.</p>
+                <p class="mt-1 text-sm text-warn-700">No Admin address is set, so this one will not be sent.
+                  <a href="settings-integrations.html" class="font-medium text-brand-700 hover:text-brand-800">Add it in Settings</a>.</p>
               </div>
-              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-canvas border border-line text-ink-600 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-ink-400"></span>Queued</span>
+              <span class="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-warn-50 text-warn-700 text-xs font-medium shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Not set up</span>
             </li>
           </ul>
           <div class="px-5 py-4 border-t border-line bg-warn-50">
@@ -292,11 +302,6 @@
               Two are still outstanding, so nothing has been sent. Firing early would have IT setting
               up an account for someone whose certificate turns out to be for a different person —
               rare, and exactly the case a joining check exists to catch.
-            </p>
-            <p class="mt-2 text-sm text-warn-700">
-              <span class="font-semibold">Needs a job runner and an email sender.</span> Neither
-              exists in the codebase; the same gap blocks Module 3 invitations and Module 5 scheduled
-              reports. One shared capability, decided once.
             </p>
           </div>
         </div>

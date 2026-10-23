@@ -131,7 +131,8 @@ Decided while building, before code; the portal screens were drawn first
 - **The session.** A correct code sets an `HttpOnly`, `SameSite=Strict`, `Secure` cookie scoped to
   that offer's API path, with **no expiry of its own** (closing the browser ends it); the server ends
   it after **30 minutes**, when another code is verified, and when the candidate answers — so a
-  shared computer does not stay open on someone's offer. Stored only as a hash. A code opens one
+  shared computer does not stay open on someone's offer. (Since slice C, accepting keeps the session so
+  the candidate goes straight on to documents; declining still ends it — §5b.) Stored only as a hash. A code opens one
   session, once.
 - **`Viewed` means the candidate unlocked it** — the first correct code. Opening the link is not
   viewing it: the link shows nothing to view.
@@ -152,8 +153,8 @@ Decided while building, before code; the portal screens were drawn first
   none is set) — **whatever the answer**: an answered offer's link closes on that date too, and the
   candidate has the emailed copy. A Sent or Viewed offer past it becomes `Expired` when anything reads
   it — the dashboard, the offer, the portal. There is no sweep job; anything that counts offers
-  (Module 5) must read them through `OfferService` or expire them the same way first. (Slice C will
-  need its own window for documents after acceptance.)
+  (Module 5) must read them through `OfferService` or expire them the same way first. (Slice C gives an
+  accepted offer's link its own window for documents — §5b.)
 - **Sending** is allowed from `Approved`, or from `Draft` when the offer needs no approval —
   re-checked at send, not trusted from submit. It re-checks the expiry window (not past, at most
   90 days ahead) and that the candidate has an email address.
@@ -169,6 +170,88 @@ Decided while building, before code; the portal screens were drawn first
   `PublicSite:BaseUrl` accepts `http` (for local development) — set `https` in production.
 - **Not in slice B:** withdrawing a sent offer, moving the application to `Hired` on acceptance, a
   staff action to clear a locked-out offer's codes, and document collection (slice C).
+
+### 5b. How slice C builds pre-boarding (amendment, 2026-10-23)
+
+Decided while building, before code, with the screens drawn first: `design/public/offer-portal.html`
+`#documents` was redrawn and `#documents-sent` added, `design/internal/preboarding-review.html` was
+updated, and a "Pre-boarding" section was drawn in `design/internal/settings-integrations.html`. The
+product owner had not answered the points marked **(to confirm)**; each takes the default the designs
+point to, and is cheap to change.
+
+- **What is asked: four items, five documents.** NRC front and back (one item, two documents — the
+  review screen checks each side), **bank account details**, education certificates (1–5 files), and a
+  photo for the staff card. Each item is **Required or Optional per company**
+  (`Company.PreboardingRequired`; default NRC, bank and education required, the photo optional, as the
+  portal drew it). Every item is always offered; there is no "not asked". The set is **fixed on the offer
+  when it is accepted** (`PreboardingRequest.Required`), so a candidate is never asked for more halfway
+  and the handoff's condition cannot move under them; the migration gives already-accepted offers the
+  default.
+- **Bank details are typed, with a photo to check them against (to confirm).** The portal drew a file
+  and the review screen drew masked fields; both are kept. The candidate types the bank, the name on the
+  account and the number (digits only, Burmese digits accepted), and uploads a photo of the bank book's
+  first page; the recruiter checks one against the other and payroll gets the number exactly. The number
+  is **masked to its last four digits in every response**, the candidate's own included; the one way to
+  read it whole is **Reveal**, which is written to the audit log first.
+- **The window: from acceptance to the end of the joining date** in the company's time zone. An accepted
+  offer's link now stays open until the later of its reply-by date and its joining date (§5a closed it at
+  the reply-by date). **Accepting no longer ends the session**: signing leads straight to the documents,
+  inside the same 30-minute session; declining still ends it. After the joining date nothing can be
+  uploaded or changed.
+- **Files.** JPEG, PNG or PDF, decided by the file's **first bytes**, never its name or declared type;
+  the staff-card photo JPEG or PNG only; **10 MB** each. Stored in the existing private bucket under
+  `preboarding/{offer}/{file}` — no name the candidate chose is in the key — with the content type the
+  server detected. The candidate's file name is kept for display only (one line, 200 characters). A
+  replaced or removed file's object is deleted and its row kept, marked removed. Nothing is ever served
+  back to the candidate, and no storage URL is ever issued.
+- **Every change to a document is compare-and-set** on its `Revision`: an upload, a removal, saving bank
+  details, an approval, a return. The recruiter's approve or return carries the revision they were shown,
+  so **nobody approves a file they did not see**; two uploads to one document at once — one wins, the
+  other is asked to try again. An approved document is final: the candidate cannot change it and there is
+  no un-approve.
+- **"Send for checking"** needs every required item complete and none sent back unchanged, and something
+  changed since the last time. It emails the recruiter who created the offer, if they are still active
+  recruitment staff (as for the answer notice, §5a) — once per change, so a candidate cannot flood them.
+- **Documents open in a viewer, never as a download** — no copy lands in the recruiter's Downloads
+  folder. The SPA fetches the file with the recruiter's token and shows it from an object URL, so its CSP
+  allows `blob:` images and frames, and — because a blob document inherits that policy — exactly the two
+  inline style values Chrome's PDF viewer wrapper uses, by hash (`frontend/internal/nginx.conf`).
+- **Review is recruitment staff only.** A Hiring Manager, an approver or an interviewer gets a 404 — the
+  design's "the correct variant is absence". **Opening a file and revealing the account number are
+  written to the audit log before the data leaves** (`PreboardingDocumentOpened`,
+  `PreboardingBankNumberRevealed`; the candidate by id, ADR-0027): if the entry cannot be written, nothing
+  is sent. Files are sent with the detected type, `nosniff` and `no-store`, as attachments.
+- **Sending a document back**: the recruiter writes what the candidate is told (1–1,000 characters).
+  **Nothing translates it (to confirm)** — the design's "drafted in the language she applied in" needs a
+  translation service the product does not have; the recruiter writes Burmese, English or both, and what
+  they check is exactly what is sent. It is emailed to the offer's address with the link, and shown beside
+  the document on the portal until the candidate changes it.
+- **Remind** emails the candidate the required items still missing or sent back, at most once per 24
+  hours (a compare-and-set on `PreboardingRequest.RemindedAt`, as offer reminders).
+- **The handoff fires once, when the last required document is approved** — checked after each approval
+  commits, so two recruiters approving the last two documents at the same moment cannot both miss it, and
+  claimed with a compare-and-set on `PreboardingRequest.HandoffAt` so it cannot fire twice. One email per
+  team **with an address set** (`Company.ItHandoffEmail`, `AdminHandoffEmail`): **IT** gets the name,
+  position and joining date; **Admin** gets the name, department and joining date, and the staff-card
+  photo **attached, if one was approved** by the time the email is sent (`EmailMessage` gains
+  attachments; `System.Net.Mail` carries them, no new package). The review screen warns while an
+  uploaded photo is still unapproved and the handoff has not gone. Nothing else crosses: no salary, NRC or bank details. A team with no address is
+  not sent anything, and the review screen says so before it happens. There is no in-app notification —
+  the product has none to send (to confirm).
+- **Settings** (`/settings/preboarding`): `settings:read` / `settings:update` with company-wide reach, as
+  the offer policy. **Changing them is audited** (`PreboardingSettingsChanged`): the addresses decide where
+  a new employee's photo goes. In the app the card sits on Approval chains beside Offer policy until
+  System Settings is built.
+- **Accepted risks and what is not built, reviewed 2026-10-23:**
+  - The account number is stored as typed, protected like the rest of the database and its backups;
+    there is no column encryption, because no key exists that survives rotating the install's JWT key.
+  - Photos keep their metadata, including a location if the phone recorded one; stripping it would also
+    strip the orientation phones rely on.
+  - Files are not scanned for malware. They reach only recruitment staff, by deliberate opening, as the
+    type their first bytes say they are.
+  - **No staff action deletes a candidate's documents yet.** The portal says a candidate can ask for that;
+    until retention (Module 7.4) is built, it is done by hand. FEATURE-STATUS carries it as a gap.
+  - The HRMS export (add-on, ADR-0007) and moving the application to `Hired` are not built.
 
 ### 6. Records and numbering
 
