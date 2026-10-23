@@ -36,6 +36,7 @@ function offer(overrides: Partial<OfferListItem> = {}): OfferListItem {
     departmentId: 'dept-sales', departmentName: 'Sales', baseSalary: 800000,
     status: 'Draft', createdAt: '2026-10-20T09:00:00Z', sentAt: null,
     awaitingMe: false, waitingOn: null,
+    viewedAt: null, respondedAt: null, joiningDate: '2026-11-20', lastRemindedAt: null,
     ...overrides,
   };
 }
@@ -180,5 +181,43 @@ describe('rangeStart', () => {
     expect(rangeStart('quarter', today)).toBe('2026-10-01');
     expect(rangeStart('year', today)).toBe('2026-01-01');
     expect(rangeStart('all', today)).toBeUndefined();
+  });
+});
+
+describe('OffersPage — with the candidate', () => {
+  it('says where an offer with the candidate stands, as the design does', async () => {
+    signInAs('Recruiter');
+    serve([
+      offer({ id: 'o-sent', candidateName: 'Sent One', status: 'Sent', sentAt: '2026-10-21T10:00:00Z' }),
+      offer({ id: 'o-viewed', candidateName: 'Viewed One', status: 'Viewed', sentAt: '2026-10-21T10:00:00Z', viewedAt: '2026-10-22T10:00:00Z' }),
+      offer({ id: 'o-accepted', candidateName: 'Accepted One', status: 'Accepted', respondedAt: '2026-10-23T10:00:00Z', joiningDate: '2026-11-20' }),
+    ]);
+    renderPage();
+
+    expect(within((await screen.findByText('Sent One')).closest('tr')!).getByText('Not opened yet')).toBeInTheDocument();
+    expect(within(screen.getByText('Viewed One').closest('tr')!).getByText(/^Opened .* · not signed$/)).toBeInTheDocument();
+    expect(within(screen.getByText('Accepted One').closest('tr')!).getByText(/^Signed .* · joining /)).toBeInTheDocument();
+  });
+
+  it('offers Remind on an opened, unsigned offer, and only to recruitment staff', async () => {
+    signInAs('Recruiter');
+    serve([offer({ status: 'Viewed', viewedAt: '2026-10-22T10:00:00Z' })]);
+    const { unmount } = renderPage();
+
+    const user = userEvent.setup();
+    const row = (await screen.findByText('Daw Hnin Wai')).closest('tr')!;
+    const base = apiMock.getMockImplementation()!;
+    apiMock.mockImplementation((path: string, init?: RequestInit) =>
+      path === '/offers/ofr-1/remind' ? Promise.resolve({}) : base(path, init));
+    await user.click(within(row).getByRole('button', { name: 'Remind' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Daw Hnin Wai will be reminded by email.');
+    expect(apiMock).toHaveBeenCalledWith('/offers/ofr-1/remind', { method: 'POST' });
+    unmount();
+
+    signInAs('HiringManager');
+    serve([offer({ status: 'Viewed', viewedAt: '2026-10-22T10:00:00Z', baseSalary: null })]);
+    renderPage();
+    const managerRow = (await screen.findByText('Daw Hnin Wai')).closest('tr')!;
+    expect(within(managerRow).queryByRole('button', { name: 'Remind' })).not.toBeInTheDocument();
   });
 });

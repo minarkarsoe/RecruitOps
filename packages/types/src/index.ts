@@ -1143,7 +1143,10 @@ export type OutboundMessageKind =
   | 'OfferReminder'
   | 'PreboardingHandoff'
   | 'ScheduledReport'
-  | 'ChannelNotification';
+  | 'ChannelNotification'
+  | 'OfferAccessCode'
+  | 'OfferAnswered'
+  | 'OfferAnswerNotice';
 
 /** `Suppressed` is a **correct outcome, not an error** — an opt-out honoured, or a message that
  *  became irrelevant before it was sent. The UI must not colour it red: rendering an honoured
@@ -1254,6 +1257,13 @@ export interface OfferListItem {
   awaitingMe: boolean;
   /** While pending approval: the label of the step whose turn it is. */
   waitingOn: string | null;
+  /** When the candidate unlocked it with a code — "Opened 17 Aug · not signed". */
+  viewedAt: string | null;
+  /** When the candidate accepted or declined. */
+  respondedAt: string | null;
+  /** `YYYY-MM-DD`. */
+  joiningDate: string;
+  lastRemindedAt: string | null;
 }
 
 /**
@@ -1296,6 +1306,36 @@ export interface OfferDetail {
   submittedAt: string | null;
   approvedAt: string | null;
   sentAt: string | null;
+  /** When the candidate first unlocked the offer with a code (ADR-0030 §5a). */
+  viewedAt: string | null;
+  respondedAt: string | null;
+  /** The candidate's own words on declining. Null when salaries are hidden from the viewer. */
+  declineReason: string | null;
+  /** The acceptance evidence — recruitment staff only. */
+  signature: OfferSignature | null;
+  /** One reminder per 24 hours. */
+  lastRemindedAt: string | null;
+  /** Where the offer goes — or, once sent, went and still goes: codes and reminders use the address
+   *  fixed at sending. Recruitment staff only, so they can check it before sending. */
+  candidateEmail: string | null;
+}
+
+/** Sending an offer: the address the recruiter was shown. If the candidate's address changed since, the
+ *  API refuses rather than sending somewhere nobody checked. */
+export interface SendOfferRequest {
+  expectedEmail: string | null;
+}
+
+/** What was recorded when the candidate accepted (ADR-0030 §5a). */
+export interface OfferSignature {
+  typedName: string;
+  signedAt: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  /** SHA-256 of the exact letter the candidate signed, lowercase hex. */
+  letterSha256: string;
+  /** Where the code that unlocked the offer was sent. */
+  sentToEmail: string | null;
 }
 
 export interface OfferEligibleApplication {
@@ -1340,3 +1380,54 @@ export interface OfferSettings {
 
 /** Both values, always — the API refuses half a policy rather than defaulting one to off. */
 export type UpdateOfferSettingsRequest = OfferSettings;
+
+// ---------------------------------------------------------------------------
+// The candidate's offer link (Module 4.3, ADR-0030 §5a) — consumed by frontend/public.
+// Mirrors backend/src/Application/DTOs/OfferPortalDtos.cs. No internal vocabulary crosses it.
+// ---------------------------------------------------------------------------
+
+/** What the link alone shows. `maskedEmail` is null when the application has no address. */
+export interface PortalOfferLink {
+  companyName: string;
+  state: 'Open' | 'Expired';
+  maskedEmail: string | null;
+  /** `YYYY-MM-DD`. */
+  expiresOn: string;
+  contactEmail: string | null;
+}
+
+/** The offer, once a code has unlocked it. */
+export interface PortalOffer {
+  companyName: string;
+  position: string;
+  departmentName: string;
+  baseSalary: number;
+  allowances: number;
+  /** `YYYY-MM-DD`. */
+  joiningDate: string;
+  probationMonths: number;
+  /** `YYYY-MM-DD`. */
+  expiresOn: string;
+  state: 'Open' | 'Accepted' | 'Declined';
+  /** Plain text, line breaks kept — exactly what is signed. */
+  letterText: string;
+  /** Sent back on accepting, so the server can refuse if the letter changed in between. */
+  letterSha256: string;
+  signedName: string | null;
+  answeredAt: string | null;
+  contactEmail: string | null;
+}
+
+export interface VerifyOfferCodeRequest {
+  code: string;
+}
+
+export interface AcceptOfferRequest {
+  typedName: string;
+  consent: boolean;
+  letterSha256: string;
+}
+
+export interface DeclineOfferRequest {
+  reason: string | null;
+}

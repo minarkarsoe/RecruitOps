@@ -49,6 +49,8 @@ function offer(overrides: Partial<OfferDetail> = {}): OfferDetail {
     offerTemplateId: null, letterBody: 'Dear {{CandidateName}}', canManage: true,
     approvalPreview: ['Finance Controller'], approvals: [],
     createdAt: '2026-10-21T09:00:00Z', submittedAt: null, approvedAt: null, sentAt: null,
+    viewedAt: null, respondedAt: null, declineReason: null, signature: null, lastRemindedAt: null,
+    candidateEmail: 'hnin.wai@example.test',
     ...overrides,
   };
 }
@@ -89,8 +91,8 @@ describe('OfferDetailPage — the budget check', () => {
     serve(offer());
     renderPage();
 
-    // Within budget: straight to the candidate — which is slice B, so the button says it is not here yet.
-    expect(await screen.findByRole('button', { name: 'Send to candidate' })).toBeDisabled();
+    // Within budget: straight to the candidate.
+    expect(await screen.findByRole('button', { name: 'Send to candidate' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Send for internal approval' })).not.toBeInTheDocument();
 
     const user = userEvent.setup();
@@ -225,5 +227,102 @@ describe('baseToFit', () => {
   it('is the budget less the allowances, never below zero', () => {
     expect(baseToFit(800000, 50000)).toBe(750000);
     expect(baseToFit(800000, 900000)).toBe(0);
+  });
+});
+
+describe('OfferDetailPage — sending and the candidate', () => {
+  it('saves a draft before sending it, after the recruiter confirms', async () => {
+    signInAs('Recruiter');
+    serve(offer(), {
+      'PUT /offers/ofr-1': offer(),
+      'POST /offers/ofr-1/send': offer({ status: 'Sent', sentAt: '2026-10-21T10:00:00Z' }),
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Send to candidate' }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Daw Hnin Wai at hnin.wai@example.test'));
+    expect(await screen.findByText('With the candidate')).toBeInTheDocument();
+    const writes = apiMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method);
+    expect(writes.map(([p, init]) => `${(init as RequestInit).method} ${p}`)).toEqual(['PUT /offers/ofr-1', 'POST /offers/ofr-1/send']);
+    // The address the recruiter confirmed goes with it, so a change meanwhile is refused.
+    expect(JSON.parse((writes[1][1] as RequestInit).body as string)).toEqual({ expectedEmail: 'hnin.wai@example.test' });
+    confirmSpy.mockRestore();
+  });
+
+  it('sends nothing when the recruiter cancels', async () => {
+    signInAs('Recruiter');
+    serve(offer());
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderPage();
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Send to candidate' }));
+    expect(callsTo('POST')).toHaveLength(0);
+    expect(callsTo('PUT')).toHaveLength(0);
+    confirmSpy.mockRestore();
+  });
+
+  it('sends an approved offer without editing it', async () => {
+    signInAs('Recruiter');
+    serve(offer({ status: 'Approved', approvedAt: '2026-10-21T10:00:00Z' }), {
+      'POST /offers/ofr-1/send': offer({ status: 'Sent', sentAt: '2026-10-21T11:00:00Z' }),
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Send to candidate' }));
+    await screen.findByText('With the candidate');
+    expect(callsTo('PUT')).toHaveLength(0);
+    confirmSpy.mockRestore();
+  });
+
+  it('offers a reminder until one has gone out in the last day', async () => {
+    signInAs('Recruiter');
+    serve(offer({ status: 'Viewed', sentAt: '2026-10-21T10:00:00Z', viewedAt: '2026-10-22T08:00:00Z' }), {
+      'POST /offers/ofr-1/remind': offer({ status: 'Viewed', sentAt: '2026-10-21T10:00:00Z', viewedAt: '2026-10-22T08:00:00Z', lastRemindedAt: new Date().toISOString() }),
+    });
+    renderPage();
+
+    expect(await screen.findByText(/opened .*, not answered yet/)).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Remind candidate' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remind candidate' })).toBeDisabled());
+    expect(screen.getByText(/^Reminded /)).toBeInTheDocument();
+  });
+
+  it('shows staff what was recorded when the candidate signed', async () => {
+    signInAs('Recruiter');
+    serve(offer({
+      status: 'Accepted', respondedAt: '2026-10-23T09:00:00Z',
+      signature: { typedName: 'Aung Kyaw Moe', signedAt: '2026-10-23T09:00:00Z', ipAddress: '203.0.113.9', userAgent: 'TestPhone/1.0', letterSha256: 'ab'.repeat(32), sentToEmail: 'hnin.wai@example.test' },
+    }));
+    renderPage();
+
+    expect(await screen.findByText('“Aung Kyaw Moe”')).toBeInTheDocument();
+    expect(screen.getByText('203.0.113.9')).toBeInTheDocument();
+    expect(screen.getByText('ab'.repeat(32))).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Send|Remind/ })).not.toBeInTheDocument();
+  });
+
+  it("shows a decline's reason as text, never markup", async () => {
+    signInAs('Recruiter');
+    serve(offer({ status: 'Rejected', respondedAt: '2026-10-23T09:00:00Z', declineReason: '<img src=x onerror=alert(1)> salary' }));
+    const { container } = renderPage();
+
+    expect(await screen.findByText('Declined by the candidate')).toBeInTheDocument();
+    expect(screen.getByText(/onerror/)).toHaveTextContent('<img src=x onerror=alert(1)> salary');
+    expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('says an expired offer cannot be answered and how to try again', async () => {
+    signInAs('Recruiter');
+    serve(offer({ status: 'Expired', expiresOn: '2026-10-28' }));
+    renderPage();
+
+    expect(await screen.findByText(/did not answer by/)).toHaveTextContent('create a new offer');
   });
 });

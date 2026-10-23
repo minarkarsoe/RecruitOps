@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button, Card, StatusPill } from '@recruitops/ui';
-import type { ApprovalDecisionRequest, OfferDetail, OfferLetter, UpdateOfferRequest } from '@recruitops/types';
+import type { ApprovalDecisionRequest, OfferDetail, OfferLetter, SendOfferRequest, UpdateOfferRequest } from '@recruitops/types';
 import { api } from '../lib/api';
 import { auth } from '../lib/auth';
 import { ApprovalDecisionCard, ApprovalTimeline, approvalState } from '../components/ApprovalRail';
-import { money } from './OffersPage';
+import { calendarDate, day, money, remindedRecently } from './offerFormat';
 
 /**
  * Module 4.2 — one offer, built from `design/internal/offer-create.html`.
@@ -25,6 +25,7 @@ const PROBATION = [0, 1, 2, 3, 6, 12];
 export function baseToFit(budget: number, allowances: number): number {
   return Math.max(0, budget - allowances);
 }
+
 
 export function OfferDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -76,6 +77,24 @@ export function OfferDetailPage() {
   });
 
   const revise = () => act(() => api<OfferDetail>(`/offers/${id}/revise`, { method: 'POST' }));
+
+  // A draft is saved first, as for approval: what the candidate receives is what is on screen.
+  function send() {
+    if (!offer) return;
+    // The address is fixed at sending — every code and reminder goes there (ADR-0030 §5a) — so it is
+    // shown before it is fixed, not after.
+    const to = offer.candidateEmail ? ` at ${offer.candidateEmail}` : '';
+    if (!confirm(`Send this offer to ${offer.candidateName}${to}? They will get an email with a secure link, and the terms can no longer be changed.`)) return;
+    const draft = offer.status === 'Draft';
+    void act(async () => {
+      if (draft) await api<OfferDetail>(`/offers/${id}`, { method: 'PUT', body: JSON.stringify(form) });
+      // The address just confirmed goes with the request: if it changed meanwhile, the API refuses.
+      const body: SendOfferRequest = { expectedEmail: offer.candidateEmail };
+      return api<OfferDetail>(`/offers/${id}/send`, { method: 'POST', body: JSON.stringify(body) });
+    });
+  }
+
+  const remind = () => act(() => api<OfferDetail>(`/offers/${id}/remind`, { method: 'POST' }));
 
   // Bound to the round on screen: if the offer was revised meanwhile, the API refuses rather than
   // record an approval of terms this approver never saw.
@@ -145,10 +164,13 @@ export function OfferDetailPage() {
               {needsApproval ? (
                 <Button key="submit" onClick={submit} disabled={busy}>Send for internal approval</Button>
               ) : (
-                // Sending is Module 4 slice B (the candidate portal). Drawn, not yet built — so the
-                // button says so instead of pretending.
-                <Button key="send" disabled title="Sending arrives with the candidate portal">Send to candidate</Button>
+                <Button key="send" onClick={send} disabled={busy}>Send to candidate</Button>
               )}
+            </div>
+          )}
+          {offer.canManage && offer.status === 'Approved' && (
+            <div className="ml-auto">
+              <Button onClick={send} disabled={busy}>Send to candidate</Button>
             </div>
           )}
         </div>
@@ -273,7 +295,9 @@ export function OfferDetailPage() {
                       filled from the saved terms — save the draft, then preview.
                     </>
                   ) : (
-                    <>Fields such as <code className="font-mono">{'{{BaseSalary}}'}</code> are filled in for the candidate — preview to read it as they will.</>
+                    offer.status === 'Accepted'
+                      ? <>Preview shows the letter exactly as the candidate signed it.</>
+                      : <>Fields such as <code className="font-mono">{'{{BaseSalary}}'}</code> are filled in for the candidate — preview to read it as they will.</>
                   )}
                 </p>
                 {letter !== null && (
@@ -339,15 +363,84 @@ export function OfferDetailPage() {
             </Card>
           )}
 
-          {offer.canManage && (
+          {/* ⚠️ The cards below — with the candidate, answered, expired — are not drawn in design/:
+              offer-create.html draws the editor before sending. Plain, and flagged in FEATURE-STATUS. */}
+          {(offer.status === 'Sent' || offer.status === 'Viewed') && (
+            <Card>
+              <h2 className="mb-2 text-base font-semibold">With the candidate</h2>
+              <p className="text-sm text-ink-600">
+                Sent {offer.sentAt ? day(offer.sentAt) : ''} ·{' '}
+                {offer.viewedAt ? `opened ${day(offer.viewedAt)}, not answered yet` : 'not opened yet'}.
+                They can answer until {calendarDate(offer.expiresOn)}; after that the link stops working.
+              </p>
+              {offer.canManage && (
+                <div className="mt-3 flex items-center gap-3">
+                  <Button variant="secondary" onClick={remind} disabled={busy || remindedRecently(offer.lastRemindedAt)}>
+                    Remind candidate
+                  </Button>
+                  {offer.lastRemindedAt && (
+                    <span className="text-sm text-ink-600">Reminded {day(offer.lastRemindedAt)}</span>
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {offer.status === 'Accepted' && (
+            <Card>
+              <h2 className="mb-2 text-base font-semibold">Accepted</h2>
+              {offer.signature ? (
+                <dl className="space-y-1.5 text-sm">
+                  <div><dt className="inline text-ink-600">Signed as </dt><dd className="inline font-medium">“{offer.signature.typedName}”</dd></div>
+                  <div><dt className="inline text-ink-600">On </dt><dd className="inline">{new Date(offer.signature.signedAt).toLocaleString()}</dd></div>
+                  <div><dt className="inline text-ink-600">From </dt><dd className="inline tnum font-mono">{offer.signature.ipAddress ?? 'an address that was not recorded'}</dd></div>
+                  {offer.signature.sentToEmail && (
+                    <div><dt className="inline text-ink-600">Unlocked by a code sent to </dt><dd className="inline">{offer.signature.sentToEmail}</dd></div>
+                  )}
+                  {offer.signature.userAgent && (
+                    <div><dt className="inline text-ink-600">Device </dt><dd className="inline break-words text-ink-600">{offer.signature.userAgent}</dd></div>
+                  )}
+                  <div>
+                    <dt className="text-ink-600">Fingerprint of the letter signed (SHA-256)</dt>
+                    <dd className="break-all font-mono text-xs text-ink-600">{offer.signature.letterSha256}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="text-sm text-ink-600">The candidate accepted on {offer.respondedAt ? day(offer.respondedAt) : '—'}.</p>
+              )}
+              <p className="mt-3 text-sm text-ink-600">Joining {calendarDate(offer.joiningDate)}.</p>
+            </Card>
+          )}
+
+          {offer.status === 'Rejected' && (
+            <Card>
+              <h2 className="mb-2 text-base font-semibold">Declined by the candidate</h2>
+              <p className="text-sm text-ink-600">On {offer.respondedAt ? day(offer.respondedAt) : '—'}.</p>
+              {offer.declineReason && (
+                // The candidate's own words, as text — never markup.
+                <p className="mt-2 whitespace-pre-wrap rounded-md bg-canvas p-3 text-sm italic text-ink-700">“{offer.declineReason}”</p>
+              )}
+            </Card>
+          )}
+
+          {offer.status === 'Expired' && (
+            <Card>
+              <h2 className="mb-2 text-base font-semibold">Expired</h2>
+              <p className="text-sm text-ink-600">
+                The candidate did not answer by {calendarDate(offer.expiresOn)}, and the link has stopped working.
+                {offer.canManage && ' To try again, create a new offer from the dashboard.'}
+              </p>
+            </Card>
+          )}
+
+          {offer.canManage && (offer.status === 'Draft' || offer.status === 'Approved') && (
             <Card>
               <h2 className="mb-2 text-base font-semibold">What the candidate will receive</h2>
               <ul className="space-y-1.5 text-sm text-ink-600">
-                <li>· An email with a secure link, not the letter as an attachment — and a code sent to their email to open it.</li>
-                <li>· The full letter, then Accept &amp; Sign or Decline.</li>
-                <li>· After accepting, a document upload step.</li>
+                <li>· An email with a secure link, not the letter as an attachment — and, when they open it, a code sent to their email.</li>
+                <li>· The full letter, then Accept &amp; Sign (their typed name) or Decline.</li>
+                <li>· A copy of what they signed, by email.</li>
               </ul>
-              <p className="mt-3 text-sm text-ink-600">Sending and the candidate portal are the next part of this module.</p>
             </Card>
           )}
 

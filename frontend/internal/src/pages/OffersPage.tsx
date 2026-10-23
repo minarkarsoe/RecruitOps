@@ -6,6 +6,7 @@ import type {
 } from '@recruitops/types';
 import { api } from '../lib/api';
 import { auth, isRecruitmentStaff } from '../lib/auth';
+import { calendarDate, money, remindedRecently } from './offerFormat';
 
 /**
  * Module 4.1 — the Offer Dashboard, built from `design/internal/offer-dashboard.html`.
@@ -38,18 +39,17 @@ export function rangeStart(range: Range, today = new Date()): string | undefined
   return undefined;
 }
 
-export function money(n: number): string {
-  return n.toLocaleString('en-US');
-}
-
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
-/** The line under the pill: the detail that makes a status actionable. */
+/** The line under the pill: the detail that makes a status actionable (`offer-dashboard.html`). */
 function statusNote(o: OfferListItem): string | null {
   if (o.status === 'PendingApproval') return o.awaitingMe ? 'Your decision' : o.waitingOn ? `With ${o.waitingOn}` : null;
   if (o.status === 'Approved') return 'Cleared to send';
+  if (o.status === 'Sent') return 'Not opened yet';
+  if (o.status === 'Viewed') return o.viewedAt ? `Opened ${shortDate(o.viewedAt)} · not signed` : 'Opened · not signed';
+  if (o.status === 'Accepted') return `Signed ${o.respondedAt ? shortDate(o.respondedAt) : ''} · joining ${calendarDate(o.joiningDate, false)}`;
   if (o.status === 'Rejected') return 'Declined by candidate';
   return null;
 }
@@ -65,6 +65,8 @@ export function OffersPage() {
   const [departments, setDepartments] = useState<DepartmentListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [reminding, setReminding] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams();
@@ -83,6 +85,21 @@ export function OffersPage() {
   useEffect(() => {
     api<DepartmentListItem[]>('/departments').then(setDepartments).catch(() => setDepartments([]));
   }, []);
+
+  async function remind(o: OfferListItem) {
+    setReminding(o.id);
+    setNotice(null);
+    setError(null);
+    try {
+      await api(`/offers/${o.id}/remind`, { method: 'POST' });
+      setNotice(`${o.candidateName} will be reminded by email.`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not send the reminder.');
+    } finally {
+      setReminding(null);
+    }
+  }
 
   return (
     <>
@@ -131,6 +148,7 @@ export function OffersPage() {
       </div>
 
       {error && <p role="alert" className="mb-4 text-md text-critical-700">{error}</p>}
+      {notice && <p role="status" className="mb-4 text-md text-positive-700">{notice}</p>}
       {items === null && !error && <p className="text-ink-600">Loading…</p>}
 
       {items && items.length === 0 && (
@@ -174,9 +192,21 @@ export function OffersPage() {
                     {statusNote(o) && <span className="mt-0.5 block text-sm text-ink-600">{statusNote(o)}</span>}
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <Link to={`/offers/${o.id}`} className="text-sm font-medium text-brand-700 hover:text-brand-800">
-                      {o.awaitingMe ? 'Review' : 'Open'}
-                    </Link>
+                    {/* Remind is offered only where it is meaningful: viewed but unsigned (the design's
+                        rule). The API also allows it for an unopened offer, from the offer itself. */}
+                    {staff && o.status === 'Viewed' ? (
+                      <Button
+                        variant="secondary" onClick={() => void remind(o)}
+                        disabled={reminding === o.id || remindedRecently(o.lastRemindedAt)}
+                        title={remindedRecently(o.lastRemindedAt) ? 'Reminded less than a day ago' : undefined}
+                      >
+                        Remind
+                      </Button>
+                    ) : (
+                      <Link to={`/offers/${o.id}`} className="text-sm font-medium text-brand-700 hover:text-brand-800">
+                        {o.awaitingMe ? 'Review' : 'Open'}
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))}
