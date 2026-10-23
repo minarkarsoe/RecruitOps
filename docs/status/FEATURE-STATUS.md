@@ -66,7 +66,7 @@
 | 1 | Job Requisition & Approval | ✅ API + UI | ⭐ MVP · full loop drivable from the browser: chain config → requisition → submit → sequential approve/reject → cancel. |
 | 2 | ATS & Sourcing | 🚧 API + UI | ⭐ MVP · **2.1, 2.2, 2.4, 2.5, 2.6, 2.7 built. 2.3 is text-only — no OCR, so image and scanned CVs yield nothing.** 2.4 Smart Match and 2.5's Kanban + 360° view were wired on 2026-08-29; both had been written and left unreachable. Posting → public page + custom form → application → pipeline; bulk CV ingestion with local extraction (`BulkResumeService` + `BulkResumeWorker`, `DocumentExtraction/`) — **rewritten 2026-08-21 onto ADR-0026's durable queue**, so a batch survives a restart and the uploaded bytes live in object storage rather than in process memory; AI profiling behind a key (`AiIntegrationService`); trigram search (`SearchService`, `AddPgTrgmAndSearchIndexes`). Remaining: file-upload field type (waits on ADR-0013), the rest of the Talent pool screen (candidate search, ranking, CV upload — only its possible-duplicates part is built, 2026-10-21), and **wiring the AI surface to a route** — see the AI row below. |
 | 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). **3.2 invitations built 2026-08-20** — scheduling and rescheduling queue a candidate email through the ADR-0026 outbox, sent by the worker over SMTP; cancelling suppresses a queued one. 3.1 calendar free/busy still deferred — no calendar client exists. **The delivery log landed 2026-08-25** (`GET /api/delivery`, `/delivery`), so a failed or suppressed invitation is now visible to the recruiter instead of only to the database. ⚠️ Three behaviours have never been eyeballed — see the warning below the table. |
-| 4 | Offer & Pre-boarding | 🚧 API + UI (slice A) | Post-MVP. **Slice A built 2026-10-21** ([ADR-0030](../decisions/ADR-0030-offer-management.md)): offers drafted from an application at the Offer stage, the budget check as the terms are typed, internal approval on Module 1's rail (rules shared, not copied — `ApprovalRail`), the dashboard (`/offers`), the company's offer policy. **Not yet:** sending, the candidate portal (link + emailed code, typed signature), reminders, expiry (slice B); pre-boarding documents and the IT/Admin handoff (slice C); HRMS export (add-on). |
+| 4 | Offer & Pre-boarding | 🚧 API + UI (slices A + B) | Post-MVP. **Slice A built 2026-10-21, slice B 2026-10-23** ([ADR-0030](../decisions/ADR-0030-offer-management.md) §5a): offers drafted from an application at the Offer stage, the budget check as terms are typed, internal approval on Module 1's rail, the dashboard (`/offers`), the company's policy — and now **sending, the candidate's link** (`/offer/{token}` on the public site, unlocked by a 6-digit code emailed to the address fixed at sending), **typed-name signing, declining, reminders and expiry**. **Not yet:** pre-boarding documents and the IT/Admin handoff (slice C); HRMS export (add-on); withdrawing a sent offer. |
 | 5 | Reporting & Analytics | ✅ API + UI | ⭐ MVP · `AnalyticsController` + `AnalyticsService` + `AnalyticsPage.tsx`, built on Module 2's stage history. ⚠️ The 2026-08-18 spec re-defines both Time-to-* clocks to end at *offer accepted*, so **the shipped metrics do not match the current spec** and neither is computable until Module 4 exists. Scheduled report *delivery* is unblocked — `IEmailSender` exists — but needs a `ScheduledReport` handler and attachment support, which `EmailMessage` does not have yet. |
 | 6 | Planning & Budgeting | ⬜ code · ✅ spec + design | Post-MVP. Needs `Requisition → HeadcountPlan` decided first, or its headline number is uncomputable. |
 | 7 | Settings & Integrations | 🚧 | 7.1 RBAC ✅ (authorization engine, roles & permissions, User Directory, Role Builder UI, permission-aware UX). 7.5 **Audit log** 🚧 first slice (2026-10-15, ADR-0027): sign-ins, user and role changes, department membership, startup seeding, grantor-ceiling refusals, stolen-token reuse; append-only (EF guard + Postgres triggers); `/audit-log` for `system:audit` holders. Not yet: exports, candidate-data reads. 7.2 HRMS / 7.3 mail & calendar / 7.4 retention ⬜ — all four screens drawn. |
@@ -332,6 +332,47 @@ column on `ApprovalChains` (every existing chain becomes a requisition chain); s
   chain existed while an unsaved raise was on screen (`ApprovalPreview` now comes with every
   draft).
 
+### 🚧 Module 4 — slice B: sending, the candidate's link, signing (2026-10-23)
+
+Decisions: ADR-0030 §5a (written before the code, then corrected by two reviews). Screens:
+`design/public/offer-portal.html` — the code, sign, decline, expired and invalid states were **drawn
+first** (2026-10-23) and the product owner chose a printable web letter over a PDF. Migration
+`AddOfferPortal` — six columns on `Offers`, tables `OfferSignatures`, `OfferPortalAccesses`,
+`OfferPortalAttempts`; its `Down` refuses while any signature exists.
+
+- **Recruiter:** `POST /api/offers/{id}/send` (from Approved, or a Draft that needs no approval —
+  re-checked; the confirmation shows the address and the request carries it), `POST /{id}/remind`
+  (Sent/Viewed, once a day). The dashboard says "Not opened yet", "Opened 22 Oct · not signed" with
+  **Remind**, "Signed 23 Oct · joining 22 Nov"; the offer shows who signed, when, from where, which
+  address the code went to, and the letter's fingerprint — and its preview is the letter as signed.
+- **Candidate** (`frontend/public/app/offer/[token]`, client-only — no server-side fetch, so every
+  candidate keeps their own rate-limit bucket; `noindex`, `no-referrer`): `GET/POST
+  /api/public/offers/{token}` + `/code`, `/verify`, `/offer`, `/accept`, `/decline`. Anonymous,
+  rate limited (`RateLimit:OfferPortal`, 30/min per address), one 404 for every unusable token.
+- **The code:** HMAC-hashed under a key derived from `Jwt:Key`; 10 minutes, 5 tries, 5 a day,
+  replaced by a new one; tries and requests are **written first, then counted** — parallel guesses
+  are all counted and a right guess that loses a race reads like any spent code (measured on
+  PostgreSQL 16: 20 parallel wrong guesses, then the right code → refused; 21 tries recorded).
+  Wiped from the outbox once sent.
+- **The session:** HttpOnly, SameSite=Strict, Secure outside development, scoped to the offer, no
+  expiry of its own; 30 minutes; ended by a new code and by answering.
+- **Emails** (outbox handlers): the link, reminders, the code, the candidate's signed copy (letter +
+  fingerprint) or decline acknowledgement, and a notice to the creating recruiter if still active.
+  The delivery log resolves offer messages to their department and candidate; a department-scoped
+  viewer sees "The recruiter who made the offer", not their address.
+- **Expiry** in the company's time zone, applied whenever anything reads the offer; an answered
+  offer's link closes on the same date.
+- **Deploy:** nginx routes `/offer/` to the public app; `PUBLIC_BASE_URL` (prod compose) or
+  `PublicSite:BaseUrl` — without it, sending is refused with a message saying so.
+- Tests: `OfferPortalTests` (25), `OfferPortalRulesTests` (Domain, 19), `OfferPortal.test.tsx`
+  (public, 11), offer page/dashboard additions (internal). Every rule the ADR gives a number to is
+  pinned with that number; 9 + 11 + 2 mutants all caught.
+- Reviewed by `security-reviewer` (twice) and `db-schema-reviewer`: one High (the try counter —
+  fixed and re-measured on Postgres), Mediums fixed (answered links never closing, codes crackable
+  at rest and left in the outbox, a 2-hour persistent session, the address read live, a code saved
+  without its email). Driven end to end through the production nginx config on PostgreSQL 16:
+  send → emailed link → code → letter → sign → copy and notice; decline with a reason; the races.
+
 ### ✅ Foundation
 - .NET 8 Clean Architecture solution: `Domain` / `Application` / `Infrastructure` / `Api` + 2 test projects
 - Next.js App Router frontend; Tailwind theme encoding the full "Clear Pipeline" token set
@@ -580,10 +621,15 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | Issue | Severity | Where |
 |---|---|---|
 | ~~The Cloudflare guide's tunnel step left ports 80/443 open~~ | ✅ **fixed 2026-10-23** (docs) | Method B said a `docker-compose.override.yml` closes them, but Compose ignores that file whenever `-f` is passed — and every documented command passes `-f docker-compose.prod.yml` (measured: `config` still published 80 and 443). Anyone following it believed the server was closed while visitors could bypass Cloudflare. The guide now says to close them in the cloud firewall, or to pass a named second file every time, with a check. Its R2 section listed setting names the code does not read; corrected and marked untried |
-| **Module 4 stops at "Approved"** | 🟡 Medium | Slice A only (2026-10-21). An approved offer cannot be sent: `Send to candidate` is shown disabled and says why. Slice B builds sending, the candidate portal (link + 6-digit code emailed, ADR-0030 §5), typed signature, decline, reminders and expiry. ⚠️ `design/public/offer-portal.html` draws the link but **no code step** — it needs drawing before slice B builds it. Module 5's spec-correct Time-to-* metrics wait on acceptance too |
+| ~~Module 4 stops at "Approved"~~ | ✅ **slice B built 2026-10-23** | Offers are sent, unlocked, signed or declined, reminded and expired (above). The portal's code step was drawn first |
+| **Module 4 stops at "Accepted"** | 🟡 Medium | Slice C — pre-boarding documents (`design/public/offer-portal.html` `#documents`, `design/internal/preboarding-review.html`) and the IT/Admin handoff — is not built. ⚠️ The link closes at the reply-by date, which can precede the joining date: slice C needs its own window for uploads. Module 5's Time-to-* metrics can now end at acceptance (`Offer.RespondedAt`) but have not been changed |
+| A link holder can spend the day's codes | 🟢 Low | Security review M2 residual, accepted (ADR-0030 §5a): five code requests a day per offer, and a forwarded link's holder can use them up — every code still reaches the candidate, who may then wait until the 24-hour window rolls. No staff action clears it yet |
+| A sent offer cannot be withdrawn | 🟢 Low | Not in slice B. A wrong offer sent can only be left to expire; it cannot be pulled back or corrected |
+| `PublicSite:BaseUrl` accepts `http` | 🟢 Low | For local development. Production installs must set an `https` address; nothing enforces it |
+| The portal has no language switch | 🟢 Low | The 2026-08-18 design's Burmese line points at a language button that is not drawn; the portal is English-only |
 | Requisition decisions are not bound to a round | 🟢 Low | Offers carry the round and two concurrency tokens (ADR-0030 §1); requisitions do not yet, so a requisition revised and resubmitted while an approver has it open can take an approval made on the earlier screen, and a revise racing an approve can both commit. Same fix as offers |
 | One person can draft an offer and approve it | 🟢 Low | Offer security review L2. A Recruiter named on the offer chain can approve an offer they drafted; nothing enforces separation of duties (requisitions have the same property). A product decision |
-| A Hiring Manager can infer an offer's budget status | 🟢 Low | Offer review L6. With salaries hidden, an offer reaching `PendingApproval` still tells its department's manager it was over budget — unless the company approves every offer |
+| A Hiring Manager can infer an offer's budget status | 🟢 Low | Offer review L6. With salaries hidden, an offer reaching `PendingApproval` still tells its department's manager it was over budget — unless the company approves every offer. **The design already answers it:** `offer-dashboard.html` collapses intermediate states to "In progress" for Hiring Managers. Not built |
 | Offers are guarded by role policies, not permissions | 🟢 Low | Offer review L9. `RecruitmentStaff` / `InternalUser` like the rest of the hiring surface; there is no `offers:*` in the catalogue, so the Role Builder cannot narrow who drafts offers. Templates and the policy do use `settings:*` |
 | Offer numbers can repeat after a deletion | 🟢 Low | Deleting the highest-numbered draft frees its number for the next offer that year. The year is UTC's, so an offer made just after midnight on 1 January Myanmar time is numbered in the old year |
 | No screen for offer templates, the offer policy has no drawn home | 🟢 Low | `offer-create.html` draws picking a template, nothing draws managing them; the API exists (settings permissions). The policy card sits on Approval chains, plain, until `settings-org.html` draws it. The spec's "Position Title" dashboard filter is not drawn and not built |

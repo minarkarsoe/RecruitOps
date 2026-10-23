@@ -284,6 +284,20 @@ UPDATE "ApprovalChains" SET "IsActive" = false WHERE "Purpose" = 'Offer';
 Rolling the **database** back past `AddOffers` deletes the offer chains and drops every offer — back
 up first (Section 2.1).
 
+**Upgrading past 2026-10-23 (offer links, ADR-0030 §5a) — set the public address first:**
+```env
+PUBLIC_BASE_URL=https://careers.example.com
+```
+It is the base of the link emailed to candidates (`/offer/{token}`); use the address candidates
+reach this install at, over HTTPS. Unset, the API runs, and **sending an offer is refused** with a
+message naming the setting. Set `Smtp__FromAddress` to a mailbox someone reads: candidates are told
+to write to it. **Rolling back past `AddOfferPortal`:** an application-only rollback needs nothing
+— the new columns are nullable — but clear pending offer emails first, which the older release
+cannot read: `DELETE FROM "OutboundMessages" WHERE "Kind" IN ('OfferAccessCode', 'OfferAnswered',
+'OfferAnswerNotice') AND "Status" = 'Pending';`. Rolling the **database** back refuses while any
+acceptance is recorded: archive `OfferSignatures` (e.g. `pg_dump -t '"OfferSignatures"'`), delete
+its rows, then run `dotnet ef database update AddOffers` by hand — startup never runs a `Down`.
+
 ---
 
 ## 4. Feature Flag Add-on Gating (ADR-0007)

@@ -26,7 +26,8 @@ Company (tenant)
              ├─ Note ─ NoteMention
              └─ Offer                     built 2026-10-21 (ADR-0030); one open per application
                  ├─ OfferApproval         (ordered steps, per round — the same rail as requisitions)
-                 ├─ OfferSignature        ⬜ slice B
+                 ├─ OfferSignature        built 2026-10-23 — the evidence of acceptance
+                 ├─ OfferPortalAccess ─ OfferPortalAttempt   codes, sessions and tries (ADR-0030 §5a)
                  └─ PreboardingRequest ─ PreboardingDocument   ⬜ slice C
 
 Candidate
@@ -69,7 +70,7 @@ Cross-cutting: ApprovalChain/Step (with a `Purpose`: Requisition or Offer, ADR-0
 `JdTemplate` · `ApplicationForm` · `ApplicationFormField` · `CandidateDocument` ·
 `CandidateMatch` · `ApplicationStageHistory` · `Interview` · `InterviewParticipant` ·
 `Scorecard` · `ScorecardCriterion` · `ScorecardResponse` · `Note` · `NoteMention` ·
-`OfferTemplate` · `Offer` · `OfferApproval` (these three built 2026-10-21 — ADR-0030; `Offer.Status` and `OfferApproval.Decision` are concurrency tokens) · `OfferSignature` · `PreboardingRequest` · `PreboardingDocument` ·
+`OfferTemplate` · `Offer` · `OfferApproval` (these three built 2026-10-21 — ADR-0030; `Offer.Status` and `OfferApproval.Decision` are concurrency tokens) · `OfferSignature`, `OfferPortalAccess`, `OfferPortalAttempt` (built 2026-10-23 — §5a; codes stored only as keyed hashes, tries as rows) · `PreboardingRequest` · `PreboardingDocument` ·
 `RecruitmentPlan` · `HeadcountPlan` · `BudgetLine` · `BudgetSpend` · `PlanApproval` ·
 `IntegrationConfig` · `RetentionPolicy` · `AuditLogEntry` (built 2026-10-15 — append-only, no foreign keys, names snapshotted; ADR-0027) · `NotificationLog`
 

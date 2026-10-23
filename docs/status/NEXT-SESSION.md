@@ -1,12 +1,40 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-23 · **Backend 999/999 (128 Domain + 871 Api) · Frontend 536/536 · public 31/31 · typecheck clean · builds clean**
+**Last updated:** 2026-10-23 · **Backend 1043/1043 (147 Domain + 896 Api) · Frontend 547/547 · public 43/43 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
 · All seven modules have a drawn UI (26 screens)
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
+
+> ✉️ **2026-10-23 — Module 4 slice B built: offers reach the candidate** (ADR-0030 §5a). Send →
+> emailed link → 6-digit emailed code → letter → typed-name signature or decline → copy and recruiter
+> notice; reminders; expiry. **Pick up slice C next** (pre-boarding documents + IT/Admin handoff —
+> `design/public/offer-portal.html` `#documents`, `design/internal/preboarding-review.html`); it needs
+> **its own window** for uploads, because the link closes at the reply-by date. Things to know:
+> - **Limits are counted after the write.** A try at a code is a row written and committed, *then*
+>   counted; so is a code request. Never read-then-act on a limit an anonymous caller can hit in
+>   parallel — the first version did, and both reviewers found it (High). Any slice C limit on
+>   uploads should follow the same pattern.
+> - **The candidate's address is `Offer.SentToEmail`, fixed at sending.** Every candidate email reads
+>   it, never `Candidate.Email`. Slice C's emails must too.
+> - **Candidate-facing refusals are `PortalRefusalException`** — the only text the anonymous controller
+>   shows; an `InvalidOperationException` becomes a bare 500 there.
+> - **The portal page fetches in the browser only.** A server-side fetch would reach the API from the
+>   Next.js server's address and put every candidate in one rate-limit bucket.
+> - Deploy needs `PUBLIC_BASE_URL` (runbook §3); without it, sending is refused with a message.
+> Lessons:
+> - **A mutation script that restores a file from an older copy leaves a stale build.** MSBuild
+>   compared the restored file's old timestamp with the mutant's newer DLL and kept the mutant; one
+>   test then "failed" on correct code. Restore by *writing* the file (fresh timestamp) or `touch` it.
+> - **`pkill -f <pattern>` inside a shell command matches that shell's own command line** and kills it.
+> - **Next.js dev renders a `role="alert"` route announcer**, so `getByRole('alert')` in Playwright
+>   can find it instead of the page's message. Target the element (`#otp-error`).
+> - **Run the production nginx config locally** to test anything behind it: install `nginx-light`,
+>   point the upstreams at 127.0.0.1, drop the `http2 on;` line (1.24 predates it) and use a
+>   throwaway certificate. That is how the `Secure` cookie, forwarded HTTPS and `/offer/` route were
+>   measured here.
 
 > 💼 **2026-10-21 — Module 4 slice A built: offers up to "cleared to send"**
 > ([ADR-0030](../decisions/ADR-0030-offer-management.md)). **Pick up slice B next**: send, the
@@ -256,13 +284,12 @@ Hiring Manager raises a requisition
   → Admin manages users, custom roles, feature flags, /api/version
 ```
 
-**How far along (2026-10-21, after Module 4 slice A), by the specs' 33 numbered features** (built 1,
-partly 0.5, built to a superseded definition 0.75): **about 50% of the whole product (16.5/33), about
-78% of the MVP modules 1, 2, 3, 5 (14/18).** Module 1 4/4 · 2 5.5/7 · 3 2.5/4 · 4 1/3 (4.1 and 4.2
-half each — no sending or reminders yet) · 5 2/3 · 6 0/3 · 7 1.5/5 · 8 0/4. The biggest unbuilt
-block that needs no product decision is **the rest of Module 4** — slice B once the portal's code
-step is drawn — and Module 5's metrics cannot match the current spec until an offer can be
-accepted. Modules 6 and 8 wait on the decisions in
+**How far along (2026-10-23, after Module 4 slice B), by the specs' 33 numbered features** (built 1,
+partly 0.5, built to a superseded definition 0.75): **about 55% of the whole product (18/33), about
+78% of the MVP modules 1, 2, 3, 5 (14/18).** Module 1 4/4 · 2 5.5/7 · 3 2.5/4 · 4 2.5/3 (4.3's
+signing built, its documents and handoff not) · 5 2/3 · 6 0/3 · 7 1.5/5 · 8 0/4. The biggest unbuilt
+block that needs no product decision is **Module 4 slice C**, then bringing Module 5's Time-to-*
+metrics to the current spec — an offer can now be accepted (`Offer.RespondedAt`). Modules 6 and 8 wait on the decisions in
 backlog §4. Feature count is not effort: auth, RBAC, tenancy, delivery and the security reviews
 sit under 7.1 and the per-module rows.
 
@@ -279,7 +306,7 @@ suppressed message reaches the recruiter instead of only the database.
 | Module 2 — ATS & Sourcing | ✅ 2.1–2.7 all built. Postings, custom forms, pipeline, dedup, bulk CV ingestion (**rewritten 2026-08-21 onto the durable queue**), AI profiling behind a key, pg_trgm search |
 | Module 3 — Interview & Assessment | 🚧 3.3 scorecards + 3.4 notes ✅ API + UI + tests · security-reviewed (ADR-0018) · **3.2 invitations ✅ built 2026-08-20** (schedule and reschedule queue an email; cancel suppresses it) · **3.1 calendar free/busy still unbuilt** — no calendar client exists |
 | Module 5 — Reporting & Analytics | ✅ API + UI. ⚠️ Built to the *old* metric definitions — the 2026-08-18 spec moved both clocks |
-| Module 4 — Offer & Pre-boarding | 🚧 **slice A ✅ 2026-10-21** (offers, budget check, approval on the shared rail, dashboard, company policy) · slice B (send, portal, signature) ⬜ · slice C (pre-boarding, handoff) ⬜ |
+| Module 4 — Offer & Pre-boarding | 🚧 **slice A ✅ 2026-10-21** (offers, budget check, approval on the shared rail, dashboard, company policy) · **slice B ✅ 2026-10-23** (send, the candidate's link and code, signature, decline, reminders, expiry) · slice C (pre-boarding, handoff) ⬜ |
 | Modules 6, 8 | ⬜ code · ✅ spec + design |
 | Module 7 — Settings | 🚧 RBAC ✅ · integrations ⬜ |
 | Auth | ✅ JWT, dynamic RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |

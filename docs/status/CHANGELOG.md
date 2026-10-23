@@ -3,7 +3,38 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-23 (latest) — dead `file:///` links in the docs now point inside the repo
+## 2026-10-23 (latest) — Module 4 slice B: offers reach the candidate, who unlocks, signs or declines
+
+An approved offer — or a draft within budget — is now **sent**: the candidate gets a link
+(`/offer/{token}` on the public site), opens it with a **6-digit code emailed** to the address fixed
+at sending, reads the terms and the letter, and **accepts by typing their name** with a consent tick,
+or declines with an optional reason. Recruiters see where each offer stands ("Opened 22 Oct · not
+signed", **Remind**), and on acceptance who signed, when, from where, and the letter's fingerprint.
+Offers past their reply-by date expire. ADR-0030 §5a records how.
+
+- **Drawn first.** The portal design had the link and the offer but no code step and no signing
+  screen; the missing states (`#link` … `#invalid`) were drawn in `design/public/offer-portal.html`
+  and reviewed before the portal was built. The letter is a printable page, not a PDF (product owner).
+  The design's "signing here is legally equivalent to paper" line is gone — ADR-0030 leaves that to
+  the customer's counsel.
+- **Two reviews changed the design of the code step**, and both are worth knowing:
+  - a try counter read and written by parallel requests let all but one guess go uncounted, and a
+    right guess that lost the race got a different message (High) — tries are now rows, written
+    first and then counted; re-measured on PostgreSQL with 20 parallel guesses;
+  - codes were plain hashes (reversible from a backup) and stayed in the outbox; sessions lasted
+    2 hours and survived answering; the address was read live; an answered offer's link never
+    closed; a code could be saved without its email — all fixed (keyed hash, wiped payload,
+    30-minute browser-session cookie ended by answering, address pinned at sending, link closed at
+    the reply-by date, one save).
+- Recruiters are told when a candidate answers, if they are still active recruiters; a Hiring
+  Manager's delivery log says "the recruiter who made the offer", not their address.
+- **Deploy:** set `PUBLIC_BASE_URL` (runbook §3) — without it, sending is refused. nginx now routes
+  `/offer/` to the public app. Migration `AddOfferPortal`.
+- Driven end to end through the production nginx config on PostgreSQL 16 — UI send, the real emailed
+  link and code, sign, decline, the signed copy, the recruiter's notice. Backend 1,043 · internal 547 ·
+  public 43.
+
+## 2026-10-23 — dead `file:///` links in the docs now point inside the repo
 
 14 links in the BRD, the end-to-end workflow, the VPS guide and the Cloudflare guide pointed at a
 folder on one Windows PC (`file:///c:/Users/…/RecruitOps/…`), so they opened nothing on GitHub or

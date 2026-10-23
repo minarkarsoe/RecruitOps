@@ -1,8 +1,8 @@
 # Module 4 — Offer Management & Pre-boarding
 
 **Status:** 🚧 Slice A built (2026-10-21) — offers, budget check, internal approval, dashboard.
-Slice B in progress (2026-10-23) — sending, the candidate portal, signing, declining, reminders,
-expiry. Slice C: pre-boarding documents. Decisions:
+Slice B built (2026-10-23) — sending, the candidate portal, signing, declining, reminders, expiry.
+Slice C: pre-boarding documents and the IT/Admin handoff. Decisions:
 [ADR-0030](../../decisions/ADR-0030-offer-management.md) (§5a for slice B).
 **Scope last revised:** 2026-08-18, from a sales requirement document
 (`Module 4_Offer Management & Pre-boarding.pdf`). That document is the source for the

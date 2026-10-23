@@ -116,39 +116,59 @@ Decided while building, before code; the portal screens were drawn first
   — no name, position or terms. The public site's address is `PublicSite:BaseUrl`; without it,
   sending is refused rather than mailing a link that goes nowhere.
 - **The code.** Six digits from a cryptographic generator, emailed through the outbox to the
-  address on the application and to nowhere else; stored only as a hash; valid **10 minutes**;
-  **5 wrong tries** end it; a new code replaces the old; at most **5 codes per offer per 24 hours**.
-  Worst case, someone holding a forwarded link guesses 25 times a day — over an offer's longest
-  life (90 days) a 0.2% chance, while the candidate receives every code they trigger. The code is
-  in the outbox row's payload until it is sent; the delivery log never shows payloads.
-- **The session.** A correct code sets an `HttpOnly`, `SameSite=Strict` cookie scoped to that
-  offer's API path, valid **2 hours**, stored only as a hash. Every read of terms, letter or
-  answer requires it. A new code means a new session.
+  address the offer was **sent to** (below) and nowhere else; stored only as an **HMAC under a key
+  that is not in the database** (derived from the install's JWT key) — a plain hash of six digits is
+  reversed in microseconds by anyone holding a backup. Valid **10 minutes**; **5 tries** end it; a
+  new code replaces the old; at most **5 codes per offer per 24 hours**. The code travels in the
+  outbox payload and is **wiped once the message is sent**; the delivery log never shows payloads.
+- **Limits are counted after the write, never before** (database and security reviews, 2026-10-23).
+  A try is written and committed, then counted, and compared only if it is among the first five —
+  a counter read-then-written let parallel guesses go uncounted, and a right guess that lost the race
+  got a different message. A code and its email are committed together, then the day's codes are
+  counted. Every failure after a try says the same thing, so no response says a guess was right.
+  Worst case, someone holding a forwarded link guesses 25 times a day — over an offer's longest life
+  (90 days) a 0.2% chance, while the candidate receives every code they trigger.
+- **The session.** A correct code sets an `HttpOnly`, `SameSite=Strict`, `Secure` cookie scoped to
+  that offer's API path, with **no expiry of its own** (closing the browser ends it); the server ends
+  it after **30 minutes**, when another code is verified, and when the candidate answers — so a
+  shared computer does not stay open on someone's offer. Stored only as a hash. A code opens one
+  session, once.
 - **`Viewed` means the candidate unlocked it** — the first correct code. Opening the link is not
   viewing it: the link shows nothing to view.
-- **Accepting** takes the typed full name (1–200 characters, one line) and a consent tick, and
-  the SHA-256 of the letter the page showed. The server re-renders the letter; if the hash differs
-  it refuses and the page reloads, so what is recorded is what was read. Recorded in
-  `OfferSignature`: the name as typed, the time, the client IP (the real one — ADR-0029 L6), the
-  user agent, **the letter text itself** and its hash. Declining takes an optional reason (up to
-  1,000 characters). Either answer is final from the link, emails the candidate's copy or
-  acknowledgement, and tells the recruiter who created the offer.
+- **The address is fixed at sending** (`Offer.SentToEmail`). Every later email — codes, reminders, the
+  signed copy — goes there: read live, a candidate record whose email a stranger's application filled
+  in afterwards could redirect the codes. The recruiter is shown the address before sending, and the
+  send request carries it; if it changed in between, sending is refused.
+- **Accepting** takes the typed full name (1–200 characters, one line) and a consent tick, and the
+  SHA-256 of the letter the page showed. The server re-renders the letter; if the hash differs it
+  refuses and the page reloads it — a staleness check, so that what is recorded is what was shown
+  (the server records its own render, not the page's). Recorded in `OfferSignature`: the name as
+  typed, the time, the client IP (the real one — ADR-0029 L6), the user agent, the address the code
+  went to, **the letter text itself** and its hash. Recruiters' previews of an accepted offer show that
+  text, not a fresh render. Declining takes an optional reason (up to 1,000 characters). Either answer
+  is final from the link, emails the candidate's copy or acknowledgement, and tells the recruiter who
+  created the offer — if they are still an active recruiter.
 - **Expiry.** The link works to the end of the expiry date **in the company's time zone** (UTC if
-  none is set). A Sent or Viewed offer past it becomes `Expired` when anything reads it — the
-  dashboard, the offer, the portal. There is no sweep job; anything that counts offers (Module 5)
-  must read them through `OfferService` or expire them the same way first.
+  none is set) — **whatever the answer**: an answered offer's link closes on that date too, and the
+  candidate has the emailed copy. A Sent or Viewed offer past it becomes `Expired` when anything reads
+  it — the dashboard, the offer, the portal. There is no sweep job; anything that counts offers
+  (Module 5) must read them through `OfferService` or expire them the same way first. (Slice C will
+  need its own window for documents after acceptance.)
 - **Sending** is allowed from `Approved`, or from `Draft` when the offer needs no approval —
   re-checked at send, not trusted from submit. It re-checks the expiry window (not past, at most
   90 days ahead) and that the candidate has an email address.
-- **Reminders** (`Remind candidate`): for `Sent` or `Viewed`, at most once per 24 hours, the same
-  link again.
+- **Reminders** (`Remind candidate`): for `Sent` or `Viewed`, at most once per 24 hours (two clicks at
+  once cannot both pass — `LastRemindedAt` is a concurrency token), the same link again.
 - **What candidates are told to contact** is the outbound mail's From address (`Smtp:FromAddress`)
   — set it to a monitored mailbox.
 - **Who sees the evidence:** recruitment staff see the typed name, time, IP, user agent and hash;
   everyone else sees only the answer and its date. Signing is not an access change, so it is not in
   the audit log; `OfferSignature` is the record.
-- **Not in slice B:** withdrawing a sent offer, moving the application to `Hired` on acceptance,
-  and document collection (slice C).
+- **Accepted risks, reviewed 2026-10-23:** someone holding a forwarded link can spend the day's five
+  codes and leave the candidate waiting until the window rolls (each code still reaches the candidate);
+  `PublicSite:BaseUrl` accepts `http` (for local development) — set `https` in production.
+- **Not in slice B:** withdrawing a sent offer, moving the application to `Hired` on acceptance, a
+  staff action to clear a locked-out offer's codes, and document collection (slice C).
 
 ### 6. Records and numbering
 
