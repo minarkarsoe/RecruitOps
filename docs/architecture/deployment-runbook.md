@@ -298,6 +298,22 @@ cannot read: `DELETE FROM "OutboundMessages" WHERE "Kind" IN ('OfferAccessCode',
 acceptance is recorded: archive `OfferSignatures` (e.g. `pg_dump -t '"OfferSignatures"'`), delete
 its rows, then run `dotnet ef database update AddOffers` by hand — startup never runs a `Down`.
 
+**Upgrading past 2026-10-23 (pre-boarding documents, ADR-0030 §5b):** nothing to set before the
+upgrade. Afterwards an Admin sets the **IT and Admin handoff addresses** under Approval chains →
+Pre-boarding — until then nobody is told when a new starter's documents are approved, and the
+pre-boarding screen says "Not set up". Candidates' files go to the existing private bucket under
+`preboarding/`, so **they are in the storage backup** (`scripts/backup.sh`) with the CVs: NRC scans
+and bank books — treat the backup accordingly. The SPA's CSP gains `blob:` images and frames and two
+hashed inline styles for the document viewer (`frontend/internal/nginx.conf`); a proxy that sets its
+own CSP in front of the SPA must carry the same. **Rolling back past `AddPreboarding`:** an
+application-only rollback needs nothing (the new columns are nullable or defaulted), but clear the
+new outbox kinds first: `DELETE FROM "OutboundMessages" WHERE "Kind" IN ('PreboardingHandoff',
+'PreboardingSubmitted', 'PreboardingReturned', 'PreboardingReminder') AND "Status" = 'Pending';`.
+Rolling the **database** back refuses while any document is recorded: those rows name every NRC
+scan in storage. Delete the objects under `preboarding/` and the rows of `PreboardingFiles` and
+`PreboardingDocuments` (after archiving them if the documents must be kept), then run `dotnet ef
+database update AddOfferPortal` by hand.
+
 ---
 
 ## 4. Feature Flag Add-on Gating (ADR-0007)

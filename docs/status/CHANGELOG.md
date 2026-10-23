@@ -3,7 +3,47 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-23 (latest) — Module 4 slice B: offers reach the candidate, who unlocks, signs or declines
+## 2026-10-23 (latest) — Module 4 slice C: joining documents, their review, and the IT/Admin handoff
+
+After signing, the candidate goes **straight on to their joining documents** on the same link: NRC
+front and back, **bank details typed** with a photo of the bank book, education certificates (up to
+5), and a staff-card photo — each saved as it uploads, until the joining date. "Send for checking"
+tells the recruiter. The recruiter's new **Pre-boarding** screen (`/offers/{id}/preboarding`, from the
+dashboard's accepted rows) opens each document **in a viewer, one at a time**, reveals the account
+number on request, approves or **sends a document back with their own words** (emailed to the
+candidate and shown on their link), and reminds them of what is missing once a day. When the last
+required document is approved, **IT and Admin are emailed once**: IT a name, position and date;
+Admin the same with department and the approved photo attached. Which documents are required, and
+the two addresses, are set by an Admin beside Offer policy.
+
+- **Why:** Module 4.3's document collection and handoff — the last of the module's core (ADR-0030
+  §5b, written before the code). The missing states were **drawn first** (portal `#documents`
+  redrawn, `#documents-sent`, the review screen's reject message, a settings section) and sent for
+  review. Decisions taken with the designs' defaults and marked "to confirm" in the ADR: bank details
+  typed plus a photo; no machine translation of the recruiter's message; email only (no in-app
+  notification exists).
+- **Sensitive by design:** recruitment staff only (a Hiring Manager gets 403 — no restricted variant);
+  every file opening and every reveal is **audited before the data leaves**; the account number is
+  masked in every other response, the candidate's own included; files are typed by their **first
+  bytes**, stored under keys with no candidate input, deleted from storage when replaced; nothing is
+  ever served back to the candidate.
+- **Integrity:** every change to a document bumps its revision and a decision names the revision it
+  saw — no approving a file nobody opened; the handoff is re-checked after each approval commits and
+  claimed once (measured on PostgreSQL 16: the last two approved at the same moment → exactly two
+  emails); parallel uploads to one document leave one file and one object.
+- **Session change:** accepting no longer ends the candidate's session (declining still does); an
+  accepted offer's link stays open until the later of its reply-by and joining dates.
+- **Touched:** `Preboarding` (Domain rules), `PreboardingRequest`/`PreboardingDocument`/
+  `PreboardingFile`, migration `AddPreboarding` (backfills accepted offers; `Down` refuses while any
+  document exists), `OfferPortalService.Documents.cs`, `PreboardingService`, four outbox handlers,
+  `EmailMessage` attachments (`System.Net.Mail`, no new package), `PreboardingController`, public
+  upload endpoints; SPA `PreboardingPage`, `PreboardingSettingsCard`, the SPA's CSP (`blob:` for the
+  viewer, two hashed styles for Chrome's PDF wrapper); public `Documents.tsx`.
+- **Not built (FEATURE-STATUS):** deleting a candidate's documents (retention, Module 7.4 — the
+  portal's promise is kept by hand until then), HRMS export (add-on), moving the application to
+  Hired, photo metadata stripping.
+
+## 2026-10-23 — Module 4 slice B: offers reach the candidate, who unlocks, signs or declines
 
 An approved offer — or a draft within budget — is now **sent**: the candidate gets a link
 (`/offer/{token}` on the public site), opens it with a **6-digit code emailed** to the address fixed
