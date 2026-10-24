@@ -248,7 +248,7 @@ public sealed class BulkResumeWorker : BackgroundService
             JobPostingId = batch.JobPostingId,
             CandidateId = candidate.Id,
             Status = PipelineStatus.Sourced,
-            Source = SourceChannel.Direct,
+            Source = SourceChannel.ManualUpload,
             AppliedAt = now,
             // The bytes are already in storage under this key — referenced, never re-uploaded.
             // A second copy would double storage for every CV and give two keys to keep in step.
@@ -312,7 +312,7 @@ public sealed class BulkResumeWorker : BackgroundService
                 FullName = name,
                 Email = email,
                 Phone = phone,
-                Source = SourceChannel.Direct,
+                Source = SourceChannel.ManualUpload,
             };
             db.Candidates.Add(candidate);
             return candidate;

@@ -90,6 +90,7 @@ public class PublicJobService : IPublicJobService
 
         var now = _clock.GetUtcNow();
         var tenantId = posting.TenantId;
+        var source = SourceChannels.FromPublic(request.Source);
 
         // ── Duplicate detection (Module 2.7) ──
         // Match on either contact field, within this tenant only. Reusing the candidate is
@@ -110,7 +111,8 @@ public class PublicJobService : IPublicJobService
                 FullName = request.FullName.Trim(),
                 Email = email,
                 Phone = phone,
-                Source = SourceChannel.Direct,
+                // First touch: a returning candidate keeps the channel that first brought them.
+                Source = source,
             };
             _db.Candidates.Add(candidate);
         }
@@ -131,7 +133,7 @@ public class PublicJobService : IPublicJobService
             JobPostingId = posting.Id,
             CandidateId = candidate.Id,
             Status = PipelineStatus.Applied,
-            Source = SourceChannel.Direct,
+            Source = source,
             AppliedAt = now,
             CoverNote = request.CoverNote,
             CustomFieldsJson = customFields,

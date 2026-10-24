@@ -1,7 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using RecruitOps.Api.Auth;
 using RecruitOps.Application.DTOs;
+using RecruitOps.Domain.Enums;
+using RecruitOps.Infrastructure.Persistence;
 using Xunit;
 
 namespace RecruitOps.Api.Tests;
@@ -151,6 +155,55 @@ public class PublicApplicationTests : IClassFixture<CustomWebAppFactory>
         // Normalised on the way in, so a later duplicate check can actually match.
         Assert.Equal("aung.aung@example.com", item.Email);
         Assert.Equal("09765432100", item.Phone);
+    }
+
+    // ADR-0032 §1: the page sends the channel it resolved from its link; the API takes only what a link
+    // can carry. Exact names — a typed `via=facebook` is resolved by the page, not here.
+    [Theory]
+    [InlineData("Facebook", "Facebook")]
+    [InlineData("LinkedIn", "LinkedIn")]
+    [InlineData("Telegram", "Telegram")]
+    [InlineData("Viber", "Viber")]
+    [InlineData("Referral", "Referral")]
+    [InlineData(null, "Direct")]
+    [InlineData("Direct", "Direct")]
+    [InlineData("ManualUpload", "Direct")]   // an applicant cannot pass for a recruiter's upload
+    [InlineData("ExcelImport", "Direct")]
+    [InlineData("facebook", "Direct")]
+    [InlineData("1", "Direct")]              // never Enum.Parse: a number is not a name
+    public async Task An_Application_Records_Only_A_Channel_A_Link_Can_Carry(string? sent, string recorded)
+    {
+        var posting = await LivePostingAsync($"Channel {sent ?? "none"}");
+
+        var res = await Anonymous().PostAsJsonAsync($"/api/public/jobs/{posting.PublicToken}/apply",
+            new SubmitApplicationRequest { FullName = "Ko Channel", Email = $"{Guid.NewGuid():N}@example.com", Source = sent });
+        res.EnsureSuccessStatusCode();
+
+        var item = Assert.Single((await Internal(Roles.Recruiter)
+            .GetFromJsonAsync<List<PipelineItemDto>>($"/api/jobpostings/{posting.Id}/pipeline"))!);
+        Assert.Equal(recorded, item.Source);
+    }
+
+    [Fact]
+    public async Task A_Returning_Candidate_Keeps_The_Channel_That_First_Brought_Them()
+    {
+        var first = await LivePostingAsync("First touch A");
+        var second = await LivePostingAsync("First touch B");
+        var email = $"{Guid.NewGuid():N}@example.com";
+
+        await Anonymous().PostAsJsonAsync($"/api/public/jobs/{first.PublicToken}/apply",
+            new SubmitApplicationRequest { FullName = "Ma Touch", Email = email, Source = "Telegram" });
+        await Anonymous().PostAsJsonAsync($"/api/public/jobs/{second.PublicToken}/apply",
+            new SubmitApplicationRequest { FullName = "Ma Touch", Email = email, Source = "Facebook" });
+
+        var a = (await Internal(Roles.Recruiter).GetFromJsonAsync<List<PipelineItemDto>>($"/api/jobpostings/{first.Id}/pipeline"))!.Single();
+        var b = (await Internal(Roles.Recruiter).GetFromJsonAsync<List<PipelineItemDto>>($"/api/jobpostings/{second.Id}/pipeline"))!.Single();
+        Assert.Equal(("Telegram", "Facebook"), (a.Source, b.Source));   // each application its own
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var candidate = await db.Candidates.IgnoreQueryFilters().SingleAsync(c => c.Id == a.CandidateId);
+        Assert.Equal(SourceChannel.Telegram, candidate.Source);
     }
 
     [Fact]

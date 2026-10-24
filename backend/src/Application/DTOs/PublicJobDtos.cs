@@ -45,6 +45,12 @@ public record SubmitApplicationRequest
     [StringLength(8000)]
     public string? CustomFieldsJson { get; init; }
 
+    /// <summary>The channel the page resolved from its link's <c>via</c> tag or referrer — <c>Facebook</c>,
+    /// <c>LinkedIn</c>, <c>Telegram</c>, <c>Viber</c> or <c>Referral</c>. Anything else is recorded as the
+    /// career page (ADR-0032 §1).</summary>
+    [StringLength(30)]
+    public string? Source { get; init; }
+
     private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }
 

@@ -226,6 +226,10 @@ public class BulkResumeUploadTests : IClassFixture<CustomWebAppFactory>
         Assert.Single(status.Items);
         Assert.Equal("Success", status.Items[0].Status);
         Assert.NotNull(status.Items[0].ApplicationId);
+
+        // A recruiter's upload, not the career page (ADR-0032 §1).
+        var pipeline = await client.GetFromJsonAsync<List<PipelineItemDto>>($"/api/jobpostings/{postingId}/pipeline");
+        Assert.Equal("ManualUpload", pipeline!.Single(p => p.Id == status.Items[0].ApplicationId).Source);
     }
 
     [Fact]
