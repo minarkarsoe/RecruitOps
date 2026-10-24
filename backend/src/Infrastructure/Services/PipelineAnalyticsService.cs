@@ -176,7 +176,13 @@ public class PipelineAnalyticsService : IPipelineAnalyticsService
             .Select(o => o.CreatedByUserId)
             .ToList();
 
-        var people = cvs.Concat(interviews).Concat(hires).Distinct().ToList();
+        // One pass per list, not a count per person per list.
+        static Dictionary<Guid, int> Tally(List<Guid> ids) => ids.GroupBy(id => id).ToDictionary(g => g.Key, g => g.Count());
+        var cvsBy = Tally(cvs);
+        var interviewsBy = Tally(interviews);
+        var hiresBy = Tally(hires);
+
+        var people = cvsBy.Keys.Union(interviewsBy.Keys).Union(hiresBy.Keys).ToList();
         // Display names only: a colleague's email is users:read (ADR-0019).
         var names = await _db.Users.AsNoTracking()
             .Where(u => people.Contains(u.Id))
@@ -186,7 +192,7 @@ public class PipelineAnalyticsService : IPipelineAnalyticsService
         return people
             .Where(names.ContainsKey)
             .Select(id => new LeaderboardRowDto(
-                id, names[id], cvs.Count(x => x == id), interviews.Count(x => x == id), hires.Count(x => x == id)))
+                id, names[id], cvsBy.GetValueOrDefault(id), interviewsBy.GetValueOrDefault(id), hiresBy.GetValueOrDefault(id)))
             .OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(r => r.UserId)
             .ToList();
     }
