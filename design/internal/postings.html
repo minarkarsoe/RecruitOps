@@ -341,6 +341,17 @@
               <button class="h-10 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">Copy</button>
               <button class="h-10 px-3.5 rounded-md border border-line hover:border-line-strong text-base font-medium transition-colors">QR code</button>
             </div>
+            <!-- Added 2026-10-24 (ADR-0032 §1). The same link with ?via=<channel>, so Pipeline & source
+                 can say where applicants came from: Viber and Telegram's in-app browsers send no
+                 referrer, so an untagged link posted there counts as the career page. -->
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <span class="text-sm text-ink-600 mr-1">Copy a link for</span>
+              <button class="h-8 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Facebook</button>
+              <button class="h-8 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">LinkedIn</button>
+              <button class="h-8 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Telegram</button>
+              <button class="h-8 px-3 rounded-md border border-line hover:border-line-strong text-sm font-medium transition-colors">Viber</button>
+            </div>
+            <p class="mt-1.5 text-sm text-ink-600">Each one tells Pipeline &amp; source where its applicants came from. The plain link counts as the career page.</p>
             <div class="mt-3.5 rounded-md border border-line bg-canvas px-3.5 py-3">
               <p class="text-sm font-medium">Minted once, kept forever</p>
               <p class="mt-1 text-sm text-ink-600 max-w-[74ch]">

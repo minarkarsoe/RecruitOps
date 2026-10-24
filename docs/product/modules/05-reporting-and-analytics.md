@@ -1,7 +1,8 @@
 # Module 5 — Reporting & Analytics
 
-**Status:** 🚧 5.1 built to this spec 2026-10-24 ([ADR-0031](../../decisions/ADR-0031-executive-dashboard-metrics.md));
-5.2 and 5.3 built in August to the earlier scope (funnel, sources, CSV report builder) — not yet to this one.
+**Status:** 🚧 5.1 and 5.2 built to this spec 2026-10-24 ([ADR-0031](../../decisions/ADR-0031-executive-dashboard-metrics.md),
+[ADR-0032](../../decisions/ADR-0032-pipeline-and-source-analytics.md)); 5.3 built in August to the earlier
+scope (the CSV report builder) — not yet to this one.
 **Priority:** Medium.
 **Scope last revised:** 2026-08-18, from a sales requirement document
 (`Module 5_Reporting & Analytics.pdf`). That document is the source for the sub-module
@@ -63,6 +64,13 @@ Where candidates come from, and where they fall out.
 > Either the chart maps several statuses into each band, or it invents a second vocabulary.
 > Decide which before building, and write the mapping down — an unmapped funnel is how two
 > different numbers for "how many reached interview" start circulating.
+
+- **As built (ADR-0032), the mapping is decided:** Sourcing = Sourced + Applied · Screened =
+  Screening + Shortlisted · Interview · Offered = Offer + Hired; Rejected has no band, and a band
+  counts everyone who **reached** it. Rows are applications by the day they arrived (last 90 days or
+  this year); a hire is an **accepted offer**; channels beyond the four named above are summed as
+  "Other". The leaderboard is **HR Director and Admin only**, listed by name, never ranked. The
+  Recruiter Name filter is **not built** — nothing assigns a recruiter to a candidate.
 
 ### 5.3 Custom Report Builder
 
@@ -134,11 +142,13 @@ recruitment strategy.
   runner is also absent. This is the same missing capability that blocks Module 3's
   interview invitations and three Module 4 features — it is now a shared prerequisite, not
   a per-module detail.
+- ~~**Recruiter Leaderboard — who may see it?**~~ HR Director and Admin only (product owner,
+  2026-10-24, ADR-0032 §5). Whether it should also sit behind a company setting is still open.
 - **Recruiter Leaderboard is staff performance monitoring**, not recruitment analytics.
   Ranking named employees by output has employment-relations implications and is personal
   data about staff rather than candidates. Confirm with the customer that it is wanted, who
   may see it, and whether it belongs behind a setting.
-- **Funnel band mapping** — see the warning in 5.2.
+- ~~**Funnel band mapping**~~ — decided in ADR-0032 §4.
 - **Time-to-Hire excludes the approval wait by definition.** Confirm that is intended,
   because the product's own pitch is that approval delay is the thing worth measuring. A
   separate "time in approval" metric may be what management actually wants.

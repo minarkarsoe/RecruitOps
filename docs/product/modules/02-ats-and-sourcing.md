@@ -56,6 +56,12 @@ Facebook, LinkedIn, etc.
 > ⚠️ Not to be confused with the legacy agency "client portal" link. This link is
 > **public, for applicants**.
 
+**Where an applicant came from** ([ADR-0032](../../decisions/ADR-0032-pipeline-and-source-analytics.md)
+§1): every application records its channel — Facebook, LinkedIn, Telegram, Viber, Referral, the career
+page (`Direct`), or Manual upload. The public form resolves it from a `?via=` tag on the link, Facebook's
+`fbclid`, or the referrer's host; bulk CV uploads are Manual upload. Share buttons and the recruiter's
+per-channel copy links carry the tag. Module 5.2 reports it.
+
 ### 2.2 Customizable Application Form
 The form behind the shareable link supports **custom fields** (e.g. expected salary,
 earliest start date). Submissions land **directly in the Talent Pipeline**.
