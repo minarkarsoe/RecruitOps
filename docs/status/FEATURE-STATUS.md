@@ -474,6 +474,15 @@ Spec 2.1 and 5.2 updated; the per-channel copy row was drawn into `design/intern
   `via=linkedin`, a spoofed `via=ManualUpload` and no tag each recorded as designed; share links tagged; the
   posting's link is the configured public address; Admin's page matched a hand count; Recruiter saw no
   leaderboard; Hiring Manager had no link and an out-of-reach message by URL; no overflow at 390px.
+- Reviewed by `security-reviewer`: no Critical, High or Medium — the source whitelist, tenant isolation,
+  role gating, share URLs and the migration's SQL all held. Of its five Lows: the leaderboard's tally is now
+  one pass; the old analytics endpoints still answering a Hiring Manager (own departments, no screen) and
+  the leaderboard following the base role are recorded in ADR-0032 as accepted, for 5.3 to settle.
+- Reviewed by `db-schema-reviewer`: no blockers. Fixed: uploads from the first bulk implementation
+  (2026-08-09 to 08-21) had no file rows and were missed — now found by their stage-history note (R1, re-run
+  on PostgreSQL); the candidate statement pre-filtered (R2); `Down` covers `JobChannelPosts` (R3); the
+  runbook's rollback steps made explicit — no application-only rollback, dump first, never restart the new
+  API in between (R4).
 
 ### 🚧 Module 5 — 5.1 Executive dashboard to the 2026-08-18 spec (2026-10-24)
 

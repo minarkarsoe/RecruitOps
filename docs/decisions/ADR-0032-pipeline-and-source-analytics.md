@@ -37,7 +37,9 @@ come from **tagged links plus the referrer**; a hire is an **accepted offer**.
 - A candidate who already exists keeps the channel of their **first** application on their record; each
   application carries its own.
 - **Bulk CV uploads record `ManualUpload`**, and a data migration re-labels the applications and
-  candidates already created by one (found through `BulkUploadFiles`). Its `Down` restores `Direct`.
+  candidates already created by one — found through `BulkUploadFiles`, or, for the first implementation
+  (2026-08-09 to 08-21) which wrote no file rows, through its stage-history note "Created via Bulk CV
+  Upload" (database review, R1). Its `Down` restores `Direct`.
 - **Tagged links are offered where links are shared:** the public job page's share buttons (Facebook,
   Telegram, Viber — `design/public/job.html`) tag what they share; the posting screen's public link gains
   a per-channel copy row, drawn first in `design/internal/postings.html`.
@@ -85,6 +87,9 @@ come from **tagged links plus the referrer**; a hire is an **accepted offer**.
 - **Listed by name, never ranked**, as the design requires: no column alone says who is doing best.
 - **Omitted by the API** for everyone else — the response carries no leaderboard, not an empty one hidden
   by the screen. Display names only (an email is `users:read`, ADR-0019).
+- **Follows the base role, not a permission** (security review, Low): a custom role on an HR Director base
+  sees it, as it sees everything else an HR Director does. A dedicated permission is the change to make
+  if a company needs to withhold it from such a role.
 
 ### 6. Who sees the page
 
@@ -102,7 +107,9 @@ Custom roles follow their base role.
 
 `/analytics/pipeline` is rebuilt to the design. Its August content — time in each stage, the eight-status
 funnel, the source bars — leaves the SPA; `GET /api/analytics/time-to-hire`, `/conversion` and
-`/source-of-hire` stay for API callers.
+`/source-of-hire` stay for API callers — **and still answer a Hiring Manager**, over their own departments,
+as they did in August (security review, Low). No screen calls them; closing them to Hiring Managers is
+for 5.3, which settles the analytics endpoints' per-role rules together.
 
 ## Consequences
 

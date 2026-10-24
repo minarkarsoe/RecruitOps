@@ -332,16 +332,24 @@ this one wrote:
   default.
 
 **Upgrading past 2026-10-24 (where applicants came from, ADR-0032):** nothing to set. The migration
-`BackfillManualUploadSource` is data only: applications created by a bulk CV upload are re-labelled
-*Manual upload* (they were saved as the career page), and so are candidates first seen in one. To have
-Pipeline & source say which channel brought an applicant, recruiters copy the posting's per-channel
-links ("Copy a link for…") when posting to Facebook, LinkedIn, Telegram or Viber; an untagged link still
-works and counts as the career page unless the browser reports where it came from.
+`BackfillManualUploadSource` is data only: every application created by a bulk CV upload — found by its
+upload record, or for uploads before 2026-08-21 by its first stage-history note — is re-labelled *Manual
+upload* (they were saved as the career page), and so are candidates first seen in one. **There is no
+overlap window:** once the migration commits, the older release cannot read those rows, so stop the old
+API before the new one starts (as every upgrade here does). To have Pipeline & source say which channel
+brought an applicant, recruiters copy the posting's per-channel links ("Copy a link for…") when posting to
+Facebook, LinkedIn, Telegram or Viber; an untagged link still works and counts as the career page unless
+the browser reports where it came from.
 
-**Rolling back past `BackfillManualUploadSource`** — the older release cannot read the channel names
-`Viber` and `ManualUpload`, and fails on any row holding one. Stop the new API and run `dotnet ef
-database update AddPreboarding` against that company's own database: its `Down` re-labels both as the
-career page (`Direct`), as the older release wrote them. Applicants' Viber channel is lost; nothing else.
+**Rolling back past `BackfillManualUploadSource`** — prefer rolling forward. **There is no application-only
+rollback:** the older release fails on the first row holding `Viber` or `ManualUpload`. In this order:
+1. stop the new API, and take a `pg_dump` (§2.1) — the Viber channel cannot be recovered without it;
+2. run `dotnet ef database update AddPreboarding` against that company's own database; its `Down`
+   re-labels both names as the career page (`Direct`), as the older release wrote them;
+3. start the older release — **not** the new one, which would apply the migration again on startup.
+
+While the older release runs, Manual upload reads as the career page too. Re-upgrading re-labels every
+upload again, including any made in between; Viber applicants stay as the career page.
 
 ---
 

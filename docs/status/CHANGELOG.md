@@ -30,8 +30,12 @@ charts; Hiring Managers have no access (the rail hides the link; the API answers
 - **Not built:** the Recruiter Name filter (nothing assigns a recruiter to a candidate; the leaderboard is
   the per-recruiter view). The August stage-duration, funnel and source charts left the SPA (their
   endpoints stay); "time in each stage" has no screen now.
-- **Upgrade / rollback:** runbook §3 — nothing to set; rolling back past `BackfillManualUploadSource`
-  needs its `Down`, because the older release cannot read `Viber` or `ManualUpload`.
+- **Reviews:** security — no Critical, High or Medium; the leaderboard's tally made one pass, two Lows
+  accepted in ADR-0032. Database — no blockers; it found that **uploads from the first bulk implementation
+  (9–21 August) had no file rows and would have stayed "career page"**: the migration now finds them by
+  their stage-history note, and the runbook's rollback is spelled out.
+- **Upgrade / rollback:** runbook §3 — nothing to set; there is no overlap window and no application-only
+  rollback, because the older release cannot read `Viber` or `ManualUpload`.
 - **Touched:** `SourceChannel`, `SourceChannels`, `PipelineAnalytics` (Domain), `PublicJobService`,
   `BulkResumeWorker`, `PipelineAnalyticsService`, `AnalyticsController.GetPipeline`, migration
   `BackfillManualUploadSource`; public `lib/channel.ts`, `ApplicationForm`, `ShareButtons`; SPA
