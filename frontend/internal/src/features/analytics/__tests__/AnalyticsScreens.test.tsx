@@ -53,10 +53,10 @@ const mockTimeToHire: TimeToHireAnalyticsDto = {
 const mockConversion: ConversionFunnelAnalyticsDto = {
   funnel: [
     { stage: 'Applied', count: 350, dropOffRate: 0.0 },
-    { stage: 'Screening', count: 200, dropOffRate: 0.428 },
-    { stage: 'Interview', count: 50, dropOffRate: 0.75 },
-    { stage: 'Offer', count: 15, dropOffRate: 0.7 },
-    { stage: 'Hired', count: 12, dropOffRate: 0.2 },
+    { stage: 'Screening', count: 200, dropOffRate: 42.8 },
+    { stage: 'Interview', count: 50, dropOffRate: 75 },
+    { stage: 'Offer', count: 15, dropOffRate: 70 },
+    { stage: 'Hired', count: 12, dropOffRate: 20 },
   ],
 };
 

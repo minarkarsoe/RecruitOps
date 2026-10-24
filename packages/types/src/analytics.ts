@@ -38,6 +38,7 @@ export interface TimeToHireAnalyticsDto {
 export interface StageFunnelItemDto {
   stage: string;
   count: number;
+  /** Percent of the previous stage's count that did not reach this one, 0–100, one decimal. */
   dropOffRate: number;
 }
 
@@ -48,6 +49,7 @@ export interface ConversionFunnelAnalyticsDto {
 export interface SourceDistributionItemDto {
   source: string;
   count: number;
+  /** This channel's share of all applications, 0–100, one decimal. */
   percentage: number;
 }
 

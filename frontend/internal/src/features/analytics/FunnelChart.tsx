@@ -10,6 +10,10 @@ import { Card } from '@recruitops/ui';
 // The drop-off is now text beside the number rather than an amber pill in its own column. It is
 // a change to the number on its left, not an independent fact, and putting it in a tinted chip
 // two columns away made it look like a status the stage carries.
+//
+// `dropOffRate` is a percentage, 0–100, as the API sends it. This used to guess the unit — anything
+// in (0, 1] was taken for a fraction and multiplied by 100 — so a real 1% drop-off read "-100.0%",
+// and a stage nobody left read "-0.0%" in red. A stage with no drop-off now says so, in ink.
 
 interface FunnelChartProps {
   data: ConversionFunnelAnalyticsDto | null;
@@ -49,9 +53,7 @@ export const FunnelChart: React.FC<FunnelChartProps> = ({ data, loading }) => {
           >
             {data.funnel.map((item, idx) => {
               const widthPct = Math.min(Math.max((item.count / maxCount) * 100, 6), 100);
-              const dropOffPercent = (item.dropOffRate <= 1 && item.dropOffRate > 0)
-                ? (item.dropOffRate * 100).toFixed(1)
-                : item.dropOffRate.toFixed(1);
+              const dropOffPercent = item.dropOffRate.toFixed(1);
 
               return (
                 <div
@@ -72,6 +74,8 @@ export const FunnelChart: React.FC<FunnelChartProps> = ({ data, loading }) => {
                     </span>
                     {idx === 0 ? (
                       <span className="text-sm text-ink-600">Entry Point</span>
+                    ) : dropOffPercent === '0.0' ? (
+                      <span className="text-sm text-ink-600">no drop-off</span>
                     ) : (
                       <span className="text-sm text-critical-700">-{dropOffPercent}% drop-off</span>
                     )}

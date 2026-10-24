@@ -57,7 +57,7 @@ describe('Milestone 3 Analytics & Report Builder Empirical Stress Suite', () => 
       const mockFunnel: ConversionFunnelAnalyticsDto = {
         funnel: [
           { stage: 'Applied', count: 100, dropOffRate: 0 },
-          { stage: 'Interview', count: 20, dropOffRate: 0.8 },
+          { stage: 'Interview', count: 20, dropOffRate: 80 },
         ],
       };
 
@@ -67,10 +67,33 @@ describe('Milestone 3 Analytics & Report Builder Empirical Stress Suite', () => 
       expect(screen.getByText('-80.0% drop-off')).toBeInTheDocument();
     });
 
+    // The API sends a percentage, 0–100. The chart used to guess: anything in (0, 1] was taken for a
+    // fraction, so 1% read as 100%, and a stage nobody left read "-0.0%" in red.
+    it('reads drop-off as the percentage the API sends, and says so plainly when there is none', () => {
+      render(
+        <FunnelChart
+          data={{
+            funnel: [
+              { stage: 'Applied', count: 100, dropOffRate: 0 },
+              { stage: 'Screening', count: 99, dropOffRate: 1 },
+              { stage: 'Interview', count: 99, dropOffRate: 0 },
+            ],
+          }}
+          loading={false}
+        />
+      );
+
+      expect(screen.getByText('-1.0% drop-off')).toBeInTheDocument();
+      expect(screen.queryByText('-100.0% drop-off')).not.toBeInTheDocument();
+      expect(screen.queryByText(/-0\.0%/)).not.toBeInTheDocument();
+      expect(screen.getByText('no drop-off')).toHaveClass('text-ink-600');
+    });
+
     it('renders fallback styles for custom unknown sourcing channels', () => {
       const mockSources: SourceOfHireAnalyticsDto = {
         sources: [
-          { source: 'TikTok', count: 50, percentage: 0.25 },
+          { source: 'TikTok', count: 50, percentage: 25 },
+          { source: 'Telegram', count: 2, percentage: 1 },
         ],
       };
 
@@ -78,6 +101,9 @@ describe('Milestone 3 Analytics & Report Builder Empirical Stress Suite', () => 
 
       expect(screen.getByText('TikTok')).toBeInTheDocument();
       expect(screen.getByText('25.0%')).toBeInTheDocument();
+      // A 1% channel is 1%, not a fraction to multiply up to 100%.
+      expect(screen.getByText('1.0%')).toBeInTheDocument();
+      expect(screen.queryByText('100.0%')).not.toBeInTheDocument();
     });
   });
 

@@ -61,9 +61,9 @@ export const SourceDistributionChart: React.FC<SourceDistributionChartProps> = (
             aria-label="Candidates by acquisition channel, horizontal bar chart"
           >
             {data.sources.map((item, idx) => {
-              const pct = (item.percentage <= 1 && item.percentage > 0)
-                ? item.percentage * 100
-                : item.percentage;
+              // A percentage, 0–100, as the API sends it — never guessed from its size: anything in
+              // (0, 1] used to be read as a fraction, so a 1% channel showed as 100%.
+              const pct = item.percentage;
               const formattedPct = pct.toFixed(1);
 
               return (

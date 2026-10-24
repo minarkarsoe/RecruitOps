@@ -24,18 +24,18 @@ import { TimeToHireChart } from '../TimeToHireChart';
 const funnel: ConversionFunnelAnalyticsDto = {
   funnel: [
     { stage: 'Applied', count: 400, dropOffRate: 0 },
-    { stage: 'Screening', count: 180, dropOffRate: 0.55 },
-    { stage: 'Interview', count: 60, dropOffRate: 0.667 },
-    { stage: 'Offer', count: 20, dropOffRate: 0.667 },
+    { stage: 'Screening', count: 180, dropOffRate: 55 },
+    { stage: 'Interview', count: 60, dropOffRate: 66.7 },
+    { stage: 'Offer', count: 20, dropOffRate: 66.7 },
   ],
 } as ConversionFunnelAnalyticsDto;
 
 const sources: SourceOfHireAnalyticsDto = {
   sources: [
-    { source: 'LinkedIn', count: 120, percentage: 0.4 },
-    { source: 'Referral', count: 90, percentage: 0.3 },
-    { source: 'Facebook', count: 60, percentage: 0.2 },
-    { source: 'Telegram', count: 30, percentage: 0.1 },
+    { source: 'LinkedIn', count: 120, percentage: 40 },
+    { source: 'Referral', count: 90, percentage: 30 },
+    { source: 'Facebook', count: 60, percentage: 20 },
+    { source: 'Telegram', count: 30, percentage: 10 },
   ],
 } as SourceOfHireAnalyticsDto;
 

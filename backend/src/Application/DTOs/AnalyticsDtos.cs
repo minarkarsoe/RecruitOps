@@ -37,6 +37,7 @@ public record TimeToHireAnalyticsDto(
     IReadOnlyList<PostingTimeDto> PostingBreakdown
 );
 
+/// <param name="DropOffRate">Percent of the previous stage's count that did not reach this one, 0–100.</param>
 public record StageFunnelItemDto(
     string Stage,
     int Count,
@@ -47,6 +48,7 @@ public record ConversionFunnelAnalyticsDto(
     IReadOnlyList<StageFunnelItemDto> Funnel
 );
 
+/// <param name="Percentage">This channel's share of all applications, 0–100.</param>
 public record SourceDistributionItemDto(
     string Source,
     int Count,
