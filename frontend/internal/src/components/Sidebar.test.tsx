@@ -445,11 +445,19 @@ describe('Sidebar — analytics', () => {
       </MemoryRouter>
     );
 
-  it.each(['Admin', 'HrDirector', 'Recruiter', 'HiringManager'] as const)('shows all three to a %s', (role) => {
+  it.each(['Admin', 'HrDirector', 'Recruiter'] as const)('shows all three to a %s', (role) => {
     renderAs(role);
     expect(screen.getByRole('link', { name: 'Executive dashboard' })).toHaveAttribute('href', '/analytics');
     expect(screen.getByRole('link', { name: 'Pipeline & source' })).toHaveAttribute('href', '/analytics/pipeline');
     expect(screen.getByRole('link', { name: 'Reports' })).toHaveAttribute('href', '/analytics/reports');
+  });
+
+  // Spec 5.2 / ADR-0032 §6: no access to Pipeline & source at all — the API answers 404.
+  it('shows a Hiring Manager the dashboard and Reports, but not Pipeline & source', () => {
+    renderAs('HiringManager');
+    expect(screen.getByRole('link', { name: 'Executive dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Reports' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Pipeline & source' })).not.toBeInTheDocument();
   });
 
   it.each(['Approver', 'Interviewer'] as const)('hides them from a %s base, whatever it holds', (role) => {

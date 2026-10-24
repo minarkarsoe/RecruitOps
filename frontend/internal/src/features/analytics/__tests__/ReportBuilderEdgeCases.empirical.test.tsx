@@ -1,11 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { PipelineAnalyticsPage } from '../../../pages/PipelineAnalyticsPage';
 import { analyticsApi } from '../analyticsApi';
-import { TimeToHireChart } from '../TimeToHireChart';
-import { FunnelChart } from '../FunnelChart';
-import { SourceDistributionChart } from '../SourceDistributionChart';
 import { CustomReportBuilder } from '../CustomReportBuilder';
 import type { ReportQueryResultDto } from '@recruitops/types';
 
@@ -23,16 +19,14 @@ vi.mock('../../../lib/api', async () => {
 vi.mock('../analyticsApi', () => ({
   analyticsApi: {
     getExecutive: vi.fn(),
-    getTimeToHire: vi.fn(),
-    getConversionFunnel: vi.fn(),
-    getSourceOfHire: vi.fn(),
+    getPipeline: vi.fn(),
     queryReport: vi.fn(),
     exportReportCsv: vi.fn(),
     downloadReportCsv: vi.fn(),
   },
 }));
 
-describe('Analytics Empirical Edge-Case Suite', () => {
+describe('Report builder edge cases', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -42,17 +36,6 @@ describe('Analytics Empirical Edge-Case Suite', () => {
       return [];
     });
 
-    vi.mocked(analyticsApi.getTimeToHire).mockResolvedValue({
-      stageDurations: [],
-      departmentBreakdown: [],
-      postingBreakdown: [],
-    });
-    vi.mocked(analyticsApi.getConversionFunnel).mockResolvedValue({
-      funnel: [],
-    });
-    vi.mocked(analyticsApi.getSourceOfHire).mockResolvedValue({
-      sources: [],
-    });
     vi.mocked(analyticsApi.queryReport).mockResolvedValue({
       headers: ['CandidateName', 'Status'],
       rows: [],
@@ -60,29 +43,7 @@ describe('Analytics Empirical Edge-Case Suite', () => {
     vi.mocked(analyticsApi.downloadReportCsv).mockResolvedValue(undefined);
   });
 
-  it('1. Loading Skeletons: renders skeletons when loading flag is true and null data', () => {
-    render(<TimeToHireChart data={null} loading={true} />);
-    expect(screen.getByTestId('time-to-hire-skeleton')).toBeInTheDocument();
-
-    render(<FunnelChart data={null} loading={true} />);
-    expect(screen.getByTestId('funnel-chart-skeleton')).toBeInTheDocument();
-
-    render(<SourceDistributionChart data={null} loading={true} />);
-    expect(screen.getByTestId('source-distribution-skeleton')).toBeInTheDocument();
-  });
-
-  it('2. Empty Responses: handles empty arrays for stageDurations, funnel, sources gracefully without crashing', async () => {
-    render(<PipelineAnalyticsPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('No stage duration data available.')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('No funnel conversion data available.')).toBeInTheDocument();
-    expect(screen.getByText('No source distribution data available.')).toBeInTheDocument();
-  });
-
-  it('3. Empty Report Response: CustomReportBuilder shows empty message when reportResult has 0 rows', () => {
+  it('1. Empty Report Response: CustomReportBuilder shows empty message when reportResult has 0 rows', () => {
     const emptyResult: ReportQueryResultDto = {
       headers: ['CandidateName', 'Status'],
       rows: [],
@@ -103,7 +64,7 @@ describe('Analytics Empirical Edge-Case Suite', () => {
     expect(screen.getByText(/No report data queried yet/i)).toBeInTheDocument();
   });
 
-  it('4. CSV Blob Generation & Download: CustomReportBuilder triggers exportCsv handler with correct filter payload', async () => {
+  it('2. CSV Blob Generation & Download: CustomReportBuilder triggers exportCsv handler with correct filter payload', async () => {
     const user = userEvent.setup();
     const handleExport = vi.fn();
 
@@ -127,15 +88,5 @@ describe('Analytics Empirical Edge-Case Suite', () => {
         columns: expect.arrayContaining(['CandidateName', 'JobPostingTitle', 'DepartmentName']),
       })
     );
-  });
-
-  it('5. Dashboard Refresh & Error State: renders global error banner when dashboard fetch fails', async () => {
-    vi.mocked(analyticsApi.getTimeToHire).mockRejectedValue(new Error('Network error fetching analytics'));
-
-    render(<PipelineAnalyticsPage />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('Network error fetching analytics');
-    });
   });
 });

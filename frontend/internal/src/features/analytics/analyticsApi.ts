@@ -1,11 +1,11 @@
 import { auth } from '../../lib/auth';
 import { apiFetch, ApiError, tenantHeader } from '../../lib/api';
 import type {
+  ChannelGroup,
   ExecutiveDashboardDto,
+  PipelineAnalyticsDto,
+  PipelineWindow,
   ReportingPeriodKind,
-  TimeToHireAnalyticsDto,
-  ConversionFunnelAnalyticsDto,
-  SourceOfHireAnalyticsDto,
   ReportQueryRequestDto,
   ReportQueryResultDto,
 } from '@recruitops/types';
@@ -18,8 +18,14 @@ export interface ExecutiveDashboardQuery {
   recruiterId?: string;
 }
 
-// `GET /analytics/kpis` is deliberately absent: its "time-to-hire" is days to the Hired stage, and
-// the screen that showed it under that name is gone (ADR-0031 §5). The endpoint stays for API callers.
+export interface PipelineAnalyticsQuery {
+  window: PipelineWindow;
+  postingId?: string;
+  source?: ChannelGroup;
+}
+
+// The August endpoints — `kpis`, `time-to-hire`, `conversion`, `source-of-hire` — are deliberately absent:
+// no screen draws them any more (ADR-0031 §5, ADR-0032 §7). They stay for API callers.
 export const analyticsApi = {
   getExecutive: ({ period, departmentId, recruiterId }: ExecutiveDashboardQuery) => {
     const params = new URLSearchParams({ period });
@@ -27,9 +33,12 @@ export const analyticsApi = {
     if (recruiterId) params.set('recruiterId', recruiterId);
     return apiFetch<ExecutiveDashboardDto>(`/analytics/executive?${params}`);
   },
-  getTimeToHire: () => apiFetch<TimeToHireAnalyticsDto>('/analytics/time-to-hire'),
-  getConversionFunnel: () => apiFetch<ConversionFunnelAnalyticsDto>('/analytics/conversion'),
-  getSourceOfHire: () => apiFetch<SourceOfHireAnalyticsDto>('/analytics/source-of-hire'),
+  getPipeline: ({ window, postingId, source }: PipelineAnalyticsQuery) => {
+    const params = new URLSearchParams({ window });
+    if (postingId) params.set('postingId', postingId);
+    if (source) params.set('source', source);
+    return apiFetch<PipelineAnalyticsDto>(`/analytics/pipeline?${params}`);
+  },
   queryReport: (request: ReportQueryRequestDto) =>
     apiFetch<ReportQueryResultDto>('/analytics/reports/query', {
       method: 'POST',

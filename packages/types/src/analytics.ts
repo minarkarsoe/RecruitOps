@@ -131,3 +131,55 @@ export interface ExecutiveDashboardDto {
   /** The recruiter filter's choices: empty unless the scope is `Company`. */
   recruiters: FilterOptionDto[];
 }
+
+// ── Pipeline & source (Module 5.2, ADR-0032) — GET /api/analytics/pipeline ──
+
+export type PipelineWindow = '90d' | 'year';
+
+/** The channel groups the charts draw, in their fixed colour order. `CareerPage` is `Direct`; `Other` sums
+ *  Telegram, Viber, Referral and Excel import. */
+export type ChannelGroup = 'Facebook' | 'LinkedIn' | 'CareerPage' | 'ManualUpload' | 'Other';
+
+export type FunnelBand = 'Sourcing' | 'Screened' | 'Interview' | 'Offered';
+
+export interface ChannelShareDto {
+  channel: ChannelGroup;
+  candidates: number;
+  /** Percent of the period's applications, one decimal; null when there are none. */
+  share: number | null;
+  /** With an accepted offer. */
+  hired: number;
+  /** Percent of this channel's applications that were hired; null when it has none. */
+  hireRate: number | null;
+}
+
+export interface FunnelBandDto {
+  band: FunnelBand;
+  /** Applications that reached this band. */
+  count: number;
+  /** Percent of the band before that did not reach this one; null for the first. */
+  dropOff: number | null;
+}
+
+/** One person's work in the period — listed by name, never ranked. */
+export interface LeaderboardRowDto {
+  userId: string;
+  name: string;
+  cvsIn: number;
+  interviews: number;
+  hires: number;
+}
+
+export interface PipelineAnalyticsDto {
+  scope: 'Company' | 'Recruiter';
+  window: PipelineWindow;
+  from: string;
+  to: string;
+  candidates: number;
+  sources: ChannelShareDto[];
+  funnel: FunnelBandDto[];
+  /** HR Director and Admin only — null for everyone else, omitted by the API. */
+  leaderboard: LeaderboardRowDto[] | null;
+  /** The position filter's choices: postings with applications in the window, whatever the other filters say. */
+  positions: FilterOptionDto[];
+}

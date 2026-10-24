@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ExecutiveDashboardDto } from '@recruitops/types';
 import { ApiError } from '../lib/api';
 import { analyticsApi } from '../features/analytics/analyticsApi';
-import { ExecutiveDashboardPage, acceptanceDelta, durationDelta, periodName } from './ExecutiveDashboardPage';
+import { ExecutiveDashboardPage, acceptanceDelta, durationDelta, periodName, wholePercent } from './ExecutiveDashboardPage';
 
 vi.mock('../features/analytics/analyticsApi', () => ({
   analyticsApi: {
@@ -201,8 +201,15 @@ describe('the tiles\' wording', () => {
     expect(durationDelta({ days: 10, count: 1, previousDays: 11, previousCount: 1 }, 'Q2')?.text).toBe('1 day faster than Q2');
     expect(durationDelta({ days: 10, count: 1, previousDays: 10, previousCount: 1 }, 'Q2'))
       .toEqual({ tone: 'same', text: 'Unchanged from Q2' });
-    expect(acceptanceDelta({ accepted: 1, decided: 2, rate: 51, previousAccepted: 1, previousDecided: 2, previousRate: 50 }, 'Q2')?.text)
+    expect(acceptanceDelta({ accepted: 51, decided: 100, rate: 51, previousAccepted: 50, previousDecided: 100, previousRate: 50 }, 'Q2')?.text)
       .toBe('1 point above Q2');
+  });
+
+  // Found on PostgreSQL 2026-10-24: 5 of 11 is 45.45%, the API sends 45.5, and rounding that again showed 46%.
+  it('rounds a rate once, from the counts, not again from the API\'s one decimal', () => {
+    expect(wholePercent(5, 11)).toBe(45);
+    expect(acceptanceDelta({ accepted: 5, decided: 11, rate: 45.5, previousAccepted: 9, previousDecided: 20, previousRate: 45 }, 'Q2'))
+      .toEqual({ tone: 'same', text: 'Unchanged from Q2' });
   });
 
   it('has nothing to compare when neither period has a number', () => {

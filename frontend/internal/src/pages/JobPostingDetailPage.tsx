@@ -26,6 +26,21 @@ export function advertUrl(
   return posting.publicUrl ?? `${origin}/jobs/${encodeURIComponent(posting.publicToken)}`;
 }
 
+/** Where a recruiter posts the link, each tagged so its applicants are counted against it (ADR-0032 §1). */
+const SHARE_CHANNELS = [
+  { tag: 'facebook', label: 'Facebook' },
+  { tag: 'linkedin', label: 'LinkedIn' },
+  { tag: 'telegram', label: 'Telegram' },
+  { tag: 'viber', label: 'Viber' },
+] as const;
+
+/** The advert's address with `?via=<channel>`. */
+export function channelUrl(url: string, tag: (typeof SHARE_CHANNELS)[number]['tag']): string {
+  const out = new URL(url);
+  out.searchParams.set('via', tag);
+  return out.toString();
+}
+
 export function JobPostingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [posting, setPosting] = useState<JobPostingDetail | null>(null);
@@ -46,6 +61,7 @@ export function JobPostingDetailPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [stageHistory, setStageHistory] = useState<StageHistoryItem[]>([]);
   const [boardSearch, setBoardSearch] = useState('');
+  const [copiedFor, setCopiedFor] = useState<string | null>(null);
 
   const selected = pipeline.find((p) => p.id === selectedId) ?? null;
 
@@ -287,6 +303,29 @@ export function JobPostingDetailPage() {
                   </Button>
                 )}
               </div>
+              {/* `design/internal/postings.html`, "Public link" (drawn 2026-10-24, ADR-0032 §1). */}
+              <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Copy a link for a channel">
+                <span className="mr-1 text-sm text-ink-600">Copy a link for</span>
+                {SHARE_CHANNELS.map((c) => (
+                  <button
+                    key={c.tag}
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(channelUrl(publicUrl, c.tag)).then(
+                        () => setCopiedFor(c.tag),
+                        () => setCopiedFor(null),
+                      );
+                    }}
+                    className="h-8 rounded-md border border-line px-3 text-sm font-medium transition-colors hover:border-line-strong"
+                  >
+                    {copiedFor === c.tag ? 'Copied' : c.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-sm text-ink-600">
+                Each one tells Pipeline &amp; source where its applicants came from. The plain link counts as the
+                career page.
+              </p>
             </>
           )}
           {posting.status === 'Closed' && (

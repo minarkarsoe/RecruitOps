@@ -65,13 +65,23 @@ export function durationDelta(m: DurationMetricDto, than: string): Delta | null 
   return { tone: diff < 0 ? 'good' : 'bad', text: `${days(n)} ${n === 1 ? 'day' : 'days'} ${diff < 0 ? 'faster' : 'slower'} than ${than}` };
 }
 
+/**
+ * A whole percentage of two counts, rounded once. Not `Math.round` of the API's one-decimal rate: 5 of 11
+ * is 45.45%, which the API sends as 45.5 and a second rounding would show as 46%.
+ */
+export function wholePercent(part: number, whole: number): number | null {
+  return whole === 0 ? null : Math.round((100 * part) / whole);
+}
+
 /** In whole points, from the rates as shown — so the line never contradicts the two numbers. */
 export function acceptanceDelta(a: AcceptanceMetricDto, than: string): Delta | null {
-  if (a.rate === null) {
-    return a.previousRate === null ? null : { tone: 'same', text: `${Math.round(a.previousRate)}% in ${than}` };
+  const now = wholePercent(a.accepted, a.decided);
+  const then = wholePercent(a.previousAccepted, a.previousDecided);
+  if (now === null) {
+    return then === null ? null : { tone: 'same', text: `${then}% in ${than}` };
   }
-  if (a.previousRate === null) return { tone: 'same', text: `No offers decided in ${than}` };
-  const diff = Math.round(a.rate) - Math.round(a.previousRate);
+  if (then === null) return { tone: 'same', text: `No offers decided in ${than}` };
+  const diff = now - then;
   if (diff === 0) return { tone: 'same', text: `Unchanged from ${than}` };
   const n = Math.abs(diff);
   return { tone: diff > 0 ? 'good' : 'bad', text: `${n} ${n === 1 ? 'point' : 'points'} ${diff > 0 ? 'above' : 'below'} ${than}` };
@@ -320,7 +330,7 @@ export function ExecutiveDashboardPage() {
             {data.acceptance && (
               <Tile
                 label="Offer acceptance rate"
-                value={data.acceptance.rate === null ? null : String(Math.round(data.acceptance.rate))}
+                value={data.acceptance.decided === 0 ? null : String(wholePercent(data.acceptance.accepted, data.acceptance.decided))}
                 unit="%"
                 empty="No offers decided"
                 caption={data.acceptance.decided === 0

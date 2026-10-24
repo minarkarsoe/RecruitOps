@@ -310,7 +310,8 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
         // The design's three screens (ADR-0031 §5). `end` on the first: it is the parent URL of the
         // other two, and without it every analytics page would light up "Executive dashboard" too.
         { to: '/analytics', label: 'Executive dashboard', end: true, permission: 'permission:requisitions:requisitions:read', candidateReach: true, featureFlag: 'EnableAnalytics', icon: icons.analytics },
-        { to: '/analytics/pipeline', label: 'Pipeline & source', permission: 'permission:requisitions:requisitions:read', candidateReach: true, featureFlag: 'EnableAnalytics', icon: icons.funnel },
+        // Spec 5.2: a Hiring Manager has no access to this page at all (ADR-0032 §6) — company-wide reach.
+        { to: '/analytics/pipeline', label: 'Pipeline & source', permission: 'permission:requisitions:requisitions:read', companyWide: true, featureFlag: 'EnableAnalytics', icon: icons.funnel },
         { to: '/analytics/reports', label: 'Reports', permission: 'permission:requisitions:requisitions:read', candidateReach: true, featureFlag: 'EnableAnalytics', icon: icons.reports },
       ],
     },

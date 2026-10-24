@@ -351,6 +351,7 @@ function history(n: number): string {
 const SOURCE_LABELS: Record<string, string> = {
   Direct: 'Career page',
   ExcelImport: 'Excel import',
+  ManualUpload: 'Manual upload',
 };
 
 function sourceLabel(source: string): string {

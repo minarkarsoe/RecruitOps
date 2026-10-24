@@ -153,11 +153,11 @@ export function AppLayout() {
     {
       id: 'nav-analytics-pipeline',
       title: 'Pipeline & source analytics',
-      description: 'Time in each stage, funnel conversion and source of hire',
+      description: 'Where candidates come from, where they drop off, and the recruiter leaderboard',
       category: 'Insights',
       path: '/analytics/pipeline',
       permission: 'permission:requisitions:requisitions:read',
-      candidateReach: true,
+      companyWide: true,
     },
     {
       id: 'nav-analytics-reports',
