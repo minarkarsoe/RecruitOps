@@ -3,7 +3,24 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-24 (latest) — Module 5.1: the Executive dashboard measures what its labels say
+## 2026-10-24 (latest) — Two fixes: the job link a recruiter shares, and the charts' percentages
+
+- **The "Share this link" address on a live posting was dead in production.** The SPA built it as
+  `{this host}:3000/jobs/{token}` — right only in the dev compose stack, where the public app sits on
+  port 3000. Production serves `/jobs/` beside the SPA on the same host and publishes no port 3000
+  (ADR-0029). The posting detail now carries **`publicUrl`**, built by the API from
+  `PublicSite:BaseUrl` — the same address offer emails use, so a recruiter shares what candidates are
+  sent. Unconfigured, the SPA links on its own origin. Touched: `PublicSiteOptions.JobUrl`,
+  `JobPostingDetailDto` / `JobPostingDetail`, `JobPostingDetailPage` (`advertUrl`).
+- **Funnel drop-off and source share were read in the wrong unit.** The API sends both as a
+  percentage, 0–100; the charts guessed — anything in (0, 1] was taken for a fraction — so a real 1%
+  drop-off read "-100.0%", a 1% channel read "100.0%", and a stage nobody left read "-0.0%" in red. Both
+  now take the value as sent, and a stage with no drop-off says "no drop-off" in ink. The test fixtures
+  had been written as fractions, which is how the guess stayed green; they now use the API's units.
+  Touched: `FunnelChart`, `SourceDistributionChart`, the DTO docs on both sides.
+- Suites: backend **1137** (198 + 939), internal **583** (61 files).
+
+## 2026-10-24 — Module 5.1: the Executive dashboard measures what its labels say
 
 `/analytics` is now the **Executive dashboard** drawn in `design/internal/analytics-dashboard.html`:
 **Time-to-Hire** (application → offer accepted), **Time-to-Fill** (requisition approved → offer

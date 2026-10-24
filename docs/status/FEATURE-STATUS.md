@@ -9,6 +9,9 @@
 > Time-to-Hire or acceptance rate). The August "Time-to-Hire" tile measured days to the *Hired stage*
 > under that name; it is gone. Security-reviewed: no Critical, High or Medium; its three Lows fixed.
 > Suites: **backend 1128** (198 domain + 930 api), **internal 578** (60 files), **public 53**. No migration.
+> Later the same day: a posting's share link no longer guesses `:3000` (the API sends `publicUrl` from
+> `PublicSite:BaseUrl`), and the funnel and source charts read their percentages in the API's unit —
+> **backend 1137** (198 + 939), **internal 583** (61 files).
 
 > 🧑‍🤝‍🧑 **2026-10-21 — two records of one person can be merged, or kept apart, by a person**
 > (Module 2.7). The Talent pool (`/talent-pool`, recruitment staff) lists records sharing a phone or

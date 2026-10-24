@@ -1,6 +1,6 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-24 · **Backend 1128/1128 (198 Domain + 930 Api) · Frontend 578/578 · public 53/53 · typecheck clean · builds clean**
+**Last updated:** 2026-10-24 · **Backend 1137/1137 (198 Domain + 939 Api) · Frontend 583/583 · public 53/53 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
@@ -27,7 +27,13 @@ are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `d
 >   an acceptance at 20:00 UTC on 30 June is 1 July in Yangon — the test fixture pins exactly that.
 > - **The endpoint needs `requisitions:read`** on top of `InternalUser` (security review L1). The other
 >   analytics endpoints still do not — decide that with 5.2's per-role rules.
+> - **A posting's share link comes from the API** (`publicUrl`, from `PublicSite:BaseUrl`). Never build a
+>   public-site address in the browser from this page's host — production serves `/jobs/` and `/offer/`
+>   on the SPA's origin, dev serves them on :3000, and only the server's config knows which.
 > Lessons:
+> - **A fixture in the wrong unit hides a unit guess.** The charts' tests fed fractions (0.4) to fields
+>   the API sends as percentages (40); the code's "≤ 1 means fraction" guess made both pass. Copy
+>   fixture values from what the API actually returns.
 > - **.NET's `Math.Round` rounds a half to even** — 30.25 → 30.2. Only the Postgres run with whole-day
 >   seeds showed it; the InMemory fixture's averages never landed on a half. Use
 >   `MidpointRounding.AwayFromZero` for any number a person will check by hand.
