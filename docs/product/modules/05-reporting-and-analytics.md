@@ -1,6 +1,8 @@
 # Module 5 — Reporting & Analytics
 
-**Status:** ⬜ Not started · **Priority:** Medium — needs pipeline data to exist first.
+**Status:** 🚧 5.1 built to this spec 2026-10-24 ([ADR-0031](../../decisions/ADR-0031-executive-dashboard-metrics.md));
+5.2 and 5.3 built in August to the earlier scope (funnel, sources, CSV report builder) — not yet to this one.
+**Priority:** Medium.
 **Scope last revised:** 2026-08-18, from a sales requirement document
 (`Module 5_Reporting & Analytics.pdf`). That document is the source for the sub-module
 structure, the metric definitions, the per-role visibility rules and the scheduled-email
@@ -31,6 +33,11 @@ For Management and HR Directors — the whole recruitment process as charts.
 - **Offer Acceptance Rate** — percentage of issued offers that were accepted.
 - **Active Vacancies Overview** — open positions per department, as a bar chart.
 - **Filters:** Date Range (Year, Quarter, Month), Department, Recruiter Name.
+- **As built (ADR-0031):** each clock averages accepted offers, dated on the company's calendar; the
+  rate is accepted ÷ (accepted + declined + expired) by when the outcome fell; month, quarter or year to
+  date, compared with the whole previous one. A Recruiter's numbers are the offers they made — the data
+  has no other link from a recruiter to a vacancy (to confirm). Active vacancies are approved
+  requisitions' seats less accepted offers.
 
 > ⚠️ **Both clocks were re-defined by this requirement.** The earlier note in this file said
 > Time-to-Fill ran "requisition opened → filled". It now runs from **requisition approved**,
