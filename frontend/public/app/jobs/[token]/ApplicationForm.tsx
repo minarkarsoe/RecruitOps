@@ -1,16 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type {
-  ApplicationFormField, SubmitApplicationRequest, SubmitApplicationResponse,
+  ApplicationFormField, PublicSourceChannel, SubmitApplicationRequest, SubmitApplicationResponse,
 } from '@recruitops/types';
 import { parseFormFields } from '@recruitops/types';
 import { api, ApiError } from '../../../lib/api';
+import { resolveChannel } from '../../../lib/channel';
 
 /**
  * The application form (Module 2.2).
  *
- * This is the only Client Component on the public app — the page around it stays a Server
+ * A Client Component, as are the share buttons beside it — the page around them stays a Server
  * Component so the Open Graph metadata is still rendered on the server, which is the entire
  * reason this app is SSR (ADR-0012). Making the whole page interactive to get one form
  * would throw that away.
@@ -34,6 +35,12 @@ export function ApplicationForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  // Read once, after hydration: the server render has no referrer, and the page's address is what the
+  // applicant landed on (ADR-0032 §1).
+  const [source, setSource] = useState<PublicSourceChannel | null>(null);
+  useEffect(() => {
+    setSource(resolveChannel(window.location.href, document.referrer));
+  }, []);
 
   const setAnswer = (key: string, value: string) =>
     setAnswers((prev) => ({ ...prev, [key]: value }));
@@ -54,6 +61,7 @@ export function ApplicationForm({
       const payload: SubmitApplicationRequest = {
         ...form,
         customFieldsJson: fields.length > 0 ? JSON.stringify(answers) : null,
+        source,
       };
       const res = await api<SubmitApplicationResponse>(
         `/public/jobs/${encodeURIComponent(token)}/apply`,

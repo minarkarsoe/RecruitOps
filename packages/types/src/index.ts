@@ -35,8 +35,10 @@ export type JobStatus = 'Draft' | 'Live' | 'Closed';
 export type EmploymentType =
   | 'FullTime' | 'PartTime' | 'Contract' | 'Internship' | 'Temporary';
 
+/** Where an application came from (ADR-0032 §1). `Direct` is the career page from no named channel;
+ *  `ManualUpload` a CV a recruiter uploaded. */
 export type SourceChannel =
-  | 'Direct' | 'Facebook' | 'LinkedIn' | 'Telegram' | 'Referral' | 'ExcelImport';
+  | 'Direct' | 'Facebook' | 'LinkedIn' | 'Telegram' | 'Referral' | 'ExcelImport' | 'Viber' | 'ManualUpload';
 
 // ---------- Auth ----------
 export interface LoginRequest { email: string; password: string; }
@@ -472,7 +474,13 @@ export interface SubmitApplicationRequest {
   phone?: string | null;
   coverNote?: string | null;
   customFieldsJson?: string | null;
+  /** The channel the page resolved from its link (ADR-0032 §1); the API records anything else as the
+   *  career page. */
+  source?: PublicSourceChannel | null;
 }
+
+/** The channels a public link can carry — the only ones the API accepts from an applicant. */
+export type PublicSourceChannel = 'Facebook' | 'LinkedIn' | 'Telegram' | 'Viber' | 'Referral';
 
 export interface SubmitApplicationResponse {
   message: string;

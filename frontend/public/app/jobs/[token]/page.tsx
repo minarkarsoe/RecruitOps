@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { PublicJob } from '@recruitops/types';
 import { api } from '../../../lib/api';
 import { ApplicationForm } from './ApplicationForm';
+import { ShareButtons } from './ShareButtons';
 
 // Public job page (Module 2.1). This is the SSR half of the frontend split
 // (ADR-0012): it exists as a server-rendered page specifically so that shares to
@@ -108,7 +109,10 @@ export default async function PublicJobPage({ params }: Props) {
           page of drop-shadowed boxes reads as a dashboard demo rather than a job advert. */}
       <div className="mt-12 rounded-lg border border-line bg-white p-8">
         {job.isOpen ? (
-          <ApplicationForm token={params.token} formFieldsJson={job.applicationFormFieldsJson} />
+          <>
+            <ApplicationForm token={params.token} formFieldsJson={job.applicationFormFieldsJson} />
+            <ShareButtons token={params.token} />
+          </>
         ) : (
           <>
             <h2 className="text-xl font-semibold tracking-tight">Applications are closed</h2>

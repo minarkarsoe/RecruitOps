@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ApplicationFormField } from '@recruitops/types';
@@ -293,5 +293,42 @@ describe('customer-defined questions', () => {
 
     expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /submit application/i })).toBeInTheDocument();
+  });
+});
+
+// ADR-0032 §1: the form sends the channel the page was reached through — a `via` tag first, then the
+// referrer's host — and nothing about the referrer itself.
+describe('where the applicant came from', () => {
+  const referrer = Object.getOwnPropertyDescriptor(Document.prototype, 'referrer');
+
+  afterEach(() => {
+    window.history.replaceState({}, '', '/');
+    if (referrer) Object.defineProperty(document, 'referrer', referrer);
+  });
+
+  async function submitAs() {
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByLabelText(/full name/i), 'Ko Zaw');
+    await user.type(screen.getByLabelText(/^email$/i), 'zaw@example.com');
+    await user.click(screen.getByRole('button', { name: /submit application/i }));
+    await waitFor(() => expect(apiMock).toHaveBeenCalled());
+    return sentPayload();
+  }
+
+  it('sends the link\'s via tag', async () => {
+    window.history.replaceState({}, '', `/jobs/${TOKEN}?via=telegram`);
+    expect((await submitAs()).source).toBe('Telegram');
+  });
+
+  it('falls back to the referrer\'s host, and sends only the channel', async () => {
+    Object.defineProperty(document, 'referrer', { value: 'https://l.facebook.com/l.php?u=secret', configurable: true });
+    const payload = await submitAs();
+    expect(payload.source).toBe('Facebook');
+    expect(JSON.stringify(payload)).not.toContain('facebook.com');
+  });
+
+  it('sends no channel from the career page', async () => {
+    expect((await submitAs()).source).toBeNull();
   });
 });
