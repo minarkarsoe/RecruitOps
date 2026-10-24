@@ -3,7 +3,42 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-24 (latest) — Two fixes: the job link a recruiter shares, and the charts' percentages
+## 2026-10-24 (latest) — Module 5.2: Pipeline & source, and every application now says where it came from
+
+**Applications record their channel.** Until today every one said `Direct` — the public form and the bulk
+CV upload both hard-coded it — so a source chart would have been one 100% slice. Now:
+- the public job page resolves the channel from a **`?via=` tag** on its link, Facebook's **`fbclid`**, or
+  the **referrer's host**, and sends only the channel's name; the API takes only Facebook, LinkedIn,
+  Telegram, Viber or Referral from an applicant (a candidate cannot pass for a recruiter's upload);
+- **bulk CV uploads are *Manual upload***, and a data migration re-labels past ones;
+- the public page has its drawn **share row** (Copy link, Facebook, Viber, Telegram — each tagged), and
+  the posting screen has **"Copy a link for"** Facebook / LinkedIn / Telegram / Viber (drawn first in
+  `design/internal/postings.html`).
+
+**`/analytics/pipeline` is rebuilt** to `design/internal/analytics-pipeline.html`: where candidates come
+from (donut, four named channels + Other), which of them get hired (accepted offers, on its own scale),
+where they drop off (Sourcing → Screened → Interview → Offered, the mapping drawn under it), and a
+**recruiter leaderboard — HR Director and Admin only**, listed by name, never ranked. Recruiters get the
+charts; Hiring Managers have no access (the rail hides the link; the API answers 404).
+
+- **Why:** spec 5.2, and the product owner's three answers (2026-10-24): leaderboard for HR Director and
+  Admin; tagged links plus referrer; a hire is an accepted offer. Decisions in
+  [ADR-0032](../decisions/ADR-0032-pipeline-and-source-analytics.md), written before the code.
+- **Found on PostgreSQL:** both analytics pages rounded twice — the API's one-decimal 45.5 (5 of 11)
+  became 46%. Percentages on screen are now rounded once, from the counts; the Executive dashboard's
+  acceptance rate is fixed too.
+- **Not built:** the Recruiter Name filter (nothing assigns a recruiter to a candidate; the leaderboard is
+  the per-recruiter view). The August stage-duration, funnel and source charts left the SPA (their
+  endpoints stay); "time in each stage" has no screen now.
+- **Upgrade / rollback:** runbook §3 — nothing to set; rolling back past `BackfillManualUploadSource`
+  needs its `Down`, because the older release cannot read `Viber` or `ManualUpload`.
+- **Touched:** `SourceChannel`, `SourceChannels`, `PipelineAnalytics` (Domain), `PublicJobService`,
+  `BulkResumeWorker`, `PipelineAnalyticsService`, `AnalyticsController.GetPipeline`, migration
+  `BackfillManualUploadSource`; public `lib/channel.ts`, `ApplicationForm`, `ShareButtons`; SPA
+  `PipelineAnalyticsPage`, `JobPostingDetailPage`, rail and palette; `packages/types`. Suites: backend
+  **1202**, internal **579**, public **78**.
+
+## 2026-10-24 — Two fixes: the job link a recruiter shares, and the charts' percentages
 
 - **The "Share this link" address on a live posting was dead in production.** The SPA built it as
   `{this host}:3000/jobs/{token}` — right only in the dev compose stack, where the public app sits on

@@ -1,5 +1,15 @@
 # Feature Status
 
+> 🧭 **2026-10-24 — Pipeline & source (Module 5.2) built, and every application now records where it
+> came from** ([ADR-0032](../decisions/ADR-0032-pipeline-and-source-analytics.md)). Until today every
+> application said `Direct`. The public page now resolves the channel from a `?via=` tag, Facebook's
+> `fbclid` or the referrer's host; bulk uploads are *Manual upload* (and a data migration re-labels past
+> ones); share buttons and the recruiter's per-channel links carry the tag. `/analytics/pipeline` is
+> rebuilt to `design/internal/analytics-pipeline.html`: share by channel, hire rate by channel (accepted
+> offers), a four-band funnel with its mapping, and a recruiter leaderboard for **HR Director and Admin
+> only**; Hiring Managers have no access. Suites: **backend 1202** (236 domain + 966 api), **internal
+> 579** (61 files), **public 78** (6 files). Migration `BackfillManualUploadSource` (data only).
+
 > 📊 **2026-10-24 — the Executive dashboard measures what its labels say** (Module 5.1,
 > [ADR-0031](../decisions/ADR-0031-executive-dashboard-metrics.md)). Time-to-Hire (application →
 > offer accepted), Time-to-Fill (requisition approved → offer accepted), the offer acceptance rate and
@@ -80,7 +90,7 @@
 | 2 | ATS & Sourcing | 🚧 API + UI | ⭐ MVP · **2.1, 2.2, 2.4, 2.5, 2.6, 2.7 built. 2.3 is text-only — no OCR, so image and scanned CVs yield nothing.** 2.4 Smart Match and 2.5's Kanban + 360° view were wired on 2026-08-29; both had been written and left unreachable. Posting → public page + custom form → application → pipeline; bulk CV ingestion with local extraction (`BulkResumeService` + `BulkResumeWorker`, `DocumentExtraction/`) — **rewritten 2026-08-21 onto ADR-0026's durable queue**, so a batch survives a restart and the uploaded bytes live in object storage rather than in process memory; AI profiling behind a key (`AiIntegrationService`); trigram search (`SearchService`, `AddPgTrgmAndSearchIndexes`). Remaining: file-upload field type (waits on ADR-0013), the rest of the Talent pool screen (candidate search, ranking, CV upload — only its possible-duplicates part is built, 2026-10-21), and **wiring the AI surface to a route** — see the AI row below. |
 | 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). **3.2 invitations built 2026-08-20** — scheduling and rescheduling queue a candidate email through the ADR-0026 outbox, sent by the worker over SMTP; cancelling suppresses a queued one. 3.1 calendar free/busy still deferred — no calendar client exists. **The delivery log landed 2026-08-25** (`GET /api/delivery`, `/delivery`), so a failed or suppressed invitation is now visible to the recruiter instead of only to the database. ⚠️ Three behaviours have never been eyeballed — see the warning below the table. |
 | 4 | Offer & Pre-boarding | ✅ API + UI (slices A–C) | Post-MVP. **Slice A built 2026-10-21, slices B and C 2026-10-23** ([ADR-0030](../decisions/ADR-0030-offer-management.md) §5a, §5b): offers drafted from an application at the Offer stage, the budget check as terms are typed, internal approval on Module 1's rail, the dashboard (`/offers`), the company's policy; **sending, the candidate's link** (`/offer/{token}`, unlocked by a 6-digit emailed code), **typed-name signing, declining, reminders and expiry**; and **joining documents** on the same link, the recruiter's **pre-boarding review** (`/offers/{id}/preboarding`) and the **IT/Admin handoff** emails. **Not yet:** deleting a candidate's documents (retention, 7.4); HRMS export (add-on); withdrawing a sent offer. |
-| 5 | Reporting & Analytics | 🚧 API + UI | **5.1 to spec (2026-10-24, ADR-0031):** `GET /api/analytics/executive` (`ExecutiveDashboardService`) + `ExecutiveDashboardPage.tsx` at `/analytics` — Time-to-Hire, Time-to-Fill and acceptance rate end at *offer accepted*, recomputed per viewer. **5.2 and 5.3 are still August's**: `AnalyticsService` behind `/analytics/pipeline` (time in stage, funnel, source) and `/analytics/reports` (the builder) — no recruiter leaderboard, no hires-by-source, no per-role rules for 5.2. Scheduled report *delivery* needs a `ScheduledReport` handler; `EmailMessage` has attachments since slice C. |
+| 5 | Reporting & Analytics | 🚧 API + UI | **5.1 and 5.2 to spec (2026-10-24, ADR-0031, ADR-0032):** `GET /api/analytics/executive` + `ExecutiveDashboardPage` at `/analytics`; `GET /api/analytics/pipeline` (`PipelineAnalyticsService`) + `PipelineAnalyticsPage` at `/analytics/pipeline` — channel share, hire rate, four-band funnel, a leaderboard for HR Director and Admin only. **5.3 is still August's** (`/analytics/reports`, the CSV builder; no Excel/PDF, no saved templates, no scheduled email). Not built: 5.2's Recruiter Name filter (nothing assigns a recruiter to a candidate). |
 | 6 | Planning & Budgeting | ⬜ code · ✅ spec + design | Post-MVP. Needs `Requisition → HeadcountPlan` decided first, or its headline number is uncomputable. |
 | 7 | Settings & Integrations | 🚧 | 7.1 RBAC ✅ (authorization engine, roles & permissions, User Directory, Role Builder UI, permission-aware UX). 7.5 **Audit log** 🚧 first slice (2026-10-15, ADR-0027): sign-ins, user and role changes, department membership, startup seeding, grantor-ceiling refusals, stolen-token reuse; append-only (EF guard + Postgres triggers); `/audit-log` for `system:audit` holders. Not yet: exports, candidate-data reads. 7.2 HRMS / 7.3 mail & calendar / 7.4 retention ⬜ — all four screens drawn. |
 | 8 | Multi-Channel Sourcing (bots) | ⬜ code · ✅ design | First post-MVP; contracted in Mid-Tier (ADR-0014). ⚠️ May be unbuildable on-premise — see Known gaps. |
@@ -428,6 +438,43 @@ refuses while any document exists.
   reveal, send back in Burmese and English, fix, approve, handoff emails with the photo attached; a
   Hiring Manager's 403; parallel uploads (one live file, one object) and simultaneous last approvals.
 
+### 🚧 Module 5 — 5.2 Pipeline & source, and where applicants come from (2026-10-24)
+
+Decisions: [ADR-0032](../decisions/ADR-0032-pipeline-and-source-analytics.md), written before the code
+after the product owner chose the leaderboard's audience, the capture method and the meaning of a hire.
+Spec 2.1 and 5.2 updated; the per-channel copy row was drawn into `design/internal/postings.html` first.
+
+- **Capture (Module 2.1).** `SourceChannel` gains `Viber` and `ManualUpload` (stored by name — no schema
+  change). The public form (`frontend/public/lib/channel.ts`) resolves `?via=` → `fbclid` → referrer host,
+  in the browser, and sends only the channel's name; the API accepts only Facebook / LinkedIn / Telegram /
+  Viber / Referral from an anonymous caller (`SourceChannels.FromPublic`), anything else is `Direct`. A
+  returning candidate keeps their first channel; each application its own. Bulk CV uploads record
+  `ManualUpload`. The public page has the drawn share row (Copy link, Facebook, Viber, Telegram — tagged);
+  the posting screen has "Copy a link for" Facebook / LinkedIn / Telegram / Viber.
+- **Migration** `BackfillManualUploadSource` — data only: applications created by a bulk upload, and
+  candidates first seen in one, become `ManualUpload`. `Down` maps `Viber` and `ManualUpload` to `Direct`
+  for the older release. Run Down and Up on PostgreSQL 16 against simulated old rows.
+- **API** `GET /api/analytics/pipeline?window=90d|year&postingId=&source=` (`InternalUser` + `requisitions:read`).
+  Rows are the applications that arrived in the window on the company's calendar. Channel groups:
+  Facebook, LinkedIn, Career page (`Direct`), Manual upload, Other (shown only when non-zero). Hire = an
+  accepted offer. Funnel bands per ADR-0032 §4 — a band counts everyone who **reached** it. Leaderboard
+  (Company scope only, by name): CVs uploaded, interviews held (not cancelled), offers accepted — events in
+  the window. Recruiter: charts, no leaderboard; Hiring Manager / Approver 404; Interviewer 403.
+- **SPA** `/analytics/pipeline` rebuilt to the design: donut + legend, hire-rate bars in the same channel
+  colours, the funnel with its mapping footnote, the leaderboard with its staff-data note. Percentages are
+  rounded **once, from the counts** — the API's one-decimal figures re-rounded showed 5 of 11 as 46%
+  (found on PostgreSQL; the Executive dashboard's acceptance rate had the same flaw and is fixed too).
+  The rail and palette hide Pipeline & source from Hiring Managers. The August charts (time in stage,
+  eight-status funnel, source bars) left the SPA; their endpoints stay.
+- Tests: `PipelineAnalyticsTests` (15 — hand-computed fixture, every role, filters, both windows, another
+  company, bad parameters), `PublicApplicationTests` (+12 channel cases), `BulkResumeUploadTests` (+1),
+  Domain `PipelineAnalyticsTests` (24) and `SourceChannelsTests` (14), `PipelineAnalyticsPage.test.tsx` (9),
+  public `channel.test.ts`, `ShareButtons.test.tsx`, form channel cases, SPA share-link cases.
+- Driven through the production-shaped edge on PostgreSQL 16: `via=telegram`, a Facebook referrer, `fbclid`,
+  `via=linkedin`, a spoofed `via=ManualUpload` and no tag each recorded as designed; share links tagged; the
+  posting's link is the configured public address; Admin's page matched a hand count; Recruiter saw no
+  leaderboard; Hiring Manager had no link and an out-of-reach message by URL; no overflow at 390px.
+
 ### 🚧 Module 5 — 5.1 Executive dashboard to the 2026-08-18 spec (2026-10-24)
 
 Decisions: [ADR-0031](../decisions/ADR-0031-executive-dashboard-metrics.md), written before the code;
@@ -721,7 +768,9 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 | ~~Module 4 stops at "Approved"~~ | ✅ **slice B built 2026-10-23** | Offers are sent, unlocked, signed or declined, reminded and expired (above). The portal's code step was drawn first |
 | ~~Module 4 stops at "Accepted"~~ | ✅ **slice C built 2026-10-23** | Joining documents, their review and the IT/Admin handoff (above); an accepted offer's link now lives to the joining date. Module 5's Time-to-* metrics end at acceptance since 2026-10-24 (ADR-0031) |
 | **Executive dashboard: three readings to confirm** | 🟡 Medium | ADR-0031 §3 reads "the vacancies a recruiter handles" as *the offers they made* — nothing in the data assigns a recruiter to a requisition or posting; shows vacancies in full to recruiters; and leaves out the design's proposed fourth tile (time in approval). Each is cheap to change; none confirmed by the product owner |
-| **Pipeline & source and Reports are still August's** | 🟡 Medium | `/analytics/pipeline` and `/analytics/reports` carry the old content under the design's names. Spec 5.2 gives a Hiring Manager no access to Pipeline & source; the rail still shows it to them (the endpoints are department-scoped, so nothing new leaks). No hires-by-source, no recruiter leaderboard, no scheduled reports. Only `GET /api/analytics/executive` checks `requisitions:read` |
+| **Reports (5.3) is still August's** | 🟡 Medium | `/analytics/reports` is the August CSV builder under the design's name: no Excel or PDF export, no saved templates, no scheduled email (the email sender and attachments exist; a `ScheduledReport` handler does not). Only `executive` and `pipeline` check `requisitions:read`; the report endpoints are still role-gated only |
+| **Channels before 2026-10-24 are unknown** | 🟢 Low | Public applications from before ADR-0032 stay `Direct` (career page) — nothing recorded where they came from. Bulk uploads were re-labelled by the migration. A link posted without its tag through an app that sends no referrer (Viber, Telegram's in-app browser) still counts as the career page |
+| **Leaderboard: behind a setting?** | 🟢 Low | HR Director and Admin only (product owner, 2026-10-24). Whether a company should also be able to switch it off is open (ADR-0032) |
 | **A candidate's documents cannot be deleted from the product** | 🟡 Medium | NRC scans and bank books stay in the bucket and the database until someone removes them by hand; the portal tells candidates they can ask. Needs the retention screen (Module 7.4, `settings-integrations.html`) or at least a staff "delete documents" action — not drawn. Runbook §3 says how by hand |
 | Bank account numbers are stored as typed | 🟢 Low | Masked in every response and revealed only through an audited action, but plain in the database and its backups (ADR-0030 §5b, accepted risk): column encryption needs a key that survives rotating `Jwt:Key`, which does not exist |
 | Uploaded photos keep their metadata | 🟢 Low | A phone photo of an NRC may carry the location it was taken at. Stripping it needs image processing (and loses orientation); not done |

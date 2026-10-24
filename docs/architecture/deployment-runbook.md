@@ -331,6 +331,18 @@ this one wrote:
   set) — re-enter them after re-upgrading; the backfill rebuilds the requests from the company's
   default.
 
+**Upgrading past 2026-10-24 (where applicants came from, ADR-0032):** nothing to set. The migration
+`BackfillManualUploadSource` is data only: applications created by a bulk CV upload are re-labelled
+*Manual upload* (they were saved as the career page), and so are candidates first seen in one. To have
+Pipeline & source say which channel brought an applicant, recruiters copy the posting's per-channel
+links ("Copy a link for…") when posting to Facebook, LinkedIn, Telegram or Viber; an untagged link still
+works and counts as the career page unless the browser reports where it came from.
+
+**Rolling back past `BackfillManualUploadSource`** — the older release cannot read the channel names
+`Viber` and `ManualUpload`, and fails on any row holding one. Stop the new API and run `dotnet ef
+database update AddPreboarding` against that company's own database: its `Down` re-labels both as the
+career page (`Direct`), as the older release wrote them. Applicants' Viber channel is lost; nothing else.
+
 ---
 
 ## 4. Feature Flag Add-on Gating (ADR-0007)

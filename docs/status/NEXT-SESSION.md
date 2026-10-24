@@ -1,12 +1,34 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-24 · **Backend 1137/1137 (198 Domain + 939 Api) · Frontend 583/583 · public 53/53 · typecheck clean · builds clean**
+**Last updated:** 2026-10-24 · **Backend 1202/1202 (236 Domain + 966 Api) · Frontend 579/579 · public 78/78 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
 · All seven modules have a drawn UI (26 screens)
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
+
+> 🧭 **2026-10-24 (later) — Module 5.2 built: Pipeline & source, and applications record their channel**
+> (ADR-0032). **Pick up Module 5.3 next** — Reports to `design/internal/report-builder.html`: saved
+> templates, Excel/PDF export (server-side — the scheduled case has no browser) and scheduled email (the
+> email sender and attachments exist; a `ScheduledReport` handler and the outbox kind do not). Spec 5.3
+> says a Recruiter or Hiring Manager gets only what their access already permits — the current builder
+> is role-gated only and checks no permission. Things to know:
+> - **A channel comes from the browser** (`frontend/public/lib/channel.ts`) and the API whitelists it
+>   (`SourceChannels.FromPublic`). Never let an anonymous caller set `ManualUpload`; never send the
+>   referrer itself, only the channel name.
+> - **`SourceChannel` is stored by name.** Adding a value needs no migration — but rolling back past one
+>   does, because an older release fails on a name it does not know (runbook §3).
+> - **Pipeline & source is a cohort** (applications that arrived in the window) **and the leaderboard is
+>   events** (in the window, on those filters). Keep the two apart if 5.3 reuses either.
+> - The leaderboard is **omitted by the API** for anyone but HR Director / Admin. Whether a company can
+>   switch it off is still open.
+> Lessons:
+> - **Round once, from the counts.** An API value rounded to one decimal and rounded again on screen is
+>   wrong at every x.45 – x.49: 5 of 11 showed as 46%. Only a hand count on real data showed it.
+> - **The format hook can reformat to Prettier's defaults** (`.claude/hooks/format-on-save.sh` runs
+>   `npx prettier` with no config). When it succeeds it rewrites a file to double quotes — the codebase
+>   uses single. Check a file you wrote with Write; restore the house style if it flipped.
 
 > 📊 **2026-10-24 — Module 5.1 built to the 2026-08-18 spec: the Executive dashboard** (ADR-0031).
 > `/analytics` shows Time-to-Hire, Time-to-Fill, the offer acceptance rate and active vacancies for a
@@ -352,13 +374,13 @@ Hiring Manager raises a requisition
   → Admin manages users, custom roles, feature flags, /api/version
 ```
 
-**How far along (2026-10-24, after Module 5.1), by the specs' 33 numbered features** (built 1,
-partly 0.5, built to a superseded definition 0.75): **about 57% of the whole product (18.75/33), about
-79% of the MVP modules 1, 2, 3, 5 (14.25/18).** Module 1 4/4 · 2 5.5/7 · 3 2.5/4 · 4 3/3 · 5 2.25/3
-(5.1 to spec; 5.2 and 5.3 to the August scope) · 6 0/3 · 7 1.5/5 · 8 0/4. The biggest unbuilt block
-that needs no product decision is **Module 5.2** (Pipeline & source to its design), then 5.3's
-scheduled reports. Modules 6 and 8 wait on the decisions in backlog §4. Feature count is not effort:
-auth, RBAC, tenancy, delivery and the security reviews sit under 7.1 and the per-module rows.
+**How far along (2026-10-24, after Module 5.2), by the specs' 33 numbered features** (built 1,
+partly 0.5, built to a superseded definition 0.75): **about 58% of the whole product (19/33), about
+81% of the MVP modules 1, 2, 3, 5 (14.5/18).** Module 1 4/4 · 2 5.5/7 · 3 2.5/4 · 4 3/3 · 5 2.5/3
+(5.1 and 5.2 to spec; 5.3 to the August scope) · 6 0/3 · 7 1.5/5 · 8 0/4. The biggest unbuilt block
+that needs no product decision is **Module 5.3** (Reports to its design, with scheduled email). Modules
+6 and 8 wait on the decisions in backlog §4. Feature count is not effort: auth, RBAC, tenancy, delivery
+and the security reviews sit under 7.1 and the per-module rows.
 
 **Where it stops.** One message leaves the building — the interview invitation. Everything else a
 candidate should hear about (an offer, a reminder, a rejection) still has no handler. **Whether it
@@ -372,7 +394,7 @@ suppressed message reaches the recruiter instead of only the database.
 | Module 1 — Requisition & Approval | ✅ API + UI + tests, end to end. Rounds (ADR-0023) and senior skip-ahead (ADR-0024) landed 2026-08-16 |
 | Module 2 — ATS & Sourcing | ✅ 2.1–2.7 all built. Postings, custom forms, pipeline, dedup, bulk CV ingestion (**rewritten 2026-08-21 onto the durable queue**), AI profiling behind a key, pg_trgm search |
 | Module 3 — Interview & Assessment | 🚧 3.3 scorecards + 3.4 notes ✅ API + UI + tests · security-reviewed (ADR-0018) · **3.2 invitations ✅ built 2026-08-20** (schedule and reschedule queue an email; cancel suppresses it) · **3.1 calendar free/busy still unbuilt** — no calendar client exists |
-| Module 5 — Reporting & Analytics | 🚧 **5.1 ✅ to spec 2026-10-24** (ADR-0031 — executive dashboard, per-viewer rows) · 5.2 Pipeline & source and 5.3 Reports still the August scope |
+| Module 5 — Reporting & Analytics | 🚧 **5.1 ✅ and 5.2 ✅ to spec 2026-10-24** (ADR-0031, ADR-0032 — executive dashboard; pipeline & source with channel capture) · 5.3 Reports still the August scope |
 | Module 4 — Offer & Pre-boarding | 🚧 **slice A ✅ 2026-10-21** (offers, budget check, approval on the shared rail, dashboard, company policy) · **slice B ✅ 2026-10-23** (send, the candidate's link and code, signature, decline, reminders, expiry) · **slice C ✅ 2026-10-23** (joining documents, review, IT/Admin handoff) |
 | Modules 6, 8 | ⬜ code · ✅ spec + design |
 | Module 7 — Settings | 🚧 RBAC ✅ · integrations ⬜ |
