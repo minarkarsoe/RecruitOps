@@ -428,6 +428,9 @@ export interface JobPostingDetail extends JobPostingListItem {
   salaryMax: number | null;
   showSalary: boolean;
   applicationFormFieldsJson: string | null;
+  /** Where candidates open the advert, built by the API from the public site's configured address
+   *  (`PublicSite:BaseUrl`). Null until published, or when that address is not configured. */
+  publicUrl: string | null;
 }
 
 /** Only the requisition — title and description are copied from it server-side. */

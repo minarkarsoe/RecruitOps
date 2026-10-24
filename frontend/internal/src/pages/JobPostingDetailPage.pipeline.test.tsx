@@ -41,6 +41,7 @@ const posting: JobPostingDetail = {
   showSalary: false,
   status: 'Live',
   publicToken: 'tok-1',
+  publicUrl: 'https://careers.example.com/jobs/tok-1',
   postedAt: '2026-08-01T00:00:00Z',
   closedAt: null,
   applicationCount: 1,

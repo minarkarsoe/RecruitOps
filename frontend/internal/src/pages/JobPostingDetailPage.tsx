@@ -12,6 +12,20 @@ import { BulkCvUploadModal } from '../features/pipeline/BulkCvUploadModal';
 import { PipelineKanbanBoard } from '../features/pipeline/PipelineKanbanBoard';
 import { CandidateSlideOver } from '../features/pipeline/CandidateSlideOver';
 
+/**
+ * The advert's address, to share. The API builds it from the public site's configured address — the one
+ * offer emails use — so this never guesses a host or port. It used to append `:3000` to this page's host,
+ * which was right only in the dev compose stack. Unconfigured, the link is on this origin: production's
+ * nginx serves `/jobs/` beside the SPA (ADR-0029).
+ */
+export function advertUrl(
+  posting: Pick<JobPostingDetail, 'publicToken' | 'publicUrl'>,
+  origin = window.location.origin,
+): string | null {
+  if (!posting.publicToken) return null;
+  return posting.publicUrl ?? `${origin}/jobs/${encodeURIComponent(posting.publicToken)}`;
+}
+
 export function JobPostingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [posting, setPosting] = useState<JobPostingDetail | null>(null);
@@ -99,9 +113,7 @@ export function JobPostingDetailPage() {
   if (error && !posting) return <p role="alert" className="text-critical-700">{error}</p>;
   if (!posting) return <p className="text-ink-600">Loading…</p>;
 
-  const publicUrl = posting.publicToken
-    ? `${window.location.protocol}//${window.location.hostname}:3000/jobs/${posting.publicToken}`
-    : null;
+  const publicUrl = advertUrl(posting);
 
   const field = 'h-10 w-full rounded-md border border-line px-3 focus:outline-none focus:ring-2 focus:ring-brand-700';
 
