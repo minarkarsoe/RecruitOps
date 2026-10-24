@@ -104,3 +104,35 @@ public record ExecutiveDashboardDto(
     int OpenVacancies,
     IReadOnlyList<FilterOptionDto> Departments,
     IReadOnlyList<FilterOptionDto> Recruiters);
+
+// ── Pipeline & source (Module 5.2, ADR-0032) ────────────────────────────────
+
+/// <param name="Channel"><c>Facebook</c>, <c>LinkedIn</c>, <c>CareerPage</c>, <c>ManualUpload</c> or <c>Other</c>.</param>
+/// <param name="Share">Percent of the period's applications, one decimal; null when there are none.</param>
+/// <param name="HireRate">Percent of this channel's applications with an accepted offer; null when it has none.</param>
+public record ChannelShareDto(string Channel, int Candidates, double? Share, int Hired, double? HireRate);
+
+/// <param name="Band"><c>Sourcing</c>, <c>Screened</c>, <c>Interview</c> or <c>Offered</c>.</param>
+/// <param name="DropOff">Percent of the band before that did not reach this one; null for the first band, or
+/// when the band before is empty.</param>
+public record FunnelBandDto(string Band, int Count, double? DropOff);
+
+/// <summary>One person's work in the period — never a rank (ADR-0032 §5).</summary>
+public record LeaderboardRowDto(Guid UserId, string Name, int CvsIn, int Interviews, int Hires);
+
+/// <param name="Scope"><c>Company</c> (Admin, HR Director) or <c>Recruiter</c>.</param>
+/// <param name="Window"><c>90d</c> or <c>year</c>.</param>
+/// <param name="Leaderboard">Null unless the scope is <c>Company</c> — omitted by the API, not hidden by the
+/// screen.</param>
+/// <param name="Positions">The position filter's choices: postings with applications in the window, whatever
+/// the other filters say.</param>
+public record PipelineAnalyticsDto(
+    string Scope,
+    string Window,
+    DateOnly From,
+    DateOnly To,
+    int Candidates,
+    IReadOnlyList<ChannelShareDto> Sources,
+    IReadOnlyList<FunnelBandDto> Funnel,
+    IReadOnlyList<LeaderboardRowDto>? Leaderboard,
+    IReadOnlyList<FilterOptionDto> Positions);

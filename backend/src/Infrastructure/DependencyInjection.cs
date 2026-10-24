@@ -165,6 +165,7 @@ public static class DependencyInjection
         services.AddScoped<IAnalyticsService, AnalyticsService>();
         // Module 5.1's executive dashboard (ADR-0031): every figure over the caller's own rows.
         services.AddScoped<IExecutiveDashboardService, ExecutiveDashboardService>();
+        services.AddScoped<IPipelineAnalyticsService, PipelineAnalyticsService>();
 
         // Module 2 / Milestone 1 — Full-text Search Service
         services.AddScoped<ISearchService, SearchService>();

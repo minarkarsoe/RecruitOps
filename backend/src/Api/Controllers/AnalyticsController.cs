@@ -21,11 +21,14 @@ public class AnalyticsController : ControllerBase
 {
     private readonly IAnalyticsService _analyticsService;
     private readonly IExecutiveDashboardService _executive;
+    private readonly IPipelineAnalyticsService _pipeline;
 
-    public AnalyticsController(IAnalyticsService analyticsService, IExecutiveDashboardService executive)
+    public AnalyticsController(
+        IAnalyticsService analyticsService, IExecutiveDashboardService executive, IPipelineAnalyticsService pipeline)
     {
         _analyticsService = analyticsService;
         _executive = executive;
+        _pipeline = pipeline;
     }
 
     /// <summary>Module 5.1 — Time-to-Hire, Time-to-Fill, the offer acceptance rate and active vacancies for a
@@ -43,6 +46,35 @@ public class AnalyticsController : ControllerBase
             return BadRequest(new ProblemDetails { Title = "Invalid period", Detail = "The period is Month, Quarter or Year." });
 
         return await _executive.GetAsync(kind, departmentId, recruiterId, ct) is { } dto ? Ok(dto) : NotFound();
+    }
+
+    /// <summary>Module 5.2 — where candidates came from, how many of each channel were hired, how far they got
+    /// in four bands, and (HR Director and Admin only) what each recruiter did, over the applications that arrived
+    /// in the last 90 days (the default) or this year (ADR-0032). A Hiring Manager, approver or interviewer has no
+    /// access to it: 404, or 403 for an interviewer.</summary>
+    /// <param name="source">A channel group: <c>Facebook</c>, <c>LinkedIn</c>, <c>CareerPage</c>,
+    /// <c>ManualUpload</c> or <c>Other</c>.</param>
+    [HttpGet("pipeline")]
+    [HasPermission("permission:requisitions:requisitions:read")]
+    public async Task<ActionResult<PipelineAnalyticsDto>> GetPipeline(
+        [FromQuery] string? window, [FromQuery] Guid? postingId, [FromQuery] string? source, CancellationToken ct)
+    {
+        if ((window is null ? PipelineAnalytics.Window.Last90Days : PipelineAnalytics.ParseWindow(window)) is not { } w)
+            return BadRequest(new ProblemDetails { Title = "Invalid window", Detail = "The window is 90d or year." });
+
+        PipelineAnalytics.ChannelGroup? group = null;
+        if (source is not null)
+        {
+            if (PipelineAnalytics.ParseGroup(source) is not { } g)
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Invalid source",
+                    Detail = "The source is Facebook, LinkedIn, CareerPage, ManualUpload or Other.",
+                });
+            group = g;
+        }
+
+        return await _pipeline.GetAsync(w, postingId, group, ct) is { } dto ? Ok(dto) : NotFound();
     }
 
     /// <summary>The August KPI tiles — no longer on any screen (ADR-0031 §5). Its <c>AvgTimeToHireDays</c> is
