@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { auth, hasCompanyWideReach, hasPermission, isInternalUser, isRecruitmentStaff, isSuperAdmin, Session } from '../lib/auth';
+import {
+  auth, hasCompanyWideReach, hasPermission, isExcludedFromCandidateData, isInternalUser, isRecruitmentStaff, isSuperAdmin, Session,
+} from '../lib/auth';
 import { useFeatureFlags } from '../lib/useFeatureFlags';
 
 // Built against the nav rail in `design/internal/board.html` (ADR-0025), which every internal
@@ -48,6 +50,14 @@ interface NavItem {
    * which may be none — an empty list is the honest answer, not a hidden link).
    */
   internalUser?: boolean;
+  /**
+   * The role reaches candidate data (not an Approver or Interviewer base, ADR-0018). For the
+   * analytics screens, whose every number is computed from candidates and offers: the API answers
+   * those roles with nothing, so the rail should not offer them the link.
+   */
+  candidateReach?: boolean;
+  /** Active only on this exact path — for a destination whose siblings live under its URL. */
+  end?: boolean;
   featureFlag?: string;
   icon: JSX.Element;
 }
@@ -98,6 +108,15 @@ const icons = {
       <rect x="2" y="2.5" width="3.5" height="11" rx="1" stroke="currentColor" strokeWidth="1.4" />
       <rect x="6.5" y="2.5" width="3.5" height="7.5" rx="1" stroke="currentColor" strokeWidth="1.4" />
       <rect x="11" y="2.5" width="3" height="9.5" rx="1" stroke="currentColor" strokeWidth="1.4" />
+    </>
+  ),
+  funnel: (
+    <path d="M2.5 3h11L9.5 8v4.5l-3 1V8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+  ),
+  reports: (
+    <>
+      <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M2.5 6.5h11M6.5 6.5v7" stroke="currentColor" strokeWidth="1.4" />
     </>
   ),
   users: (
@@ -288,7 +307,11 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
     {
       title: 'Insights',
       items: [
-        { to: '/analytics', label: 'Analytics', permission: 'permission:requisitions:requisitions:read', featureFlag: 'EnableAnalytics', icon: icons.analytics },
+        // The design's three screens (ADR-0031 §5). `end` on the first: it is the parent URL of the
+        // other two, and without it every analytics page would light up "Executive dashboard" too.
+        { to: '/analytics', label: 'Executive dashboard', end: true, permission: 'permission:requisitions:requisitions:read', candidateReach: true, featureFlag: 'EnableAnalytics', icon: icons.analytics },
+        { to: '/analytics/pipeline', label: 'Pipeline & source', permission: 'permission:requisitions:requisitions:read', candidateReach: true, featureFlag: 'EnableAnalytics', icon: icons.funnel },
+        { to: '/analytics/reports', label: 'Reports', permission: 'permission:requisitions:requisitions:read', candidateReach: true, featureFlag: 'EnableAnalytics', icon: icons.reports },
       ],
     },
     {
@@ -321,6 +344,7 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
           (!item.companyWide || (session !== null && hasCompanyWideReach(session.role))) &&
           (!item.recruitmentStaff || (session !== null && isRecruitmentStaff(session.role))) &&
           (!item.internalUser || (session !== null && isInternalUser(session.role))) &&
+          (!item.candidateReach || (session !== null && !isExcludedFromCandidateData(session.role))) &&
           (!item.featureFlag || isFeatureEnabled(item.featureFlag))
       ),
     }))
@@ -448,6 +472,7 @@ export function Sidebar({ session: propSession, onSignOut }: SidebarProps) {
                   <NavLink
                     key={item.to}
                     to={item.to}
+                    end={item.end}
                     className={linkClass}
                     // Both, and they do different jobs: `title` is the mouse's tooltip,
                     // `aria-label` is what a screen reader announces once the visible text is

@@ -22,6 +22,10 @@ const ROUTE_LABELS: Record<string, string> = {
   delivery: 'Delivery Log',
   edit: 'Edit',
   preboarding: 'Pre-boarding',
+  // `/analytics` is the Executive dashboard; the trail names the area, which its two siblings sit in.
+  analytics: 'Analytics',
+  pipeline: 'Pipeline & Source',
+  reports: 'Reports',
 };
 
 export function getBreadcrumbsForPath(pathname: string): BreadcrumbItem[] {

@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import type { TimeToHireAnalyticsDto } from '@recruitops/types';
 import { Card } from '@recruitops/ui';
 
-// Built against `design/internal/analytics-dashboard.html`.
+// Built against `design/internal/analytics-dashboard.html`; lives on Pipeline & source since ADR-0031.
+//
+// ⚠️ Not Time-to-Hire, whatever the component is called. The by-department and by-posting views are
+// days from an application's first stage to the **Hired stage** — a manual move — while Time-to-Hire
+// ends at offer acceptance (the executive dashboard). It was titled "Time-to-Hire Analytics" until
+// 2026-10-24, beside a tile that called the same number "application to offer acceptance".
 //
 // ⚠️ All three tabs draw the SAME hue now. They used to be teal for stages, cyan for departments
 // and blue for postings — so the colour encoded which tab you were on, which the tab already
@@ -68,7 +73,7 @@ export const TimeToHireChart: React.FC<TimeToHireChartProps> = ({ data, loading 
 
   if (loading || !data) {
     return (
-      <Card title="Time-to-Hire Analytics">
+      <Card title="Time in each stage">
         <div className="space-y-3" data-testid="time-to-hire-skeleton">
           <span className="skeleton block h-4 w-48" />
           <span className="skeleton block h-6 w-full" />
@@ -93,16 +98,16 @@ export const TimeToHireChart: React.FC<TimeToHireChartProps> = ({ data, loading 
 
   return (
     <div data-testid="time-to-hire-chart-card">
-      <Card title="Time-to-Hire Analytics">
+      <Card title="Time in each stage">
         <div className="mb-5 flex flex-col justify-between gap-3 border-b border-line pb-3 sm:flex-row sm:items-center">
           <p className="text-sm text-ink-600">
-            Average days spent in each pipeline stage and across departments &amp; job postings
+            Average days in each stage, and to Hired by department or posting
           </p>
 
           <div
             className="flex shrink-0 items-center rounded-md border border-line p-0.5"
             role="group"
-            aria-label="Time-to-hire breakdown"
+            aria-label="Time in stage breakdown"
           >
             {tabs.map((tab) => (
               <button

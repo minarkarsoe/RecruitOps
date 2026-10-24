@@ -1,7 +1,8 @@
 import { auth } from '../../lib/auth';
 import { apiFetch, ApiError, tenantHeader } from '../../lib/api';
 import type {
-  KpiMetricsDto,
+  ExecutiveDashboardDto,
+  ReportingPeriodKind,
   TimeToHireAnalyticsDto,
   ConversionFunnelAnalyticsDto,
   SourceOfHireAnalyticsDto,
@@ -11,8 +12,21 @@ import type {
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
+export interface ExecutiveDashboardQuery {
+  period: ReportingPeriodKind;
+  departmentId?: string;
+  recruiterId?: string;
+}
+
+// `GET /analytics/kpis` is deliberately absent: its "time-to-hire" is days to the Hired stage, and
+// the screen that showed it under that name is gone (ADR-0031 §5). The endpoint stays for API callers.
 export const analyticsApi = {
-  getKpis: () => apiFetch<KpiMetricsDto>('/analytics/kpis'),
+  getExecutive: ({ period, departmentId, recruiterId }: ExecutiveDashboardQuery) => {
+    const params = new URLSearchParams({ period });
+    if (departmentId) params.set('departmentId', departmentId);
+    if (recruiterId) params.set('recruiterId', recruiterId);
+    return apiFetch<ExecutiveDashboardDto>(`/analytics/executive?${params}`);
+  },
   getTimeToHire: () => apiFetch<TimeToHireAnalyticsDto>('/analytics/time-to-hire'),
   getConversionFunnel: () => apiFetch<ConversionFunnelAnalyticsDto>('/analytics/conversion'),
   getSourceOfHire: () => apiFetch<SourceOfHireAnalyticsDto>('/analytics/source-of-hire'),

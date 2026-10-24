@@ -2,50 +2,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {
-  KpiMetricsDto,
   TimeToHireAnalyticsDto,
   ConversionFunnelAnalyticsDto,
   SourceOfHireAnalyticsDto,
   ReportQueryResultDto,
 } from '@recruitops/types';
-import { KpiCardSection } from '../KpiCardSection';
 import { TimeToHireChart } from '../TimeToHireChart';
 import { FunnelChart } from '../FunnelChart';
 import { SourceDistributionChart } from '../SourceDistributionChart';
 import { CustomReportBuilder } from '../CustomReportBuilder';
 
 describe('Milestone 3 Analytics & Report Builder Empirical Stress Suite', () => {
-  describe('1. KpiCardSection Edge Cases & Precision', () => {
-    it('handles zero values and decimal rates properly (0.052 -> 5.2%)', () => {
-      const kpis: KpiMetricsDto = {
-        avgTimeToHireDays: 0,
-        activeRequisitions: 0,
-        totalApplications: 0,
-        overallHireRate: 0.052,
-      };
-
-      render(<KpiCardSection kpis={kpis} loading={false} />);
-
-      expect(screen.getByText('0.0 days')).toBeInTheDocument();
-      expect(screen.getByText('5.2%')).toBeInTheDocument();
-    });
-
-    it('handles hire rate provided directly as percentage > 1 (e.g. 15.5)', () => {
-      const kpis: KpiMetricsDto = {
-        avgTimeToHireDays: 14.333,
-        activeRequisitions: 5,
-        totalApplications: 120,
-        overallHireRate: 15.5,
-      };
-
-      render(<KpiCardSection kpis={kpis} loading={false} />);
-
-      expect(screen.getByText('14.3 days')).toBeInTheDocument();
-      expect(screen.getByText('15.5%')).toBeInTheDocument();
-    });
-  });
-
-  describe('2. TimeToHireChart Tab Switches & Empty Data Resilience', () => {
+  describe('1. TimeToHireChart Tab Switches & Empty Data Resilience', () => {
     it('renders empty data messages cleanly when arrays are empty', () => {
       const emptyData: TimeToHireAnalyticsDto = {
         stageDurations: [],
@@ -84,7 +52,7 @@ describe('Milestone 3 Analytics & Report Builder Empirical Stress Suite', () => 
     });
   });
 
-  describe('3. FunnelChart & SourceDistributionChart Formatting & Custom Channels', () => {
+  describe('2. FunnelChart & SourceDistributionChart Formatting & Custom Channels', () => {
     it('renders funnel entry point vs drop-off badges correctly', () => {
       const mockFunnel: ConversionFunnelAnalyticsDto = {
         funnel: [
@@ -113,7 +81,7 @@ describe('Milestone 3 Analytics & Report Builder Empirical Stress Suite', () => 
     });
   });
 
-  describe('4. CustomReportBuilder Parameter Toggles & CSV Export Payload', () => {
+  describe('3. CustomReportBuilder Parameter Toggles & CSV Export Payload', () => {
     it('allows toggling stage filters and column selections before running query', async () => {
       const user = userEvent.setup();
       const onQueryMock = vi.fn();

@@ -17,7 +17,9 @@ import { ScorecardTemplatesPage } from './pages/ScorecardTemplatesPage';
 import { DepartmentsPage } from './pages/DepartmentsPage';
 import { UsersPage } from './pages/UsersPage';
 import { RolesPage } from './pages/RolesPage';
-import { AnalyticsPage } from './pages/AnalyticsPage';
+import { ExecutiveDashboardPage } from './pages/ExecutiveDashboardPage';
+import { PipelineAnalyticsPage } from './pages/PipelineAnalyticsPage';
+import { ReportsPage } from './pages/ReportsPage';
 import { DeliveryLogPage } from './pages/DeliveryLogPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { TalentPoolPage } from './pages/TalentPoolPage';
@@ -100,7 +102,6 @@ export function App() {
               </RequirePermission>
             }
           />
-          {/* Module 5 — Reporting & Analytics */}
           {/* ADR-0027 — read by holders of system:audit; the API enforces the same permission. */}
           <Route
             path="/audit-log"
@@ -110,7 +111,11 @@ export function App() {
               </RequirePermission>
             }
           />
-          <Route path="/analytics" element={<AnalyticsPage />} />
+          {/* Module 5 — the three analytics screens the design draws (ADR-0031 §5). Reach is the
+              server's: each endpoint computes over the caller's own rows. */}
+          <Route path="/analytics" element={<ExecutiveDashboardPage />} />
+          <Route path="/analytics/pipeline" element={<PipelineAnalyticsPage />} />
+          <Route path="/analytics/reports" element={<ReportsPage />} />
 
           {/* ADR-0026 — the delivery log. No <RequirePermission> wrapper: reach here is not a
               permission but a role-and-department question, and it is answered server-side

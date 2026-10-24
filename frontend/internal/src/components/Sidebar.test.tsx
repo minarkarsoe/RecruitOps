@@ -116,7 +116,9 @@ describe('Sidebar collapse', () => {
       'JD templates',
       'Scorecard templates',
       'Delivery log',
-      'Analytics',
+      'Executive dashboard',
+      'Pipeline & source',
+      'Reports',
       'Users',
       'Departments',
       'Approval chains',
@@ -132,7 +134,7 @@ describe('Sidebar collapse', () => {
 
     // They do different jobs: `title` is the mouse's tooltip, `aria-label` is the name assistive
     // tech announces. Dropping either degrades one audience silently.
-    for (const label of ['Analytics', 'Delivery log', 'Role Builder']) {
+    for (const label of ['Executive dashboard', 'Delivery log', 'Role Builder']) {
       const link = screen.getByRole('link', { name: label });
       expect(link).toHaveAttribute('aria-label', label);
       expect(link).toHaveAttribute('title', label);
@@ -142,7 +144,7 @@ describe('Sidebar collapse', () => {
   it('does not put a title on expanded links, where the label is already visible', () => {
     renderSidebar();
 
-    expect(screen.getByRole('link', { name: 'Analytics' })).not.toHaveAttribute('title');
+    expect(screen.getByRole('link', { name: 'Executive dashboard' })).not.toHaveAttribute('title');
   });
 
   it('replaces group headings with rules, and never rules above the first group', () => {
@@ -317,7 +319,7 @@ describe('Sidebar nav groups', () => {
     renderSidebar();
 
     expect(screen.queryByRole('button', { name: /^recruitment$/i })).not.toBeInTheDocument();
-    for (const label of ['Requisitions', 'Users', 'Role Builder', 'Analytics']) {
+    for (const label of ['Requisitions', 'Users', 'Role Builder', 'Executive dashboard']) {
       expect(screen.getByRole('link', { name: label })).toBeVisible();
     }
   });
@@ -424,5 +426,47 @@ describe('Sidebar — Offers', () => {
   it('hides Offers from an Interviewer', () => {
     renderAs('Interviewer');
     expect(screen.queryByRole('link', { name: 'Offers' })).not.toBeInTheDocument();
+  });
+});
+
+/*
+ * Module 5's three screens (ADR-0031 §5). Every number on them is computed from candidates and
+ * offers, and the API answers an Approver or Interviewer base with nothing — so the rail does not
+ * offer the links. The Executive dashboard is the parent URL of the other two, so it must not light
+ * up while one of them is open.
+ */
+describe('Sidebar — analytics', () => {
+  afterEach(cleanup);
+
+  const renderAs = (role: Session['role'], route = '/') =>
+    render(
+      <MemoryRouter initialEntries={[route]}>
+        <Sidebar session={{ ...session, role, permissions: ['permission:requisitions:requisitions:read'] }} onSignOut={vi.fn()} />
+      </MemoryRouter>
+    );
+
+  it.each(['Admin', 'HrDirector', 'Recruiter', 'HiringManager'] as const)('shows all three to a %s', (role) => {
+    renderAs(role);
+    expect(screen.getByRole('link', { name: 'Executive dashboard' })).toHaveAttribute('href', '/analytics');
+    expect(screen.getByRole('link', { name: 'Pipeline & source' })).toHaveAttribute('href', '/analytics/pipeline');
+    expect(screen.getByRole('link', { name: 'Reports' })).toHaveAttribute('href', '/analytics/reports');
+  });
+
+  it.each(['Approver', 'Interviewer'] as const)('hides them from a %s base, whatever it holds', (role) => {
+    renderAs(role);
+    expect(screen.getByRole('link', { name: /requisitions/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Executive dashboard' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Pipeline & source' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Reports' })).not.toBeInTheDocument();
+  });
+
+  it('marks only the open screen, not its parent URL', () => {
+    renderAs('Admin', '/analytics/pipeline');
+    expect(screen.getByRole('link', { name: 'Pipeline & source' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Executive dashboard' })).not.toHaveAttribute('aria-current');
+
+    cleanup();
+    renderAs('Admin', '/analytics');
+    expect(screen.getByRole('link', { name: 'Executive dashboard' })).toHaveAttribute('aria-current', 'page');
   });
 });

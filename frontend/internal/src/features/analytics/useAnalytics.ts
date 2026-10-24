@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import type {
-  KpiMetricsDto,
   TimeToHireAnalyticsDto,
   ConversionFunnelAnalyticsDto,
   SourceOfHireAnalyticsDto,
@@ -9,32 +8,23 @@ import type {
 } from '@recruitops/types';
 import { analyticsApi } from './analyticsApi';
 
-export function useAnalytics() {
-  const [kpis, setKpis] = useState<KpiMetricsDto | null>(null);
+/** The Pipeline & source screen's three charts, loaded together. */
+export function usePipelineAnalytics() {
   const [timeToHire, setTimeToHire] = useState<TimeToHireAnalyticsDto | null>(null);
   const [conversion, setConversion] = useState<ConversionFunnelAnalyticsDto | null>(null);
   const [sourceOfHire, setSourceOfHire] = useState<SourceOfHireAnalyticsDto | null>(null);
-
-  const [reportResult, setReportResult] = useState<ReportQueryResultDto | null>(null);
-
   const [loading, setLoading] = useState<boolean>(true);
-  const [reportLoading, setReportLoading] = useState<boolean>(false);
-  const [exportLoading, setExportLoading] = useState<boolean>(false);
-
   const [error, setError] = useState<string | null>(null);
-  const [reportError, setReportError] = useState<string | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [kpiRes, timeRes, convRes, srcRes] = await Promise.all([
-        analyticsApi.getKpis(),
+      const [timeRes, convRes, srcRes] = await Promise.all([
         analyticsApi.getTimeToHire(),
         analyticsApi.getConversionFunnel(),
         analyticsApi.getSourceOfHire(),
       ]);
-      setKpis(kpiRes);
       setTimeToHire(timeRes);
       setConversion(convRes);
       setSourceOfHire(srcRes);
@@ -44,6 +34,20 @@ export function useAnalytics() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
+
+  return { timeToHire, conversion, sourceOfHire, loading, error, refreshDashboard: fetchDashboard };
+}
+
+/** The Reports screen: run a query, export it. Nothing loads until asked. */
+export function useReportBuilder() {
+  const [reportResult, setReportResult] = useState<ReportQueryResultDto | null>(null);
+  const [reportLoading, setReportLoading] = useState<boolean>(false);
+  const [exportLoading, setExportLoading] = useState<boolean>(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const runReportQuery = useCallback(async (request: ReportQueryRequestDto) => {
     setReportLoading(true);
@@ -69,23 +73,5 @@ export function useAnalytics() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
-
-  return {
-    kpis,
-    timeToHire,
-    conversion,
-    sourceOfHire,
-    reportResult,
-    loading,
-    reportLoading,
-    exportLoading,
-    error,
-    reportError,
-    refreshDashboard: fetchDashboard,
-    runReportQuery,
-    downloadReportCsv,
-  };
+  return { reportResult, reportLoading, exportLoading, reportError, runReportQuery, downloadReportCsv };
 }

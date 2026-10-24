@@ -2,13 +2,13 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {
-  KpiMetricsDto,
   TimeToHireAnalyticsDto,
   ConversionFunnelAnalyticsDto,
   SourceOfHireAnalyticsDto,
   ReportQueryResultDto,
 } from '@recruitops/types';
-import { AnalyticsPage } from '../../../pages/AnalyticsPage';
+import { PipelineAnalyticsPage } from '../../../pages/PipelineAnalyticsPage';
+import { ReportsPage } from '../../../pages/ReportsPage';
 import { analyticsApi } from '../analyticsApi';
 
 const { apiFetchMock } = vi.hoisted(() => ({ apiFetchMock: vi.fn() }));
@@ -24,7 +24,7 @@ vi.mock('../../../lib/api', async () => {
 
 vi.mock('../analyticsApi', () => ({
   analyticsApi: {
-    getKpis: vi.fn(),
+    getExecutive: vi.fn(),
     getTimeToHire: vi.fn(),
     getConversionFunnel: vi.fn(),
     getSourceOfHire: vi.fn(),
@@ -33,13 +33,6 @@ vi.mock('../analyticsApi', () => ({
     downloadReportCsv: vi.fn(),
   },
 }));
-
-const mockKpis: KpiMetricsDto = {
-  avgTimeToHireDays: 24.5,
-  activeRequisitions: 12,
-  totalApplications: 350,
-  overallHireRate: 0.085,
-};
 
 const mockTimeToHire: TimeToHireAnalyticsDto = {
   stageDurations: [
@@ -94,7 +87,9 @@ const mockReportResult: ReportQueryResultDto = {
   ],
 };
 
-describe('AnalyticsPage Component', () => {
+// The August page held all of this on one screen; ADR-0031 §5 split it into Pipeline & source and
+// Reports. These are its tests, pointed at the screen each part now lives on.
+describe('Pipeline & source and Reports screens', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -113,7 +108,6 @@ describe('AnalyticsPage Component', () => {
       return [];
     });
 
-    vi.mocked(analyticsApi.getKpis).mockResolvedValue(mockKpis);
     vi.mocked(analyticsApi.getTimeToHire).mockResolvedValue(mockTimeToHire);
     vi.mocked(analyticsApi.getConversionFunnel).mockResolvedValue(mockConversion);
     vi.mocked(analyticsApi.getSourceOfHire).mockResolvedValue(mockSourceOfHire);
@@ -121,46 +115,29 @@ describe('AnalyticsPage Component', () => {
     vi.mocked(analyticsApi.downloadReportCsv).mockResolvedValue(undefined);
   });
 
-  it('1. renders Analytics page header and loading skeletons initial state', async () => {
-    vi.mocked(analyticsApi.getKpis).mockReturnValue(new Promise(() => {}));
+  it('1. renders the Pipeline & source header and loading skeletons initial state', async () => {
     vi.mocked(analyticsApi.getTimeToHire).mockReturnValue(new Promise(() => {}));
     vi.mocked(analyticsApi.getConversionFunnel).mockReturnValue(new Promise(() => {}));
     vi.mocked(analyticsApi.getSourceOfHire).mockReturnValue(new Promise(() => {}));
 
-    render(<AnalyticsPage />);
+    render(<PipelineAnalyticsPage />);
 
-    expect(screen.getByRole('heading', { name: /Reporting & Analytics/i })).toBeInTheDocument();
-    expect(screen.getByTestId('kpi-skeleton-grid')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Pipeline & source analytics' })).toBeInTheDocument();
     expect(screen.getByTestId('time-to-hire-skeleton')).toBeInTheDocument();
     expect(screen.getByTestId('funnel-chart-skeleton')).toBeInTheDocument();
     expect(screen.getByTestId('source-distribution-skeleton')).toBeInTheDocument();
   });
 
-  it('2. renders KPI metrics summary cards correctly with backend data', async () => {
-    render(<AnalyticsPage />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('kpi-cards-grid')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('Average Time-to-Hire')).toBeInTheDocument();
-    expect(screen.getByText('24.5 days')).toBeInTheDocument();
-    expect(screen.getByText('Active Requisitions')).toBeInTheDocument();
-    expect(screen.getByText('12')).toBeInTheDocument();
-    expect(screen.getByText('Total Applications')).toBeInTheDocument();
-    expect(screen.getByText('350')).toBeInTheDocument();
-    expect(screen.getByText('Overall Hire Rate')).toBeInTheDocument();
-    expect(screen.getByText('8.5%')).toBeInTheDocument();
-  });
-
-  it('3. renders Time-to-Hire, Conversion Funnel, and Source Distribution visual charts', async () => {
-    render(<AnalyticsPage />);
+  it('2. renders the time-in-stage, conversion funnel and source distribution charts', async () => {
+    render(<PipelineAnalyticsPage />);
 
     await waitFor(() => {
       expect(screen.getByTestId('time-to-hire-chart-card')).toBeInTheDocument();
     });
 
-    // Time to Hire chart tabs & stages
+    // Days to the Hired stage, so not titled Time-to-Hire (ADR-0031 §5).
+    expect(screen.getByText('Time in each stage')).toBeInTheDocument();
+    expect(screen.queryByText(/Time-to-Hire/)).not.toBeInTheDocument();
     expect(screen.getByText('Pipeline Stages')).toBeInTheDocument();
     expect(screen.getByText('12.1 days')).toBeInTheDocument();
 
@@ -176,9 +153,9 @@ describe('AnalyticsPage Component', () => {
     expect(screen.getByText('40.0%')).toBeInTheDocument();
   });
 
-  it('4. executes custom report query with selected filters and updates preview table', async () => {
+  it('3. executes custom report query with selected filters and updates preview table', async () => {
     const user = userEvent.setup();
-    render(<AnalyticsPage />);
+    render(<ReportsPage />);
 
     await waitFor(() => {
       expect(screen.getByTestId('custom-report-builder-card')).toBeInTheDocument();
@@ -217,9 +194,9 @@ describe('AnalyticsPage Component', () => {
     expect(screen.getByTestId('report-row-0')).toBeInTheDocument();
   });
 
-  it('5. handles Export to CSV button click and triggers CSV report download', async () => {
+  it('4. handles Export to CSV button click and triggers CSV report download', async () => {
     const user = userEvent.setup();
-    render(<AnalyticsPage />);
+    render(<ReportsPage />);
 
     await waitFor(() => {
       expect(screen.getByTestId('custom-report-builder-card')).toBeInTheDocument();
@@ -238,5 +215,16 @@ describe('AnalyticsPage Component', () => {
         columns: expect.arrayContaining(['CandidateName', 'JobPostingTitle']),
       })
     );
+  });
+
+  it('5. loads neither screen\'s data on the other: Reports asks for no chart, Pipeline runs no query', async () => {
+    render(<ReportsPage />);
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Custom report' })).toBeInTheDocument());
+    expect(analyticsApi.getTimeToHire).not.toHaveBeenCalled();
+
+    render(<PipelineAnalyticsPage />);
+    await waitFor(() => expect(analyticsApi.getTimeToHire).toHaveBeenCalledTimes(1));
+    expect(analyticsApi.queryReport).not.toHaveBeenCalled();
+    expect(analyticsApi.getExecutive).not.toHaveBeenCalled();
   });
 });

@@ -1,9 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AnalyticsPage } from '../../../pages/AnalyticsPage';
+import { PipelineAnalyticsPage } from '../../../pages/PipelineAnalyticsPage';
 import { analyticsApi } from '../analyticsApi';
-import { KpiCardSection } from '../KpiCardSection';
 import { TimeToHireChart } from '../TimeToHireChart';
 import { FunnelChart } from '../FunnelChart';
 import { SourceDistributionChart } from '../SourceDistributionChart';
@@ -23,7 +22,7 @@ vi.mock('../../../lib/api', async () => {
 
 vi.mock('../analyticsApi', () => ({
   analyticsApi: {
-    getKpis: vi.fn(),
+    getExecutive: vi.fn(),
     getTimeToHire: vi.fn(),
     getConversionFunnel: vi.fn(),
     getSourceOfHire: vi.fn(),
@@ -43,12 +42,6 @@ describe('Analytics Empirical Edge-Case Suite', () => {
       return [];
     });
 
-    vi.mocked(analyticsApi.getKpis).mockResolvedValue({
-      avgTimeToHireDays: 0,
-      activeRequisitions: 0,
-      totalApplications: 0,
-      overallHireRate: 0,
-    });
     vi.mocked(analyticsApi.getTimeToHire).mockResolvedValue({
       stageDurations: [],
       departmentBreakdown: [],
@@ -68,9 +61,6 @@ describe('Analytics Empirical Edge-Case Suite', () => {
   });
 
   it('1. Loading Skeletons: renders skeletons when loading flag is true and null data', () => {
-    render(<KpiCardSection kpis={null} loading={true} />);
-    expect(screen.getByTestId('kpi-skeleton-grid')).toBeInTheDocument();
-
     render(<TimeToHireChart data={null} loading={true} />);
     expect(screen.getByTestId('time-to-hire-skeleton')).toBeInTheDocument();
 
@@ -82,14 +72,12 @@ describe('Analytics Empirical Edge-Case Suite', () => {
   });
 
   it('2. Empty Responses: handles empty arrays for stageDurations, funnel, sources gracefully without crashing', async () => {
-    render(<AnalyticsPage />);
+    render(<PipelineAnalyticsPage />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('kpi-cards-grid')).toBeInTheDocument();
+      expect(screen.getByText('No stage duration data available.')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('0.0 days')).toBeInTheDocument();
-    expect(screen.getByText('No stage duration data available.')).toBeInTheDocument();
     expect(screen.getByText('No funnel conversion data available.')).toBeInTheDocument();
     expect(screen.getByText('No source distribution data available.')).toBeInTheDocument();
   });
@@ -142,12 +130,12 @@ describe('Analytics Empirical Edge-Case Suite', () => {
   });
 
   it('5. Dashboard Refresh & Error State: renders global error banner when dashboard fetch fails', async () => {
-    vi.mocked(analyticsApi.getKpis).mockRejectedValue(new Error('Network error fetching analytics KPIs'));
+    vi.mocked(analyticsApi.getTimeToHire).mockRejectedValue(new Error('Network error fetching analytics'));
 
-    render(<AnalyticsPage />);
+    render(<PipelineAnalyticsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Network error fetching analytics KPIs')).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent('Network error fetching analytics');
     });
   });
 });

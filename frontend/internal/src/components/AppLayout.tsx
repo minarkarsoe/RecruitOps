@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { CommandPalette, type CommandItem } from '@recruitops/ui';
-import { auth, hasCompanyWideReach, hasPermission, isInternalUser, isRecruitmentStaff } from '../lib/auth';
+import { auth, hasCompanyWideReach, hasPermission, isExcludedFromCandidateData, isInternalUser, isRecruitmentStaff } from '../lib/auth';
 import { revokeSession } from '../lib/api';
 import { TenantSwitcherBar } from './TenantSwitcherBar';
 import { Sidebar } from './Sidebar';
@@ -63,6 +63,7 @@ export function AppLayout() {
   // contradict).
   const rawCommandItems: (CommandItem & {
     permission?: string; companyWide?: boolean; recruitmentStaff?: boolean; internalUser?: boolean;
+    candidateReach?: boolean;
   })[] = [
     {
       id: 'nav-requisitions',
@@ -141,12 +142,31 @@ export function AppLayout() {
     },
     {
       id: 'nav-analytics',
-      title: 'Reporting & Analytics',
-      description: 'Recruitment KPIs, time-to-hire, funnel conversion & custom reports',
+      title: 'Executive dashboard',
+      description: 'Time-to-Hire, Time-to-Fill, offer acceptance and open vacancies',
       category: 'Insights',
       path: '/analytics',
       shortcut: 'G A',
       permission: 'permission:requisitions:requisitions:read',
+      candidateReach: true,
+    },
+    {
+      id: 'nav-analytics-pipeline',
+      title: 'Pipeline & source analytics',
+      description: 'Time in each stage, funnel conversion and source of hire',
+      category: 'Insights',
+      path: '/analytics/pipeline',
+      permission: 'permission:requisitions:requisitions:read',
+      candidateReach: true,
+    },
+    {
+      id: 'nav-analytics-reports',
+      title: 'Custom report',
+      description: 'Build a candidate report and export it as CSV',
+      category: 'Insights',
+      path: '/analytics/reports',
+      permission: 'permission:requisitions:requisitions:read',
+      candidateReach: true,
     },
     {
       id: 'nav-approvalchains',
@@ -190,7 +210,8 @@ export function AppLayout() {
     .filter((item) => !item.companyWide || (session !== null && hasCompanyWideReach(session.role)))
     .filter((item) => !item.recruitmentStaff || (session !== null && isRecruitmentStaff(session.role)))
     .filter((item) => !item.internalUser || (session !== null && isInternalUser(session.role)))
-    .map(({ permission: _, companyWide: __, recruitmentStaff: ___, internalUser: ____, ...item }) => item);
+    .filter((item) => !item.candidateReach || (session !== null && !isExcludedFromCandidateData(session.role)))
+    .map(({ permission: _, companyWide: __, recruitmentStaff: ___, internalUser: ____, candidateReach: _____, ...item }) => item);
 
   return (
     // ⚠️ `h-screen` + `overflow-hidden`, NOT `min-h-screen`. This is the app-shell pattern the
