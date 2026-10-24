@@ -1,11 +1,13 @@
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using RecruitOps.Application.Common;
 using RecruitOps.Application.DTOs;
 using RecruitOps.Application.Interfaces;
 using RecruitOps.Domain;
 using RecruitOps.Domain.Entities;
 using RecruitOps.Domain.Enums;
+using RecruitOps.Infrastructure.Options;
 using RecruitOps.Infrastructure.Persistence;
 
 namespace RecruitOps.Infrastructure.Services;
@@ -16,14 +18,16 @@ public class JobPostingService : IJobPostingService
     private readonly ICurrentUser _user;
     private readonly IDepartmentAccess _access;
     private readonly TimeProvider _clock;
+    private readonly IOptions<PublicSiteOptions> _site;
 
     public JobPostingService(
-        AppDbContext db, ICurrentUser user, IDepartmentAccess access, TimeProvider clock)
+        AppDbContext db, ICurrentUser user, IDepartmentAccess access, TimeProvider clock, IOptions<PublicSiteOptions> site)
     {
         _db = db;
         _user = user;
         _access = access;
         _clock = clock;
+        _site = site;
     }
 
     // ── Reads ────────────────────────────────────────────────────────────────
@@ -280,6 +284,7 @@ public class JobPostingService : IJobPostingService
             p.PostedAt,
             p.ClosedAt,
             token,
-            count);
+            count,
+            _site.Value.JobUrl(token));
     }
 }

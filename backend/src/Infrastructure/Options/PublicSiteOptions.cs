@@ -18,4 +18,10 @@ public class PublicSiteOptions
         var value = BaseUrl.Trim().TrimEnd('/');
         return Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "https" or "http" ? value : null;
     }
+
+    /// <summary>A published posting's advert, <c>{BaseUrl}/jobs/{token}</c> — or null without a token or a
+    /// configured base. The SPA then links on its own origin, where the production nginx serves
+    /// <c>/jobs/</c> (ADR-0029); it never guesses a port.</summary>
+    public string? JobUrl(string? token) =>
+        string.IsNullOrEmpty(token) || Normalized() is not { } site ? null : $"{site}/jobs/{Uri.EscapeDataString(token)}";
 }

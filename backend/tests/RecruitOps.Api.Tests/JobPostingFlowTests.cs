@@ -75,6 +75,7 @@ public class JobPostingFlowTests : IClassFixture<CustomWebAppFactory>
 
         // No link before publishing: there is nothing to share yet.
         Assert.Null(posting.PublicToken);
+        Assert.Null(posting.PublicUrl);
     }
 
     [Fact]
@@ -125,6 +126,8 @@ public class JobPostingFlowTests : IClassFixture<CustomWebAppFactory>
         Assert.False(string.IsNullOrWhiteSpace(live.PublicToken));
         // Guessability is the only thing protecting the page.
         Assert.True(live.PublicToken!.Length >= 32);
+        // The address candidates are given — the configured public site, never a guessed host and port.
+        Assert.Equal($"https://careers.test/jobs/{live.PublicToken}", live.PublicUrl);
 
         // Publishing an already-Live posting is a conflict, and the token must survive:
         // re-issuing it would break every share already posted to Facebook.

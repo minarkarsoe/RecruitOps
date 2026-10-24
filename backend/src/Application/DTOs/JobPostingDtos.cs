@@ -19,6 +19,9 @@ public record JobPostingListItemDto(
     string? PublicToken,
     int ApplicationCount);
 
+/// <param name="PublicUrl">Where candidates open the advert, built from the public site's configured address
+/// (<c>PublicSite:BaseUrl</c>, the base of every link the product emails). Null until published, or when that
+/// address is not configured.</param>
 public record JobPostingDetailDto(
     Guid Id,
     Guid DepartmentId,
@@ -37,7 +40,8 @@ public record JobPostingDetailDto(
     DateTimeOffset? PostedAt,
     DateTimeOffset? ClosedAt,
     string? PublicToken,
-    int ApplicationCount);
+    int ApplicationCount,
+    string? PublicUrl);
 
 /// <summary>Creating a posting takes only the requisition — title and description are copied
 /// from it so the first version of the advert always matches what was approved. Editing
