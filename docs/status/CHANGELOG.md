@@ -3,7 +3,44 @@
 Track record of every meaningful change. Newest first.
 Format: what changed · why · what it touched.
 
-## 2026-10-23 (latest) — Module 4 slice C: joining documents, their review, and the IT/Admin handoff
+## 2026-10-24 (latest) — Module 5.1: the Executive dashboard measures what its labels say
+
+`/analytics` is now the **Executive dashboard** drawn in `design/internal/analytics-dashboard.html`:
+**Time-to-Hire** (application → offer accepted), **Time-to-Fill** (requisition approved → offer
+accepted), the **offer acceptance rate** (accepted ÷ accepted, declined or expired) and **active
+vacancies by department** (as bars or a table), for a month, quarter or year to date — each with how it
+moved since the whole previous one ("7.7 days faster than Q3", "17 points above Q3"). Admins and HR
+Directors filter by department and recruiter.
+
+- **Why:** the August tile called "Average Time-to-Hire" said *application to offer acceptance* and
+  measured application to the **Hired pipeline stage**; Time-to-Fill and the acceptance rate did not
+  exist; a Recruiter saw company-wide numbers. Both clocks became computable when Module 4 began
+  recording acceptances. Decisions in [ADR-0031](../decisions/ADR-0031-executive-dashboard-metrics.md),
+  written before the code.
+- **Whose rows:** computed per viewer, never filtered for display — a Recruiter's tiles are **the offers
+  they made**, a Hiring Manager gets their departments' **Time-to-Fill and vacancies only** (the API
+  sends no Time-to-Hire or acceptance rate), Approver and Interviewer nothing. Needs
+  `requisitions:read`, like the link. "The vacancies a recruiter handles" = the offers they made is
+  **to confirm** with the product owner: nothing in the data assigns a recruiter to a vacancy.
+- **The analytics area is three screens:** Executive dashboard, **Pipeline & source**
+  (`/analytics/pipeline` — the August stage chart, retitled "Time in each stage" because it measures days
+  to the Hired stage, plus the funnel and sources) and **Reports** (`/analytics/reports` — the builder).
+  The old KPI tiles are gone from the SPA; `GET /api/analytics/kpis` stays, documented for what it is.
+- **Checked on PostgreSQL 16** with ten offers across two quarters: every tile, filter and period for
+  Admin, Recruiter and Hiring Manager matched a hand computation. That run caught .NET's default
+  round-to-even (30.25 days shown as 30.2) — now a half rounds up.
+- **Security review:** no Critical, High or Medium. Its three Lows are fixed — the endpoint now needs
+  the permission the SPA already assumed, the period is parsed before the service (no catch-all that
+  could echo an internal message), and tests pin another company's isolation, a Hiring Manager naming
+  a recruiter, and custom roles.
+- **Not built:** the design's proposed fourth tile (time in approval — outside the requirement), the
+  recruiter leaderboard, hires by source, scheduled reports.
+- **Touched:** `ReportingPeriod` (Domain), `IExecutiveDashboardService` / `ExecutiveDashboardService`,
+  `AnalyticsController.GetExecutive`, DTOs and `packages/types`; SPA `ExecutiveDashboardPage`,
+  `PipelineAnalyticsPage` and `ReportsPage` (split from `AnalyticsPage`), `usePipelineAnalytics` /
+  `useReportBuilder`, the rail and command palette, breadcrumbs; `KpiCardSection` removed. No migration.
+
+## 2026-10-23 — Module 4 slice C: joining documents, their review, and the IT/Admin handoff
 
 After signing, the candidate goes **straight on to their joining documents** on the same link: NRC
 front and back, **bank details typed** with a photo of the bank book, education certificates (up to

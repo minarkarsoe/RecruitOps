@@ -103,7 +103,7 @@ packages/
 | Task | Command |
 |---|---|
 | Backend build | `dotnet build backend/src/Api` |
-| Backend test | `dotnet test backend/RecruitOps.sln` (1104 tests passing: 187 Domain + 917 Api) |
+| Backend test | `dotnet test backend/RecruitOps.sln` (1128 tests passing: 198 Domain + 930 Api) |
 | Backend format | `dotnet format` |
 | Backend build + test in Docker | `docker build --target test -t recruitops-test ./backend` |
 | Whole stack | `docker compose up --build` |
@@ -112,7 +112,7 @@ packages/
 | Public app dev | `npm run dev:public` (repo root) |
 | Frontend build | `npm run build` (repo root, all workspaces) |
 | Frontend typecheck | `npm run typecheck` (repo root) |
-| Frontend test | `npm run test` in `frontend/internal` (562 tests passing across 59 test files; `frontend/public` 53 across 4) |
+| Frontend test | `npm run test` in `frontend/internal` (578 tests passing across 60 test files; `frontend/public` 53 across 4) |
 
 > No local .NET SDK? `docker build --target test ./backend` compiles and runs the whole
 > suite inside the SDK image. New EF migrations: see `docs/architecture/local-development.md`.

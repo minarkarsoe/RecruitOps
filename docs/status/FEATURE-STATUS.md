@@ -1,5 +1,15 @@
 # Feature Status
 
+> 📊 **2026-10-24 — the Executive dashboard measures what its labels say** (Module 5.1,
+> [ADR-0031](../decisions/ADR-0031-executive-dashboard-metrics.md)). Time-to-Hire (application →
+> offer accepted), Time-to-Fill (requisition approved → offer accepted), the offer acceptance rate and
+> active vacancies, for a month, quarter or year to date against the whole previous one — built from
+> `design/internal/analytics-dashboard.html`. **Every number is computed over the viewer's own rows**: a
+> Recruiter's are the offers they made, a Hiring Manager's their departments' (and the API sends them no
+> Time-to-Hire or acceptance rate). The August "Time-to-Hire" tile measured days to the *Hired stage*
+> under that name; it is gone. Security-reviewed: no Critical, High or Medium; its three Lows fixed.
+> Suites: **backend 1128** (198 domain + 930 api), **internal 578** (60 files), **public 53**. No migration.
+
 > 🧑‍🤝‍🧑 **2026-10-21 — two records of one person can be merged, or kept apart, by a person**
 > (Module 2.7). The Talent pool (`/talent-pool`, recruitment staff) lists records sharing a phone or
 > email, and its review dialog — drawn in `design/internal/talent-pool.html` — merges, says "not the
@@ -67,7 +77,7 @@
 | 2 | ATS & Sourcing | 🚧 API + UI | ⭐ MVP · **2.1, 2.2, 2.4, 2.5, 2.6, 2.7 built. 2.3 is text-only — no OCR, so image and scanned CVs yield nothing.** 2.4 Smart Match and 2.5's Kanban + 360° view were wired on 2026-08-29; both had been written and left unreachable. Posting → public page + custom form → application → pipeline; bulk CV ingestion with local extraction (`BulkResumeService` + `BulkResumeWorker`, `DocumentExtraction/`) — **rewritten 2026-08-21 onto ADR-0026's durable queue**, so a batch survives a restart and the uploaded bytes live in object storage rather than in process memory; AI profiling behind a key (`AiIntegrationService`); trigram search (`SearchService`, `AddPgTrgmAndSearchIndexes`). Remaining: file-upload field type (waits on ADR-0013), the rest of the Talent pool screen (candidate search, ranking, CV upload — only its possible-duplicates part is built, 2026-10-21), and **wiring the AI surface to a route** — see the AI row below. |
 | 3 | Interview & Assessment | 🚧 API + UI | ⭐ MVP · **3.3 scorecards + 3.4 notes built and tested; UI built** (scheduling, scorecard form, blind panel view, note thread, template admin). **3.2 invitations built 2026-08-20** — scheduling and rescheduling queue a candidate email through the ADR-0026 outbox, sent by the worker over SMTP; cancelling suppresses a queued one. 3.1 calendar free/busy still deferred — no calendar client exists. **The delivery log landed 2026-08-25** (`GET /api/delivery`, `/delivery`), so a failed or suppressed invitation is now visible to the recruiter instead of only to the database. ⚠️ Three behaviours have never been eyeballed — see the warning below the table. |
 | 4 | Offer & Pre-boarding | ✅ API + UI (slices A–C) | Post-MVP. **Slice A built 2026-10-21, slices B and C 2026-10-23** ([ADR-0030](../decisions/ADR-0030-offer-management.md) §5a, §5b): offers drafted from an application at the Offer stage, the budget check as terms are typed, internal approval on Module 1's rail, the dashboard (`/offers`), the company's policy; **sending, the candidate's link** (`/offer/{token}`, unlocked by a 6-digit emailed code), **typed-name signing, declining, reminders and expiry**; and **joining documents** on the same link, the recruiter's **pre-boarding review** (`/offers/{id}/preboarding`) and the **IT/Admin handoff** emails. **Not yet:** deleting a candidate's documents (retention, 7.4); HRMS export (add-on); withdrawing a sent offer. |
-| 5 | Reporting & Analytics | ✅ API + UI | ⭐ MVP · `AnalyticsController` + `AnalyticsService` + `AnalyticsPage.tsx`, built on Module 2's stage history. ⚠️ The 2026-08-18 spec re-defines both Time-to-* clocks to end at *offer accepted*, so **the shipped metrics do not match the current spec** and neither is computable until Module 4 exists. Scheduled report *delivery* is unblocked — `IEmailSender` exists — but needs a `ScheduledReport` handler and attachment support, which `EmailMessage` does not have yet. |
+| 5 | Reporting & Analytics | 🚧 API + UI | **5.1 to spec (2026-10-24, ADR-0031):** `GET /api/analytics/executive` (`ExecutiveDashboardService`) + `ExecutiveDashboardPage.tsx` at `/analytics` — Time-to-Hire, Time-to-Fill and acceptance rate end at *offer accepted*, recomputed per viewer. **5.2 and 5.3 are still August's**: `AnalyticsService` behind `/analytics/pipeline` (time in stage, funnel, source) and `/analytics/reports` (the builder) — no recruiter leaderboard, no hires-by-source, no per-role rules for 5.2. Scheduled report *delivery* needs a `ScheduledReport` handler; `EmailMessage` has attachments since slice C. |
 | 6 | Planning & Budgeting | ⬜ code · ✅ spec + design | Post-MVP. Needs `Requisition → HeadcountPlan` decided first, or its headline number is uncomputable. |
 | 7 | Settings & Integrations | 🚧 | 7.1 RBAC ✅ (authorization engine, roles & permissions, User Directory, Role Builder UI, permission-aware UX). 7.5 **Audit log** 🚧 first slice (2026-10-15, ADR-0027): sign-ins, user and role changes, department membership, startup seeding, grantor-ceiling refusals, stolen-token reuse; append-only (EF guard + Postgres triggers); `/audit-log` for `system:audit` holders. Not yet: exports, candidate-data reads. 7.2 HRMS / 7.3 mail & calendar / 7.4 retention ⬜ — all four screens drawn. |
 | 8 | Multi-Channel Sourcing (bots) | ⬜ code · ✅ design | First post-MVP; contracted in Mid-Tier (ADR-0014). ⚠️ May be unbuildable on-premise — see Known gaps. |
@@ -415,6 +425,48 @@ refuses while any document exists.
   reveal, send back in Burmese and English, fix, approve, handoff emails with the photo attached; a
   Hiring Manager's 403; parallel uploads (one live file, one object) and simultaneous last approvals.
 
+### 🚧 Module 5 — 5.1 Executive dashboard to the 2026-08-18 spec (2026-10-24)
+
+Decisions: [ADR-0031](../decisions/ADR-0031-executive-dashboard-metrics.md), written before the code;
+spec §5.1 marked as built. Screen: `design/internal/analytics-dashboard.html`. No migration.
+
+- **API** — `GET /api/analytics/executive?period=Month|Quarter|Year&departmentId=&recruiterId=`
+  (`InternalUser` + `EnableAnalytics` + `permission:requisitions:requisitions:read`, which the SPA's link
+  already required). One query of the offers that may have an outcome since the
+  previous period began, joined to application, posting and requisition; computed in memory on the
+  company's calendar (`Companies.TimeZoneId`). Averages to one decimal, a half rounded up; null — never
+  0 — when nothing fell in the period. Offers still Sent or Viewed past their expiry count as expired
+  (read, not written — ADR-0030 §5a). A bad period is a 400, decided in the controller.
+- **Whose rows** — Admin / HR Director: everything, filterable by department and recruiter. Recruiter:
+  the offers they made (`Offer.CreatedByUserId`), whatever `recruiterId` says. Hiring Manager: their
+  departments, Time-to-Fill and vacancies only — `timeToHire` and `acceptance` are null; a department
+  outside reach is a 404. Approver: 404. Interviewer: 403. Custom roles follow their base role. The
+  recruiter filter lists display names only, and does not shrink when a department is chosen.
+- **Active vacancies** — per department, each Approved requisition's headcount less its accepted
+  offers, never below zero; not narrowed by recruiter.
+- **SPA** — `/analytics` is the Executive dashboard (scope pill, Month/Quarter/Year, department and —
+  company-wide only — recruiter filters, the period's dates; three tiles with "x days faster than Q3" /
+  "n points below Q3" lines, coloured by whether it is good news; vacancies as bars or a table with each
+  department's share). The August page split into **Pipeline & source** (`/analytics/pipeline`: its
+  stage chart retitled "Time in each stage" — it measures days to the Hired stage — plus the funnel and
+  sources) and **Reports** (`/analytics/reports`: the builder), unchanged otherwise. The rail's
+  Insights group has the three links, hidden from Approver and Interviewer bases; the command palette
+  matches. `KpiCardSection` and the SPA's `getKpis` are gone; `GET /api/analytics/kpis` stays, its
+  field documented as days to the Hired stage.
+- Not built: the design's proposed fourth tile ("time in approval" — outside the requirement), the
+  recruiter leaderboard, hires by source, scheduled reports.
+- Tests: `ExecutiveDashboardTests` (13 — every role, both filters, all three periods, bad periods,
+  another company, a Hiring Manager naming a recruiter, custom roles with and without the permission),
+  `ReportingPeriodTests` (Domain, 11), `ExecutiveDashboardPage.test.tsx` (11), Sidebar analytics (7);
+  the August analytics tests now point at the screen each part moved to.
+- Driven on PostgreSQL 16 with ten offers across Q3 and Q4 2026: every tile, filter and period matched
+  a hand computation, for Admin, Recruiter and Hiring Manager; Approver 404; no console errors; no
+  horizontal overflow at 390px. That run caught round-half-to-even (30.25 → 30.2); a half now rounds up.
+- Reviewed by `security-reviewer`: no Critical, High or Medium. Fixed its Lows — the endpoint was
+  role-gated only while the SPA assumed `requisitions:read` (L1); a catch-all `ArgumentException`
+  could echo an internal message as a 400 (L2); cross-tenant, Hiring-Manager-recruiter and custom-role
+  cases were unpinned (L3).
+
 ### ✅ Foundation
 - .NET 8 Clean Architecture solution: `Domain` / `Application` / `Infrastructure` / `Api` + 2 test projects
 - Next.js App Router frontend; Tailwind theme encoding the full "Clear Pipeline" token set
@@ -664,7 +716,9 @@ namespace/type collisions, which is why "it looks consistent" is never sufficien
 |---|---|---|
 | ~~The Cloudflare guide's tunnel step left ports 80/443 open~~ | ✅ **fixed 2026-10-23** (docs) | Method B said a `docker-compose.override.yml` closes them, but Compose ignores that file whenever `-f` is passed — and every documented command passes `-f docker-compose.prod.yml` (measured: `config` still published 80 and 443). Anyone following it believed the server was closed while visitors could bypass Cloudflare. The guide now says to close them in the cloud firewall, or to pass a named second file every time, with a check. Its R2 section listed setting names the code does not read; corrected and marked untried |
 | ~~Module 4 stops at "Approved"~~ | ✅ **slice B built 2026-10-23** | Offers are sent, unlocked, signed or declined, reminded and expired (above). The portal's code step was drawn first |
-| ~~Module 4 stops at "Accepted"~~ | ✅ **slice C built 2026-10-23** | Joining documents, their review and the IT/Admin handoff (above); an accepted offer's link now lives to the joining date. Module 5's Time-to-* metrics can end at acceptance (`Offer.RespondedAt`) but have not been changed |
+| ~~Module 4 stops at "Accepted"~~ | ✅ **slice C built 2026-10-23** | Joining documents, their review and the IT/Admin handoff (above); an accepted offer's link now lives to the joining date. Module 5's Time-to-* metrics end at acceptance since 2026-10-24 (ADR-0031) |
+| **Executive dashboard: three readings to confirm** | 🟡 Medium | ADR-0031 §3 reads "the vacancies a recruiter handles" as *the offers they made* — nothing in the data assigns a recruiter to a requisition or posting; shows vacancies in full to recruiters; and leaves out the design's proposed fourth tile (time in approval). Each is cheap to change; none confirmed by the product owner |
+| **Pipeline & source and Reports are still August's** | 🟡 Medium | `/analytics/pipeline` and `/analytics/reports` carry the old content under the design's names. Spec 5.2 gives a Hiring Manager no access to Pipeline & source; the rail still shows it to them (the endpoints are department-scoped, so nothing new leaks). No hires-by-source, no recruiter leaderboard, no scheduled reports. Only `GET /api/analytics/executive` checks `requisitions:read` |
 | **A candidate's documents cannot be deleted from the product** | 🟡 Medium | NRC scans and bank books stay in the bucket and the database until someone removes them by hand; the portal tells candidates they can ask. Needs the retention screen (Module 7.4, `settings-integrations.html`) or at least a staff "delete documents" action — not drawn. Runbook §3 says how by hand |
 | Bank account numbers are stored as typed | 🟢 Low | Masked in every response and revealed only through an audited action, but plain in the database and its backups (ADR-0030 §5b, accepted risk): column encryption needs a key that survives rotating `Jwt:Key`, which does not exist |
 | Uploaded photos keep their metadata | 🟢 Low | A phone photo of an NRC may carry the location it was taken at. Stripping it needs image processing (and loses orientation); not done |

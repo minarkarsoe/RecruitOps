@@ -1,12 +1,42 @@
 # Next Session — pickup guide
 
-**Last updated:** 2026-10-23 · **Backend 1104/1104 (187 Domain + 917 Api) · Frontend 562/562 · public 53/53 · typecheck clean · builds clean**
+**Last updated:** 2026-10-24 · **Backend 1128/1128 (198 Domain + 930 Api) · Frontend 578/578 · public 53/53 · typecheck clean · builds clean**
 · **ADR-0026 is complete and fully security-reviewed** — all four steps built, the delivery log
 reads the outbox, and the review found and fixed one HIGH (an Approver could put candidates in any
 pipeline — [SECURITY-REVIEW-ADR-0026.md](SECURITY-REVIEW-ADR-0026.md))
 · All seven modules have a drawn UI (26 screens)
 · **ADR-0025 step 3: everything that reaches a screen is on V1.0.** The 43 remaining compat tokens
 are 5 comments plus two orphaned folders the owner has parked — see 3e(iv). `dark:` is at zero.
+
+> 📊 **2026-10-24 — Module 5.1 built to the 2026-08-18 spec: the Executive dashboard** (ADR-0031).
+> `/analytics` shows Time-to-Hire, Time-to-Fill, the offer acceptance rate and active vacancies for a
+> month / quarter / year to date against the whole previous one; the August page split into
+> `/analytics/pipeline` and `/analytics/reports`. **Pick up Module 5.2 next** — Pipeline & source to
+> `design/internal/analytics-pipeline.html` (hires by source, where candidates drop off, the recruiter
+> leaderboard; spec 5.2 gives a Hiring Manager no access, which the rail still does not enforce).
+> ⚠️ **To confirm with the product owner** (ADR-0031 §3): "the vacancies a recruiter handles" is read
+> as *the offers they made* — nothing assigns a recruiter to a vacancy; vacancies are shown in full to
+> recruiters; the design's fourth tile (time in approval) is not built. Things to know:
+> - **Every number is recomputed over the viewer's rows** in `ExecutiveDashboardService` — never a
+>   company figure filtered for display. A Hiring Manager's response has no `timeToHire` or
+>   `acceptance` at all. Keep it that way for the leaderboard: a recruiter must not see colleagues'
+>   numbers through any filter.
+> - **Expiry is read, not written**: an offer still Sent/Viewed past `ExpiresOn` counts as expired,
+>   dated the day after. Anything else that counts offers must do the same (ADR-0030 §5a).
+> - **Outcomes are dated on the company's calendar** (`OfferPortal.Today` with `Companies.TimeZoneId`):
+>   an acceptance at 20:00 UTC on 30 June is 1 July in Yangon — the test fixture pins exactly that.
+> - **The endpoint needs `requisitions:read`** on top of `InternalUser` (security review L1). The other
+>   analytics endpoints still do not — decide that with 5.2's per-role rules.
+> Lessons:
+> - **.NET's `Math.Round` rounds a half to even** — 30.25 → 30.2. Only the Postgres run with whole-day
+>   seeds showed it; the InMemory fixture's averages never landed on a half. Use
+>   `MidpointRounding.AwayFromZero` for any number a person will check by hand.
+> - **Run an aggregate on PostgreSQL before trusting it.** The InMemory provider would happily evaluate
+>   a query Npgsql cannot translate; here the join with a conditional `DecidedAt` translated, but that
+>   was only known after `exec-probe`-style requests against a seeded database.
+> - **A filter's choices must not depend on the other filter**, or a chosen recruiter vanishes from
+>   its own dropdown when a department is picked. The recruiter list is built before the department
+>   filter applies.
 
 > 📎 **2026-10-23 — Module 4 slice C built: joining documents, their review, the IT/Admin handoff**
 > (ADR-0030 §5b). **Module 4's core is done.** After signing, the candidate uploads NRC, typed bank
@@ -311,18 +341,18 @@ Hiring Manager raises a requisition
   → recruiter schedules an interview
   → the candidate is emailed the slot in the company's own time zone (ADR-0026)
   → panel scores it blind, and debriefs in notes with @mentions
-  → Analytics renders time-to-hire, funnel and bottleneck metrics
+  → an offer is approved, sent, signed; joining documents reviewed; IT/Admin told
+  → the Executive dashboard shows Time-to-Hire / -Fill, acceptance, vacancies (per viewer)
   → Admin manages users, custom roles, feature flags, /api/version
 ```
 
-**How far along (2026-10-23, after Module 4 slice B), by the specs' 33 numbered features** (built 1,
-partly 0.5, built to a superseded definition 0.75): **about 55% of the whole product (18/33), about
-78% of the MVP modules 1, 2, 3, 5 (14/18).** Module 1 4/4 · 2 5.5/7 · 3 2.5/4 · 4 2.5/3 (4.3's
-signing built, its documents and handoff not) · 5 2/3 · 6 0/3 · 7 1.5/5 · 8 0/4. The biggest unbuilt
-block that needs no product decision is **Module 4 slice C**, then bringing Module 5's Time-to-*
-metrics to the current spec — an offer can now be accepted (`Offer.RespondedAt`). Modules 6 and 8 wait on the decisions in
-backlog §4. Feature count is not effort: auth, RBAC, tenancy, delivery and the security reviews
-sit under 7.1 and the per-module rows.
+**How far along (2026-10-24, after Module 5.1), by the specs' 33 numbered features** (built 1,
+partly 0.5, built to a superseded definition 0.75): **about 57% of the whole product (18.75/33), about
+79% of the MVP modules 1, 2, 3, 5 (14.25/18).** Module 1 4/4 · 2 5.5/7 · 3 2.5/4 · 4 3/3 · 5 2.25/3
+(5.1 to spec; 5.2 and 5.3 to the August scope) · 6 0/3 · 7 1.5/5 · 8 0/4. The biggest unbuilt block
+that needs no product decision is **Module 5.2** (Pipeline & source to its design), then 5.3's
+scheduled reports. Modules 6 and 8 wait on the decisions in backlog §4. Feature count is not effort:
+auth, RBAC, tenancy, delivery and the security reviews sit under 7.1 and the per-module rows.
 
 **Where it stops.** One message leaves the building — the interview invitation. Everything else a
 candidate should hear about (an offer, a reminder, a rejection) still has no handler. **Whether it
@@ -336,8 +366,8 @@ suppressed message reaches the recruiter instead of only the database.
 | Module 1 — Requisition & Approval | ✅ API + UI + tests, end to end. Rounds (ADR-0023) and senior skip-ahead (ADR-0024) landed 2026-08-16 |
 | Module 2 — ATS & Sourcing | ✅ 2.1–2.7 all built. Postings, custom forms, pipeline, dedup, bulk CV ingestion (**rewritten 2026-08-21 onto the durable queue**), AI profiling behind a key, pg_trgm search |
 | Module 3 — Interview & Assessment | 🚧 3.3 scorecards + 3.4 notes ✅ API + UI + tests · security-reviewed (ADR-0018) · **3.2 invitations ✅ built 2026-08-20** (schedule and reschedule queue an email; cancel suppresses it) · **3.1 calendar free/busy still unbuilt** — no calendar client exists |
-| Module 5 — Reporting & Analytics | ✅ API + UI. ⚠️ Built to the *old* metric definitions — the 2026-08-18 spec moved both clocks |
-| Module 4 — Offer & Pre-boarding | 🚧 **slice A ✅ 2026-10-21** (offers, budget check, approval on the shared rail, dashboard, company policy) · **slice B ✅ 2026-10-23** (send, the candidate's link and code, signature, decline, reminders, expiry) · slice C (pre-boarding, handoff) ⬜ |
+| Module 5 — Reporting & Analytics | 🚧 **5.1 ✅ to spec 2026-10-24** (ADR-0031 — executive dashboard, per-viewer rows) · 5.2 Pipeline & source and 5.3 Reports still the August scope |
+| Module 4 — Offer & Pre-boarding | 🚧 **slice A ✅ 2026-10-21** (offers, budget check, approval on the shared rail, dashboard, company policy) · **slice B ✅ 2026-10-23** (send, the candidate's link and code, signature, decline, reminders, expiry) · **slice C ✅ 2026-10-23** (joining documents, review, IT/Admin handoff) |
 | Modules 6, 8 | ⬜ code · ✅ spec + design |
 | Module 7 — Settings | 🚧 RBAC ✅ · integrations ⬜ |
 | Auth | ✅ JWT, dynamic RBAC, department scoping, candidate-data exclusion (ADR-0018), brute-force protection (ADR-0016), panel-picker directory (ADR-0019) |
